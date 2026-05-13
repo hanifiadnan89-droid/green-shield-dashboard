@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,16 +9,17 @@
     @apply bg-gs-bg text-gs-text font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+  h1, h2, h3 { font-family: 'Poppins', 'Inter', system-ui, sans-serif; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { @apply bg-transparent; }
-  ::-webkit-scrollbar-thumb { @apply bg-gs-border rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-gs-muted/40 rounded-full; }
+  ::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-400 rounded-full; }
 }
 
 @layer components {
   .card {
     @apply bg-gs-card border border-gs-border rounded-xl p-5;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
   .btn {
@@ -24,20 +27,20 @@
            transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer;
   }
   .btn-primary {
-    @apply btn bg-gs-accent text-black hover:bg-gs-accent-dim;
+    @apply btn bg-gs-accent text-white hover:bg-gs-accent-dim;
     transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
   }
   .btn-primary:hover {
-    box-shadow: 0 4px 14px rgba(34,197,94,0.30);
+    box-shadow: 0 4px 14px rgba(22,163,74,0.28);
     transform: translateY(-1px);
   }
   .btn-primary:active { transform: translateY(0); box-shadow: none; }
-  .btn-ghost  { @apply btn bg-transparent border border-gs-border text-gs-text hover:bg-gs-border/60; }
-  .btn-danger { @apply btn bg-gs-danger/20 text-gs-danger border border-gs-danger/30 hover:bg-gs-danger/30; }
-  .btn-warn   { @apply btn bg-gs-warn/20   text-gs-warn   border border-gs-warn/30   hover:bg-gs-warn/30;  }
-  .btn-info   { @apply btn bg-gs-info/20   text-gs-info   border border-gs-info/30   hover:bg-gs-info/30;  }
+  .btn-ghost  { @apply btn bg-white border border-gs-border text-gs-text hover:bg-slate-50; }
+  .btn-danger { @apply btn bg-red-50   text-gs-danger border border-red-200   hover:bg-red-100; }
+  .btn-warn   { @apply btn bg-amber-50 text-gs-warn   border border-amber-200 hover:bg-amber-100; }
+  .btn-info   { @apply btn bg-blue-50  text-gs-info   border border-blue-200  hover:bg-blue-100; }
   .input {
-    @apply bg-gs-bg border border-gs-border rounded-lg px-3 py-2 text-gs-text text-sm
+    @apply bg-white border border-gs-border rounded-lg px-3 py-2 text-gs-text text-sm
            placeholder:text-gs-muted focus:outline-none focus:border-gs-accent
            focus:ring-1 focus:ring-gs-accent/30 w-full;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -60,8 +63,8 @@
 
 /* Table row hover — inset left accent bar */
 .table-row:hover {
-  background: rgba(28, 37, 53, 0.65);
-  box-shadow: inset 3px 0 0 rgba(34, 197, 94, 0.45);
+  background: rgba(248, 250, 252, 0.9);
+  box-shadow: inset 3px 0 0 rgba(22, 163, 74, 0.45);
 }
 
 /* ── Shared animation keyframes ── */
@@ -171,8 +174,8 @@
   }
   .card-stat:hover {
     transform: translateY(-3px);
-    box-shadow: 0 12px 36px rgba(0,0,0,0.5), 0 0 0 1px rgba(34,197,94,0.16);
-    border-color: rgba(34,197,94,0.2);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.10), 0 0 0 1px rgba(22,163,74,0.16);
+    border-color: rgba(22,163,74,0.22);
   }
 
   .card-icon { display: inline-flex; transform-origin: center; will-change: transform; }

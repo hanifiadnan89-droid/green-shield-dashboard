@@ -46,6 +46,10 @@ export const api = {
     generateQuote: (body) => request('/documents/generate-quote', {
       method: 'POST',
       body: JSON.stringify(body)
+    }),
+    emailQuote: (body) => request('/documents/email-quote', {
+      method: 'POST',
+      body: JSON.stringify(body)
     })
   }
 };

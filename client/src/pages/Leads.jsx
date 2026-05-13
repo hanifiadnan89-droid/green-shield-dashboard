@@ -178,7 +178,7 @@ export default function Leads() {
     <div className="flex-1 overflow-hidden flex flex-col">
       {categoryMeta && (
         <div className="px-6 py-3 border-b border-gs-border flex items-center gap-3"
-             style={{ background: 'rgba(34,197,94,0.04)' }}>
+             style={{ background: 'rgba(22,163,74,0.05)' }}>
           <span className="w-1 h-6 rounded-full bg-gs-accent shrink-0" />
           <div>
             <h1 className="text-sm font-semibold text-gs-text">{categoryMeta.label}</h1>

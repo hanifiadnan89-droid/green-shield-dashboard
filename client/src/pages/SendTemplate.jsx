@@ -52,6 +52,8 @@ function QuoteDocumentsSection({ lead }) {
   const [notes, setNotes]             = useState('');
   const [loading, setLoading]         = useState(true);
   const [generating, setGenerating]   = useState(false);
+  const [emailing, setEmailing]       = useState(false);
+  const [emailResult, setEmailResult] = useState(null);
   const [genError, setGenError]       = useState(null);
   const [missing, setMissing]         = useState(false);
 
@@ -62,22 +64,27 @@ function QuoteDocumentsSection({ lead }) {
     }).catch(() => setFiles([])).finally(() => setLoading(false));
   }, []);
 
+  function buildPayload() {
+    return {
+      index:       selected.index,
+      serviceType: selected.serviceType || null,
+      lead:        { name: lead?.name, email: lead?.email, phone: lead?.phone },
+      pricing,
+      notes,
+      address
+    };
+  }
+
   async function handleGenerate() {
     if (!selected) return;
     setGenerating(true);
     setGenError(null);
+    setEmailResult(null);
     try {
-      const body = {
-        index: selected.index,
-        lead: { name: lead?.name, email: lead?.email, phone: lead?.phone },
-        pricing,
-        notes,
-        address
-      };
       const res = await fetch('/api/documents/generate-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(buildPayload())
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -97,6 +104,21 @@ function QuoteDocumentsSection({ lead }) {
       setGenError(err.message);
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleEmail() {
+    if (!selected || !lead?.email) return;
+    setEmailing(true);
+    setGenError(null);
+    setEmailResult(null);
+    try {
+      await api.documents.emailQuote(buildPayload());
+      setEmailResult({ ok: true, to: lead.email });
+    } catch (err) {
+      setEmailResult({ ok: false, error: err.message });
+    } finally {
+      setEmailing(false);
     }
   }
 
@@ -125,20 +147,20 @@ function QuoteDocumentsSection({ lead }) {
           <p className="text-gs-muted text-xs py-2 text-center">No PDFs found in Quotes folder</p>
         ) : (
           <div className="space-y-1.5">
-            {files.map((f, i) => (
+            {files.map((f) => (
               <button
-                key={i}
-                onClick={() => setSelected(s => s?.index === f.index ? null : f)}
+                key={f.key}
+                onClick={() => setSelected(s => s?.key === f.key ? null : f)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs transition-all cursor-pointer ${
-                  selected?.index === f.index
+                  selected?.key === f.key
                     ? 'bg-gs-accent/12 border border-gs-accent/30 text-gs-accent'
                     : 'bg-gs-bg border border-gs-border text-gs-text hover:border-gs-muted/40'
                 }`}
               >
                 <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                  selected?.index === f.index ? 'bg-gs-accent border-gs-accent' : 'border-gs-border'
+                  selected?.key === f.key ? 'bg-gs-accent border-gs-accent' : 'border-gs-border'
                 }`}>
-                  {selected?.index === f.index && <Check size={10} className="text-black" />}
+                  {selected?.key === f.key && <Check size={10} className="text-white" />}
                 </div>
                 <FileText size={12} className="shrink-0 opacity-60" />
                 <span className="truncate font-medium">{f.name}</span>
@@ -228,19 +250,50 @@ function QuoteDocumentsSection({ lead }) {
       {/* Footer */}
       <div className="px-4 py-3 border-t border-gs-border space-y-2">
         {genError && (
-          <p className="text-gs-danger text-xs bg-gs-danger/10 border border-gs-danger/25 rounded px-2 py-1">{genError}</p>
+          <p className="text-gs-danger text-xs bg-red-50 border border-red-200 rounded px-2 py-1">{genError}</p>
         )}
+        {emailResult && (
+          emailResult.ok
+            ? <p className="text-gs-accent text-xs bg-green-50 border border-green-200 rounded px-2 py-1 flex items-center gap-1.5">
+                <CheckCircle size={11} /> Quote sent to {emailResult.to}
+              </p>
+            : <p className="text-gs-danger text-xs bg-red-50 border border-red-200 rounded px-2 py-1">{emailResult.error}</p>
+        )}
+
+        {/* Download */}
         <button
           onClick={handleGenerate}
-          disabled={!selected || generating}
+          disabled={!selected || generating || emailing}
           className={`btn w-full justify-center text-xs ${
-            selected && !generating
-              ? 'btn-primary'
-              : 'bg-gs-border/50 text-gs-muted border border-gs-border cursor-not-allowed'
+            selected && !generating && !emailing
+              ? 'btn-ghost'
+              : 'bg-slate-100 text-gs-muted border border-gs-border cursor-not-allowed'
           }`}
         >
-          {generating ? <><Spinner size={12} /> Generating...</> : <><FileText size={12} /> Generate &amp; Download PDF</>}
+          {generating ? <><Spinner size={12} /> Generating...</> : <><FileText size={12} /> Download PDF</>}
         </button>
+
+        {/* Email to customer — direct from CRM, no n8n */}
+        <button
+          onClick={handleEmail}
+          disabled={!selected || !lead?.email || emailing || generating}
+          title={!lead?.email ? 'No email address on this lead' : ''}
+          className={`btn w-full justify-center text-xs ${
+            selected && lead?.email && !emailing && !generating
+              ? 'btn-primary'
+              : 'bg-slate-100 text-gs-muted border border-gs-border cursor-not-allowed'
+          }`}
+        >
+          {emailing
+            ? <><Spinner size={12} /> Sending...</>
+            : <><Send size={12} /> Email Quote to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
+          }
+        </button>
+
+        {!lead?.email && selected && (
+          <p className="text-gs-muted text-xs text-center">No email on this lead — can't send directly</p>
+        )}
+
         {selected && (
           <a
             href={api.documents.fileUrl('quotes', selected.index)}
