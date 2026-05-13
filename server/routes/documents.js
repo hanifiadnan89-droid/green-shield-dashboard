@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { promisify } from 'util';
-import { PDFDocument, PDFName, PDFDict, rgb } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 
 const readdirAsync = promisify(readdir);
@@ -35,6 +35,7 @@ const SERVICE_TYPE_PAGE = {
   rodent_insect_triannual: 3,
   tick_mosquito_monthly:   4,
 };
+
 
 const SERVICE_DISPLAY = {
   commercial_bimonthly:    'Commercial Bi-Monthly Agreement',
@@ -416,10 +417,27 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
   const pdfDoc = await PDFDocument.load(readFileSync(join(QUOTES_DIR, filename)));
   const form   = pdfDoc.getForm();
 
-  // ── Configure ALL fields: font-size 12, no visible border, clear to empty ──
+  // ── For Service Agreements: build field position map BEFORE flatten ──
+  // pdf-lib cannot regenerate AcroForm appearances for this template (pre-rendered /AP streams
+  // with custom font encodings prevent updateFieldAppearances from working). We bypass it by
+  // reading every field's widget rect now, then drawing text directly after flatten.
+  let saPos = null;
+  if (filename === SERVICE_AGREEMENTS_FILE) {
+    saPos = {};
+    for (const field of form.getFields()) {
+      const fname = field.getName();
+      if (!fname.startsWith(prefix + '_')) continue;
+      try {
+        const rect = field.acroField.getWidgets()[0].getRectangle();
+        saPos[fname.slice(prefix.length + 1)] = rect;
+      } catch {}
+    }
+  }
+
+  // ── Configure ALL fields: font-size 11, no visible border, clear to empty ──
   for (const field of form.getFields()) {
     try {
-      field.setFontSize(12);
+      field.setFontSize(11);
       for (const widget of field.acroField.getWidgets()) {
         widget.dict.set(PDFName.of('Border'), pdfDoc.context.obj([0, 0, 0]));
         widget.dict.set(PDFName.of('BS'), pdfDoc.context.obj({ W: 0 }));
@@ -433,12 +451,12 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
     } catch {}
   }
 
-  // Safe field writer
+  // Safe field writer (used for Bed Bug.pdf; for Service Agreements the saPos path handles rendering)
   function fill(name, value) {
     if (value === null || value === undefined) return;
     try {
       const field = form.getTextField(`${prefix}_${name}`);
-      field.setFontSize(12);
+      field.setFontSize(11);
       field.setText(String(value));
     } catch { /* field absent */ }
   }
@@ -486,15 +504,87 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
   // ── Billing info ──
   fill('billing_info', addrParts.join('\n'));
 
+  // ── Embed font ──
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  // ── For Bed Bug.pdf: regenerate appearances; for Service Agreements skip (broken template) ──
+  if (filename !== SERVICE_AGREEMENTS_FILE) {
+    form.updateFieldAppearances(helvetica);
+  }
+
   // ── Flatten: bakes fields into page content ──
   form.flatten();
 
   // ── Draw pest icons on the target page (after flatten, so icons appear on top) ──
   const icons = PEST_ICONS_MAP[prefix] || [];
+  const targetPage = pdfDoc.getPage(pageIndex);
   if (icons.length > 0) {
-    const iconPage = pdfDoc.getPage(pageIndex);
-    for (const { type, x, y } of icons) {
-      drawPestIcon(iconPage, type, x, y);
+    for (const { type, x, y } of icons) drawPestIcon(targetPage, type, x, y);
+  }
+
+  // ── Service Agreements: draw all text directly onto the page ──
+  // AcroForm appearance regeneration fails for this template (pre-rendered /AP streams
+  // with non-standard font encoding). Strategy: erase each field's area with a white
+  // rectangle (covers baked /AP content), then draw the correct value on top.
+  // Fields service_type / service_frequency are intentionally left alone so their
+  // pre-printed template text (e.g. "INSECT QUARTERLY", "Every 90 days") remains visible.
+  if (saPos) {
+    const sz = 11;
+    const lineH = 14;
+    const textColor = rgb(0.13, 0.13, 0.13);
+    const white     = rgb(1, 1, 1);
+
+    function eraseField(fname) {
+      const r = saPos[fname];
+      if (!r) return;
+      targetPage.drawRectangle({ x: r.x - 0.5, y: r.y - 0.5, width: r.width + 1, height: r.height + 1, color: white, borderWidth: 0 });
+    }
+
+    function drawField(fname, text) {
+      const r = saPos[fname];
+      if (!r) return;
+      targetPage.drawRectangle({ x: r.x - 0.5, y: r.y - 0.5, width: r.width + 1, height: r.height + 1, color: white, borderWidth: 0 });
+      if (text) targetPage.drawText(String(text), { x: r.x + 3, y: r.y + 2, size: sz, font: helvetica, color: textColor });
+    }
+
+    function drawMultiField(fname, lines) {
+      const r = saPos[fname];
+      if (!r) return;
+      targetPage.drawRectangle({ x: r.x - 0.5, y: r.y - 0.5, width: r.width + 1, height: r.height + 1, color: white, borderWidth: 0 });
+      let y = r.y + r.height - sz - 4;
+      for (const line of lines.filter(Boolean)) {
+        if (y < r.y) break;
+        targetPage.drawText(line, { x: r.x + 4, y, size: sz, font: helvetica, color: textColor });
+        y -= lineH;
+      }
+    }
+
+    // Customer / address data
+    drawMultiField('service_address',       addrParts);
+    drawMultiField('customer_information',  contactParts);
+    drawMultiField('service_notes',         notes?.trim() ? notes.trim().split('\n') : []);
+    drawMultiField('billing_info',          addrParts);
+
+    // Pricing
+    drawField('initial_quote',    initVal  ? initVal.toFixed(2)  : '');
+    drawField('initial_discount', discVal  ? `-${discVal.toFixed(2)}` : '');
+    drawField('initial_subtotal', initVal  ? subtotal.toFixed(2) : '');
+    drawField('initial_tax',      initVal  ? '0.00' : '');
+    drawField('initial_total',    initVal  ? subtotal.toFixed(2) : '');
+    drawField('recurring_charge', recurVal ? recurVal.toFixed(2) : '');
+    drawField('recurring_tax',    recurVal ? '0.00' : '');
+    drawField('recurring_total',  recurVal ? recurVal.toFixed(2) : '');
+    drawField('payment_recurring_authorized', recurVal ? recurVal.toFixed(2) : '');
+
+    // 12-month subscription schedule
+    drawField('payment_1', subtotal > 0 ? `$${subtotal.toFixed(2)}` : (recurVal > 0 ? `$${recurVal.toFixed(2)}` : ''));
+    for (let m = 2; m <= 12; m++) {
+      drawField(`payment_${m}`, recurVal > 0 ? `$${recurVal.toFixed(2)}` : '');
+    }
+
+    // Erase signature / card fields (removes any template outlines, leaves blank for customer)
+    for (const fname of ['card_last_four', 'customer_initials', 'customer_signature', 'signature_date']) {
+      eraseField(fname);
     }
   }
 
