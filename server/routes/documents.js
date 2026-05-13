@@ -197,6 +197,9 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
                    'recurring_charge','recurring_tax','recurring_total','payment_recurring_authorized']) {
     try { form.getTextField(`${prefix}_${f}`).setText(''); } catch {}
   }
+  for (let m = 1; m <= 12; m++) {
+    try { form.getTextField(`${prefix}_payment_${m}`).setText(''); } catch {}
+  }
 
   // ── Customer / service address (top-left) ──
   const addrParts    = [lead.name, address.street, address.cityState].filter(Boolean);
@@ -228,6 +231,14 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
     fill('recurring_tax',                '0.00');
     fill('recurring_total',              recurVal.toFixed(2));
     fill('payment_recurring_authorized', recurVal.toFixed(2));
+  }
+
+  // ── 12-month payment schedule: month 1 = initial total, months 2–12 = recurring ──
+  if (subtotal > 0 || recurVal > 0) {
+    fill('payment_1', subtotal > 0 ? `$${subtotal.toFixed(2)}` : '');
+    for (let m = 2; m <= 12; m++) {
+      fill(`payment_${m}`, recurVal > 0 ? `$${recurVal.toFixed(2)}` : '');
+    }
   }
 
   // ── Billing info (same as service address unless billing differs) ──
@@ -304,12 +315,12 @@ router.post('/email-quote', async (req, res) => {
           <p>Hi ${firstName},</p>
           <p>Please find your personalized quote attached to this email.</p>
           <p>If you have any questions, feel free to reply here or give us a call at
-             <strong>(207) 815-1003</strong>.</p>
+             <strong>(207) 815-2234</strong>.</p>
           <p>We look forward to working with you!</p>
           <br>
           <p style="color:#555;font-size:13px">
             Green Shield Pest Solutions<br>
-            (207) 815-1003 | service@gshieldpest.com<br>
+            (207) 815-2234 | ahanifi@gshieldpest.com<br>
             11 Eastview Pkwy Unit 106, Saco, ME 04072
           </p>
         </div>
