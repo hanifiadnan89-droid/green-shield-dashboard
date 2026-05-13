@@ -2,23 +2,24 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Search, RefreshCw, Send, StopCircle, PlayCircle,
-  Plus, Filter, ChevronDown, X, Edit3, Phone, Mail, User
+  Filter, X, Edit3, User
 } from 'lucide-react';
 import { api } from '../api/client.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import LeadDetailPanel from '../components/LeadDetailPanel.jsx';
 
 const STATUS_OPTIONS = ['', 'archived', 'active', 'replied', 'stopped'];
-const NOTE_OPTIONS = ['', 'ag', 'na', 'rit', 't/m', 'iq'];
-const BOOL_OPTIONS = ['', 'yes'];
+const NOTE_OPTIONS   = ['', 'ag', 'na', 'rit', 't/m', 'iq'];
+const BOOL_OPTIONS   = ['', 'yes'];
 
 const CATEGORY_META = {
-  replies:    { label: 'Replies',            desc: 'Leads that replied via SMS or email, or have replied status' },
-  sent:       { label: 'Sent',               desc: 'Leads that have been sent a template' },
-  errors:     { label: 'Errors',             desc: 'Leads with an error or failed send' },
-  stopped:    { label: 'Stopped',            desc: 'Leads with follow-ups stopped' },
-  inprogress: { label: 'In Progress',        desc: 'Active leads still waiting for a response' },
+  replies:    { label: 'Replies',     desc: 'Leads that replied via SMS or email, or have replied status' },
+  sent:       { label: 'Sent',        desc: 'Leads that have been sent a template' },
+  errors:     { label: 'Errors',      desc: 'Leads with an error or failed send' },
+  stopped:    { label: 'Stopped',     desc: 'Leads with follow-ups stopped' },
+  inprogress: { label: 'In Progress', desc: 'Active leads still waiting for a response' },
 };
 
 function applyCategoryFilter(leads, category) {
@@ -47,8 +48,7 @@ function applyCategoryFilter(leads, category) {
         if ((l.error && l.error.trim()) || l.status === 'error' || l.status === 'email_failed') return false;
         return true;
       });
-    default:
-      return leads;
+    default: return leads;
   }
 }
 
@@ -58,30 +58,21 @@ function EditModal({ lead, onClose, onSave }) {
 
   async function handleSave() {
     setSaving(true);
-    try {
-      await onSave(form);
-      onClose();
-    } finally {
-      setSaving(false);
-    }
+    try { await onSave(form); onClose(); } finally { setSaving(false); }
   }
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gs-card border border-gs-border rounded-xl w-full max-w-lg">
+      <div className="bg-gs-card border border-gs-border rounded-xl w-full max-w-lg shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gs-border">
           <h3 className="font-semibold text-gs-text">Edit Lead — {lead.name}</h3>
-          <button onClick={onClose} className="text-gs-muted hover:text-gs-text"><X size={16} /></button>
+          <button onClick={onClose} className="text-gs-muted hover:text-gs-text cursor-pointer"><X size={16} /></button>
         </div>
         <div className="px-5 py-4 space-y-3">
           {['name', 'email', 'phone', 'notes', 'status'].map(field => (
             <div key={field}>
               <label className="label">{field}</label>
-              <input
-                className="input"
-                value={form[field] || ''}
-                onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
-              />
+              <input className="input" value={form[field] || ''} onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))} />
             </div>
           ))}
           <div>
@@ -106,16 +97,18 @@ function EditModal({ lead, onClose, onSave }) {
 export default function Leads() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const category = searchParams.get('category') || '';
+  const category     = searchParams.get('category') || '';
   const categoryMeta = CATEGORY_META[category] || null;
-  const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ status: '', notes: '', stop: '', error: '', sms_reply: '', email_reply: '' });
+
+  const [leads, setLeads]             = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState('');
+  const [filters, setFilters]         = useState({ status: '', notes: '', stop: '', error: '', sms_reply: '', email_reply: '' });
   const [showFilters, setShowFilters] = useState(false);
-  const [editLead, setEditLead] = useState(null);
+  const [editLead, setEditLead]       = useState(null);
+  const [detailLead, setDetailLead]   = useState(null);
   const [actionLoading, setActionLoading] = useState({});
-  const [toast, setToast] = useState(null);
+  const [toast, setToast]             = useState(null);
 
   function showToast(msg, type = 'success') {
     setToast({ msg, type });
@@ -184,16 +177,19 @@ export default function Leads() {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       {categoryMeta && (
-        <div className="px-6 py-3 border-b border-gs-border flex items-center gap-3">
+        <div className="px-6 py-3 border-b border-gs-border flex items-center gap-3"
+             style={{ background: 'rgba(34,197,94,0.04)' }}>
+          <span className="w-1 h-6 rounded-full bg-gs-accent shrink-0" />
           <div>
             <h1 className="text-sm font-semibold text-gs-text">{categoryMeta.label}</h1>
             <p className="text-gs-muted text-xs">{categoryMeta.desc}</p>
           </div>
-          <Link to="/leads" className="ml-auto text-xs text-gs-muted hover:text-gs-text underline underline-offset-2">
-            View all leads
+          <Link to="/leads" className="ml-auto text-xs text-gs-muted hover:text-gs-accent transition-colors flex items-center gap-1">
+            ← All leads
           </Link>
         </div>
       )}
+
       <div className="px-6 py-4 border-b border-gs-border flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="relative flex-1 max-w-sm">
@@ -213,7 +209,10 @@ export default function Leads() {
             Filters {activeFilters > 0 && `(${activeFilters})`}
           </button>
           {activeFilters > 0 && (
-            <button onClick={() => setFilters({ status: '', notes: '', stop: '', error: '', sms_reply: '', email_reply: '' })} className="text-gs-muted text-xs hover:text-gs-text">
+            <button
+              onClick={() => setFilters({ status: '', notes: '', stop: '', error: '', sms_reply: '', email_reply: '' })}
+              className="text-gs-muted text-xs hover:text-gs-text"
+            >
               Clear
             </button>
           )}
@@ -229,11 +228,11 @@ export default function Leads() {
       {showFilters && (
         <div className="px-6 py-3 border-b border-gs-border bg-gs-card/50 flex flex-wrap gap-3">
           {[
-            { key: 'status', label: 'Status', options: STATUS_OPTIONS },
-            { key: 'notes', label: 'Notes/Template', options: NOTE_OPTIONS },
-            { key: 'stop', label: 'Stopped', options: BOOL_OPTIONS },
-            { key: 'sms_reply', label: 'SMS Reply', options: BOOL_OPTIONS },
-            { key: 'email_reply', label: 'Email Reply', options: BOOL_OPTIONS }
+            { key: 'status',      label: 'Status',         options: STATUS_OPTIONS },
+            { key: 'notes',       label: 'Notes/Template', options: NOTE_OPTIONS   },
+            { key: 'stop',        label: 'Stopped',        options: BOOL_OPTIONS   },
+            { key: 'sms_reply',   label: 'SMS Reply',      options: BOOL_OPTIONS   },
+            { key: 'email_reply', label: 'Email Reply',    options: BOOL_OPTIONS   }
           ].map(({ key, label, options }) => (
             <div key={key} className="flex flex-col gap-1">
               <label className="label">{label}</label>
@@ -252,7 +251,7 @@ export default function Leads() {
       {toast && (
         <div className={`mx-6 mt-3 px-4 py-2.5 rounded-lg text-sm flex items-center gap-2 ${
           toast.type === 'error' ? 'bg-gs-danger/20 text-gs-danger' :
-          toast.type === 'warn' ? 'bg-gs-warn/20 text-gs-warn' :
+          toast.type === 'warn'  ? 'bg-gs-warn/20  text-gs-warn'   :
           'bg-gs-accent/20 text-gs-accent'
         }`}>
           {toast.msg}
@@ -266,13 +265,7 @@ export default function Leads() {
           <EmptyState
             icon={User}
             title="No leads found"
-            desc={
-              search
-                ? 'Try a different search term'
-                : categoryMeta
-                  ? `No leads found for this category.`
-                  : 'No leads in the sheet yet'
-            }
+            desc={search ? 'Try a different search term' : categoryMeta ? 'No leads found for this category.' : 'No leads in the sheet yet'}
           />
         ) : (
           <table className="w-full">
@@ -293,7 +286,11 @@ export default function Leads() {
             </thead>
             <tbody>
               {filtered.map(lead => (
-                <tr key={lead.row_number} className="table-row">
+                <tr
+                  key={lead.row_number}
+                  className="table-row cursor-pointer"
+                  onClick={() => setDetailLead(lead)}
+                >
                   <td className="td font-medium">{lead.name || <span className="text-gs-muted">—</span>}</td>
                   <td className="td font-mono text-xs">{lead.phone || '—'}</td>
                   <td className="td text-xs text-gs-muted max-w-[140px] truncate">{lead.email || '—'}</td>
@@ -303,25 +300,19 @@ export default function Leads() {
                     {lead.sent === 'imported' ? <span className="text-gs-muted">imported</span> :
                      lead.sent ? new Date(lead.sent).toLocaleDateString() : '—'}
                   </td>
-                  <td className="td">
-                    {lead.stop === 'yes' && <StatusBadge value="yes" />}
-                  </td>
-                  <td className="td">
-                    {lead.sms_reply === 'yes' && <StatusBadge value="yes" />}
-                  </td>
-                  <td className="td">
-                    {lead.email_reply === 'yes' && <StatusBadge value="yes" />}
-                  </td>
+                  <td className="td">{lead.stop === 'yes' && <StatusBadge value="yes" />}</td>
+                  <td className="td">{lead.sms_reply === 'yes' && <StatusBadge value="yes" />}</td>
+                  <td className="td">{lead.email_reply === 'yes' && <StatusBadge value="yes" />}</td>
                   <td className="td max-w-[120px]">
                     {lead.error && (
                       <span className="text-gs-danger text-xs truncate block" title={lead.error}>⚠ {lead.error}</span>
                     )}
                   </td>
-                  <td className="td">
+                  <td className="td" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => navigate('/send', { state: { lead } })}
-                        className="p-1.5 rounded hover:bg-gs-accent/20 text-gs-accent"
+                        className="p-1.5 rounded hover:bg-gs-accent/20 text-gs-accent cursor-pointer"
                         title="Send template"
                       >
                         <Send size={13} />
@@ -329,7 +320,7 @@ export default function Leads() {
                       <button
                         onClick={() => handleStop(lead)}
                         disabled={actionLoading[`stop_${lead.row_number}`]}
-                        className={`p-1.5 rounded ${lead.stop === 'yes' ? 'hover:bg-gs-accent/20 text-gs-accent' : 'hover:bg-gs-danger/20 text-gs-danger'}`}
+                        className={`p-1.5 rounded cursor-pointer ${lead.stop === 'yes' ? 'hover:bg-gs-accent/20 text-gs-accent' : 'hover:bg-gs-danger/20 text-gs-danger'}`}
                         title={lead.stop === 'yes' ? 'Remove stop' : 'Set stop'}
                       >
                         {actionLoading[`stop_${lead.row_number}`]
@@ -338,7 +329,7 @@ export default function Leads() {
                       </button>
                       <button
                         onClick={() => setEditLead(lead)}
-                        className="p-1.5 rounded hover:bg-gs-border text-gs-muted"
+                        className="p-1.5 rounded hover:bg-gs-border text-gs-muted cursor-pointer"
                         title="Edit"
                       >
                         <Edit3 size={13} />
@@ -353,11 +344,11 @@ export default function Leads() {
       </div>
 
       {editLead && (
-        <EditModal
-          lead={editLead}
-          onClose={() => setEditLead(null)}
-          onSave={handleSaveEdit}
-        />
+        <EditModal lead={editLead} onClose={() => setEditLead(null)} onSave={handleSaveEdit} />
+      )}
+
+      {detailLead && (
+        <LeadDetailPanel lead={detailLead} onClose={() => setDetailLead(null)} />
       )}
     </div>
   );

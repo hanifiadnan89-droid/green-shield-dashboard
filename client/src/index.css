@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gs-bg text-gs-text font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-gs-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-gs-muted/40 rounded-full; }
+}
+
+@layer components {
+  .card {
+    @apply bg-gs-card border border-gs-border rounded-xl p-5;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer;
+  }
+  .btn-primary {
+    @apply btn bg-gs-accent text-black hover:bg-gs-accent-dim;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  }
+  .btn-primary:hover {
+    box-shadow: 0 4px 14px rgba(34,197,94,0.30);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: translateY(0); box-shadow: none; }
+  .btn-ghost  { @apply btn bg-transparent border border-gs-border text-gs-text hover:bg-gs-border/60; }
+  .btn-danger { @apply btn bg-gs-danger/20 text-gs-danger border border-gs-danger/30 hover:bg-gs-danger/30; }
+  .btn-warn   { @apply btn bg-gs-warn/20   text-gs-warn   border border-gs-warn/30   hover:bg-gs-warn/30;  }
+  .btn-info   { @apply btn bg-gs-info/20   text-gs-info   border border-gs-info/30   hover:bg-gs-info/30;  }
+  .input {
+    @apply bg-gs-bg border border-gs-border rounded-lg px-3 py-2 text-gs-text text-sm
+           placeholder:text-gs-muted focus:outline-none focus:border-gs-accent
+           focus:ring-1 focus:ring-gs-accent/30 w-full;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .select { @apply input cursor-pointer; }
+  .label  { @apply block text-xs font-semibold text-gs-muted mb-1 uppercase tracking-widest; }
+
+  .table-row {
+    @apply border-b border-gs-border;
+    transition: background 0.12s ease, box-shadow 0.12s ease;
+  }
+  .th { @apply px-4 py-3 text-left text-xs font-semibold text-gs-muted uppercase tracking-widest; }
+  .td { @apply px-4 py-3 text-sm text-gs-text; }
+
+  .section-label {
+    @apply flex items-center gap-2 text-xs font-semibold text-gs-muted uppercase tracking-widest mb-3;
+  }
+  .section-label-bar { @apply inline-block w-3 h-0.5 rounded-full; }
+}
+
+/* Table row hover — inset left accent bar */
+.table-row:hover {
+  background: rgba(28, 37, 53, 0.65);
+  box-shadow: inset 3px 0 0 rgba(34, 197, 94, 0.45);
+}
+
+/* ── Shared animation keyframes ── */
+
+@keyframes navPulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.45); }
+  55%  { transform: scale(1.28); }
+  72%  { transform: scale(1.38); }
+  88%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes navBounce {
+  0%   { transform: translateY(0); }
+  26%  { transform: translateY(-10px); }
+  48%  { transform: translateY(-5px); }
+  66%  { transform: translateY(-8px); }
+  82%  { transform: translateY(-2px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes navSend {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  38%  { transform: translate(9px, -9px) rotate(-15deg); }
+  62%  { transform: translate(5px, -5px) rotate(-7deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes navWiggle {
+  0%   { transform: rotate(0deg); }
+  16%  { transform: rotate(-26deg); }
+  44%  { transform: rotate(26deg); }
+  68%  { transform: rotate(-10deg); }
+  86%  { transform: rotate(5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes navTick {
+  0%   { transform: rotate(0deg); }
+  28%  { transform: rotate(36deg); }
+  52%  { transform: rotate(22deg); }
+  72%  { transform: rotate(30deg); }
+  88%  { transform: rotate(5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes navHeartbeat {
+  0%   { transform: scaleY(1); }
+  10%  { transform: scaleY(1.6); }
+  22%  { transform: scaleY(0.68); }
+  36%  { transform: scaleY(1.5); }
+  50%  { transform: scaleY(0.78); }
+  65%  { transform: scaleY(1.2); }
+  80%  { transform: scaleY(0.92); }
+  100% { transform: scaleY(1); }
+}
+
+@keyframes navWarn {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  15%      { transform: scale(1.38) rotate(-10deg); }
+  32%      { transform: scale(1.42) rotate(9deg); }
+  50%      { transform: scale(1.32) rotate(-6deg); }
+  68%      { transform: scale(1.22) rotate(4deg); }
+  84%      { transform: scale(1.1)  rotate(-2deg); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@layer utilities {
+
+  .animate-fade-in-up   { animation: fadeInUp     0.25s ease-out both; }
+  .animate-slide-in-right { animation: slideInRight 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* ── Sidebar nav icons ── */
+  .nav-icon { display: inline-flex; transform-origin: center; will-change: transform; }
+
+  .nav-icon-active.nav-icon-dashboard { animation: navPulse     3.2s ease-in-out infinite; }
+  .nav-icon-active.nav-icon-leads     { animation: navBounce    2.8s ease-in-out infinite; }
+  .nav-icon-active.nav-icon-send      { animation: navSend      2.8s ease-in-out infinite; }
+  .nav-icon-active.nav-icon-workflows { animation: navWiggle    3.2s ease-in-out infinite; }
+  .nav-icon-active.nav-icon-followups { animation: navTick      2.8s ease-in-out infinite; }
+  .nav-icon-active.nav-icon-activity  { animation: navHeartbeat 2.8s ease-in-out infinite; }
+
+  .nav-item:hover .nav-icon-dashboard { animation: navPulse     0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .nav-item:hover .nav-icon-leads     { animation: navBounce    0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .nav-item:hover .nav-icon-send      { animation: navSend      0.5s  cubic-bezier(0.22, 1, 0.36, 1);   }
+  .nav-item:hover .nav-icon-workflows { animation: navWiggle    0.58s cubic-bezier(0.22, 1, 0.36, 1);   }
+  .nav-item:hover .nav-icon-followups { animation: navTick      0.55s cubic-bezier(0.22, 1, 0.36, 1);   }
+  .nav-item:hover .nav-icon-activity  { animation: navHeartbeat 0.65s cubic-bezier(0.22, 1, 0.36, 1);   }
+
+  /* ── Dashboard stat cards ── */
+  .card-stat {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.22s ease-out,
+                border-color 0.22s ease-out;
+  }
+  .card-stat:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.5), 0 0 0 1px rgba(34,197,94,0.16);
+    border-color: rgba(34,197,94,0.2);
+  }
+
+  .card-icon { display: inline-flex; transform-origin: center; will-change: transform; }
+
+  .card-stat:hover .card-icon-leads    { animation: navBounce    0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .card-stat:hover .card-icon-sent     { animation: navSend      0.5s  cubic-bezier(0.22, 1, 0.36, 1);   }
+  .card-stat:hover .card-icon-errors   { animation: navWarn      0.6s  cubic-bezier(0.22, 1, 0.36, 1);   }
+  .card-stat:hover .card-icon-stopped  { animation: navPulse     0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .card-stat:hover .card-icon-sms      { animation: navBounce    0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .card-stat:hover .card-icon-email    { animation: navBounce    0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .card-stat:hover .card-icon-replied  { animation: navPulse     0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .card-stat:hover .card-icon-progress { animation: navTick      0.55s cubic-bezier(0.22, 1, 0.36, 1);   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card-stat, .nav-icon, .card-icon, .btn-primary {
+      animation: none !important;
+      transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
+      transform: none !important;
+    }
+  }
+}

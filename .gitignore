@@ -1,0 +1,9 @@
+node_modules
+.env
+server/data/activity.json
+client/dist
+*.local
+.DS_Store
+.claude/
+server/service-account.json
+server/probe_*.js
