@@ -47,7 +47,7 @@ const CHANNELS = [
 function QuoteDocumentsSection({ lead, prepGuideIndices = [] }) {
   const [files, setFiles]             = useState(null);
   const [selected, setSelected]       = useState(null);
-  const [pricing, setPricing]         = useState({ initial: '', monthly: '', recurring: '', discounted: '' });
+  const [pricing, setPricing]         = useState({ initial: '', recurring: '', discounted: '' });
   const [address, setAddress]         = useState({ street: '', cityState: '' });
   const [notes, setNotes]             = useState('');
   const [loading, setLoading]         = useState(true);
@@ -215,7 +215,6 @@ function QuoteDocumentsSection({ lead, prepGuideIndices = [] }) {
               ['initial',    'Initial Quote'],
               ['discounted', 'Discount Amount'],
               ['recurring',  'Recurring/Month'],
-              ['monthly',    'Monthly Payment'],
             ].map(([key, label]) => (
               <div key={key}>
                 <label className="text-xs text-gs-muted mb-1 block">{label}</label>

@@ -497,7 +497,7 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
 
   // ── 12-month payment schedule ──
   if (subtotal > 0 || recurVal > 0) {
-    fill('payment_1', subtotal > 0 ? `$${subtotal.toFixed(2)}` : '');
+    fill('payment_1', subtotal > 0 ? `$${subtotal.toFixed(2)}` : (recurVal > 0 ? `$${recurVal.toFixed(2)}` : ''));
     for (let m = 2; m <= 12; m++) {
       fill(`payment_${m}`, recurVal > 0 ? `$${recurVal.toFixed(2)}` : '');
     }
