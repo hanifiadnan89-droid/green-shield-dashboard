@@ -4,6 +4,7 @@ server/data/activity.json
 client/dist
 *.local
 .DS_Store
+claude-skills/
 .claude/*
 !.claude/settings.json
 server/service-account.json
