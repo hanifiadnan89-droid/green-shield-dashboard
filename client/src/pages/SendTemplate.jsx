@@ -44,7 +44,7 @@ const CHANNELS = [
 ];
 
 /* ── Quote Documents Section ── */
-function QuoteDocumentsSection({ lead }) {
+function QuoteDocumentsSection({ lead, prepGuideIndices = [] }) {
   const [files, setFiles]             = useState(null);
   const [selected, setSelected]       = useState(null);
   const [pricing, setPricing]         = useState({ initial: '', monthly: '', recurring: '', discounted: '' });
@@ -66,12 +66,13 @@ function QuoteDocumentsSection({ lead }) {
 
   function buildPayload() {
     return {
-      index:       selected.index,
-      serviceType: selected.serviceType || null,
-      lead:        { name: lead?.name, email: lead?.email, phone: lead?.phone },
+      index:            selected.index,
+      serviceType:      selected.serviceType || null,
+      lead:             { name: lead?.name, email: lead?.email, phone: lead?.phone },
       pricing,
       notes,
-      address
+      address,
+      prepGuideIndices
     };
   }
 
@@ -310,11 +311,10 @@ function QuoteDocumentsSection({ lead }) {
 }
 
 /* ── Prep Guides Section ── */
-function PrepGuidesSection() {
-  const [files, setFiles]       = useState(null);
-  const [selected, setSelected] = useState(new Set());
-  const [loading, setLoading]   = useState(true);
-  const [missing, setMissing]   = useState(false);
+function PrepGuidesSection({ selected, onToggle }) {
+  const [files, setFiles]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     api.documents.prepGuides().then(data => {
@@ -322,14 +322,6 @@ function PrepGuidesSection() {
       setMissing(!!data.missing);
     }).catch(() => setFiles([])).finally(() => setLoading(false));
   }, []);
-
-  function toggle(index) {
-    setSelected(s => {
-      const next = new Set(s);
-      next.has(index) ? next.delete(index) : next.add(index);
-      return next;
-    });
-  }
 
   return (
     <div className="card flex flex-col gap-0 p-0 overflow-hidden">
@@ -364,7 +356,7 @@ function PrepGuidesSection() {
                 return (
                   <button
                     key={i}
-                    onClick={() => toggle(f.index)}
+                    onClick={() => onToggle(f.index)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-gs-info/12 border border-gs-info/30 text-gs-info'
@@ -442,10 +434,11 @@ export default function SendTemplate({ testMode }) {
   const [selectedLead, setSelectedLead]   = useState(preselected);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [selectedChannel, setSelectedChannel]   = useState('both');
-  const [quotes, setQuotes]               = useState([]);
-  const [selectedQuote, setSelectedQuote] = useState(null);
-  const [sending, setSending]             = useState(false);
-  const [result, setResult]               = useState(null);
+  const [quotes, setQuotes]                         = useState([]);
+  const [selectedQuote, setSelectedQuote]           = useState(null);
+  const [selectedPrepGuides, setSelectedPrepGuides] = useState(new Set());
+  const [sending, setSending]                       = useState(false);
+  const [result, setResult]                         = useState(null);
 
   useEffect(() => {
     if (!preselected) {
@@ -481,6 +474,7 @@ export default function SendTemplate({ testMode }) {
     setSelectedTemplate(null);
     setSelectedChannel('both');
     setSelectedQuote(null);
+    setSelectedPrepGuides(new Set());
     setResult(null);
     setSearch('');
   }
@@ -652,8 +646,15 @@ export default function SendTemplate({ testMode }) {
                 Documents &amp; Attachments
               </p>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <QuoteDocumentsSection lead={selectedLead} />
-                <PrepGuidesSection />
+                <QuoteDocumentsSection lead={selectedLead} prepGuideIndices={[...selectedPrepGuides]} />
+                <PrepGuidesSection
+                  selected={selectedPrepGuides}
+                  onToggle={idx => setSelectedPrepGuides(s => {
+                    const n = new Set(s);
+                    n.has(idx) ? n.delete(idx) : n.add(idx);
+                    return n;
+                  })}
+                />
                 <FutureSection />
               </div>
             </div>

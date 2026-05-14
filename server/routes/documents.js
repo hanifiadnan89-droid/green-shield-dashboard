@@ -289,7 +289,9 @@ const PEST_ICONS_MAP = {
     {type:'cricket',   x:307, y:677}, {type:'silverfish',x:446, y:677},
   ],
   tick_mosquito_monthly: [
-    {type:'mosquito',  x:29,  y:743}, {type:'tick',      x:185, y:743},
+    {type:'mosquito',  x:29,  y:743},
+    {type:'tick',      x:168, y:743},
+    {type:'tick',      x:307, y:743},
   ],
   commercial_bimonthly: [],
   commercial_monthly:   [],
@@ -434,10 +436,10 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
     }
   }
 
-  // ── Configure ALL fields: font-size 11, no visible border, clear to empty ──
+  // ── Configure ALL fields: font-size 10, no visible border, clear to empty ──
   for (const field of form.getFields()) {
     try {
-      field.setFontSize(11);
+      field.setFontSize(10);
       for (const widget of field.acroField.getWidgets()) {
         widget.dict.set(PDFName.of('Border'), pdfDoc.context.obj([0, 0, 0]));
         widget.dict.set(PDFName.of('BS'), pdfDoc.context.obj({ W: 0 }));
@@ -456,7 +458,7 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
     if (value === null || value === undefined) return;
     try {
       const field = form.getTextField(`${prefix}_${name}`);
-      field.setFontSize(11);
+      field.setFontSize(10);
       field.setText(String(value));
     } catch { /* field absent */ }
   }
@@ -515,12 +517,7 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
   // ── Flatten: bakes fields into page content ──
   form.flatten();
 
-  // ── Draw pest icons on the target page (after flatten, so icons appear on top) ──
-  const icons = PEST_ICONS_MAP[prefix] || [];
   const targetPage = pdfDoc.getPage(pageIndex);
-  if (icons.length > 0) {
-    for (const { type, x, y } of icons) drawPestIcon(targetPage, type, x, y);
-  }
 
   // ── Service Agreements: draw all text directly onto the page ──
   // AcroForm appearance regeneration fails for this template (pre-rendered /AP streams
@@ -529,8 +526,8 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
   // Fields service_type / service_frequency are intentionally left alone so their
   // pre-printed template text (e.g. "INSECT QUARTERLY", "Every 90 days") remains visible.
   if (saPos) {
-    const sz = 11;
-    const lineH = 14;
+    const sz = 10;
+    const lineH = 13;
     const textColor = rgb(0.13, 0.13, 0.13);
     const white     = rgb(1, 1, 1);
 
@@ -588,6 +585,10 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
     }
   }
 
+  // ── Draw pest icons last so they sit on top of all drawn content ──
+  const icons = PEST_ICONS_MAP[prefix] || [];
+  for (const { type, x, y } of icons) drawPestIcon(targetPage, type, x, y);
+
   // ── Output ──
   let outBytes;
   if (filename === SERVICE_AGREEMENTS_FILE) {
@@ -628,7 +629,7 @@ router.post('/generate-quote', async (req, res) => {
 
 router.post('/email-quote', async (req, res) => {
   try {
-    const { index, lead = {}, pricing = {}, notes = '', address = {}, serviceType } = req.body;
+    const { index, lead = {}, pricing = {}, notes = '', address = {}, serviceType, prepGuideIndices = [] } = req.body;
 
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
     if (!lead.email) return res.status(400).json({ error: 'lead email is required to send' });
@@ -639,12 +640,46 @@ router.post('/email-quote', async (req, res) => {
 
     const { outBytes, outName } = await buildQuotePdf({ index, lead, pricing, notes, address, serviceType });
 
+    const MIME_MAP = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
+    const attachments = [{ filename: outName, content: Buffer.from(outBytes), contentType: 'application/pdf' }];
+    const prepGuideAttached = [];
+
+    if (prepGuideIndices.length > 0) {
+      let supportedPrepFiles = [];
+      try {
+        const allPrepFiles = await readdirAsync(PREP_GUIDE_DIR);
+        supportedPrepFiles = allPrepFiles.filter(f => SUPPORTED_EXTS.has(ext(f)));
+      } catch (err) {
+        console.error('[email-quote] Cannot read Prep Guide folder:', PREP_GUIDE_DIR, err.message);
+      }
+
+      for (const pgIdx of prepGuideIndices) {
+        const idx = parseInt(pgIdx, 10);
+        if (isNaN(idx) || idx < 0 || idx >= supportedPrepFiles.length) {
+          console.error(`[email-quote] Prep guide index ${pgIdx} out of range (${supportedPrepFiles.length} files available in ${PREP_GUIDE_DIR})`);
+          continue;
+        }
+        const pgFilename = supportedPrepFiles[idx];
+        const pgPath = join(PREP_GUIDE_DIR, pgFilename);
+        try {
+          const pgContent = readFileSync(pgPath);
+          attachments.push({ filename: pgFilename, content: pgContent, contentType: MIME_MAP[ext(pgFilename)] || 'application/octet-stream' });
+          prepGuideAttached.push(pgFilename);
+        } catch (err) {
+          console.error(`[email-quote] Failed to attach prep guide "${pgFilename}": ${err.message}`);
+        }
+      }
+    }
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
     });
 
     const firstName = (lead.name || '').split(' ')[0] || 'there';
+    const attachmentText = prepGuideAttached.length > 0
+      ? 'your personalized quote and preparation guide'
+      : 'your personalized quote';
 
     await transporter.sendMail({
       from:    `Green Shield Pest Solutions <${process.env.GMAIL_USER}>`,
@@ -653,7 +688,7 @@ router.post('/email-quote', async (req, res) => {
       html: `
         <div style="font-family:Arial,sans-serif;max-width:560px;color:#1a1a1a">
           <p>Hi ${firstName},</p>
-          <p>Please find your personalized quote attached to this email.</p>
+          <p>Please find ${attachmentText} attached to this email.</p>
           <p>If you have any questions, feel free to reply here or give us a call at
              <strong>(207) 815-2234</strong>.</p>
           <p>We look forward to working with you!</p>
@@ -665,10 +700,10 @@ router.post('/email-quote', async (req, res) => {
           </p>
         </div>
       `,
-      attachments: [{ filename: outName, content: Buffer.from(outBytes), contentType: 'application/pdf' }]
+      attachments
     });
 
-    res.json({ success: true, to: lead.email, filename: outName });
+    res.json({ success: true, to: lead.email, filename: outName, prepGuides: prepGuideAttached });
   } catch (err) {
     console.error('email-quote error:', err);
     res.status(err.status || 500).json({ error: err.message });
