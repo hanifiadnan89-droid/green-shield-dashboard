@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { readdir, stat, createReadStream } from 'fs';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { homedir } from 'os';
 import { promisify } from 'util';
 import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
@@ -11,7 +12,8 @@ const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
 const router       = Router();
 
-const QUOTES_DIR     = join(homedir(), 'Desktop', 'Quotes');
+const __dirname      = dirname(fileURLToPath(import.meta.url));
+const QUOTES_DIR     = join(__dirname, '..', '..', 'assets', 'quotes');
 const PREP_GUIDE_DIR = join(homedir(), 'Desktop', 'Prep Guide');
 const SUPPORTED_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg']);
 
