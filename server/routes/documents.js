@@ -55,6 +55,11 @@ const SERVICE_LABEL = {
   tick_mosquito_monthly:    'Tick_Mosquito_Monthly',
 };
 
+// Service types that have no prep guide — prep guide attachment is skipped entirely.
+const NO_PREP_GUIDE = new Set([
+  'tick_mosquito_monthly',
+]);
+
 // ── Pest icon drawing ──────────────────────────────────────────────────────
 
 const BLACK = rgb(0, 0, 0);
@@ -645,7 +650,8 @@ router.post('/email-quote', async (req, res) => {
     const attachments = [{ filename: outName, content: Buffer.from(outBytes), contentType: 'application/pdf' }];
     const prepGuideAttached = [];
 
-    if (prepGuideIndices.length > 0) {
+    const prepGuidesAllowed = !NO_PREP_GUIDE.has(serviceType);
+    if (prepGuidesAllowed && prepGuideIndices.length > 0) {
       let supportedPrepFiles = [];
       try {
         const allPrepFiles = await readdirAsync(PREP_GUIDE_DIR);
@@ -703,6 +709,11 @@ router.post('/email-quote', async (req, res) => {
       `,
       attachments
     });
+
+    const logSuffix = prepGuideAttached.length > 0
+      ? `+ prep guides: ${prepGuideAttached.join(', ')}`
+      : 'quote only (no prep guide)';
+    console.log(`[email-quote] Sent to ${lead.email} — ${outName} — ${logSuffix}`);
 
     res.json({ success: true, to: lead.email, filename: outName, prepGuides: prepGuideAttached });
   } catch (err) {
