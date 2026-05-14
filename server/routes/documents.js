@@ -3,7 +3,6 @@ import { readdir, stat, createReadStream } from 'fs';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { homedir } from 'os';
 import { promisify } from 'util';
 import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
@@ -14,7 +13,7 @@ const router       = Router();
 
 const __dirname      = dirname(fileURLToPath(import.meta.url));
 const QUOTES_DIR     = join(__dirname, '..', '..', 'assets', 'quotes');
-const PREP_GUIDE_DIR = join(homedir(), 'Desktop', 'Prep Guide');
+const PREP_GUIDE_DIR = join(__dirname, '..', '..', 'assets', 'prep-guides');
 const SUPPORTED_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg']);
 
 function ext(name) {
