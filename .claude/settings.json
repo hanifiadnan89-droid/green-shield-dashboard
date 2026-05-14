@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); if [ \"$branch\" = \"main\" ] || [ \"$branch\" = \"master\" ]; then files=$(git diff --cached --name-only 2>/dev/null); if [ -n \"$files\" ]; then first=$(echo \"$files\" | head -1); name=$(basename \"$first\" | sed 's/\\.[^.]*$//'); count=$(echo \"$files\" | wc -l | tr -d ' '); if [ \"$count\" -gt 1 ]; then dir=$(dirname \"$first\"); [ \"$dir\" != \".\" ] && name=\"$(basename $dir)-${name}\"; fi; else name=\"update\"; fi; slug=$(echo \"$name\" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$//' | cut -c1-35); new=\"feature/${slug}-$(date +%m%d-%H%M)\"; git checkout -b \"$new\" 2>/dev/null && printf '{\"systemMessage\":\"Auto-switched to new branch: %s\"}' \"$new\"; fi",
+            "statusMessage": "Checking branch before commit..."
+          }
+        ]
+      }
+    ]
+  }
+}
