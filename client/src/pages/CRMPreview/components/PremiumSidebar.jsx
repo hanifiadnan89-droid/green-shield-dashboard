@@ -8,7 +8,7 @@ const NAV = [
   {
     group: 'OVERVIEW',
     items: [
-      { to: '/crm-preview', icon: LayoutDashboard, label: 'Dashboard', internal: true },
+      { to: '/', icon: LayoutDashboard, label: 'Dashboard', internal: true },
     ],
   },
   {
@@ -34,7 +34,7 @@ const NAV = [
 
 export default function PremiumSidebar({ stats, testMode }) {
   const location = useLocation();
-  const isDashboard = location.pathname === '/crm-preview';
+  const isDashboard = location.pathname === '/';
 
   function getBadgeCount(key) {
     if (!stats || !key) return 0;
@@ -62,26 +62,6 @@ export default function PremiumSidebar({ stats, testMode }) {
         <div>
           <p style={{ color: '#ffffff', fontWeight: 700, fontSize: '14px', lineHeight: 1.2, fontFamily: 'Poppins, Inter, system-ui' }}>Green Shield</p>
           <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px', lineHeight: 1.4 }}>Pest Solutions CRM</p>
-        </div>
-      </div>
-
-      {/* Preview badge */}
-      <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <div
-          style={{
-            background: 'rgba(139,92,246,0.12)',
-            border: '1px solid rgba(139,92,246,0.22)',
-            borderRadius: '8px',
-            padding: '5px 10px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#a78bfa', display: 'inline-block' }} />
-          <span style={{ color: '#c4b5fd', fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            Preview Mode
-          </span>
         </div>
       </div>
 
@@ -162,16 +142,16 @@ export default function PremiumSidebar({ stats, testMode }) {
           </span>
         </div>
 
-        {/* Exit preview */}
+        {/* Classic dashboard link */}
         <Link
-          to="/"
+          to="/dashboard-classic"
           className="sidebar-item flex items-center gap-2.5 px-3 py-2 rounded-xl no-underline"
           style={{ color: 'rgba(255,255,255,0.28)', fontSize: '12px' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.28)'; }}
         >
           <ArrowLeft size={13} />
-          <span>Exit Preview</span>
+          <span>Classic Dashboard</span>
         </Link>
       </div>
     </aside>
