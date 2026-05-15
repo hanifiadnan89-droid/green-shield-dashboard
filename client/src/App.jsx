@@ -1,8 +1,7 @@
-import { Routes, Route, Outlet } from 'react-router-dom';
+import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Layout from './components/Layout.jsx';
 import TestModeBanner from './components/TestModeBanner.jsx';
-import Dashboard from './pages/Dashboard.jsx';
 import Leads from './pages/Leads.jsx';
 import SendTemplate from './pages/SendTemplate.jsx';
 import Workflows from './pages/Workflows.jsx';
@@ -44,8 +43,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<CRMPreview testMode={testMode} />} />
+      <Route path="/dashboard-classic" element={<Navigate to="/" replace />} />
       <Route element={<AppShell testMode={testMode} credsMissing={credsMissing} />}>
-        <Route path="/dashboard-classic" element={<Dashboard testMode={testMode} />} />
         <Route path="/leads" element={<Leads />} />
         <Route path="/send" element={<SendTemplate testMode={testMode} />} />
         <Route path="/workflows" element={<Workflows />} />
