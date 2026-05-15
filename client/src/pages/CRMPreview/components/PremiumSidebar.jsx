@@ -1,45 +1,53 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Shield, LayoutDashboard, Users, Send, Workflow, Clock, Activity,
-  MessageSquare, AlertCircle, StopCircle, ChevronRight, ArrowLeft
+  MessageSquare, AlertCircle, StopCircle, ChevronRight,
 } from 'lucide-react';
 
 const NAV = [
   {
     group: 'OVERVIEW',
     items: [
-      { to: '/', icon: LayoutDashboard, label: 'Dashboard', internal: true },
+      { type: 'home', icon: LayoutDashboard, label: 'Dashboard' },
     ],
   },
   {
     group: 'LEADS',
     items: [
-      { to: '/leads',                     icon: Users,         label: 'All Leads' },
-      { to: '/leads?category=replies',    icon: MessageSquare, label: 'Replies',     badge: 'replied' },
-      { to: '/leads?category=errors',     icon: AlertCircle,   label: 'Errors',      badge: 'errors', urgent: true },
-      { to: '/leads?category=stopped',    icon: StopCircle,    label: 'Stopped',     badge: 'stopped' },
-      { to: '/leads?category=inprogress', icon: Clock,         label: 'In Progress', badge: 'inProgress' },
+      { type: 'filter', filterKey: 'all',        icon: Users,         label: 'All Leads' },
+      { type: 'filter', filterKey: 'replied',    icon: MessageSquare, label: 'Replies',     badge: 'replied' },
+      { type: 'filter', filterKey: 'errors',     icon: AlertCircle,   label: 'Errors',      badge: 'errors', urgent: true },
+      { type: 'filter', filterKey: 'stopped',    icon: StopCircle,    label: 'Stopped',     badge: 'stopped' },
+      { type: 'filter', filterKey: 'inprogress', icon: Clock,         label: 'In Progress', badge: 'inProgress' },
     ],
   },
   {
     group: 'TOOLS',
     items: [
-      { to: '/send',       icon: Send,     label: 'Send Template' },
-      { to: '/workflows',  icon: Workflow, label: 'Workflows' },
-      { to: '/followups',  icon: Clock,    label: 'Follow-ups' },
-      { to: '/activity',   icon: Activity, label: 'Activity Log' },
+      { type: 'link', to: '/send',       icon: Send,     label: 'Send Template' },
+      { type: 'link', to: '/workflows',  icon: Workflow, label: 'Workflows' },
+      { type: 'link', to: '/followups',  icon: Clock,    label: 'Follow-ups' },
+      { type: 'link', to: '/activity',   icon: Activity, label: 'Activity Log' },
     ],
   },
 ];
 
-export default function PremiumSidebar({ stats, testMode }) {
-  const location = useLocation();
-  const isDashboard = location.pathname === '/';
+function itemIsActive(item, activeFilter) {
+  if (item.type === 'home') return true;
+  if (item.type === 'filter') return activeFilter === item.filterKey;
+  return false;
+}
 
+export default function PremiumSidebar({ stats, testMode, activeFilter, onFilterChange }) {
   function getBadgeCount(key) {
     if (!stats || !key) return 0;
     if (key === 'replied') return (stats.smsReplies ?? 0) + (stats.emailReplies ?? 0);
     return stats[key] ?? 0;
+  }
+
+  function handleItemClick(item) {
+    if (item.type === 'home') { onFilterChange('all'); return; }
+    if (item.type === 'filter') { onFilterChange(item.filterKey); return; }
   }
 
   return (
@@ -72,30 +80,18 @@ export default function PremiumSidebar({ stats, testMode }) {
             <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0 8px', marginBottom: '4px' }}>
               {group}
             </p>
-            {items.map(({ to, icon: Icon, label, badge, urgent, internal }) => {
-              const isActive = internal && isDashboard;
+            {items.map((item) => {
+              const { icon: Icon, label, badge, urgent, type, to } = item;
+              const isActive = itemIsActive(item, activeFilter);
               const count = badge ? getBadgeCount(badge) : 0;
 
-              return (
-                <Link
-                  key={to}
-                  to={to}
-                  className="sidebar-item flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl mb-0.5 no-underline"
-                  style={{
-                    background: isActive ? 'rgba(22,163,74,0.12)' : 'transparent',
-                    borderLeft: isActive ? '2px solid #16A34A' : '2px solid transparent',
-                  }}
-                  onMouseEnter={e => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'transparent';
-                    }
-                  }}
-                >
+              const sharedStyle = {
+                background: isActive ? 'rgba(22,163,74,0.12)' : 'transparent',
+                borderLeft: isActive ? '2px solid #16A34A' : '2px solid transparent',
+              };
+
+              const content = (
+                <>
                   <div className="flex items-center gap-2.5">
                     <Icon size={15} style={{ color: isActive ? '#4ade80' : 'rgba(255,255,255,0.45)', flexShrink: 0 }} />
                     <span style={{ color: isActive ? '#e2e8f0' : 'rgba(255,255,255,0.50)', fontSize: '13px', fontWeight: isActive ? 600 : 400 }}>
@@ -112,9 +108,37 @@ export default function PremiumSidebar({ stats, testMode }) {
                       {count}
                     </span>
                   ) : (
-                    !internal && <ChevronRight size={11} style={{ color: 'rgba(255,255,255,0.18)' }} />
+                    type === 'link' && <ChevronRight size={11} style={{ color: 'rgba(255,255,255,0.18)' }} />
                   )}
-                </Link>
+                </>
+              );
+
+              if (type === 'link') {
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    className="sidebar-item flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl mb-0.5 no-underline"
+                    style={sharedStyle}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {content}
+                  </Link>
+                );
+              }
+
+              return (
+                <button
+                  key={label}
+                  onClick={() => handleItemClick(item)}
+                  className="sidebar-item w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl mb-0.5 cursor-pointer"
+                  style={{ ...sharedStyle, textAlign: 'left', border: 'none', borderLeft: sharedStyle.borderLeft }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? 'rgba(22,163,74,0.12)' : 'transparent'; }}
+                >
+                  {content}
+                </button>
               );
             })}
           </div>
@@ -123,9 +147,8 @@ export default function PremiumSidebar({ stats, testMode }) {
 
       {/* Footer */}
       <div className="px-3 pb-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        {/* Mode badge */}
         <div
-          className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl"
           style={{
             background: testMode ? 'rgba(217,119,6,0.10)' : 'rgba(22,163,74,0.10)',
             border: `1px solid ${testMode ? 'rgba(217,119,6,0.18)' : 'rgba(22,163,74,0.18)'}`,
@@ -141,18 +164,6 @@ export default function PremiumSidebar({ stats, testMode }) {
             {testMode ? 'Test Mode' : 'Live Mode'}
           </span>
         </div>
-
-        {/* Classic dashboard link */}
-        <Link
-          to="/dashboard-classic"
-          className="sidebar-item flex items-center gap-2.5 px-3 py-2 rounded-xl no-underline"
-          style={{ color: 'rgba(255,255,255,0.28)', fontSize: '12px' }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.28)'; }}
-        >
-          <ArrowLeft size={13} />
-          <span>Classic Dashboard</span>
-        </Link>
       </div>
     </aside>
   );

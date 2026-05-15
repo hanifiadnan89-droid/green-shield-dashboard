@@ -149,7 +149,7 @@ export default function CRMPreview({ testMode }) {
       style={{ background: '#f0f4f0' }}
     >
       {/* Dark green sidebar */}
-      <PremiumSidebar stats={stats} testMode={testMode} />
+      <PremiumSidebar stats={stats} testMode={testMode} activeFilter={activeFilter} onFilterChange={handleFilterChange} />
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
