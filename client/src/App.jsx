@@ -9,6 +9,7 @@ import Followups from './pages/Followups.jsx';
 import ActivityLog from './pages/ActivityLog.jsx';
 import ComponentPreview from './pages/ComponentPreview.jsx';
 import CRMPreview from './pages/CRMPreview/index.jsx';
+import ManualSMS from './pages/ManualSMS.jsx';
 import { api } from './api/client.js';
 
 function AppShell({ testMode, credsMissing }) {
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="/workflows" element={<Workflows />} />
         <Route path="/followups" element={<Followups />} />
         <Route path="/activity" element={<ActivityLog />} />
+        <Route path="/manual-sms" element={<ManualSMS />} />
         <Route path="/component-preview" element={<ComponentPreview />} />
       </Route>
     </Routes>
