@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { api } from '../../api/client.js';
 import { deriveStats } from './mockData.js';
 import PremiumSidebar from './components/PremiumSidebar.jsx';
@@ -104,6 +104,7 @@ export default function CRMPreview({ testMode }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [search, setSearch]             = useState('');
   const [toast, setToast]               = useState(null);
+  const pipelineRef = useRef(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -127,6 +128,11 @@ export default function CRMPreview({ testMode }) {
   const showToast = useCallback((msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  const handleFilterChange = useCallback((filter) => {
+    setActiveFilter(filter);
+    pipelineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, []);
 
   const handlePreviewAction = useCallback((type) => {
@@ -162,7 +168,7 @@ export default function CRMPreview({ testMode }) {
               <MockDataBanner />
 
               {/* Bento metrics row */}
-              <BentoGrid stats={stats} loading={false} />
+              <BentoGrid stats={stats} loading={false} activeFilter={activeFilter} onFilterChange={handleFilterChange} />
 
               {/* Middle: pipeline summary + quick actions */}
               <div className="grid grid-cols-12 gap-5">
@@ -178,7 +184,7 @@ export default function CRMPreview({ testMode }) {
               </div>
 
               {/* Bottom: lead pipeline + activity feed */}
-              <div className="grid grid-cols-12 gap-5 pb-6">
+              <div ref={pipelineRef} className="grid grid-cols-12 gap-5 pb-6">
                 <div className="col-span-8">
                   <LeadPipeline
                     leads={leads ?? []}
