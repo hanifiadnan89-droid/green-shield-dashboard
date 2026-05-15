@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Phone, Mail, User, Calendar, Clock, AlertCircle, CheckCircle, XCircle, MessageSquare, Send, Hash } from 'lucide-react';
 import { api } from '../api/client.js';
 import StatusBadge from './StatusBadge.jsx';
@@ -26,6 +27,7 @@ function Section({ title, children }) {
 }
 
 export default function LeadDetailPanel({ lead, onClose }) {
+  const navigate = useNavigate();
   const [activity, setActivity] = useState([]);
   const [loadingActivity, setLoadingActivity] = useState(true);
 
@@ -176,13 +178,12 @@ export default function LeadDetailPanel({ lead, onClose }) {
 
         {/* Footer actions */}
         <div className="px-5 py-4 border-t border-gs-border bg-gs-surface/30 shrink-0 flex gap-2">
-          <a
-            href={`/send`}
-            onClick={e => { e.preventDefault(); onClose(); window.location.href = '/send'; }}
-            className="btn-primary text-xs flex-1 justify-center"
+          <button
+            onClick={() => { onClose(); navigate('/send', { state: { lead } }); }}
+            className="btn-primary text-xs flex-1 justify-center cursor-pointer"
           >
             <Send size={12} /> Send Template
-          </a>
+          </button>
           <button onClick={onClose} className="btn-ghost text-xs">Close</button>
         </div>
       </div>
