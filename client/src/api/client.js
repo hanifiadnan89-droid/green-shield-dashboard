@@ -39,6 +39,11 @@ export const api = {
     quotes: () => request('/drive/quotes')
   },
 
+  manualSms: (body) => request('/manual-sms', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  }),
+
   documents: {
     quotes:      () => request('/documents/quotes'),
     prepGuides:  () => request('/documents/prep-guides'),

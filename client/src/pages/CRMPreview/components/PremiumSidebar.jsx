@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import {
   Shield, LayoutDashboard, Users, Send, Workflow, Clock, Activity,
-  MessageSquare, AlertCircle, StopCircle, ChevronRight,
+  MessageSquare, AlertCircle, StopCircle, ChevronRight, Smartphone,
 } from 'lucide-react';
 
 const NAV = [
@@ -24,10 +24,11 @@ const NAV = [
   {
     group: 'TOOLS',
     items: [
-      { type: 'link', to: '/send',       icon: Send,     label: 'Send Template' },
-      { type: 'link', to: '/workflows',  icon: Workflow, label: 'Workflows' },
-      { type: 'link', to: '/followups',  icon: Clock,    label: 'Follow-ups' },
-      { type: 'link', to: '/activity',   icon: Activity, label: 'Activity Log' },
+      { type: 'link', to: '/send',        icon: Send,        label: 'Send Template' },
+      { type: 'link', to: '/manual-sms', icon: Smartphone,  label: 'Manual SMS' },
+      { type: 'link', to: '/workflows',  icon: Workflow,    label: 'Workflows' },
+      { type: 'link', to: '/followups',  icon: Clock,       label: 'Follow-ups' },
+      { type: 'link', to: '/activity',   icon: Activity,    label: 'Activity Log' },
     ],
   },
 ];

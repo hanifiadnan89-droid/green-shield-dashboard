@@ -9,6 +9,7 @@ import workflowsRouter from './routes/workflows.js';
 import activityRouter from './routes/activity.js';
 import driveRouter from './routes/drive.js';
 import documentsRouter from './routes/documents.js';
+import manualSmsRouter from './routes/manual-sms.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/workflows', workflowsRouter);
 app.use('/api/activity', activityRouter);
 app.use('/api/drive', driveRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/manual-sms', manualSmsRouter);
 
 app.listen(PORT, () => {
   const mode = process.env.TEST_MODE === 'true' ? '🔒 TEST MODE' : '🔴 LIVE MODE';

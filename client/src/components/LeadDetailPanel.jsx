@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Phone, Mail, User, Calendar, Clock, AlertCircle, CheckCircle, XCircle, MessageSquare, Send, Hash } from 'lucide-react';
+import { X, Phone, Mail, User, Calendar, Clock, AlertCircle, CheckCircle, XCircle, MessageSquare, Send, Hash, Smartphone } from 'lucide-react';
 import { api } from '../api/client.js';
 import StatusBadge from './StatusBadge.jsx';
 
@@ -183,6 +183,13 @@ export default function LeadDetailPanel({ lead, onClose }) {
             className="btn-primary text-xs flex-1 justify-center cursor-pointer"
           >
             <Send size={12} /> Send Template
+          </button>
+          <button
+            onClick={() => { onClose(); navigate('/manual-sms', { state: { lead } }); }}
+            className="btn-ghost text-xs flex items-center gap-1.5 cursor-pointer"
+            title="Manual SMS"
+          >
+            <Smartphone size={12} /> SMS
           </button>
           <button onClick={onClose} className="btn-ghost text-xs">Close</button>
         </div>
