@@ -1,0 +1,128 @@
+/* All rules scoped to .crm-preview — zero bleed into the main dashboard */
+
+@keyframes cp-shimmer {
+  0%   { background-position: -500px 0; }
+  100% { background-position: 500px 0; }
+}
+
+@keyframes cp-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cp-scale-x {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* ── Skeleton shimmer ── */
+.crm-preview .skeleton {
+  background: linear-gradient(90deg, #ebebeb 0%, #e0e0e0 25%, #ebebeb 50%, #ebebeb 100%);
+  background-size: 500px 100%;
+  animation: cp-shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ── Premium card base ── */
+.crm-preview .p-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.025);
+}
+
+.crm-preview .p-card-lift {
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.22s ease-out,
+              border-color 0.22s ease-out;
+}
+
+.crm-preview .p-card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.09), 0 0 0 1px rgba(22, 163, 74, 0.14);
+  border-color: rgba(22, 163, 74, 0.20);
+}
+
+/* ── Bento staggered entrance ── */
+.crm-preview .bento-card {
+  animation: cp-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.crm-preview .bento-card:nth-child(1) { animation-delay: 0ms; }
+.crm-preview .bento-card:nth-child(2) { animation-delay: 65ms; }
+.crm-preview .bento-card:nth-child(3) { animation-delay: 130ms; }
+.crm-preview .bento-card:nth-child(4) { animation-delay: 195ms; }
+.crm-preview .bento-card:nth-child(5) { animation-delay: 260ms; }
+
+/* ── Section staggered entrance ── */
+.crm-preview .section-enter {
+  animation: cp-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.crm-preview .section-enter:nth-child(1) { animation-delay: 320ms; }
+.crm-preview .section-enter:nth-child(2) { animation-delay: 380ms; }
+.crm-preview .section-enter:nth-child(3) { animation-delay: 440ms; }
+
+/* ── Activity feed stagger ── */
+.crm-preview .feed-item {
+  animation: cp-fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.crm-preview .feed-item:nth-child(1)  { animation-delay: 420ms; }
+.crm-preview .feed-item:nth-child(2)  { animation-delay: 450ms; }
+.crm-preview .feed-item:nth-child(3)  { animation-delay: 480ms; }
+.crm-preview .feed-item:nth-child(4)  { animation-delay: 510ms; }
+.crm-preview .feed-item:nth-child(5)  { animation-delay: 540ms; }
+.crm-preview .feed-item:nth-child(6)  { animation-delay: 570ms; }
+.crm-preview .feed-item:nth-child(7)  { animation-delay: 600ms; }
+.crm-preview .feed-item:nth-child(8)  { animation-delay: 630ms; }
+
+/* ── Progress bar fill ── */
+.crm-preview .progress-fill {
+  transform-origin: left center;
+  animation: cp-scale-x 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 480ms;
+}
+
+/* ── Lead rows ── */
+.crm-preview .lead-row {
+  transition: background-color 0.12s ease;
+}
+.crm-preview .lead-row:hover {
+  background-color: rgba(240, 253, 244, 0.75);
+}
+
+/* ── Filter chips ── */
+.crm-preview .filter-chip {
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+/* ── Sidebar items ── */
+.crm-preview .sidebar-item {
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+/* ── Quick action cards ── */
+.crm-preview .action-card {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s ease-out,
+              border-color 0.2s ease-out;
+}
+.crm-preview .action-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(22, 163, 74, 0.12);
+  border-color: rgba(22, 163, 74, 0.22);
+}
+
+/* ── prefers-reduced-motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .crm-preview .bento-card,
+  .crm-preview .section-enter,
+  .crm-preview .feed-item,
+  .crm-preview .progress-fill,
+  .crm-preview .p-card-lift,
+  .crm-preview .action-card,
+  .crm-preview .skeleton {
+    animation: none !important;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
+    transform: none !important;
+  }
+}
