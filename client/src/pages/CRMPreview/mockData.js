@@ -80,6 +80,66 @@ export function timeAgo(ts) {
   return new Date(ts).toLocaleDateString();
 }
 
+function _daysSince(ts) {
+  if (!ts || ts === 'imported') return null;
+  return Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
+}
+const _isReplied = l => l.sms_reply === 'yes' || l.email_reply === 'yes' || l.status === 'replied';
+const _isError   = l => !!(l.error && l.error.trim()) || l.status === 'error' || l.status === 'email_failed';
+const _isStopped = l => l.stop === 'yes' || l.status === 'stopped';
+const _hasSent   = l => !!(l.sent && l.sent !== 'imported');
+
+export function deriveSalesStats(leads = []) {
+  const active = leads.filter(l => !_isStopped(l));
+  return {
+    needsAction:       active.filter(_isReplied).length + leads.filter(_isError).length,
+    hotReplies:        active.filter(_isReplied).length,
+    agreementsPending: active.filter(l => (l.notes || '').toLowerCase() === 'ag' && !_isReplied(l) && !_isError(l) && _hasSent(l)).length,
+    followUpQueue:     active.filter(l => _hasSent(l) && !_isReplied(l) && !_isError(l)).length,
+  };
+}
+
+export function getPriorityLeads(leads = []) {
+  const active = leads.filter(l => !_isStopped(l));
+
+  const replied = active
+    .filter(_isReplied)
+    .map(l => ({ ...l, _group: 'replied', _reason: l.sms_reply === 'yes' ? 'SMS reply received' : l.email_reply === 'yes' ? 'Email reply received' : 'Replied', _days: _daysSince(l.sent) }));
+
+  const agreements = active
+    .filter(l => (l.notes || '').toLowerCase() === 'ag' && !_isReplied(l) && !_isError(l) && _hasSent(l))
+    .map(l => ({ ...l, _group: 'agreement', _reason: 'Agreement sent — awaiting reply', _days: _daysSince(l.sent) }))
+    .sort((a, b) => (b._days ?? 0) - (a._days ?? 0));
+
+  const noAnswer = active
+    .filter(l => (l.notes || '').toLowerCase() === 'na' && !_isReplied(l) && !_isError(l) && _hasSent(l))
+    .map(l => ({ ...l, _group: 'noAnswer', _reason: 'No answer — follow-up needed', _days: _daysSince(l.sent) }))
+    .sort((a, b) => (b._days ?? 0) - (a._days ?? 0));
+
+  const inSequence = active
+    .filter(l => {
+      const n = (l.notes || '').toLowerCase();
+      return ['rit', 't/m', 'iq'].includes(n) && !_isReplied(l) && !_isError(l) && _hasSent(l) && (_daysSince(l.sent) ?? 0) >= 2;
+    })
+    .map(l => ({ ...l, _group: 'inSequence', _reason: 'In sequence — follow-up due', _days: _daysSince(l.sent) }))
+    .sort((a, b) => (b._days ?? 0) - (a._days ?? 0));
+
+  const errors = leads
+    .filter(_isError)
+    .map(l => ({ ...l, _group: 'error', _reason: (l.error && l.error.trim()) ? l.error : 'Send failed', _days: _daysSince(l.sent) }));
+
+  const totals = { replied: replied.length, agreements: agreements.length, noAnswer: noAnswer.length, inSequence: inSequence.length, errors: errors.length };
+  return {
+    replied:    replied.slice(0, 5),
+    agreements: agreements.slice(0, 5),
+    noAnswer:   noAnswer.slice(0, 5),
+    inSequence: inSequence.slice(0, 4),
+    errors:     errors.slice(0, 3),
+    totals,
+    isEmpty: Object.values(totals).every(v => v === 0),
+  };
+}
+
 export function getActivityMeta(action = '') {
   const a = action.toLowerCase();
   if (a.includes('sms')) return { label: 'SMS Sent', bg: '#f0fdf4', color: '#16A34A' };
