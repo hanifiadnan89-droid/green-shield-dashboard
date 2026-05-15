@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import LeadRow from './LeadRow.jsx';
 import EmptyState from '../../../components/EmptyState.jsx';
+import LeadDetailPanel from '../../../components/LeadDetailPanel.jsx';
 
 const FILTERS = [
   { key: 'all',        label: 'All' },
@@ -36,6 +37,8 @@ function applyFilter(leads, filter) {
 }
 
 export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter, search, setSearch, onPreviewAction }) {
+  const [selectedLead, setSelectedLead] = useState(null);
+
   const filtered = useMemo(() => {
     let result = applyFilter(leads, activeFilter);
     if (search.trim()) {
@@ -48,6 +51,7 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
   }, [leads, activeFilter, search]);
 
   return (
+    <>
     <div className="p-card section-enter flex flex-col" style={{ minHeight: '400px' }}>
       {/* Header */}
       <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
@@ -119,7 +123,9 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
             <LeadRow
               key={lead.row_number}
               lead={lead}
+              onSelect={setSelectedLead}
               onPreviewAction={onPreviewAction}
+              isSelected={selectedLead?.row_number === lead.row_number}
             />
           ))
         )}
@@ -135,5 +141,10 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
         )}
       </div>
     </div>
+
+    {selectedLead && (
+      <LeadDetailPanel lead={selectedLead} onClose={() => setSelectedLead(null)} />
+    )}
+    </>
   );
 }

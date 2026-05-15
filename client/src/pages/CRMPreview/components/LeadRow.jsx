@@ -54,7 +54,7 @@ function StatusPill({ lead }) {
   );
 }
 
-export default function LeadRow({ lead, onPreviewAction }) {
+export default function LeadRow({ lead, onSelect, onPreviewAction, isSelected }) {
   const avatar = getAvatarStyle(lead.name || '');
   const initials = getInitials(lead.name || '');
   const borderColor = getRowBorderColor(lead);
@@ -66,8 +66,12 @@ export default function LeadRow({ lead, onPreviewAction }) {
   return (
     <div
       className="lead-row flex items-center gap-3 px-4 py-3 cursor-pointer"
-      style={{ borderLeft: `3px solid ${borderColor}`, borderBottom: '1px solid rgba(0,0,0,0.05)' }}
-      onClick={() => onPreviewAction('view', lead)}
+      style={{
+        borderLeft: `3px solid ${borderColor}`,
+        borderBottom: '1px solid rgba(0,0,0,0.05)',
+        background: isSelected ? 'rgba(22,163,74,0.06)' : undefined,
+      }}
+      onClick={() => onSelect(lead)}
     >
       {/* Avatar */}
       <div
