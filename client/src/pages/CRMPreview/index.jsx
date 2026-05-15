@@ -65,7 +65,7 @@ function MockDataBanner() {
         Preview
       </span>
       <span style={{ color: '#64748B' }}>
-        Lead counts and activity are real data (read-only). Write actions are disabled — use the main dashboard to stop, edit, or send.
+        Lead counts and activity are live data (read-only view). To stop, edit, or send — use the Leads or Send Template pages.
       </span>
     </div>
   );
@@ -139,7 +139,7 @@ export default function CRMPreview({ testMode }) {
 
   return (
     <div
-      className="crm-preview fixed inset-0 z-50 flex overflow-hidden"
+      className="crm-preview flex h-screen overflow-hidden"
       style={{ background: '#f0f4f0' }}
     >
       {/* Dark green sidebar */}
