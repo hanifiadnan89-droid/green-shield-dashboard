@@ -3,15 +3,14 @@ import { api } from '../../api/client.js';
 import { deriveStats } from './mockData.js';
 import PremiumSidebar from './components/PremiumSidebar.jsx';
 import PreviewHeader from './components/PreviewHeader.jsx';
-import BentoGrid from './components/BentoGrid.jsx';
+import SalesSummaryBar from './components/SalesSummaryBar.jsx';
+import PriorityQueue from './components/PriorityQueue.jsx';
 import PipelineSummary from './components/PipelineSummary.jsx';
-import QuickActions from './components/QuickActions.jsx';
 import LeadPipeline from './components/LeadPipeline.jsx';
 import ActivityFeed from './components/ActivityFeed.jsx';
 import LoadingSkeleton from './components/LoadingSkeleton.jsx';
 import './preview.css';
 
-/* ── Preview-action toast ── */
 function PreviewToast({ message, onClose }) {
   if (!message) return null;
   return (
@@ -37,41 +36,13 @@ function PreviewToast({ message, onClose }) {
       }}
     >
       <span style={{ color: '#4ade80', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
-        Preview
+        Info
       </span>
       {message}
     </div>
   );
 }
 
-/* ── Mock data notice banner ── */
-function MockDataBanner() {
-  return (
-    <div
-      style={{
-        background: 'rgba(139,92,246,0.07)',
-        border: '1px solid rgba(139,92,246,0.15)',
-        borderRadius: '10px',
-        padding: '8px 14px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        fontSize: '11px',
-        color: '#7c3aed',
-        marginBottom: '4px',
-      }}
-    >
-      <span style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '10px' }}>
-        Preview
-      </span>
-      <span style={{ color: '#64748B' }}>
-        Lead counts and activity are live data (read-only view). To stop, edit, or send — use the Leads or Send Template pages.
-      </span>
-    </div>
-  );
-}
-
-/* ── Error state ── */
 function ErrorState({ onRetry }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-12">
@@ -130,16 +101,15 @@ export default function CRMPreview({ testMode }) {
     setTimeout(() => setToast(null), 3200);
   }, []);
 
+  const handlePreviewAction = useCallback((type) => {
+    if (type === 'stop') showToast('Use the Leads page to stop or resume a lead');
+    if (type === 'edit') showToast('Use the Leads page to edit lead details');
+  }, [showToast]);
+
   const handleFilterChange = useCallback((filter) => {
     setActiveFilter(filter);
     pipelineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, []);
-
-  const handlePreviewAction = useCallback((type) => {
-    if (type === 'stop') showToast('Use the main dashboard to stop or resume a lead');
-    if (type === 'edit') showToast('Use the main dashboard to edit lead details');
-    if (type === 'view') showToast('Full lead detail available in the Leads page');
-  }, [showToast]);
 
   const stats = useMemo(() => leads ? deriveStats(leads) : null, [leads]);
 
@@ -148,15 +118,15 @@ export default function CRMPreview({ testMode }) {
       className="crm-preview flex h-screen overflow-hidden"
       style={{ background: '#f0f4f0' }}
     >
-      {/* Dark green sidebar */}
-      <PremiumSidebar stats={stats} testMode={testMode} activeFilter={activeFilter} onFilterChange={handleFilterChange} />
+      <PremiumSidebar
+        stats={stats}
+        testMode={testMode}
+        activeFilter={activeFilter}
+        onFilterChange={handleFilterChange}
+      />
 
-      {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PreviewHeader
-          onRefresh={refresh}
-          loading={loading}
-        />
+        <PreviewHeader onRefresh={refresh} loading={loading} />
 
         <main className="flex-1 overflow-y-auto">
           {error ? (
@@ -165,25 +135,24 @@ export default function CRMPreview({ testMode }) {
             <LoadingSkeleton />
           ) : (
             <div className="p-6 space-y-5 max-w-[1600px]">
-              <MockDataBanner />
 
-              {/* Bento metrics row */}
-              <BentoGrid stats={stats} loading={false} activeFilter={activeFilter} onFilterChange={handleFilterChange} />
+              {/* Sales summary bar */}
+              <SalesSummaryBar leads={leads ?? []} loading={false} />
 
-              {/* Middle: pipeline summary + quick actions */}
+              {/* Priority Work Queue + Pipeline Summary */}
               <div className="grid grid-cols-12 gap-5">
-                <div className="col-span-5">
+                <div className="col-span-8">
+                  <PriorityQueue leads={leads ?? []} loading={false} />
+                </div>
+                <div className="col-span-4">
                   <PipelineSummary
                     byTemplate={stats?.byTemplate}
                     total={stats?.total ?? 0}
                   />
                 </div>
-                <div className="col-span-7">
-                  <QuickActions />
-                </div>
               </div>
 
-              {/* Bottom: lead pipeline + activity feed */}
+              {/* Lead Pipeline + Activity Feed */}
               <div ref={pipelineRef} className="grid grid-cols-12 gap-5 pb-6">
                 <div className="col-span-8">
                   <LeadPipeline
