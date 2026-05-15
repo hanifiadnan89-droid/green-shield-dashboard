@@ -9,18 +9,29 @@ const COLOR_MAP = {
   slate:  { iconBg: '#f1f5f9', iconColor: '#64748B', cardBg: '#ffffff', cardBorder: 'rgba(0,0,0,0.07)' },
 };
 
-export default function MetricCard({ label, value, icon: Icon, color = 'slate', hero, urgent, loading, subtitle, link }) {
+export default function MetricCard({ label, value, icon: Icon, color = 'slate', hero, urgent, loading, subtitle, link, filterKey, onFilterChange, isActive }) {
   const c = COLOR_MAP[color] || COLOR_MAP.slate;
   const isUrgent = urgent && value > 0;
+  const clickable = !!onFilterChange;
+
+  function handleClick() {
+    if (!onFilterChange) return;
+    onFilterChange(isActive && filterKey !== 'all' ? 'all' : filterKey);
+  }
 
   const inner = (
     <div
-      className={`bento-card p-card p-card-lift flex flex-col justify-between cursor-default ${hero ? 'p-6' : 'p-5'}`}
+      className={`bento-card p-card p-card-lift flex flex-col justify-between ${hero ? 'p-6' : 'p-5'} ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
       style={{
-        background: c.cardBg,
-        borderColor: isUrgent ? 'rgba(220,38,38,0.25)' : c.cardBorder,
+        background: isActive ? c.cardBg : c.cardBg,
+        borderColor: isActive ? c.iconColor : isUrgent ? 'rgba(220,38,38,0.25)' : c.cardBorder,
+        boxShadow: isActive
+          ? `0 0 0 3px ${c.iconColor}22, 0 1px 3px rgba(0,0,0,0.05)`
+          : undefined,
         minHeight: hero ? '148px' : '136px',
+        transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
       }}
+      onClick={handleClick}
     >
       <div className="flex items-start justify-between">
         <div
@@ -47,8 +58,11 @@ export default function MetricCard({ label, value, icon: Icon, color = 'slate', 
             >
               <AnimatedNumber value={value ?? 0} />
             </p>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#94A3B8]">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#94A3B8] flex items-center gap-1.5">
               {label}
+              {isActive && (
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: c.iconColor, display: 'inline-block', flexShrink: 0 }} />
+              )}
             </p>
             {subtitle && (
               <p className="text-[11px] text-[#64748B] mt-1">{subtitle}</p>

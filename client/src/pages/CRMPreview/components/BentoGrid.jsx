@@ -1,7 +1,7 @@
 import { Users, Send, MessageSquare, AlertCircle, StopCircle } from 'lucide-react';
 import MetricCard from './MetricCard.jsx';
 
-export default function BentoGrid({ stats, loading }) {
+export default function BentoGrid({ stats, loading, activeFilter, onFilterChange }) {
   const replied = (stats?.smsReplies ?? 0) + (stats?.emailReplies ?? 0);
 
   return (
@@ -16,6 +16,9 @@ export default function BentoGrid({ stats, loading }) {
           hero
           loading={loading}
           subtitle={stats?.inProgress > 0 ? `${stats.inProgress} in progress` : 'All leads in pipeline'}
+          filterKey="all"
+          onFilterChange={onFilterChange}
+          isActive={activeFilter === 'all'}
         />
       </div>
 
@@ -27,6 +30,9 @@ export default function BentoGrid({ stats, loading }) {
           icon={Send}
           color="blue"
           loading={loading}
+          filterKey="sent"
+          onFilterChange={onFilterChange}
+          isActive={activeFilter === 'sent'}
         />
       </div>
 
@@ -43,6 +49,9 @@ export default function BentoGrid({ stats, loading }) {
               ? `${stats?.smsReplies ?? 0} SMS · ${stats?.emailReplies ?? 0} email`
               : undefined
           }
+          filterKey="replied"
+          onFilterChange={onFilterChange}
+          isActive={activeFilter === 'replied'}
         />
       </div>
 
@@ -56,6 +65,9 @@ export default function BentoGrid({ stats, loading }) {
           urgent
           loading={loading}
           subtitle={!loading && stats?.errors > 0 ? 'Needs attention' : undefined}
+          filterKey="errors"
+          onFilterChange={onFilterChange}
+          isActive={activeFilter === 'errors'}
         />
       </div>
 
@@ -67,6 +79,9 @@ export default function BentoGrid({ stats, loading }) {
           icon={StopCircle}
           color="amber"
           loading={loading}
+          filterKey="stopped"
+          onFilterChange={onFilterChange}
+          isActive={activeFilter === 'stopped'}
         />
       </div>
     </div>
