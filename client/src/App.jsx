@@ -9,6 +9,7 @@ import Workflows from './pages/Workflows.jsx';
 import Followups from './pages/Followups.jsx';
 import ActivityLog from './pages/ActivityLog.jsx';
 import ComponentPreview from './pages/ComponentPreview.jsx';
+import CRMPreview from './pages/CRMPreview/index.jsx';
 import { api } from './api/client.js';
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/followups" element={<Followups />} />
         <Route path="/activity" element={<ActivityLog />} />
         <Route path="/component-preview" element={<ComponentPreview />} />
+        <Route path="/crm-preview" element={<CRMPreview testMode={testMode} />} />
       </Routes>
     </Layout>
   );
