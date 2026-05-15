@@ -99,6 +99,7 @@ export default function Leads() {
   const [searchParams] = useSearchParams();
   const category     = searchParams.get('category') || '';
   const categoryMeta = CATEGORY_META[category] || null;
+  const notesParam   = searchParams.get('notes') || '';
 
   const [leads, setLeads]             = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -139,13 +140,14 @@ export default function Leads() {
         );
         if (!match) return false;
       }
-      for (const [key, val] of Object.entries(filters)) {
+      const effectiveFilters = notesParam ? { ...filters, notes: notesParam } : filters;
+      for (const [key, val] of Object.entries(effectiveFilters)) {
         if (val && (lead[key] || '').toLowerCase() !== val.toLowerCase()) return false;
       }
       return true;
     });
     return [...result].sort((a, b) => b.row_number - a.row_number);
-  }, [leads, search, filters, category]);
+  }, [leads, search, filters, category, notesParam]);
 
   async function handleStop(lead) {
     setActionLoading(p => ({ ...p, [`stop_${lead.row_number}`]: true }));
@@ -183,6 +185,22 @@ export default function Leads() {
           <div>
             <h1 className="text-sm font-semibold text-gs-text">{categoryMeta.label}</h1>
             <p className="text-gs-muted text-xs">{categoryMeta.desc}</p>
+          </div>
+          <Link to="/leads" className="ml-auto text-xs text-gs-muted hover:text-gs-accent transition-colors flex items-center gap-1">
+            ← All leads
+          </Link>
+        </div>
+      )}
+
+      {notesParam && !categoryMeta && (
+        <div className="px-6 py-3 border-b border-gs-border flex items-center gap-3"
+             style={{ background: 'rgba(37,99,235,0.05)' }}>
+          <span className="w-1 h-6 rounded-full bg-gs-info shrink-0" />
+          <div>
+            <h1 className="text-sm font-semibold text-gs-text">
+              Template: <span className="uppercase">{notesParam}</span>
+            </h1>
+            <p className="text-gs-muted text-xs">Showing leads with this template</p>
           </div>
           <Link to="/leads" className="ml-auto text-xs text-gs-muted hover:text-gs-accent transition-colors flex items-center gap-1">
             ← All leads
