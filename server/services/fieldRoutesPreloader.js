@@ -43,7 +43,7 @@ async function fetchRawPayload(date) {
     );
   }
 
-  const { chromium } = playwrightMod;
+  const chromium = playwrightMod.default?.chromium ?? playwrightMod.chromium;
   let browser;
 
   try {
@@ -207,6 +207,13 @@ async function updateMeta(date, fields) {
   await writeMeta(meta);
 }
 
+// Full replacement — used after a successful fetch so no stale fields survive
+async function replaceMeta(date, entry) {
+  const meta = await readMeta();
+  meta[date] = entry;
+  await writeMeta(meta);
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -225,7 +232,7 @@ export async function refreshDate(date) {
       resolve(ROUTES_DIR, `${date}.normalized.json`),
       JSON.stringify(result, null, 2)
     );
-    await updateMeta(date, {
+    await replaceMeta(date, {
       status: 'cached',
       timestamp: new Date().toISOString(),
       techCount: result.technicians.length,

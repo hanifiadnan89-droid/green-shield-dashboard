@@ -7,7 +7,8 @@
  *   node scripts/fieldRoutesLogin.mjs
  */
 
-import { chromium } from '../server/node_modules/playwright/index.js';
+import playwrightPkg from '../server/node_modules/playwright/index.js';
+const { chromium } = playwrightPkg;
 import { mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
