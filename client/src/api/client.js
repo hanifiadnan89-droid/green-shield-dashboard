@@ -39,6 +39,13 @@ export const api = {
     quotes: () => request('/drive/quotes')
   },
 
+  routes: {
+    payload: (date) => request(`/routes/payload?date=${date}`),
+    status:  () => request('/routes/status'),
+    refresh: (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
+    preload: () => request('/routes/preload', { method: 'POST' }),
+  },
+
   documents: {
     quotes:      () => request('/documents/quotes'),
     prepGuides:  () => request('/documents/prep-guides'),

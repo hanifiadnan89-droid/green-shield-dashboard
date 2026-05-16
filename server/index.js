@@ -9,6 +9,8 @@ import workflowsRouter from './routes/workflows.js';
 import activityRouter from './routes/activity.js';
 import driveRouter from './routes/drive.js';
 import documentsRouter from './routes/documents.js';
+import routesRouter from './routes/routes.js';
+import { startCron } from './services/fieldRoutesCron.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -34,6 +36,9 @@ app.use('/api/workflows', workflowsRouter);
 app.use('/api/activity', activityRouter);
 app.use('/api/drive', driveRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/routes', routesRouter);
+
+startCron();
 
 app.listen(PORT, () => {
   const mode = process.env.TEST_MODE === 'true' ? '🔒 TEST MODE' : '🔴 LIVE MODE';
