@@ -1,26 +1,54 @@
 import express from 'express';
-import { readFileSync, existsSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PAYLOAD_PATH = resolve(__dirname, '../../data/fieldroutes-sample.json');
+import {
+  refreshDate,
+  getStatus,
+  getNormalizedForDate,
+  preloadNextThreeDays,
+} from '../services/fieldRoutesPreloader.js';
 
 const router = express.Router();
 
-router.get('/payload', (req, res) => {
-  if (!existsSync(PAYLOAD_PATH)) {
-    return res.status(404).json({
-      error: 'Route payload not found',
-      detail: 'Save your FieldRoutes day.php payload to data/fieldroutes-sample.json',
-    });
-  }
+// GET /api/routes/status — cache status for next 3 dates
+router.get('/status', async (req, res) => {
   try {
-    const raw = JSON.parse(readFileSync(PAYLOAD_PATH, 'utf8'));
-    res.json(raw);
+    const status = await getStatus();
+    res.json(status);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to parse payload', detail: err.message });
+    res.status(500).json({ error: err.message });
   }
+});
+
+// GET /api/routes/payload?date=YYYY-MM-DD — normalized technician data for a date
+router.get('/payload', async (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date query param required (YYYY-MM-DD)' });
+  }
+  const data = await getNormalizedForDate(date);
+  if (!data) {
+    return res.status(404).json({ error: 'No cached data for this date', date });
+  }
+  res.json(data);
+});
+
+// POST /api/routes/refresh?date=YYYY-MM-DD — trigger single-date fetch (fire-and-forget)
+router.post('/refresh', (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date query param required (YYYY-MM-DD)' });
+  }
+  res.json({ started: true, date });
+  refreshDate(date).catch(err => {
+    console.error(`[routes] refresh ${date} failed:`, err.message);
+  });
+});
+
+// POST /api/routes/preload — fire-and-forget preload for next 3 days
+router.post('/preload', (req, res) => {
+  res.json({ started: true });
+  preloadNextThreeDays().catch(err => {
+    console.error('[routes] preload failed:', err.message);
+  });
 });
 
 export default router;

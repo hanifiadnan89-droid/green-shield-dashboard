@@ -6,7 +6,7 @@
  */
 
 // Scoring weights — must sum to 1.0
-const W = { geo: 0.35, travel: 0.30, window: 0.25, capacity: 0.10 };
+const W = { geo: 0.20, travel: 0.40, window: 0.30, capacity: 0.10 };
 
 // Geographic distance at which geo score hits 0
 const GEO_ZERO_MILES = 15;
@@ -40,12 +40,14 @@ function travelMin(miles) {
   return (miles / AVG_SPEED_MPH) * 60;
 }
 
-/** Format minutes-from-midnight as "HH:MM". */
-function fmtTime(min) {
+/** Format minutes-from-midnight as "H:MM AM/PM". */
+function fmtTime12h(min) {
   if (min == null) return null;
   const h = Math.floor(min / 60);
   const m = min % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
 }
 
 /**
@@ -239,7 +241,7 @@ function scoreRoute(tech, lead, prefWindow) {
       afterCustomerName:   insertion.afterCustomerName,
       beforeCustomerName:  insertion.beforeCustomerName,
       estimatedArrivalMin: insertion.estimatedArrivalMin,
-      estimatedArrivalTime: fmtTime(insertion.estimatedArrivalMin),
+      estimatedArrivalTime: fmtTime12h(insertion.estimatedArrivalMin),
       detourMiles:         Math.round(insertion.detourMiles * 10) / 10,
       gapAvailableMin:     insertion.gapAvailableMin,
       viable:              insertion.viable,
@@ -271,8 +273,8 @@ export function scoreRoutes(technicians, lead, topN = 3) {
     lead,
     prefWindow: {
       label:     lead.timeWindowPreference || 'AT',
-      startTime: fmtTime(prefWindow.start),
-      endTime:   fmtTime(prefWindow.end),
+      startTime: fmtTime12h(prefWindow.start),
+      endTime:   fmtTime12h(prefWindow.end),
     },
     totalRoutesScored: scored.length,
     topMatches: scored.slice(0, topN).map((r, i) => ({ rank: i + 1, ...r })),

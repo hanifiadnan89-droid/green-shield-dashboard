@@ -40,7 +40,10 @@ export const api = {
   },
 
   routes: {
-    payload: () => request('/routes/payload'),
+    payload: (date) => request(`/routes/payload?date=${date}`),
+    status:  () => request('/routes/status'),
+    refresh: (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
+    preload: () => request('/routes/preload', { method: 'POST' }),
   },
 
   documents: {

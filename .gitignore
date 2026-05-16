@@ -10,3 +10,6 @@ claude-skills/
 server/service-account.json
 server/probe_*.js
 data/fieldroutes-sample.json
+data/routes/
+playwright/.auth/
+*.har
