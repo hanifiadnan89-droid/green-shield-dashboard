@@ -115,10 +115,18 @@ function ScoreBar({ score, max = 100 }) {
 // ---------------------------------------------------------------------------
 // Result card
 // ---------------------------------------------------------------------------
+const TIMED_RISK_CFG = {
+  none:   { label: '✓ timed safe',    color: '#16A34A' },
+  low:    { label: '⚡ low risk',      color: '#F59E0B' },
+  medium: { label: '⚠ timed risk',    color: '#F59E0B' },
+  high:   { label: '✗ timed conflict', color: '#DC2626' },
+};
+
 function ResultCard({ match, rank }) {
   const rankColors = ['#16A34A', '#3B82F6', '#8B5CF6'];
   const color = rankColors[rank - 1] || '#94A3B8';
   const ins = match.bestInsertion;
+  const timedCfg = TIMED_RISK_CFG[ins?.timedRisk] ?? TIMED_RISK_CFG.none;
 
   return (
     <div style={{
@@ -128,7 +136,8 @@ function ResultCard({ match, rank }) {
       padding: '10px 12px',
       marginBottom: 8,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
         <span style={{
           width: 20, height: 20, borderRadius: '50%', background: color,
           color: '#fff', fontSize: 10, fontWeight: 800,
@@ -146,26 +155,71 @@ function ResultCard({ match, rank }) {
         </div>
       </div>
 
+      {/* Suggested window */}
+      {ins?.suggestedWindow && (
+        <div style={{ marginBottom: 6 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: rank === 1 ? '#16A34A' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {rank === 1 ? 'Recommended: ' : 'Suggested: '}
+          </span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#0F172A' }}>
+            {ins.suggestedWindow}
+          </span>
+          <span style={{ fontSize: 10, color: '#94A3B8', marginLeft: 5 }}>
+            (arrives {ins.estimatedArrivalTime})
+          </span>
+        </div>
+      )}
+
       <ScoreBar score={match.scores.total} />
 
-      {ins && (
-        <div style={{ marginTop: 7, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>Est. arrival</span> {ins.estimatedArrivalTime}
-          </span>
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>Detour</span> {ins.detourMiles} mi
-          </span>
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>Remaining</span> {match.capacity.remainingHours}h
-          </span>
-          {!ins.viable && (
-            <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>⚠ tight</span>
+      {/* Insertion path */}
+      {ins && (ins.prevStop || ins.nextStop) && (
+        <div style={{ marginTop: 6, fontSize: 10, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          {ins.prevStop && (
+            <span title={ins.prevStop.scheduledArrival}>{ins.prevStop.customerName}</span>
+          )}
+          {ins.prevStop && <span style={{ color: '#CBD5E1' }}>→</span>}
+          <span style={{ color: '#16A34A', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>NEW</span>
+          {ins.nextStop && <span style={{ color: '#CBD5E1' }}>→</span>}
+          {ins.nextStop && (
+            <span title={ins.nextStop.isTimed ? `Timed: ${ins.nextStop.windowLabel}` : ins.nextStop.scheduledArrival}>
+              {ins.nextStop.customerName}
+              {ins.nextStop.isTimed && <span style={{ color: '#F59E0B', marginLeft: 2 }}>⏱</span>}
+            </span>
           )}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+      {/* Stats row */}
+      {ins && (
+        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
+          <span style={{ fontSize: 10, color: '#475569' }}>
+            <span style={{ fontWeight: 600 }}>+Drive</span> {ins.addedDriveTime}
+          </span>
+          <span style={{ fontSize: 10, color: '#475569' }}>
+            <span style={{ fontWeight: 600 }}>+Miles</span> {ins.detourMiles} mi
+          </span>
+          <span style={{ fontSize: 10, color: '#475569' }}>
+            <span style={{ fontWeight: 600 }}>Cap</span> {match.capacity.remainingHours}h left
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: timedCfg.color }}>
+            {timedCfg.label}
+          </span>
+          {!ins.viable && (
+            <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>⚠ tight gap</span>
+          )}
+        </div>
+      )}
+
+      {/* Reason */}
+      {match.reason && (
+        <p style={{ fontSize: 10, color: '#64748B', margin: '5px 0 0', lineHeight: 1.4 }}>
+          {match.reason}
+        </p>
+      )}
+
+      {/* Score breakdown */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 6, paddingTop: 5, borderTop: '1px solid rgba(0,0,0,0.04)' }}>
         {['geographic', 'travelEfficiency', 'timeWindow', 'capacity'].map(k => {
           const labels = { geographic: 'Geo', travelEfficiency: 'Drive', timeWindow: 'Win', capacity: 'Cap' };
           const v = match.scores[k];
