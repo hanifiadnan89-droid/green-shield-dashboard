@@ -139,16 +139,13 @@ export default function CRMPreview({ testMode }) {
               {/* Sales summary bar */}
               <SalesSummaryBar leads={leads ?? []} loading={false} />
 
-              {/* Priority Work Queue + Pipeline Summary */}
+              {/* Pipeline Summary + Priority Work Queue */}
               <div className="grid grid-cols-12 gap-5">
                 <div className="col-span-8">
-                  <PriorityQueue leads={leads ?? []} loading={false} />
+                  <PipelineSummary stats={stats ?? {}} />
                 </div>
-                <div className="col-span-4">
-                  <PipelineSummary
-                    byTemplate={stats?.byTemplate}
-                    total={stats?.total ?? 0}
-                  />
+                <div className="col-span-4 h-full">
+                  <PriorityQueue leads={leads ?? []} loading={false} />
                 </div>
               </div>
 
@@ -164,7 +161,7 @@ export default function CRMPreview({ testMode }) {
                     onPreviewAction={handlePreviewAction}
                   />
                 </div>
-                <div className="col-span-4">
+                <div className="col-span-4 h-full">
                   <RouteFinderWidget />
                 </div>
               </div>
