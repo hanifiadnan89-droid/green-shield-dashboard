@@ -7,7 +7,7 @@ import SalesSummaryBar from './components/SalesSummaryBar.jsx';
 import PriorityQueue from './components/PriorityQueue.jsx';
 import PipelineSummary from './components/PipelineSummary.jsx';
 import LeadPipeline from './components/LeadPipeline.jsx';
-import ActivityFeed from './components/ActivityFeed.jsx';
+import RouteFinderWidget from './components/RouteFinderWidget.jsx';
 import LoadingSkeleton from './components/LoadingSkeleton.jsx';
 import './preview.css';
 
@@ -68,7 +68,7 @@ function ErrorState({ onRetry }) {
 
 export default function CRMPreview({ testMode }) {
   const [leads, setLeads]       = useState(null);
-  const [activity, setActivity] = useState(null);
+  const [activity, setActivity] = useState(null); // eslint-disable-line no-unused-vars
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(false);
 
@@ -165,7 +165,7 @@ export default function CRMPreview({ testMode }) {
                   />
                 </div>
                 <div className="col-span-4">
-                  <ActivityFeed activity={activity ?? []} />
+                  <RouteFinderWidget />
                 </div>
               </div>
             </div>

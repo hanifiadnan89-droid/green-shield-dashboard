@@ -39,6 +39,10 @@ export const api = {
     quotes: () => request('/drive/quotes')
   },
 
+  routes: {
+    payload: () => request('/routes/payload'),
+  },
+
   documents: {
     quotes:      () => request('/documents/quotes'),
     prepGuides:  () => request('/documents/prep-guides'),
