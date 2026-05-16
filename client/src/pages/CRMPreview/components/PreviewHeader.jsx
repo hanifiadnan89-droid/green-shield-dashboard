@@ -1,5 +1,4 @@
-import { RefreshCw, Send } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 
 export default function PreviewHeader({ onRefresh, loading }) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -23,8 +22,8 @@ export default function PreviewHeader({ onRefresh, loading }) {
         <p className="text-[11px] text-[#94A3B8]">{today}</p>
       </div>
 
-      {/* Right: refresh + CTA */}
-      <div className="flex items-center gap-2 ml-auto shrink-0">
+      {/* Right: refresh */}
+      <div className="ml-auto shrink-0">
         <button
           onClick={onRefresh}
           disabled={loading}
@@ -39,23 +38,6 @@ export default function PreviewHeader({ onRefresh, loading }) {
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           Refresh
         </button>
-
-        <Link
-          to="/send"
-          className="flex items-center gap-1.5 text-xs font-semibold text-white no-underline"
-          style={{
-            background: '#16A34A',
-            borderRadius: '8px',
-            padding: '7px 14px',
-            transition: 'background-color 0.15s, box-shadow 0.15s, transform 0.1s',
-            boxShadow: '0 2px 8px rgba(22,163,74,0.25)',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#15803d'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(22,163,74,0.35)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#16A34A'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(22,163,74,0.25)'; }}
-        >
-          <Send size={12} />
-          Send Template
-        </Link>
       </div>
     </header>
   );

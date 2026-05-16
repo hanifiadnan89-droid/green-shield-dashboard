@@ -481,7 +481,7 @@ export default function RouteFinderWidget() {
   // Render
   // ---------------------------------------------------------------------------
   return (
-    <div className="p-card section-enter flex flex-col" style={{ minHeight: 400 }}>
+    <div className="p-card section-enter flex flex-col h-full">
       {/* Header */}
       <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
