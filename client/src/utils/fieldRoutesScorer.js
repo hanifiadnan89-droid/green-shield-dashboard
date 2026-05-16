@@ -11,7 +11,7 @@ const W = { geo: 0.20, travel: 0.40, window: 0.30, capacity: 0.10 };
 const GEO_ZERO_MILES    = 15;   // geo score → 0 at this distance
 const TRAVEL_ZERO_MILES = 8;    // travel score → 0 at this detour
 const AVG_SPEED_MPH     = 30;
-const EOD_MIN           = 1200; // 8 PM cutoff
+const WORKDAY_END       = 1080; // 6 PM — technicians do not work past this
 const DEFAULT_MAX_HOURS = 10.5;
 const HOME_NEAR_MILES   = 5;    // proximity threshold for start/end area
 
@@ -28,7 +28,6 @@ const WINDOW_SLOTS = [
   { start: 720,  end: 840,  label: '12:00 PM – 2:00 PM' },
   { start: 840,  end: 960,  label: '2:00 PM – 4:00 PM' },
   { start: 960,  end: 1080, label: '4:00 PM – 6:00 PM' },
-  { start: 1080, end: 1200, label: '6:00 PM – 8:00 PM' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -76,7 +75,7 @@ function parseWindowHalf(str) {
 }
 
 function parseWindow(pref) {
-  if (!pref || pref === 'AT') return { start: 480, end: 1200 };
+  if (!pref || pref === 'AT') return { start: 480, end: WORKDAY_END };
   if (pref === 'AM') return { start: 480, end: 720 };
   if (pref === 'PM') return { start: 720, end: 1080 };
   const m = pref.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
@@ -304,6 +303,7 @@ function buildReason({ insertion, timedRisk, homeProximity }) {
 function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
   if (stops.length === 0) return null;
   const candidates = [];
+  const lastStop = stops[stops.length - 1];
 
   // ── Before first stop ──────────────────────────────────────────────────────
   {
@@ -311,20 +311,23 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
     const dist    = haversine(leadLat, leadLng, first.lat, first.lng);
     const arrival = Math.max(480, first.spotStartMinutes - Math.round(travelMin(dist)) - durationMin);
     const sim     = simulateInsertionDelay(stops, -1, leadLat, leadLng, durationMin);
+    const projectedRouteEnd = lastStop.spotStartMinutes + lastStop.durationMinutes + sim.delayAdded;
     candidates.push({
-      afterIndex:          -1,
-      afterStop:           null,
-      beforeStop:          first,
-      estimatedArrivalMin: Math.round(arrival),
-      detourMiles:         Math.round(dist * 10) / 10,
-      gapAvailableMin:     first.spotStartMinutes - arrival,
-      viable:              first.spotStartMinutes - arrival >= durationMin,
-      causesBacktracking:  false,
+      afterIndex:           -1,
+      afterStop:            null,
+      beforeStop:           first,
+      estimatedArrivalMin:  Math.round(arrival),
+      detourMiles:          Math.round(dist * 10) / 10,
+      gapAvailableMin:      first.spotStartMinutes - arrival,
+      viable:               first.spotStartMinutes - arrival >= durationMin,
+      causesBacktracking:   false,
       backtrackingSeverity: 0,
-      delayAdded:          sim.delayAdded,
-      timedViolations:     sim.timedViolations,
-      timedRisk:           timedRiskLevel(sim.timedViolations),
-      addedDriveMinutes:   Math.max(1, Math.round(travelMin(dist))),
+      delayAdded:           sim.delayAdded,
+      timedViolations:      sim.timedViolations,
+      timedRisk:            timedRiskLevel(sim.timedViolations),
+      addedDriveMinutes:    Math.max(1, Math.round(travelMin(dist))),
+      projectedRouteEnd,
+      eodSafe:              projectedRouteEnd <= WORKDAY_END,
     });
   }
 
@@ -334,16 +337,17 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
     const b = stops[i + 1];
     if (!a.lat || !b.lat) continue;
 
-    const dAN   = haversine(a.lat, a.lng, leadLat, leadLng);
-    const dNB   = haversine(leadLat, leadLng, b.lat, b.lng);
-    const dAB   = haversine(a.lat, a.lng, b.lat, b.lng);
+    const dAN    = haversine(a.lat, a.lng, leadLat, leadLng);
+    const dNB    = haversine(leadLat, leadLng, b.lat, b.lng);
+    const dAB    = haversine(a.lat, a.lng, b.lat, b.lng);
     const detour = Math.max(0, dAN + dNB - dAB);
 
-    const arrival = a.spotStartMinutes + a.durationMinutes + Math.round(travelMin(dAN));
-    const gap     = b.spotStartMinutes - arrival;
-    const sim     = simulateInsertionDelay(stops, i, leadLat, leadLng, durationMin);
-    const bt      = measureBacktracking(a, leadLat, leadLng, b);
+    const arrival    = a.spotStartMinutes + a.durationMinutes + Math.round(travelMin(dAN));
+    const gap        = b.spotStartMinutes - arrival;
+    const sim        = simulateInsertionDelay(stops, i, leadLat, leadLng, durationMin);
+    const bt         = measureBacktracking(a, leadLat, leadLng, b);
     const addedDrive = Math.max(0, Math.round(travelMin(dAN + dNB - dAB)));
+    const projectedRouteEnd = lastStop.spotStartMinutes + lastStop.durationMinutes + sim.delayAdded;
 
     candidates.push({
       afterIndex:           i,
@@ -359,6 +363,8 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
       timedViolations:      sim.timedViolations,
       timedRisk:            timedRiskLevel(sim.timedViolations),
       addedDriveMinutes:    addedDrive,
+      projectedRouteEnd,
+      eodSafe:              projectedRouteEnd <= WORKDAY_END,
     });
   }
 
@@ -367,6 +373,7 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
     const last    = stops[stops.length - 1];
     const dist    = haversine(last.lat, last.lng, leadLat, leadLng);
     const arrival = last.spotStartMinutes + last.durationMinutes + Math.round(travelMin(dist));
+    const projectedRouteEnd = arrival + durationMin;
     candidates.push({
       afterIndex:           stops.length - 1,
       afterStop:            last,
@@ -374,24 +381,27 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
       estimatedArrivalMin:  Math.round(arrival),
       detourMiles:          Math.round(dist * 10) / 10,
       gapAvailableMin:      null,
-      viable:               arrival + durationMin <= EOD_MIN,
+      viable:               projectedRouteEnd <= WORKDAY_END,
       causesBacktracking:   false,
       backtrackingSeverity: 0,
       delayAdded:           0,
       timedViolations:      [],
       timedRisk:            'none',
       addedDriveMinutes:    Math.round(travelMin(dist)),
+      projectedRouteEnd,
+      eodSafe:              projectedRouteEnd <= WORKDAY_END,
     });
   }
 
-  // ── Sort: timed safety → viability → window fit → no backtrack → detour ───
-  const { start, end }    = prefWindow;
+  // ── Sort: timed safety → eod safety → viability → window fit → no backtrack → detour ───
+  const { start, end } = prefWindow;
   const riskRank = { none: 0, low: 1, medium: 2, high: 3 };
 
   candidates.sort((a, b) => {
     const rA = riskRank[a.timedRisk] ?? 0;
     const rB = riskRank[b.timedRisk] ?? 0;
     if (rA !== rB) return rA - rB;
+    if (a.eodSafe !== b.eodSafe) return a.eodSafe ? -1 : 1;
     if (a.viable !== b.viable) return a.viable ? -1 : 1;
     const aFit = a.estimatedArrivalMin >= start && a.estimatedArrivalMin + durationMin <= end;
     const bFit = b.estimatedArrivalMin >= start && b.estimatedArrivalMin + durationMin <= end;
@@ -459,6 +469,9 @@ function scoreRoute(tech, lead, prefWindow) {
   if (insertion) {
     total -= TIMED_PENALTY[insertion.timedRisk] ?? 0;
 
+    // End-of-day safety penalty
+    if (!insertion.eodSafe) total -= 50;
+
     // Backtracking penalty (10–20 pts)
     if (insertion.causesBacktracking) {
       total -= Math.round(10 + insertion.backtrackingSeverity * 10);
@@ -524,9 +537,16 @@ function scoreRoute(tech, lead, prefWindow) {
       causesBacktracking:   insertion.causesBacktracking,
       addedDriveMinutes:    insertion.addedDriveMinutes,
       addedDriveTime:       insertion.addedDriveMinutes < 1 ? '< 1 min' : `${insertion.addedDriveMinutes} min`,
-      timedRisk:            insertion.timedRisk,
-      timedViolations:      insertion.timedViolations,
-      delayAdded:           insertion.delayAdded,
+      timedRisk:             insertion.timedRisk,
+      timedViolations:       insertion.timedViolations,
+      delayAdded:            insertion.delayAdded,
+      eodSafe:               insertion.eodSafe,
+      projectedRouteEndMin:  insertion.projectedRouteEnd,
+      projectedRouteEndTime: fmtTime12h(insertion.projectedRouteEnd),
+      serviceDurationMin:    lead.durationMinutes,
+      serviceDuration:       lead.durationMinutes < 60
+        ? `${lead.durationMinutes} min`
+        : `${Math.round(lead.durationMinutes / 60 * 10) / 10} hr`,
       prevStop,
       nextStop,
     } : null,

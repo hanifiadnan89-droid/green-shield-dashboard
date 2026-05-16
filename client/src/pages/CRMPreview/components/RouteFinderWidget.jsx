@@ -199,11 +199,19 @@ function ResultCard({ match, rank }) {
           <span style={{ fontSize: 10, color: '#475569' }}>
             <span style={{ fontWeight: 600 }}>+Miles</span> {ins.detourMiles} mi
           </span>
+          {ins.serviceDuration && (
+            <span style={{ fontSize: 10, color: '#475569' }}>
+              <span style={{ fontWeight: 600 }}>Service</span> {ins.serviceDuration}
+            </span>
+          )}
           <span style={{ fontSize: 10, color: '#475569' }}>
             <span style={{ fontWeight: 600 }}>Cap</span> {match.capacity.remainingHours}h left
           </span>
           <span style={{ fontSize: 10, fontWeight: 600, color: timedCfg.color }}>
             {timedCfg.label}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: ins.eodSafe !== false ? '#16A34A' : '#DC2626' }}>
+            {ins.eodSafe !== false ? '✓ by 6 PM' : '⚠ past 6 PM'}
           </span>
           {!ins.viable && (
             <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>⚠ tight gap</span>
@@ -259,6 +267,9 @@ export default function RouteFinderWidget() {
   const [timePref, setTimePref]         = useState(null);
   const [specificSlot, setSpecificSlot] = useState(null);
   const [specialNotes, setSpecialNotes] = useState('');
+
+  // Time preference override ("Other" panel)
+  const [showOther, setShowOther]         = useState(false);
 
   // Scoring
   const [scoringStatus, setScoringStatus] = useState('idle');
@@ -337,6 +348,9 @@ export default function RouteFinderWidget() {
     setActiveTechnicians(null);
     setResults(null);
     setScoringStatus('idle');
+    setTimePref(null);
+    setSpecificSlot(null);
+    setShowOther(false);
 
     setDateLoadStatus('loading');
     try {
@@ -372,12 +386,21 @@ export default function RouteFinderWidget() {
     if (geocodeCacheRef.current[trimmed]) {
       setGeocode(geocodeCacheRef.current[trimmed]);
       setGeocodeStatus('success');
+      setResults(null);
+      setScoringStatus('idle');
+      setTimePref(null);
+      setSpecificSlot(null);
+      setShowOther(false);
+      setIsEditing(false);
       return;
     }
     setGeocodeStatus('loading');
     setGeocodeError('');
     setResults(null);
     setScoringStatus('idle');
+    setTimePref(null);
+    setSpecificSlot(null);
+    setShowOther(false);
     try {
       const result = await nominatimGeocode(trimmed);
       geocodeCacheRef.current[trimmed] = result;
@@ -393,37 +416,52 @@ export default function RouteFinderWidget() {
   const handleAddressKey = (e) => { if (e.key === 'Enter') doGeocode(addressInput); };
 
   // ---------------------------------------------------------------------------
-  // Score
+  // Scoring
   // ---------------------------------------------------------------------------
-  const handleScore = useCallback(async () => {
-    if (!geocode || !activeTechnicians?.length) return;
-    const window = timePref === 'specific' ? specificSlot : timePref;
-    if (!window) return;
-
+  const runScore = useCallback(async (techList, latLng, prefStr = 'AT') => {
+    if (!techList?.length || !latLng) return;
     setScoringStatus('loading');
     setScoringError('');
     try {
       const lead = {
-        lat: geocode.lat,
-        lng: geocode.lng,
+        lat: latLng.lat,
+        lng: latLng.lng,
         serviceType: 'Regular Service',
         durationMinutes: 30,
-        timeWindowPreference: window,
+        timeWindowPreference: prefStr || 'AT',
       };
-      const scored = scoreRoutes(activeTechnicians, lead, 3);
+      const scored = scoreRoutes(techList, lead, 3);
       setResults(scored);
       setScoringStatus('done');
     } catch (err) {
       setScoringStatus('error');
       setScoringError(err.message || 'Scoring failed');
     }
-  }, [geocode, timePref, specificSlot, activeTechnicians]);
+  }, []);
+
+  const handleTimePrefSelect = useCallback((key) => {
+    setTimePref(key);
+    setSpecificSlot(null);
+    if (key !== 'specific' && geocode && activeTechnicians?.length) {
+      runScore(activeTechnicians, geocode, key);
+    }
+  }, [geocode, activeTechnicians, runScore]);
+
+  const handleSpecificSlotSelect = useCallback((slot) => {
+    setSpecificSlot(slot);
+    if (geocode && activeTechnicians?.length) {
+      runScore(activeTechnicians, geocode, slot);
+    }
+  }, [geocode, activeTechnicians, runScore]);
 
   // ---------------------------------------------------------------------------
-  // Derived state
+  // Auto-score when both geocode + technicians are ready
   // ---------------------------------------------------------------------------
-  const activeWindow = timePref === 'specific' ? specificSlot : timePref;
-  const canScore     = geocode && activeWindow && activeTechnicians?.length > 0;
+  useEffect(() => {
+    if (!geocode || !activeTechnicians?.length) return;
+    runScore(activeTechnicians, geocode, 'AT');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geocode, activeTechnicians]);
 
   const handleReset = () => {
     setAddressInput('');
@@ -433,6 +471,7 @@ export default function RouteFinderWidget() {
     setIsEditing(false);
     setTimePref(null);
     setSpecificSlot(null);
+    setShowOther(false);
     setSpecialNotes('');
     setResults(null);
     setScoringStatus('idle');
@@ -588,23 +627,44 @@ export default function RouteFinderWidget() {
           <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>Press Enter or click search to look up coordinates</p>
         </div>
 
-        {/* ── Time preference (shown after geocode success) ── */}
+        {/* ── Other windows toggle ── */}
         {geocodeStatus === 'success' && (
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 5 }}>
-              Preferred Arrival Window
-            </label>
-            <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ marginBottom: showOther ? 0 : 10, display: 'flex', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                const closing = showOther;
+                setShowOther(o => !o);
+                if (closing) {
+                  setTimePref(null);
+                  setSpecificSlot(null);
+                  if (geocode && activeTechnicians?.length) runScore(activeTechnicians, geocode, 'AT');
+                }
+              }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                fontSize: 11, color: '#3B82F6', fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 3,
+              }}
+            >
+              {showOther ? '▴' : '▾'} Other windows
+            </button>
+          </div>
+        )}
+
+        {/* ── Other: timing preference picker ── */}
+        {geocodeStatus === 'success' && showOther && (
+          <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(59,130,246,0.04)', borderRadius: 10, border: '1px solid rgba(59,130,246,0.15)' }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: timePref === 'specific' ? 10 : 0 }}>
               {TIME_PREFS.map(({ key, label, sub }) => {
                 const active = timePref === key;
                 return (
                   <button
                     key={key}
-                    onClick={() => { setTimePref(key); setSpecificSlot(null); setResults(null); setScoringStatus('idle'); }}
+                    onClick={() => handleTimePrefSelect(key)}
                     style={{
                       flex: 1, padding: '7px 4px', borderRadius: 9,
-                      border: `1.5px solid ${active ? '#16A34A' : 'rgba(0,0,0,0.1)'}`,
-                      background: active ? '#16A34A' : '#fff',
+                      border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
+                      background: active ? '#3B82F6' : '#fff',
                       cursor: 'pointer', textAlign: 'center',
                       transition: 'all 0.15s',
                     }}
@@ -616,9 +676,8 @@ export default function RouteFinderWidget() {
               })}
             </div>
 
-            {/* Specific slot picker */}
             {timePref === 'specific' && (
-              <div style={{ marginTop: 10 }}>
+              <div>
                 <p style={{ fontSize: 10, fontWeight: 600, color: '#64748B', marginBottom: 5 }}>4-hour slots</p>
                 <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
                   {FOUR_HOUR_SLOTS.map(({ key, label }) => {
@@ -626,11 +685,11 @@ export default function RouteFinderWidget() {
                     return (
                       <button
                         key={key}
-                        onClick={() => { setSpecificSlot(key); setResults(null); setScoringStatus('idle'); }}
+                        onClick={() => handleSpecificSlotSelect(key)}
                         style={{
                           flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                          border: `1.5px solid ${active ? '#16A34A' : 'rgba(0,0,0,0.1)'}`,
-                          background: active ? '#16A34A' : '#fff', color: active ? '#fff' : '#374151',
+                          border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
+                          background: active ? '#3B82F6' : '#fff', color: active ? '#fff' : '#374151',
                           cursor: 'pointer', transition: 'all 0.15s',
                         }}
                       >
@@ -646,11 +705,11 @@ export default function RouteFinderWidget() {
                     return (
                       <button
                         key={key}
-                        onClick={() => { setSpecificSlot(key); setResults(null); setScoringStatus('idle'); }}
+                        onClick={() => handleSpecificSlotSelect(key)}
                         style={{
                           padding: '5px 8px', borderRadius: 7, fontSize: 10, fontWeight: 600,
-                          border: `1.5px solid ${active ? '#16A34A' : 'rgba(0,0,0,0.1)'}`,
-                          background: active ? '#16A34A' : '#fff', color: active ? '#fff' : '#374151',
+                          border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
+                          background: active ? '#3B82F6' : '#fff', color: active ? '#fff' : '#374151',
                           cursor: 'pointer', transition: 'all 0.15s',
                         }}
                       >
@@ -665,7 +724,7 @@ export default function RouteFinderWidget() {
         )}
 
         {/* ── Special notes ── */}
-        {geocodeStatus === 'success' && timePref && (
+        {geocodeStatus === 'success' && (
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 5 }}>
               Special Notes <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span>
@@ -684,36 +743,34 @@ export default function RouteFinderWidget() {
               onFocus={e => { e.target.style.borderColor = 'rgba(22,163,74,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)'; }}
               onBlur={e => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }}
             />
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {[
+                { name: 'Start Dashboard',           cmd: 'cd ~/green-shield-dashboard && bash start.sh' },
+                { name: 'Login Script',               cmd: 'cd ~/green-shield-dashboard && node scripts/fieldRoutesLogin.mjs' },
+                { name: 'Restart Server',            cmd: 'cd ~/green-shield-dashboard/server && npm start' },
+              ].map(({ name, cmd }) => (
+                <div key={name} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', whiteSpace: 'nowrap', flexShrink: 0 }}>{name}</span>
+                  <code style={{ fontSize: 9, color: '#475569', background: 'rgba(0,0,0,0.04)', borderRadius: 4, padding: '1px 5px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{cmd}</code>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* ── No date selected hint ── */}
-        {!activeDate && geocodeStatus === 'success' && timePref && (
+        {!activeDate && geocodeStatus === 'success' && (
           <p style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginBottom: 10 }}>
-            Select a date above to enable scoring
+            Select a date above to see recommendations
           </p>
         )}
 
-        {/* ── Find Route button ── */}
-        {canScore && scoringStatus !== 'done' && (
-          <button
-            onClick={handleScore}
-            disabled={scoringStatus === 'loading'}
-            style={{
-              width: '100%', padding: '10px', borderRadius: 10, border: 'none',
-              background: scoringStatus === 'loading' ? '#94A3B8' : '#16A34A',
-              color: '#fff', fontSize: 13, fontWeight: 700, cursor: scoringStatus === 'loading' ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              transition: 'background 0.15s', marginBottom: 14,
-            }}
-            onMouseEnter={e => { if (scoringStatus !== 'loading') e.currentTarget.style.background = '#15803d'; }}
-            onMouseLeave={e => { if (scoringStatus !== 'loading') e.currentTarget.style.background = '#16A34A'; }}
-          >
-            {scoringStatus === 'loading'
-              ? <><Loader2 size={14} className="animate-spin" /> Scoring routes...</>
-              : <><Navigation size={14} /> Find Best Route</>
-            }
-          </button>
+        {/* ── Auto-scoring loading indicator ── */}
+        {scoringStatus === 'loading' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: '#64748B', fontSize: 11 }}>
+            <Loader2 size={12} className="animate-spin" style={{ color: '#16A34A' }} />
+            Finding best routes...
+          </div>
         )}
 
         {scoringStatus === 'error' && (
@@ -730,7 +787,7 @@ export default function RouteFinderWidget() {
                 Top {results.topMatches.length} Matches
               </p>
               <button
-                onClick={() => { setScoringStatus('idle'); setResults(null); }}
+                onClick={() => runScore(activeTechnicians, geocode, timePref === 'specific' ? specificSlot : timePref ?? 'AT')}
                 style={{ fontSize: 10, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 Re-score
@@ -740,7 +797,7 @@ export default function RouteFinderWidget() {
               <ResultCard key={match.routeId} match={match} rank={match.rank} />
             ))}
             <p style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 4 }}>
-              {results.totalRoutesScored} routes scored · {results.prefWindow.label} window ({results.prefWindow.startTime}–{results.prefWindow.endTime})
+              {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
             </p>
           </div>
         )}
