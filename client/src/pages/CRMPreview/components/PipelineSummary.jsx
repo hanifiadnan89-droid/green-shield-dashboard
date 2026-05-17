@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, TrendingUp, Users, MessageCircle, AlertCircle, Send } from 'lucide-react';
+import { ArrowRight, TrendingUp, Users, MessageCircle, AlertCircle, Send, BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { TEMPLATE_META } from '../mockData.js';
 
@@ -360,7 +360,7 @@ export default function PipelineSummary({ stats = {} }) {
   const navigate = useNavigate();
   const {
     total = 0, replied = 0, inProgress = 0,
-    sentToday = 0, errors = 0, byTemplate = {},
+    sentToday = 0, errors = 0, sold = 0, byTemplate = {},
   } = stats;
 
   const rates = useMemo(() => ({
@@ -428,6 +428,9 @@ export default function PipelineSummary({ stats = {} }) {
               <StatCard icon={Send}          label="Sent Today" value={sentToday} color="#2563EB" bg="#eff6ff"  border="rgba(37,99,235,0.12)"       onClick={() => navigate('/leads')} />
               <StatCard icon={MessageCircle} label="Replies"    value={replied}   color="#16A34A" bg="#f0fdf4"  border="rgba(22,163,74,0.12)"       onClick={() => navigate('/leads')} />
               <StatCard icon={AlertCircle}   label="Errors"     value={errors}    color="#DC2626" bg="#fef2f2"  border="rgba(220,38,38,0.12)"       onClick={() => navigate('/leads')} />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <StatCard icon={BadgeCheck}  label="Sold"       value={sold}      color="#7C3AED" bg="#f5f3ff"  border="rgba(124,58,237,0.12)"      onClick={() => navigate('/leads')} />
+              </div>
             </div>
           </div>
         </div>

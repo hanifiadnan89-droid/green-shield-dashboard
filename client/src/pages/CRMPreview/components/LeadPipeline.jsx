@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import LeadRow from './LeadRow.jsx';
 import EmptyState from '../../../components/EmptyState.jsx';
 import LeadDetailPanel from '../../../components/LeadDetailPanel.jsx';
+import { daysSince } from '../mockData.js';
 
 const FILTERS = [
   { key: 'all',        label: 'All' },
@@ -12,6 +13,13 @@ const FILTERS = [
   { key: 'inprogress', label: 'In Progress' },
   { key: 'errors',     label: 'Errors' },
   { key: 'stopped',    label: 'Stopped' },
+  { key: 'sold',       label: 'Sold' },
+];
+
+const DAY_FILTERS = [
+  { key: 'day1', label: 'Day 1' },
+  { key: 'day2', label: 'Day 2' },
+  { key: 'day3', label: 'Day 3+' },
 ];
 
 function applyFilter(leads, filter) {
@@ -31,12 +39,21 @@ function applyFilter(leads, filter) {
       return leads.filter(l => (l.error && l.error.trim()) || l.status === 'error' || l.status === 'email_failed');
     case 'stopped':
       return leads.filter(l => l.stop === 'yes' || l.status === 'stopped');
+    case 'sold':
+      return leads.filter(l => l.sold === 'yes');
+    case 'day1':
+      return leads.filter(l => daysSince(l.sent) === 0);
+    case 'day2':
+      return leads.filter(l => daysSince(l.sent) === 1);
+    case 'day3': {
+      return leads.filter(l => { const d = daysSince(l.sent); return d !== null && d >= 2; });
+    }
     default:
       return leads;
   }
 }
 
-export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter, search, setSearch, onPreviewAction }) {
+export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter, search, setSearch, onPreviewAction, onDelete }) {
   const [selectedLead, setSelectedLead] = useState(null);
 
   const filtered = useMemo(() => {
@@ -89,24 +106,48 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
         </div>
 
         {/* Filter chips */}
-        <div className="flex gap-1.5 mt-3 flex-wrap">
-          {FILTERS.map(({ key, label }) => {
-            const isActive = activeFilter === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveFilter(key)}
-                className="filter-chip text-xs font-semibold px-3 py-1.5 rounded-full border"
-                style={{
-                  background: isActive ? '#16A34A' : '#ffffff',
-                  color: isActive ? '#ffffff' : '#64748B',
-                  borderColor: isActive ? '#16A34A' : 'rgba(0,0,0,0.12)',
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-1.5 mt-3">
+          {/* Status filters — left group */}
+          <div className="flex gap-1.5 flex-wrap flex-1">
+            {FILTERS.map(({ key, label }) => {
+              const isActive = activeFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveFilter(key)}
+                  className="filter-chip text-xs font-semibold px-3 py-1.5 rounded-full border"
+                  style={{
+                    background: isActive ? '#16A34A' : '#ffffff',
+                    color: isActive ? '#ffffff' : '#64748B',
+                    borderColor: isActive ? '#16A34A' : 'rgba(0,0,0,0.12)',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Day filters — right group */}
+          <div className="flex gap-1 shrink-0" style={{ borderLeft: '1px solid rgba(0,0,0,0.08)', paddingLeft: 8 }}>
+            {DAY_FILTERS.map(({ key, label }) => {
+              const isActive = activeFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveFilter(key)}
+                  className="filter-chip text-xs font-semibold px-2.5 py-1.5 rounded-full border"
+                  style={{
+                    background: isActive ? '#3B82F6' : '#ffffff',
+                    color: isActive ? '#ffffff' : '#64748B',
+                    borderColor: isActive ? '#3B82F6' : 'rgba(0,0,0,0.12)',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -125,6 +166,7 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
               lead={lead}
               onSelect={setSelectedLead}
               onPreviewAction={onPreviewAction}
+              onDelete={onDelete}
               isSelected={selectedLead?.row_number === lead.row_number}
             />
           ))

@@ -11,6 +11,7 @@ import driveRouter from './routes/drive.js';
 import documentsRouter from './routes/documents.js';
 import routesRouter from './routes/routes.js';
 import { startCron } from './services/fieldRoutesCron.js';
+import { loadAuthStatus, checkAuthHealth, startAuthKeepalive } from './services/fieldRoutesAuth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -39,6 +40,14 @@ app.use('/api/documents', documentsRouter);
 app.use('/api/routes', routesRouter);
 
 startCron();
+
+// Startup: restore last known auth status from disk, then run an immediate
+// health check in the background and start the 45-minute keepalive.
+loadAuthStatus();
+checkAuthHealth()
+  .then(s => console.log(`[auth] Startup check: FieldRoutes auth is ${s}`))
+  .catch(err => console.warn('[auth] Startup check failed:', err.message));
+startAuthKeepalive();
 
 app.listen(PORT, () => {
   const mode = process.env.TEST_MODE === 'true' ? '🔒 TEST MODE' : '🔴 LIVE MODE';

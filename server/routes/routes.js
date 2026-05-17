@@ -3,16 +3,33 @@ import {
   refreshDate,
   getStatus,
   getNormalizedForDate,
-  preloadNextThreeDays,
+  preloadNextSixWorkingDays,
 } from '../services/fieldRoutesPreloader.js';
+import { getAuthStatus, checkAuthHealth } from '../services/fieldRoutesAuth.js';
 
 const router = express.Router();
 
-// GET /api/routes/status — cache status for next 3 dates
+// GET /api/routes/status — cache status for next 6 working days + auth status
 router.get('/status', async (req, res) => {
   try {
     const status = await getStatus();
     res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/routes/auth-status — current FieldRoutes auth status (explicit endpoint)
+router.get('/auth-status', (req, res) => {
+  const auth = getAuthStatus();
+  res.json(auth);
+});
+
+// POST /api/routes/auth-check — trigger an immediate auth health check
+router.post('/auth-check', async (req, res) => {
+  try {
+    const result = await checkAuthHealth();
+    res.json({ result, ...getAuthStatus() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -43,10 +60,12 @@ router.post('/refresh', (req, res) => {
   });
 });
 
-// POST /api/routes/preload — fire-and-forget preload for next 3 days
+// POST /api/routes/preload — fire-and-forget preload for next 6 working days
+// ?force=true bypasses the 6-hour freshness check and re-scrapes every date
 router.post('/preload', (req, res) => {
-  res.json({ started: true });
-  preloadNextThreeDays().catch(err => {
+  const force = req.query.force === 'true';
+  res.json({ started: true, force });
+  preloadNextSixWorkingDays({ force }).catch(err => {
     console.error('[routes] preload failed:', err.message);
   });
 });

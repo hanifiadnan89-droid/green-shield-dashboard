@@ -67,6 +67,24 @@ router.post('/:rowNumber/stop', async (req, res) => {
   }
 });
 
+router.delete('/:rowNumber', async (req, res) => {
+  try {
+    const rowNumber = parseInt(req.params.rowNumber, 10);
+    const { name } = req.body || {};
+    const result = await updateLead(rowNumber, { deleted: 'yes' });
+    appendLog({
+      action: 'lead_deleted',
+      leadName: name,
+      rowNumber,
+      testMode: result.testMode || false,
+      status: 'success'
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/:rowNumber/unstop', async (req, res) => {
   try {
     const rowNumber = parseInt(req.params.rowNumber, 10);

@@ -3,7 +3,7 @@ import fs from 'fs';
 
 const SHEET_ID = process.env.SHEET_ID || '1hneyXzxNqHDM-AfNs5-c1Qp7jqBeHfpKKsYbf_62obk';
 const SHEET_NAME = process.env.SHEET_NAME || 'Lead Responses';
-const COLUMNS = ['name', 'email', 'notes', 'status', 'sent', 'error', 'stop', 'phone', 'sms_reply', 'email_reply'];
+const COLUMNS = ['name', 'email', 'notes', 'status', 'sent', 'error', 'stop', 'phone', 'sms_reply', 'email_reply', 'sold', 'deleted'];
 
 function getAuth() {
   let credentials;
@@ -34,11 +34,12 @@ export async function getLeads() {
   const sheets = google.sheets({ version: 'v4', auth });
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A:J`
+    range: `${SHEET_NAME}!A:L`
   });
   const rows = res.data.values || [];
   if (rows.length < 2) return [];
-  return rows.slice(1).map((row, i) => rowToLead(row, i));
+  return rows.slice(1).map((row, i) => rowToLead(row, i))
+    .filter(lead => lead.deleted !== 'yes');
 }
 
 export async function updateLead(rowNumber, updates) {
@@ -50,7 +51,7 @@ export async function updateLead(rowNumber, updates) {
 
   const existing = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A${rowNumber}:J${rowNumber}`
+    range: `${SHEET_NAME}!A${rowNumber}:L${rowNumber}`
   });
   const currentRow = (existing.data.values || [[]])[0] || [];
 
@@ -61,7 +62,7 @@ export async function updateLead(rowNumber, updates) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A${rowNumber}:J${rowNumber}`,
+    range: `${SHEET_NAME}!A${rowNumber}:L${rowNumber}`,
     valueInputOption: 'RAW',
     requestBody: { values: [newRow] }
   });
@@ -77,7 +78,7 @@ export async function appendLead(lead) {
   const row = COLUMNS.map(col => lead[col] ?? '');
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A:J`,
+    range: `${SHEET_NAME}!A:L`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [row] }

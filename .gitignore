@@ -11,5 +11,6 @@ server/service-account.json
 server/probe_*.js
 data/fieldroutes-sample.json
 data/routes/
+data/*.json
 playwright/.auth/
 *.har

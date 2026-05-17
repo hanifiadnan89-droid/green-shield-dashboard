@@ -18,6 +18,10 @@ export function deriveStats(leads = []) {
       if (!l.sent || l.sent === 'imported') return false;
       return new Date(l.sent).toDateString() === today;
     }).length,
+    sold:  leads.filter(l => l.sold === 'yes').length,
+    day1:  leads.filter(l => _daysSince(l.sent) === 0).length,
+    day2:  leads.filter(l => _daysSince(l.sent) === 1).length,
+    day3:  leads.filter(l => { const d = _daysSince(l.sent); return d !== null && d >= 2; }).length,
     byTemplate: {
       ag:  leads.filter(l => (l.notes || '').toLowerCase() === 'ag').length,
       na:  leads.filter(l => (l.notes || '').toLowerCase() === 'na').length,
@@ -80,10 +84,11 @@ export function timeAgo(ts) {
   return new Date(ts).toLocaleDateString();
 }
 
-function _daysSince(ts) {
+export function daysSince(ts) {
   if (!ts || ts === 'imported') return null;
   return Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
 }
+const _daysSince = daysSince;
 const _isReplied = l => l.sms_reply === 'yes' || l.email_reply === 'yes' || l.status === 'replied';
 const _isError   = l => !!(l.error && l.error.trim()) || l.status === 'error' || l.status === 'email_failed';
 const _isStopped = l => l.stop === 'yes' || l.status === 'stopped';

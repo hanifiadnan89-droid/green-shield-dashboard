@@ -1,25 +1,45 @@
 /**
- * FieldRoutes route scorer — enhanced insertion logic.
- * Finds the least-disruptive insertion point per technician route,
- * protects timed appointments, factors route-end/start proximity,
- * and returns a ranked recommendation with reason text.
+ * FieldRoutes route scorer — geo-first insertion logic.
+ *
+ * Key change from previous version:
+ * Insertion candidates are now ranked by a weighted score where DETOUR MILES
+ * and LOCAL PROXIMITY are primary. "After last stop" no longer auto-wins just
+ * because it has no downstream timed stops. Timed violations (high/medium) and
+ * EOD violations remain hard constraints.
  */
 
 // Scoring weights — must sum to 1.0
 const W = { geo: 0.20, travel: 0.40, window: 0.30, capacity: 0.10 };
 
+// Service duration defaults by type (minutes)
+const SERVICE_DURATIONS = {
+  'Regular Service': 30,
+  'T&M':             30,
+  'Initial Service': 60,
+  'Initial':         60,
+};
+
+export function getDefaultDuration(serviceType) {
+  return SERVICE_DURATIONS[serviceType] ?? 30;
+}
+
+// Cluster density: stops within this radius count as "nearby"
+const CLUSTER_RADIUS_MILES = 5;
+
 const GEO_ZERO_MILES    = 15;   // geo score → 0 at this distance
 const TRAVEL_ZERO_MILES = 8;    // travel score → 0 at this detour
 const AVG_SPEED_MPH     = 30;
-const WORKDAY_END       = 1080; // 6 PM — technicians do not work past this
+const WORKDAY_END       = 1080; // 6:00 PM
 const DEFAULT_MAX_HOURS = 10.5;
-const HOME_NEAR_MILES   = 5;    // proximity threshold for start/end area
+const HOME_NEAR_MILES   = 5;
 
-// Timed stop: appointment window ≤ 6 hours
-const TIMED_WINDOW_MAX_MIN = 360;
+const TIMED_WINDOW_MAX_MIN = 360; // ≤ 6-hour window = timed stop
 
-// Penalty for timed appointment risk (subtracted from total score)
-const TIMED_PENALTY = { none: 0, low: 15, medium: 35, high: 60 };
+// NH routing configuration
+export const NH_CONFIG = {
+  approvedTechNames: ['Alex Gray'],
+  approvedTechIds:   [10068],
+};
 
 // 2-hour window slots for customer-facing suggestions
 const WINDOW_SLOTS = [
@@ -58,7 +78,6 @@ function fmtTime12h(min) {
   return `${h12}:${String(m).padStart(2, '0')} ${period}`;
 }
 
-/** Parse "HH:MM:SS" or "HH:MM" → minutes from midnight. */
 function parseTimeStr(str) {
   if (str == null) return null;
   const parts = String(str).split(':').map(Number);
@@ -92,7 +111,6 @@ function parseDurationCapacity(raw) {
   return { currentHours: cur, maxHours: max, remainingHours: Math.max(0, max - cur) };
 }
 
-/** A stop is timed if its appointment window is ≤ 6 hours. */
 function isTimedStop(stop) {
   const start = parseTimeStr(stop.startTime);
   const end   = parseTimeStr(stop.endTime);
@@ -108,7 +126,6 @@ function timedRiskLevel(violations) {
   return 'high';
 }
 
-/** Return the 2-hour slot label that contains the given arrival time. */
 function suggestCustomerWindow(arrivalMin) {
   if (arrivalMin == null) return null;
   for (const slot of WINDOW_SLOTS) {
@@ -118,36 +135,109 @@ function suggestCustomerWindow(arrivalMin) {
 }
 
 // ---------------------------------------------------------------------------
+// New: timed safety label for UI display
+// ---------------------------------------------------------------------------
+
+function buildTimedSafetyLabel(insertion) {
+  const { timedRisk, timedViolations, minTimingBuffer } = insertion;
+  if (timedRisk === 'high') {
+    const v = timedViolations[0];
+    if (v) {
+      return `Rejected — would miss ${v.customerName}'s timed window (${fmtTime12h(v.windowEnd)})`;
+    }
+    return 'Rejected — timed appointment conflict';
+  }
+  if (timedRisk === 'medium') {
+    const v = timedViolations[0];
+    if (v) {
+      return `Risky — ${v.customerName} would be delayed ${v.lateness} min past window`;
+    }
+    return 'Risky — moderate impact on timed appointments';
+  }
+  if (timedRisk === 'low') {
+    if (minTimingBuffer != null) {
+      return `Risky — only ${minTimingBuffer} min before next timed appointment`;
+    }
+    return 'Low risk — tight timing buffer';
+  }
+  if (minTimingBuffer != null && minTimingBuffer < 45) {
+    return `Safe — ${minTimingBuffer} min buffer before next timed appointment`;
+  }
+  return 'Safe — no timed appointments affected';
+}
+
+// ---------------------------------------------------------------------------
+// New: cluster label for display
+// ---------------------------------------------------------------------------
+
+function getClusterLabel(count) {
+  if (count >= 4) return `Strong cluster (${count} nearby stops within ${CLUSTER_RADIUS_MILES} mi)`;
+  if (count === 3) return `Moderate cluster (3 nearby stops within ${CLUSTER_RADIUS_MILES} mi)`;
+  if (count === 2) return `2 nearby stops within ${CLUSTER_RADIUS_MILES} mi`;
+  if (count === 1) return `1 nearby stop within ${CLUSTER_RADIUS_MILES} mi`;
+  return `No stops within ${CLUSTER_RADIUS_MILES} mi of new customer`;
+}
+
+// ---------------------------------------------------------------------------
+// New: per-insertion candidate score (lower = better)
+// Replaces the previous multi-criteria sort. Detour and local proximity are
+// primary so that a geographically well-placed mid-route insertion beats an
+// end-of-route insertion that just happens to have no downstream stops.
+// ---------------------------------------------------------------------------
+
+function insertionCandidateScore(c, prefStart, prefEnd, durationMin) {
+  let score = 0;
+
+  // Hard constraints — massive penalty, effectively never wins
+  if (!c.eodSafe)              score += 1000;
+  if (c.timedRisk === 'high')  score += 500;
+
+  // PRIMARY: geographic insertion quality
+  // detour miles: how much extra driving does this insertion add?
+  score += c.detourMiles * 10;
+  // local proximity: how close is the new stop to its bounding stops?
+  score += c.localProximityMiles * 5;
+
+  // Timed risk (medium/low — real cost but not a hard block)
+  if (c.timedRisk === 'medium') score += 50;
+  if (c.timedRisk === 'low')    score += 20;
+
+  // Window fit (soft preference — worth ~1.5 mi of detour savings)
+  const inWindow = c.estimatedArrivalMin >= prefStart &&
+                   c.estimatedArrivalMin + durationMin <= prefEnd;
+  if (!inWindow) score += 15;
+
+  // Cluster density bonus: nearby route stops improve insertion quality
+  score -= c.clusterDensity * 2;
+
+  // Viability (gap large enough) — now a soft criterion, not a gate
+  if (!c.viable) score += 10;
+
+  // Backtracking
+  if (c.causesBacktracking) score += 10 + c.backtrackingSeverity * 10;
+
+  return score;
+}
+
+// ---------------------------------------------------------------------------
 // Route simulation — timed appointment protection
 // ---------------------------------------------------------------------------
 
-/**
- * Estimate how many extra minutes inserting a new stop at `insertIdx` adds
- * to the schedule, then check every downstream timed stop for violations.
- *
- * insertIdx == -1          → before first stop
- * insertIdx == stops.length-1 → after last stop (no downstream stops)
- * otherwise                → between stops[insertIdx] and stops[insertIdx+1]
- */
 function simulateInsertionDelay(stops, insertIdx, newLat, newLng, newDurationMin) {
-  // After last stop — no downstream stops affected
   if (insertIdx >= stops.length - 1) {
-    return { delayAdded: 0, timedViolations: [], safe: true };
+    return { delayAdded: 0, timedViolations: [], safe: true, minTimingBuffer: null };
   }
 
   let delayAdded = 0;
 
   if (insertIdx === -1) {
-    // Before first stop: tech can start earlier if there is enough time
     const first = stops[0];
-    const dToNew   = haversine(first.lat, first.lng, newLat, newLng);
-    const dNewToF  = haversine(newLat, newLng, first.lat, first.lng);
+    const dToNew  = haversine(first.lat, first.lng, newLat, newLng);
+    const dNewToF = haversine(newLat, newLng, first.lat, first.lng);
     const timeNeeded = Math.round(travelMin(dToNew) + newDurationMin + travelMin(dNewToF));
     const latestStart = first.spotStartMinutes - timeNeeded;
-    // If tech can start at or after 8 AM → no delay; otherwise delay = shortfall
     delayAdded = latestStart >= 480 ? 0 : Math.max(0, 480 - latestStart);
   } else {
-    // Between stops[insertIdx] and stops[insertIdx + 1]
     const prev = stops[insertIdx];
     const next = stops[insertIdx + 1];
     const dPN  = haversine(prev.lat, prev.lng, newLat, newLng);
@@ -157,37 +247,36 @@ function simulateInsertionDelay(stops, insertIdx, newLat, newLng, newDurationMin
     delayAdded = Math.round(extraTravel + newDurationMin);
   }
 
-  // Walk downstream stops and flag timed violations
   const downstreamStart = insertIdx === -1 ? 0 : insertIdx + 1;
   const timedViolations = [];
+  let minTimingBuffer = null;
 
   for (const stop of stops.slice(downstreamStart)) {
     if (!isTimedStop(stop)) continue;
     const projected = stop.spotStartMinutes + delayAdded;
     const windowEnd = parseTimeStr(stop.endTime);
-    if (windowEnd != null && projected > windowEnd) {
-      timedViolations.push({
-        customerName:     stop.customerName,
-        originalArrival:  stop.spotStartMinutes,
-        projectedArrival: projected,
-        windowEnd,
-        lateness: projected - windowEnd,
-      });
+    if (windowEnd != null) {
+      const buffer = windowEnd - projected;
+      if (minTimingBuffer === null || buffer < minTimingBuffer) minTimingBuffer = buffer;
+      if (projected > windowEnd) {
+        timedViolations.push({
+          customerName:     stop.customerName,
+          originalArrival:  stop.spotStartMinutes,
+          projectedArrival: projected,
+          windowEnd,
+          lateness: projected - windowEnd,
+        });
+      }
     }
   }
 
-  return { delayAdded, timedViolations, safe: timedViolations.length === 0 };
+  return { delayAdded, timedViolations, safe: timedViolations.length === 0, minTimingBuffer };
 }
 
 // ---------------------------------------------------------------------------
 // Backtracking detection
 // ---------------------------------------------------------------------------
 
-/**
- * Returns whether inserting the new stop between prev and next causes the
- * technician to travel "backwards" relative to the original route direction.
- * severity: 0 (no backtrack) → 1 (full reversal).
- */
 function measureBacktracking(prevStop, newLat, newLng, nextStop) {
   if (!prevStop || !nextStop) return { backtracking: false, severity: 0 };
   const dxAB = nextStop.lng - prevStop.lng;
@@ -208,10 +297,6 @@ function measureBacktracking(prevStop, newLat, newLng, nextStop) {
 // Home / route-end proximity
 // ---------------------------------------------------------------------------
 
-/**
- * Uses the first and last stops as proxies for the technician's start and
- * end-of-day areas. Counts nearby existing stops by AM vs PM timing.
- */
 function measureHomeProximity(tech, leadLat, leadLng) {
   const stops = tech.stops.filter(s => s.lat && s.lng);
   if (stops.length === 0) return null;
@@ -246,58 +331,116 @@ function measureHomeProximity(tech, leadLat, leadLng) {
 }
 
 // ---------------------------------------------------------------------------
-// Reason builder
+// Reason builder — geo-aware, mentions closest stop by name
 // ---------------------------------------------------------------------------
 
-function buildReason({ insertion, timedRisk, homeProximity }) {
+function buildReason({ insertion, timedRisk, homeProximity, closestStop, clusterLabel, techName, totalStops }) {
   const parts = [];
 
-  // Detour / mileage
-  if (insertion.detourMiles <= 0.2) {
-    parts.push('adds virtually no extra mileage');
-  } else if (insertion.detourMiles < 2) {
-    parts.push(`adds only ${insertion.detourMiles} mi of detour`);
-  } else {
-    parts.push(`adds ${insertion.detourMiles} mi of detour`);
+  // Lead with geographic rationale
+  if (closestStop && closestStop.distanceMiles <= CLUSTER_RADIUS_MILES) {
+    const stopName = closestStop.customerName || closestStop.address || 'a nearby stop';
+    const timeStr  = closestStop.scheduledTime ? ` around ${closestStop.scheduledTime}` : '';
+    parts.push(
+      `${techName} will already be near ${stopName} ` +
+      `(stop ${closestStop.stopIndex}, ${closestStop.distanceMiles} mi away${timeStr})`
+    );
   }
 
-  // Direction
-  if (insertion.causesBacktracking) {
-    parts.push('slight backtrack from the current route path');
+  // Insertion position rationale
+  const isEndOfRoute  = insertion.afterIndex >= totalStops - 1;
+  const isStartRoute  = insertion.afterIndex === -1;
+
+  if (isEndOfRoute) {
+    if (closestStop && closestStop.distanceMiles <= CLUSTER_RADIUS_MILES) {
+      parts.push(
+        `placed after last stop because mid-route timing constraints prevented insertion at the nearby cluster — ` +
+        `adds ${insertion.detourMiles} mi from route end`
+      );
+    } else {
+      parts.push(`placed after last stop — new customer is ${insertion.detourMiles} mi from the route end area`);
+    }
+  } else if (isStartRoute) {
+    parts.push(`placed before first stop — adds ${insertion.detourMiles} mi`);
   } else {
-    parts.push('keeps the technician moving in the same direction');
+    const stopLabel = `stop ${insertion.afterIndex + 1} of ${totalStops}`;
+    parts.push(
+      `inserting at ${stopLabel} adds ${insertion.detourMiles} mi and ${insertion.addedDriveMinutes} min drive`
+    );
+  }
+
+  // Cluster context
+  if (clusterLabel && !clusterLabel.startsWith('No stops')) {
+    parts.push(clusterLabel.toLowerCase());
   }
 
   // Timed appointment safety
   if (timedRisk === 'none') {
-    parts.push('no timed appointments are affected');
+    if (insertion.minTimingBuffer != null && insertion.minTimingBuffer < 45) {
+      parts.push(`timed appointments safe (${insertion.minTimingBuffer} min buffer)`);
+    } else {
+      parts.push('no timed appointments affected');
+    }
   } else if (timedRisk === 'low') {
-    parts.push('minimal risk to existing timed appointments');
-  } else if (timedRisk === 'medium') {
-    parts.push('may delay one or more timed appointments');
-  } else {
-    parts.push('high risk of delaying timed appointments');
+    const buf = insertion.minTimingBuffer;
+    parts.push(`timed appointment risk is low${buf != null ? ` (${buf} min buffer)` : ''}`);
   }
 
-  // Route start / end proximity
+  // Backtracking
+  if (insertion.causesBacktracking) {
+    parts.push('slight backtrack from the route direction');
+  } else {
+    parts.push('no backtracking');
+  }
+
+  // Home proximity timing note
   if (homeProximity) {
     if (homeProximity.nearRouteEnd && homeProximity.nearbyPmStops > homeProximity.nearbyAmStops) {
       parts.push(`customer is ${homeProximity.distToRouteEnd} mi from the route-end area — strong PM fit`);
     } else if (homeProximity.nearRouteStart && homeProximity.nearbyAmStops > homeProximity.nearbyPmStops) {
       parts.push(`customer is ${homeProximity.distToRouteStart} mi from the route-start area — natural AM fit`);
-    } else if (homeProximity.nearRouteEnd) {
-      parts.push(`customer is near the technician's route-end area`);
     }
   }
 
-  const sentence = parts
+  return parts
     .map((p, i) => i === 0 ? p.charAt(0).toUpperCase() + p.slice(1) : p)
-    .join(', ') + '.';
-  return sentence;
+    .join('. ') + '.';
 }
 
 // ---------------------------------------------------------------------------
-// Insertion point finder
+// Route area detection + day-of-week soft scoring
+// ---------------------------------------------------------------------------
+
+export function detectRouteArea(fullAddress) {
+  if (!fullAddress) return 'general';
+  const upper = fullAddress.toUpperCase();
+  if (upper.includes('NEW HAMPSHIRE')) return 'new_hampshire';
+  if (/\bMAINE\b/.test(upper))         return 'maine';
+  return 'general';
+}
+
+function getRouteAreaDayBonus(routeArea, lat, lng, dayOfWeek) {
+  if (routeArea === 'new_hampshire') {
+    const isMWF      = [1, 3, 5].includes(dayOfWeek);
+    const isTuTh     = [2, 4].includes(dayOfWeek);
+    const isSouthNH  = lat < 43.5;
+    const isNorthNH  = lat >= 43.5;
+    const isSeacoast = lng > -71.0;
+    if (isMWF  && isSouthNH)                 return 8;
+    if (isTuTh && (isNorthNH || isSeacoast)) return 8;
+  }
+  if (routeArea === 'maine') {
+    const isMWF     = [1, 3, 5].includes(dayOfWeek);
+    const isTuTh    = [2, 4].includes(dayOfWeek);
+    const isCoastal = lng > -70.5;
+    if (isMWF  && isCoastal)  return 6;
+    if (isTuTh && !isCoastal) return 6;
+  }
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Insertion point finder — geo-first candidate ranking
 // ---------------------------------------------------------------------------
 
 function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
@@ -305,19 +448,25 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
   const candidates = [];
   const lastStop = stops[stops.length - 1];
 
-  // ── Before first stop ──────────────────────────────────────────────────────
+  // Route-level cluster density (shared across all candidates for this route)
+  const clusterDensity = stops.filter(
+    s => haversine(leadLat, leadLng, s.lat, s.lng) <= CLUSTER_RADIUS_MILES
+  ).length;
+
+  // ── Before first stop ───────────────────────────────────────────────────
   {
     const first = stops[0];
-    const dist    = haversine(leadLat, leadLng, first.lat, first.lng);
-    const arrival = Math.max(480, first.spotStartMinutes - Math.round(travelMin(dist)) - durationMin);
-    const sim     = simulateInsertionDelay(stops, -1, leadLat, leadLng, durationMin);
-    const projectedRouteEnd = lastStop.spotStartMinutes + lastStop.durationMinutes + sim.delayAdded;
+    const distToFirst  = haversine(leadLat, leadLng, first.lat, first.lng);
+    const arrival      = Math.max(480, first.spotStartMinutes - Math.round(travelMin(distToFirst)) - durationMin);
+    const sim          = simulateInsertionDelay(stops, -1, leadLat, leadLng, durationMin);
+    const projectedEnd = lastStop.spotStartMinutes + lastStop.durationMinutes + sim.delayAdded;
     candidates.push({
       afterIndex:           -1,
       afterStop:            null,
       beforeStop:           first,
       estimatedArrivalMin:  Math.round(arrival),
-      detourMiles:          Math.round(dist * 10) / 10,
+      detourMiles:          Math.round(distToFirst * 10) / 10,
+      localProximityMiles:  Math.round(distToFirst * 10) / 10, // nearest bounding stop = first
       gapAvailableMin:      first.spotStartMinutes - arrival,
       viable:               first.spotStartMinutes - arrival >= durationMin,
       causesBacktracking:   false,
@@ -325,13 +474,15 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
       delayAdded:           sim.delayAdded,
       timedViolations:      sim.timedViolations,
       timedRisk:            timedRiskLevel(sim.timedViolations),
-      addedDriveMinutes:    Math.max(1, Math.round(travelMin(dist))),
-      projectedRouteEnd,
-      eodSafe:              projectedRouteEnd <= WORKDAY_END,
+      minTimingBuffer:      sim.minTimingBuffer,
+      addedDriveMinutes:    Math.max(1, Math.round(travelMin(distToFirst))),
+      projectedRouteEnd:    projectedEnd,
+      eodSafe:              projectedEnd <= WORKDAY_END,
+      clusterDensity,
     });
   }
 
-  // ── Between adjacent stops ─────────────────────────────────────────────────
+  // ── Between adjacent stops ──────────────────────────────────────────────
   for (let i = 0; i < stops.length - 1; i++) {
     const a = stops[i];
     const b = stops[i + 1];
@@ -347,7 +498,7 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
     const sim        = simulateInsertionDelay(stops, i, leadLat, leadLng, durationMin);
     const bt         = measureBacktracking(a, leadLat, leadLng, b);
     const addedDrive = Math.max(0, Math.round(travelMin(dAN + dNB - dAB)));
-    const projectedRouteEnd = lastStop.spotStartMinutes + lastStop.durationMinutes + sim.delayAdded;
+    const projectedEnd = lastStop.spotStartMinutes + lastStop.durationMinutes + sim.delayAdded;
 
     candidates.push({
       afterIndex:           i,
@@ -355,6 +506,7 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
       beforeStop:           b,
       estimatedArrivalMin:  Math.round(arrival),
       detourMiles:          Math.round(detour * 10) / 10,
+      localProximityMiles:  Math.round(Math.min(dAN, dNB) * 10) / 10, // nearest bounding stop
       gapAvailableMin:      gap,
       viable:               gap >= durationMin,
       causesBacktracking:   bt.backtracking,
@@ -362,73 +514,107 @@ function findBestInsertion(stops, leadLat, leadLng, durationMin, prefWindow) {
       delayAdded:           sim.delayAdded,
       timedViolations:      sim.timedViolations,
       timedRisk:            timedRiskLevel(sim.timedViolations),
+      minTimingBuffer:      sim.minTimingBuffer,
       addedDriveMinutes:    addedDrive,
-      projectedRouteEnd,
-      eodSafe:              projectedRouteEnd <= WORKDAY_END,
+      projectedRouteEnd:    projectedEnd,
+      eodSafe:              projectedEnd <= WORKDAY_END,
+      clusterDensity,
     });
   }
 
-  // ── After last stop ────────────────────────────────────────────────────────
+  // ── After last stop ─────────────────────────────────────────────────────
   {
     const last    = stops[stops.length - 1];
     const dist    = haversine(last.lat, last.lng, leadLat, leadLng);
     const arrival = last.spotStartMinutes + last.durationMinutes + Math.round(travelMin(dist));
-    const projectedRouteEnd = arrival + durationMin;
+    const projectedEnd = arrival + durationMin;
     candidates.push({
       afterIndex:           stops.length - 1,
       afterStop:            last,
       beforeStop:           null,
       estimatedArrivalMin:  Math.round(arrival),
       detourMiles:          Math.round(dist * 10) / 10,
+      localProximityMiles:  Math.round(dist * 10) / 10, // nearest bounding stop = last
       gapAvailableMin:      null,
-      viable:               projectedRouteEnd <= WORKDAY_END,
+      viable:               projectedEnd <= WORKDAY_END,
       causesBacktracking:   false,
       backtrackingSeverity: 0,
       delayAdded:           0,
       timedViolations:      [],
       timedRisk:            'none',
+      minTimingBuffer:      null,
       addedDriveMinutes:    Math.round(travelMin(dist)),
-      projectedRouteEnd,
-      eodSafe:              projectedRouteEnd <= WORKDAY_END,
+      projectedRouteEnd:    projectedEnd,
+      eodSafe:              projectedEnd <= WORKDAY_END,
+      clusterDensity,
     });
   }
 
-  // ── Sort: timed safety → eod safety → viability → window fit → no backtrack → detour ───
+  // ── Geo-first sort using weighted candidate score ────────────────────────
+  // Lower score = better insertion point.
+  // Detour + local proximity are primary. EOD and high timed risk are hard gates.
+  // This eliminates end-of-route bias: a mid-route insertion 0.3 mi from the new
+  // customer beats an end-of-route insertion 4 mi away, even when the end has no
+  // downstream timed stops to worry about.
   const { start, end } = prefWindow;
-  const riskRank = { none: 0, low: 1, medium: 2, high: 3 };
-
-  candidates.sort((a, b) => {
-    const rA = riskRank[a.timedRisk] ?? 0;
-    const rB = riskRank[b.timedRisk] ?? 0;
-    if (rA !== rB) return rA - rB;
-    if (a.eodSafe !== b.eodSafe) return a.eodSafe ? -1 : 1;
-    if (a.viable !== b.viable) return a.viable ? -1 : 1;
-    const aFit = a.estimatedArrivalMin >= start && a.estimatedArrivalMin + durationMin <= end;
-    const bFit = b.estimatedArrivalMin >= start && b.estimatedArrivalMin + durationMin <= end;
-    if (aFit !== bFit) return aFit ? -1 : 1;
-    if (a.causesBacktracking !== b.causesBacktracking) return a.causesBacktracking ? 1 : -1;
-    return a.detourMiles - b.detourMiles;
-  });
+  candidates.sort((a, b) =>
+    insertionCandidateScore(a, start, end, durationMin) -
+    insertionCandidateScore(b, start, end, durationMin)
+  );
 
   return candidates[0];
+}
+
+// ---------------------------------------------------------------------------
+// Route smoothness label
+// ---------------------------------------------------------------------------
+
+function getRouteSmoothness(insertion) {
+  if (!insertion) return null;
+  if (!insertion.eodSafe || insertion.timedRisk === 'high') return 'Difficult fit';
+  if (insertion.timedRisk === 'medium') return 'Some disruption';
+  if (insertion.causesBacktracking || insertion.timedRisk === 'low') return 'Minor adjustment';
+  if (!insertion.viable) return 'Tight gap';
+  return 'Smooth fit';
 }
 
 // ---------------------------------------------------------------------------
 // Per-route scorer
 // ---------------------------------------------------------------------------
 
-function scoreRoute(tech, lead, prefWindow) {
+function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
+  const { routeArea = 'general', dayOfWeek = null } = routingCtx;
   const stops = tech.stops.filter(s => s.lat && s.lng);
   if (stops.length === 0) return null;
 
-  const homeProximity = measureHomeProximity(tech, lead.lat, lead.lng);
+  const durationMin    = lead.durationMinutes ?? getDefaultDuration(lead.serviceType);
+  const homeProximity  = measureHomeProximity(tech, lead.lat, lead.lng);
+
+  // Route-level cluster metrics
+  const clusterDensity = stops.filter(
+    s => haversine(lead.lat, lead.lng, s.lat, s.lng) <= CLUSTER_RADIUS_MILES
+  ).length;
+  const clusterLabel = getClusterLabel(clusterDensity);
+
+  // Closest stop — the single route stop geographically nearest to the new customer
+  const stopsWithDist = stops
+    .map((s, i) => ({ stop: s, idx: i, dist: haversine(lead.lat, lead.lng, s.lat, s.lng) }))
+    .sort((a, b) => a.dist - b.dist);
+  const closestStopData = stopsWithDist[0] ?? null;
+  const closestStop = closestStopData ? {
+    customerName:  closestStopData.stop.customerName ?? null,
+    address:       closestStopData.stop.address ?? null,
+    distanceMiles: Math.round(closestStopData.dist * 10) / 10,
+    scheduledTime: fmtTime12h(closestStopData.stop.spotStartMinutes),
+    stopIndex:     closestStopData.idx + 1,
+  } : null;
 
   // 1. Geographic — min distance from lead to any route stop
-  const minDist  = Math.min(...stops.map(s => haversine(lead.lat, lead.lng, s.lat, s.lng)));
+  const minDist  = closestStopData?.dist ?? Infinity;
   const geoScore = Math.max(0, 100 - (minDist / GEO_ZERO_MILES) * 100);
 
-  // 2. Travel efficiency — detour cost of best insertion
-  const insertion   = findBestInsertion(stops, lead.lat, lead.lng, lead.durationMinutes, prefWindow);
+  // 2. Travel efficiency — detour at the geo-optimal insertion point
+  const insertion   = findBestInsertion(stops, lead.lat, lead.lng, durationMin, prefWindow);
   const travelScore = insertion
     ? Math.max(0, 100 - (insertion.detourMiles / TRAVEL_ZERO_MILES) * 100)
     : 0;
@@ -437,11 +623,10 @@ function scoreRoute(tech, lead, prefWindow) {
   let windowScore = 0;
   if (insertion) {
     const arr  = insertion.estimatedArrivalMin;
-    const done = arr + lead.durationMinutes;
+    const done = arr + durationMin;
     if (arr >= prefWindow.start && done <= prefWindow.end) windowScore = 100;
     else if (arr < prefWindow.end && done > prefWindow.start) windowScore = 50;
 
-    // Home-proximity timing bonus (≤ 15 pts) when route-area aligns with preference
     if (homeProximity?.timingSuggestion) {
       const pref = lead.timeWindowPreference;
       const fits =
@@ -452,12 +637,16 @@ function scoreRoute(tech, lead, prefWindow) {
   }
 
   // 4. Capacity
-  const cap          = parseDurationCapacity(tech.routeDurationCapacityRaw);
+  const cap           = parseDurationCapacity(tech.routeDurationCapacityRaw);
   const capacityScore = cap.maxHours > 0
     ? Math.min(100, Math.max(0, (cap.remainingHours / cap.maxHours) * 100))
     : 50;
 
-  // Raw score
+  // 5. Insertion proximity score — how well the new customer fits at the chosen insertion point
+  const localProxMiles = insertion?.localProximityMiles ?? minDist;
+  const insertionProximityScore = Math.round(Math.max(0, 100 - (localProxMiles / GEO_ZERO_MILES) * 100));
+
+  // Raw weighted score
   let total = Math.round(
     geoScore      * W.geo      +
     travelScore   * W.travel   +
@@ -467,18 +656,33 @@ function scoreRoute(tech, lead, prefWindow) {
 
   // Timed appointment risk penalty
   if (insertion) {
-    total -= TIMED_PENALTY[insertion.timedRisk] ?? 0;
+    if (insertion.timedRisk === 'high')   total -= 60;
+    if (insertion.timedRisk === 'medium') total -= 35;
+    if (insertion.timedRisk === 'low')    total -= 15;
 
-    // End-of-day safety penalty
+    // EOD safety penalty
     if (!insertion.eodSafe) total -= 50;
 
-    // Backtracking penalty (10–20 pts)
+    // Backtracking penalty
     if (insertion.causesBacktracking) {
       total -= Math.round(10 + insertion.backtrackingSeverity * 10);
+    }
+
+    // End-of-route bias penalty: if best insertion is after last stop but
+    // there is a nearby cluster, the route is geographically sub-optimal
+    const bestIsEndOfRoute = insertion.afterIndex === stops.length - 1;
+    if (bestIsEndOfRoute && clusterDensity > 0) {
+      total -= 8;
     }
   }
 
   total = Math.max(0, total);
+
+  // Route area / day-of-week soft bonus
+  const routeAreaBonus = dayOfWeek !== null
+    ? getRouteAreaDayBonus(routeArea, lead.lat, lead.lng, dayOfWeek)
+    : 0;
+  if (routeAreaBonus > 0) total = Math.min(100, total + routeAreaBonus);
 
   // Build stop context for display
   const prevStop = insertion?.afterStop ? {
@@ -500,24 +704,57 @@ function scoreRoute(tech, lead, prefWindow) {
 
   const suggestedWindow = insertion ? suggestCustomerWindow(insertion.estimatedArrivalMin) : null;
   const reason = insertion
-    ? buildReason({ insertion, timedRisk: insertion.timedRisk, homeProximity })
+    ? buildReason({
+        insertion,
+        timedRisk:   insertion.timedRisk,
+        homeProximity,
+        closestStop,
+        clusterLabel,
+        techName:    tech.techName,
+        totalStops:  stops.length,
+      })
     : 'No valid insertion point found.';
+
+  const routeSmoothness = getRouteSmoothness(insertion);
+
+  const minTimingBufferMin   = insertion?.minTimingBuffer ?? null;
+  const minTimingBufferLabel = minTimingBufferMin === null ? null
+    : minTimingBufferMin < 0 ? null
+    : `${minTimingBufferMin} min before next timed appt`;
+
+  // Insertion position label for display
+  let insertionPositionLabel = null;
+  if (insertion) {
+    if (insertion.afterIndex === -1) {
+      insertionPositionLabel = `Before stop 1 of ${stops.length}`;
+    } else if (insertion.afterIndex === stops.length - 1) {
+      insertionPositionLabel = `After stop ${stops.length} of ${stops.length} (end of route)`;
+    } else {
+      insertionPositionLabel = `After stop ${insertion.afterIndex + 1} of ${stops.length}`;
+    }
+  }
 
   return {
     techName:  tech.techName,
     techId:    tech.techId,
     routeId:   tech.routeId,
     stopCount: stops.length,
+    clusterDensity,
+    clusterLabel,
+    closestStop,
+    routeSmoothness,
     capacity: {
       currentHours:   cap.currentHours,
       maxHours:       cap.maxHours,
       remainingHours: Math.round(cap.remainingHours * 100) / 100,
     },
     scores: {
-      geographic:       Math.round(geoScore),
-      travelEfficiency: Math.round(travelScore),
-      timeWindow:       Math.round(Math.min(100, windowScore)),
-      capacity:         Math.round(capacityScore),
+      geographic:         Math.round(geoScore),
+      travelEfficiency:   Math.round(travelScore),
+      timeWindow:         Math.round(Math.min(100, windowScore)),
+      capacity:           Math.round(capacityScore),
+      insertionProximity: insertionProximityScore,
+      routeAreaBonus,
       total,
     },
     nearestStopMiles: Math.round(minDist * 10) / 10,
@@ -525,28 +762,36 @@ function scoreRoute(tech, lead, prefWindow) {
     suggestedWindow,
     reason,
     bestInsertion: insertion ? {
-      afterIndex:           insertion.afterIndex,
-      afterCustomerName:    insertion.afterStop?.customerName ?? null,
-      beforeCustomerName:   insertion.beforeStop?.customerName ?? null,
-      estimatedArrivalMin:  insertion.estimatedArrivalMin,
-      estimatedArrivalTime: fmtTime12h(insertion.estimatedArrivalMin),
+      afterIndex:              insertion.afterIndex,
+      afterCustomerName:       insertion.afterStop?.customerName ?? null,
+      beforeCustomerName:      insertion.beforeStop?.customerName ?? null,
+      estimatedArrivalMin:     insertion.estimatedArrivalMin,
+      estimatedArrivalTime:    fmtTime12h(insertion.estimatedArrivalMin),
       suggestedWindow,
-      detourMiles:          insertion.detourMiles,
-      gapAvailableMin:      insertion.gapAvailableMin,
-      viable:               insertion.viable,
-      causesBacktracking:   insertion.causesBacktracking,
-      addedDriveMinutes:    insertion.addedDriveMinutes,
-      addedDriveTime:       insertion.addedDriveMinutes < 1 ? '< 1 min' : `${insertion.addedDriveMinutes} min`,
-      timedRisk:             insertion.timedRisk,
-      timedViolations:       insertion.timedViolations,
-      delayAdded:            insertion.delayAdded,
-      eodSafe:               insertion.eodSafe,
-      projectedRouteEndMin:  insertion.projectedRouteEnd,
-      projectedRouteEndTime: fmtTime12h(insertion.projectedRouteEnd),
-      serviceDurationMin:    lead.durationMinutes,
-      serviceDuration:       lead.durationMinutes < 60
-        ? `${lead.durationMinutes} min`
-        : `${Math.round(lead.durationMinutes / 60 * 10) / 10} hr`,
+      detourMiles:             insertion.detourMiles,
+      localProximityMiles:     insertion.localProximityMiles,
+      insertionPositionLabel,
+      gapAvailableMin:         insertion.gapAvailableMin,
+      viable:                  insertion.viable,
+      causesBacktracking:      insertion.causesBacktracking,
+      addedDriveMinutes:       insertion.addedDriveMinutes,
+      addedDriveTime:          insertion.addedDriveMinutes < 1 ? '< 1 min' : `${insertion.addedDriveMinutes} min`,
+      timedRisk:               insertion.timedRisk,
+      timedViolations:         insertion.timedViolations,
+      timedSafetyLabel:        buildTimedSafetyLabel(insertion),
+      minTimingBufferMin,
+      minTimingBufferLabel,
+      delayAdded:              insertion.delayAdded,
+      eodSafe:                 insertion.eodSafe,
+      projectedRouteEndMin:    insertion.projectedRouteEnd,
+      projectedRouteEndTime:   fmtTime12h(insertion.projectedRouteEnd),
+      eodLabel: insertion.eodSafe
+        ? `Safe — done by ${fmtTime12h(insertion.projectedRouteEnd)}`
+        : `Rejected — route would end at ${fmtTime12h(insertion.projectedRouteEnd)} (past 6:00 PM)`,
+      serviceDurationMin:      durationMin,
+      serviceDuration:         durationMin < 60
+        ? `${durationMin} min`
+        : `${Math.round(durationMin / 60 * 10) / 10} hr`,
       prevStop,
       nextStop,
     } : null,
@@ -559,29 +804,67 @@ function scoreRoute(tech, lead, prefWindow) {
 
 export function scoreRoutes(technicians, lead, topN = 3) {
   const prefWindow = parseWindow(lead.timeWindowPreference);
+  const routeArea  = lead.routeArea ?? 'general';
+  const dayOfWeek  = lead.date ? new Date(lead.date + 'T12:00:00').getDay() : null;
+  const routingCtx = { routeArea, dayOfWeek };
 
-  const scored = technicians
-    .map(tech => scoreRoute(tech, lead, prefWindow))
+  // NH: restrict scoring to approved technicians only
+  let eligibleTechs = technicians;
+  if (routeArea === 'new_hampshire') {
+    eligibleTechs = technicians.filter(t =>
+      NH_CONFIG.approvedTechNames.includes(t.techName) ||
+      NH_CONFIG.approvedTechIds.includes(t.techId)
+    );
+  }
+
+  const scored = eligibleTechs
+    .map(tech => scoreRoute(tech, lead, prefWindow, routingCtx))
     .filter(Boolean)
     .sort((a, b) => b.scores.total - a.scores.total);
+
+  const prefWindowMeta = {
+    label:     lead.timeWindowPreference || 'AT',
+    startTime: fmtTime12h(prefWindow.start),
+    endTime:   fmtTime12h(prefWindow.end),
+  };
+
+  // NH: return no-safe-route result if Alex Gray is absent or only unsafe insertions
+  if (routeArea === 'new_hampshire') {
+    const noSafeRoute =
+      eligibleTechs.length === 0 ||
+      scored.length === 0 ||
+      !scored[0].bestInsertion?.eodSafe;
+    if (noSafeRoute) {
+      const msg = eligibleTechs.length === 0
+        ? 'Alex Gray is not scheduled for this date — no New Hampshire route available.'
+        : 'No safe New Hampshire route found for Alex Gray.';
+      return {
+        lead, prefWindow: prefWindowMeta, routeArea,
+        noSafeRoute: true, noSafeRouteMessage: msg,
+        totalRoutesScored: scored.length,
+        recommendation: null, alternatives: [], topMatches: [],
+        allScores: scored.map(r => ({ techName: r.techName, routeId: r.routeId, total: r.scores.total })),
+      };
+    }
+  }
 
   const topMatches = scored.slice(0, topN).map((r, i) => ({ rank: i + 1, ...r }));
 
   return {
     lead,
-    prefWindow: {
-      label:     lead.timeWindowPreference || 'AT',
-      startTime: fmtTime12h(prefWindow.start),
-      endTime:   fmtTime12h(prefWindow.end),
-    },
+    prefWindow: prefWindowMeta,
+    routeArea,
     totalRoutesScored: scored.length,
     recommendation: topMatches[0] ?? null,
     alternatives:   topMatches.slice(1),
     topMatches,
     allScores: scored.map(r => ({
-      techName: r.techName,
-      routeId:  r.routeId,
-      total:    r.scores.total,
+      techName:    r.techName,
+      routeId:     r.routeId,
+      total:       r.scores.total,
+      clusterLabel: r.clusterLabel,
+      nearestStop: r.nearestStopMiles,
+      insertionAt: r.bestInsertion?.insertionPositionLabel ?? null,
     })),
   };
 }

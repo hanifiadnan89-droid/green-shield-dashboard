@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Send, StopCircle, PlayCircle, Edit3 } from 'lucide-react';
+import { Send, StopCircle, PlayCircle, Edit3, Trash2 } from 'lucide-react';
 import { getAvatarStyle, getInitials, getRowBorderColor, TEMPLATE_META } from '../mockData.js';
 
 function TemplateBadge({ notes }) {
@@ -54,7 +54,7 @@ function StatusPill({ lead }) {
   );
 }
 
-export default function LeadRow({ lead, onSelect, onPreviewAction, isSelected }) {
+export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isSelected }) {
   const avatar = getAvatarStyle(lead.name || '');
   const initials = getInitials(lead.name || '');
   const borderColor = getRowBorderColor(lead);
@@ -129,6 +129,19 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, isSelected })
         >
           <Edit3 size={13} style={{ color: '#94A3B8' }} />
         </button>
+        {onDelete && (
+          <button
+            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+            title="Delete lead"
+            onClick={() => {
+              if (window.confirm(`Delete ${lead.name || 'this lead'}? This cannot be undone.`)) {
+                onDelete(lead);
+              }
+            }}
+          >
+            <Trash2 size={13} style={{ color: '#DC2626' }} />
+          </button>
+        )}
       </div>
     </div>
   );

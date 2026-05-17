@@ -17,8 +17,9 @@ export const api = {
     list: () => request('/leads'),
     create: (lead) => request('/leads', { method: 'POST', body: JSON.stringify(lead) }),
     update: (rowNumber, updates) => request(`/leads/${rowNumber}`, { method: 'PUT', body: JSON.stringify(updates) }),
-    stop: (rowNumber, name) => request(`/leads/${rowNumber}/stop`, { method: 'POST', body: JSON.stringify({ name }) }),
-    unstop: (rowNumber, name) => request(`/leads/${rowNumber}/unstop`, { method: 'POST', body: JSON.stringify({ name }) })
+    stop:   (rowNumber, name) => request(`/leads/${rowNumber}/stop`,   { method: 'POST',   body: JSON.stringify({ name }) }),
+    unstop: (rowNumber, name) => request(`/leads/${rowNumber}/unstop`, { method: 'POST',   body: JSON.stringify({ name }) }),
+    delete: (rowNumber, name) => request(`/leads/${rowNumber}`,        { method: 'DELETE', body: JSON.stringify({ name }) }),
   },
 
   send: (lead, template, channel) => request('/send', {
@@ -40,10 +41,12 @@ export const api = {
   },
 
   routes: {
-    payload: (date) => request(`/routes/payload?date=${date}`),
-    status:  () => request('/routes/status'),
-    refresh: (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
-    preload: () => request('/routes/preload', { method: 'POST' }),
+    payload:    (date) => request(`/routes/payload?date=${date}`),
+    status:     () => request('/routes/status'),
+    authStatus: () => request('/routes/auth-status'),
+    authCheck:  () => request('/routes/auth-check', { method: 'POST' }),
+    refresh:    (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
+    preload:    (force = false) => request(`/routes/preload${force ? '?force=true' : ''}`, { method: 'POST' }),
   },
 
   documents: {

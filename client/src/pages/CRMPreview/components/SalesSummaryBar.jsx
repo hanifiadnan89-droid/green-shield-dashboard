@@ -1,4 +1,5 @@
 import { AlertTriangle, MessageSquare, FileCheck, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { deriveSalesStats } from '../mockData.js';
 import AnimatedNumber from '../../../components/AnimatedNumber.jsx';
 
@@ -11,6 +12,7 @@ const CARDS = [
     iconBg: '#fef2f2',
     iconColor: '#DC2626',
     accent: '#DC2626',
+    href: '/leads',
   },
   {
     key: 'hotReplies',
@@ -20,6 +22,7 @@ const CARDS = [
     iconBg: '#f0fdf4',
     iconColor: '#16A34A',
     accent: '#16A34A',
+    href: '/leads',
   },
   {
     key: 'agreementsPending',
@@ -29,6 +32,7 @@ const CARDS = [
     iconBg: '#eff6ff',
     iconColor: '#2563EB',
     accent: '#2563EB',
+    href: '/leads?notes=ag',
   },
   {
     key: 'followUpQueue',
@@ -38,26 +42,31 @@ const CARDS = [
     iconBg: '#fffbeb',
     iconColor: '#D97706',
     accent: '#D97706',
+    href: '/leads',
   },
 ];
 
 export default function SalesSummaryBar({ leads = [], loading = false }) {
+  const navigate = useNavigate();
   const stats = loading ? null : deriveSalesStats(leads);
 
   return (
     <div className="grid grid-cols-4 gap-4">
-      {CARDS.map(({ key, label, sub, icon: Icon, iconBg, iconColor, accent }, i) => {
+      {CARDS.map(({ key, label, sub, icon: Icon, iconBg, iconColor, accent, href }, i) => {
         const count = stats ? (stats[key] ?? 0) : 0;
         const hasActivity = count > 0;
 
         return (
           <div
             key={key}
-            className={`bento-card p-card flex items-center gap-4 p-5`}
+            className="bento-card p-card stat-card-float flex items-center gap-4 p-5"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(href)}
+            onKeyDown={e => e.key === 'Enter' && navigate(href)}
             style={{
               borderBottom: hasActivity ? `3px solid ${accent}` : '3px solid transparent',
               animationDelay: `${i * 65}ms`,
-              transition: 'border-color 0.2s ease',
             }}
           >
             <div

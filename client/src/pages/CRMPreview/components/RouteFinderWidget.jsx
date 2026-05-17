@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw } from 'lucide-react';
 import { api } from '../../../api/client.js';
-import { scoreRoutes } from '../../../utils/fieldRoutesScorer.js';
+import { scoreRoutes, detectRouteArea } from '../../../utils/fieldRoutesScorer.js';
 
 // ---------------------------------------------------------------------------
 // Time slot configuration
@@ -38,21 +38,28 @@ function getLocalDateStr(offsetDays = 0) {
 }
 
 function buildDateMetas() {
-  return [0, 1, 2].map(offset => {
-    const key = getLocalDateStr(offset);
-    const label = offset === 0 ? 'Today'
-      : offset === 1 ? 'Tomorrow'
-      : new Date(new Date().setDate(new Date().getDate() + offset))
-          .toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
-    return { key, label };
-  });
+  const metas = [];
+  let offset = 0;
+  while (metas.length < 6) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    if (d.getDay() !== 0) { // skip Sunday
+      const key = getLocalDateStr(offset);
+      const label = offset === 0 ? 'Today'
+        : offset === 1 ? 'Tomorrow'
+        : d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+      metas.push({ key, label });
+    }
+    offset++;
+  }
+  return metas;
 }
 
 // ---------------------------------------------------------------------------
 // Status badge for each date pill
 // ---------------------------------------------------------------------------
 const STATUS_CFG = {
-  cached:         { label: 'Ready',   color: '#16A34A' },
+  cached:         { label: 'Cached',  color: '#16A34A' },
   refreshing:     { label: 'Loading', color: '#3B82F6', spinning: true },
   failed:         { label: 'Failed',  color: '#DC2626', showRefresh: true },
   needs_login:    { label: 'Login',   color: '#F59E0B', showRefresh: true },
@@ -60,13 +67,23 @@ const STATUS_CFG = {
   not_configured: { label: '—',       color: '#CBD5E1' },
 };
 
-function StatusBadge({ status, date, onRefresh }) {
+function fmtAgo(isoStr) {
+  if (!isoStr) return null;
+  const ageMin = Math.round((Date.now() - new Date(isoStr).getTime()) / 60000);
+  if (ageMin < 1)    return 'just now';
+  if (ageMin < 60)   return `${ageMin}m ago`;
+  if (ageMin < 1440) return `${Math.floor(ageMin / 60)}h ago`;
+  return `${Math.floor(ageMin / 1440)}d ago`;
+}
+
+function StatusBadge({ status, meta, date, onRefresh }) {
   const cfg = STATUS_CFG[status] || STATUS_CFG.missing;
+  const ago = status === 'cached' ? fmtAgo(meta?.timestamp) : null;
   return (
     <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 14 }}>
       {cfg.spinning
         ? <Loader2 size={9} className="animate-spin" style={{ color: cfg.color }} />
-        : <span style={{ fontSize: 9, color: cfg.color, fontWeight: 600 }}>{cfg.label}</span>
+        : <span style={{ fontSize: 9, color: cfg.color, fontWeight: 600 }}>{cfg.label}{ago ? ` · ${ago}` : ''}</span>
       }
       {cfg.showRefresh && onRefresh && (
         <button
@@ -115,6 +132,11 @@ function ScoreBar({ score, max = 100 }) {
 // ---------------------------------------------------------------------------
 // Result card
 // ---------------------------------------------------------------------------
+const ROUTE_AREA_LABELS = {
+  new_hampshire: 'New Hampshire Route',
+  maine:         'Maine Route',
+};
+
 const TIMED_RISK_CFG = {
   none:   { label: '✓ timed safe',    color: '#16A34A' },
   low:    { label: '⚡ low risk',      color: '#F59E0B' },
@@ -122,11 +144,24 @@ const TIMED_RISK_CFG = {
   high:   { label: '✗ timed conflict', color: '#DC2626' },
 };
 
-function ResultCard({ match, rank }) {
+const SMOOTHNESS_CFG = {
+  'Smooth fit':       { color: '#16A34A', icon: '✓' },
+  'Minor adjustment': { color: '#F59E0B', icon: '~' },
+  'Tight gap':        { color: '#F59E0B', icon: '⚡' },
+  'Some disruption':  { color: '#F59E0B', icon: '⚠' },
+  'Difficult fit':    { color: '#DC2626', icon: '✗' },
+};
+
+function ResultCard({ match, rank, routeArea }) {
   const rankColors = ['#16A34A', '#3B82F6', '#8B5CF6'];
   const color = rankColors[rank - 1] || '#94A3B8';
   const ins = match.bestInsertion;
   const timedCfg = TIMED_RISK_CFG[ins?.timedRisk] ?? TIMED_RISK_CFG.none;
+  const areaLabel = ROUTE_AREA_LABELS[routeArea];
+  const smoothCfg = SMOOTHNESS_CFG[match.routeSmoothness] ?? null;
+  const timedSafetyColor = ins?.timedRisk === 'high' ? '#DC2626'
+    : ins?.timedRisk === 'medium' || ins?.timedRisk === 'low' ? '#F59E0B'
+    : '#16A34A';
 
   return (
     <div style={{
@@ -136,6 +171,19 @@ function ResultCard({ match, rank }) {
       padding: '10px 12px',
       marginBottom: 8,
     }}>
+      {/* Route area badge */}
+      {areaLabel && (
+        <div style={{ marginBottom: 6 }}>
+          <span style={{
+            fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+            color: routeArea === 'new_hampshire' ? '#3B82F6' : '#8B5CF6',
+            background: routeArea === 'new_hampshire' ? 'rgba(59,130,246,0.08)' : 'rgba(139,92,246,0.08)',
+            borderRadius: 4, padding: '1px 5px',
+          }}>
+            Route Area: {areaLabel}
+          </span>
+        </div>
+      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
         <span style={{
@@ -151,8 +199,18 @@ function ResultCard({ match, rank }) {
           </p>
           <p style={{ fontSize: 10, color: '#64748B', margin: 0, marginTop: 1 }}>
             Route {match.routeId} · {match.stopCount} stops · {match.nearestStopMiles} mi away
+            {match.clusterDensity > 0 && (
+              <span style={{ color: '#16A34A', fontWeight: 600, marginLeft: 4 }}>
+                · {match.clusterDensity} nearby
+              </span>
+            )}
           </p>
         </div>
+        {smoothCfg && (
+          <span style={{ fontSize: 9, fontWeight: 700, color: smoothCfg.color, flexShrink: 0, whiteSpace: 'nowrap' }}>
+            {smoothCfg.icon} {match.routeSmoothness}
+          </span>
+        )}
       </div>
 
       {/* Suggested window */}
@@ -190,6 +248,30 @@ function ResultCard({ match, rank }) {
         </div>
       )}
 
+      {/* Geo context: insertion position + closest stop + cluster */}
+      {ins && (
+        <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {ins.insertionPositionLabel && (
+            <span style={{ fontSize: 9, color: '#94A3B8' }}>
+              <span style={{ fontWeight: 600, color: '#64748B' }}>Position</span> {ins.insertionPositionLabel}
+            </span>
+          )}
+          {match.closestStop && (
+            <span style={{ fontSize: 9, color: '#94A3B8' }}>
+              <span style={{ fontWeight: 600, color: '#64748B' }}>Closest stop</span>{' '}
+              {match.closestStop.customerName ?? match.closestStop.address} · {match.closestStop.distanceMiles} mi
+              {match.closestStop.scheduledTime ? ` · ${match.closestStop.scheduledTime}` : ''}
+              {' '}(stop {match.closestStop.stopIndex})
+            </span>
+          )}
+          {match.clusterLabel && (
+            <span style={{ fontSize: 9, fontWeight: 600, color: match.clusterDensity >= 3 ? '#16A34A' : match.clusterDensity >= 1 ? '#F59E0B' : '#94A3B8' }}>
+              {match.clusterDensity >= 3 ? '✓ ' : match.clusterDensity >= 1 ? '~ ' : ''}{match.clusterLabel}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Stats row */}
       {ins && (
         <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
@@ -207,15 +289,29 @@ function ResultCard({ match, rank }) {
           <span style={{ fontSize: 10, color: '#475569' }}>
             <span style={{ fontWeight: 600 }}>Cap</span> {match.capacity.remainingHours}h left
           </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: timedCfg.color }}>
-            {timedCfg.label}
-          </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: ins.eodSafe !== false ? '#16A34A' : '#DC2626' }}>
-            {ins.eodSafe !== false ? '✓ by 6 PM' : '⚠ past 6 PM'}
-          </span>
           {!ins.viable && (
             <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>⚠ tight gap</span>
           )}
+        </div>
+      )}
+
+      {/* Timed appointment safety */}
+      {ins?.timedSafetyLabel && (
+        <div style={{ marginTop: 4 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: timedSafetyColor }}>
+            {ins.timedRisk === 'none' ? '✓' : ins.timedRisk === 'high' ? '✗' : '⚠'} Timed appts:
+          </span>{' '}
+          <span style={{ fontSize: 10, color: timedSafetyColor }}>{ins.timedSafetyLabel}</span>
+        </div>
+      )}
+
+      {/* End-of-day safety */}
+      {ins?.eodLabel && (
+        <div style={{ marginTop: 2 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: ins.eodSafe !== false ? '#16A34A' : '#DC2626' }}>
+            {ins.eodSafe !== false ? '✓' : '✗'} End of day:
+          </span>{' '}
+          <span style={{ fontSize: 10, color: ins.eodSafe !== false ? '#16A34A' : '#DC2626' }}>{ins.eodLabel}</span>
         </div>
       )}
 
@@ -227,10 +323,10 @@ function ResultCard({ match, rank }) {
       )}
 
       {/* Score breakdown */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 6, paddingTop: 5, borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-        {['geographic', 'travelEfficiency', 'timeWindow', 'capacity'].map(k => {
-          const labels = { geographic: 'Geo', travelEfficiency: 'Drive', timeWindow: 'Win', capacity: 'Cap' };
-          const v = match.scores[k];
+      <div style={{ display: 'flex', gap: 6, marginTop: 6, paddingTop: 5, borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+        {['geographic', 'travelEfficiency', 'timeWindow', 'capacity', 'insertionProximity'].map(k => {
+          const labels = { geographic: 'Geo', travelEfficiency: 'Drive', timeWindow: 'Win', capacity: 'Cap', insertionProximity: 'Ins' };
+          const v = match.scores[k] ?? 0;
           return (
             <div key={k} style={{ textAlign: 'center', flex: 1 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: v >= 70 ? '#16A34A' : v >= 45 ? '#F59E0B' : '#CBD5E1' }}>{v}</div>
@@ -239,6 +335,58 @@ function ResultCard({ match, rank }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Auth status banner — always mounted, never conditional
+// ---------------------------------------------------------------------------
+function AuthStatusBanner({ authInfo }) {
+  const isChecking = authInfo.status === 'checking';
+  const isOk       = authInfo.status === 'ok';
+  const isLogin    = authInfo.status === 'needs_login';
+  const isFailed   = authInfo.status === 'failed';
+
+  const dotColor  = isChecking ? '#94A3B8' : isOk ? '#16A34A' : isFailed ? '#DC2626' : '#F59E0B';
+  const textColor = isChecking ? '#64748B' : isOk ? '#16A34A' : isFailed ? '#DC2626' : '#B45309';
+  const bg        = isChecking ? 'rgba(148,163,184,0.06)' : isOk ? 'rgba(22,163,74,0.05)' : isFailed ? 'rgba(220,38,38,0.05)' : 'rgba(245,158,11,0.07)';
+  const border    = isChecking ? 'rgba(148,163,184,0.2)' : isOk ? 'rgba(22,163,74,0.18)' : isFailed ? 'rgba(220,38,38,0.18)' : 'rgba(245,158,11,0.28)';
+  const label     = isChecking ? 'Checking…' : isOk ? 'Connected' : isLogin ? 'Needs Login' : isFailed ? 'Failed' : 'Unknown';
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ padding: '5px 9px', borderRadius: 8, background: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: textColor }}>
+            FieldRoutes: {label}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {authInfo.lastCheckFormatted && (
+            <span style={{ fontSize: 9, color: '#94A3B8' }}>checked {authInfo.lastCheckFormatted}</span>
+          )}
+          {authInfo.lastRefreshFormatted && (
+            <span style={{ fontSize: 9, color: '#94A3B8' }}>refreshed {authInfo.lastRefreshFormatted}</span>
+          )}
+        </div>
+      </div>
+      {isLogin && (
+        <div style={{ marginTop: 5, padding: '6px 9px', borderRadius: 7, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.22)' }}>
+          <p style={{ fontSize: 10, fontWeight: 600, color: '#B45309', margin: '0 0 3px' }}>
+            ⚠ Session expired — re-run the login script:
+          </p>
+          <code style={{ fontSize: 9, color: '#475569', background: 'rgba(0,0,0,0.05)', borderRadius: 4, padding: '2px 6px', fontFamily: 'monospace', wordBreak: 'break-all', display: 'block', lineHeight: 1.6 }}>
+            cd ~/green-shield-dashboard && node scripts/fieldRoutesLogin.mjs
+          </code>
+        </div>
+      )}
+      {isFailed && authInfo.message && (
+        <div style={{ marginTop: 5, padding: '5px 9px', borderRadius: 7, background: 'rgba(220,38,38,0.04)', border: '1px solid rgba(220,38,38,0.18)' }}>
+          <span style={{ fontSize: 9, color: '#DC2626' }}>{authInfo.message}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -253,6 +401,7 @@ export default function RouteFinderWidget() {
 
   const [activeDate, setActiveDate]           = useState(null);
   const [dateStatus, setDateStatus]           = useState({});
+  const [authInfo, setAuthInfo]               = useState({ status: 'checking' });
   const [activeTechnicians, setActiveTechnicians] = useState(null);
   const [dateLoadStatus, setDateLoadStatus]   = useState('idle'); // idle|loading|error
 
@@ -278,8 +427,20 @@ export default function RouteFinderWidget() {
 
   const geocodeCacheRef = useRef({});
   const pollRef         = useRef(null);
+  const bgStatusRef     = useRef(null);
   const dateKeysRef     = useRef(DATE_KEYS);
   useEffect(() => { dateKeysRef.current = DATE_KEYS; }, [DATE_KEYS]);
+  const activeDateRef   = useRef(activeDate);
+  useEffect(() => { activeDateRef.current = activeDate; }, [activeDate]);
+
+  // ---------------------------------------------------------------------------
+  // Helper: splits _auth out of the status response and applies both
+  // ---------------------------------------------------------------------------
+  const applyStatusData = useCallback((statusData) => {
+    const { _auth, ...dateStatuses } = statusData;
+    setDateStatus(dateStatuses);
+    if (_auth) setAuthInfo(_auth);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Polling
@@ -289,7 +450,7 @@ export default function RouteFinderWidget() {
     pollRef.current = setInterval(async () => {
       try {
         const statusData = await api.routes.status();
-        setDateStatus(statusData);
+        applyStatusData(statusData);
         const anyRefreshing = dateKeysRef.current.some(d => statusData[d]?.status === 'refreshing');
         if (!anyRefreshing) {
           clearInterval(pollRef.current);
@@ -300,9 +461,22 @@ export default function RouteFinderWidget() {
         pollRef.current = null;
       }
     }, 3000);
-  }, []);
+  }, [applyStatusData]);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  // 30-second background status refresh — updates date pills + auth status
+  useEffect(() => {
+    bgStatusRef.current = setInterval(async () => {
+      if (pollRef.current) return; // active polling already running
+      try {
+        const statusData = await api.routes.status();
+        applyStatusData(statusData);
+      } catch { /* ignore */ }
+    }, 30000);
+    return () => { if (bgStatusRef.current) clearInterval(bgStatusRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---------------------------------------------------------------------------
   // On mount: load status, trigger preload for missing dates
@@ -311,24 +485,27 @@ export default function RouteFinderWidget() {
     (async () => {
       try {
         const statusData = await api.routes.status();
-        setDateStatus(statusData);
+        applyStatusData(statusData);
         const needsLoad = DATE_KEYS.some(d => {
           const s = statusData[d]?.status;
           return !s || s === 'missing';
         });
         if (needsLoad) {
           api.routes.preload().catch(() => {});
-          // Set missing dates to refreshing optimistically
-          setDateStatus(prev => {
-            const next = { ...prev };
-            DATE_KEYS.forEach(d => {
-              if (!next[d] || next[d].status === 'missing') {
-                next[d] = { status: 'refreshing' };
-              }
+          // Optimistically mark missing dates as refreshing (auth-aware)
+          const auth = statusData._auth;
+          if (!auth || auth.status === 'ok' || auth.status === 'unknown') {
+            setDateStatus(prev => {
+              const next = { ...prev };
+              DATE_KEYS.forEach(d => {
+                if (!next[d] || next[d].status === 'missing') {
+                  next[d] = { status: 'refreshing' };
+                }
+              });
+              return next;
             });
-            return next;
-          });
-          startPolling();
+            startPolling();
+          }
         } else {
           const anyRefreshing = DATE_KEYS.some(d => statusData[d]?.status === 'refreshing');
           if (anyRefreshing) startPolling();
@@ -377,6 +554,18 @@ export default function RouteFinderWidget() {
     } catch { /* ignore */ }
   }, [activeDate, startPolling]);
 
+  const handleRefreshAll = useCallback(async () => {
+    try {
+      await api.routes.preload(true); // force=true — always re-scrape, ignore cache age
+      setDateStatus(prev => {
+        const next = { ...prev };
+        DATE_KEYS.forEach(d => { next[d] = { ...(next[d] || {}), status: 'refreshing' }; });
+        return next;
+      });
+      startPolling();
+    } catch { /* ignore */ }
+  }, [DATE_KEYS, startPolling]);
+
   // ---------------------------------------------------------------------------
   // Geocode
   // ---------------------------------------------------------------------------
@@ -423,12 +612,15 @@ export default function RouteFinderWidget() {
     setScoringStatus('loading');
     setScoringError('');
     try {
+      const routeArea = detectRouteArea(latLng.full || '');
       const lead = {
         lat: latLng.lat,
         lng: latLng.lng,
         serviceType: 'Regular Service',
         durationMinutes: 30,
         timeWindowPreference: prefStr || 'AT',
+        routeArea,
+        date: activeDateRef.current,
       };
       const scored = scoreRoutes(techList, lead, 3);
       setResults(scored);
@@ -493,25 +685,37 @@ export default function RouteFinderWidget() {
             <p style={{ fontSize: 10, color: '#94A3B8', margin: 0, marginTop: 2 }}>Find best technician for a new stop</p>
           </div>
         </div>
-        {(geocode || results) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <button
-            onClick={handleReset}
+            onClick={handleRefreshAll}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
-            title="Reset"
+            title="Refresh all dates"
           >
-            <RotateCcw size={13} />
+            <RefreshCw size={13} />
           </button>
-        )}
+          {(geocode || results) && (
+            <button
+              onClick={handleReset}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
+              title="Reset"
+            >
+              <RotateCcw size={13} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
+
+        {/* ── FieldRoutes auth status ── */}
+        <AuthStatusBanner authInfo={authInfo} />
 
         {/* ── Date picker ── */}
         <div style={{ marginBottom: 14 }}>
           <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>
             Route Date
           </label>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {DATE_METAS.map(({ key, label }) => {
               const s = dateStatus[key] || { status: 'missing' };
               const isCached = s.status === 'cached';
@@ -519,7 +723,7 @@ export default function RouteFinderWidget() {
               const isLoading = dateLoadStatus === 'loading' && isActive;
 
               return (
-                <div key={key} style={{ flex: 1, textAlign: 'center' }}>
+                <div key={key} style={{ flex: '1 1 calc(33.33% - 4px)', textAlign: 'center' }}>
                   <button
                     onClick={() => isCached && handleDateSelect(key)}
                     style={{
@@ -541,7 +745,7 @@ export default function RouteFinderWidget() {
                       {label}
                     </span>
                   </button>
-                  <StatusBadge status={s.status} date={key} onRefresh={handleRefresh} />
+                  <StatusBadge status={s.status} meta={s} date={key} />
                 </div>
               );
             })}
@@ -782,23 +986,50 @@ export default function RouteFinderWidget() {
         {/* ── Results ── */}
         {scoringStatus === 'done' && results && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-                Top {results.topMatches.length} Matches
-              </p>
-              <button
-                onClick={() => runScore(activeTechnicians, geocode, timePref === 'specific' ? specificSlot : timePref ?? 'AT')}
-                style={{ fontSize: 10, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                Re-score
-              </button>
-            </div>
-            {results.topMatches.map(match => (
-              <ResultCard key={match.routeId} match={match} rank={match.rank} />
-            ))}
-            <p style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 4 }}>
-              {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
-            </p>
+            {/* Route area header (NH / Maine) */}
+            {results.routeArea && results.routeArea !== 'general' && (
+              <div style={{
+                marginBottom: 8, padding: '5px 10px', borderRadius: 8,
+                background: results.routeArea === 'new_hampshire' ? 'rgba(59,130,246,0.06)' : 'rgba(139,92,246,0.06)',
+                border: `1px solid ${results.routeArea === 'new_hampshire' ? 'rgba(59,130,246,0.2)' : 'rgba(139,92,246,0.2)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: results.routeArea === 'new_hampshire' ? '#3B82F6' : '#8B5CF6' }}>
+                  {results.routeArea === 'new_hampshire' ? 'New Hampshire Route' : 'Maine Route'}
+                </span>
+                {results.routeArea === 'new_hampshire' && (
+                  <span style={{ fontSize: 9, color: '#64748B' }}>Alex Gray only</span>
+                )}
+              </div>
+            )}
+            {/* No-safe-route message */}
+            {results.noSafeRoute ? (
+              <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(220,38,38,0.2)', background: 'rgba(220,38,38,0.04)' }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: '#DC2626', margin: 0, lineHeight: 1.4 }}>
+                  {results.noSafeRouteMessage}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                    Top {results.topMatches.length} Matches
+                  </p>
+                  <button
+                    onClick={() => runScore(activeTechnicians, geocode, timePref === 'specific' ? specificSlot : timePref ?? 'AT')}
+                    style={{ fontSize: 10, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Re-score
+                  </button>
+                </div>
+                {results.topMatches.map(match => (
+                  <ResultCard key={match.routeId} match={match} rank={match.rank} routeArea={results.routeArea} />
+                ))}
+                <p style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 4 }}>
+                  {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
