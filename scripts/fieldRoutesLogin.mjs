@@ -12,11 +12,12 @@ const { chromium } = playwrightPkg;
 import { mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import * as readline from 'readline/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const AUTH_DIR   = resolve(__dirname, '../playwright/.auth');
 const AUTH_STATE = resolve(AUTH_DIR, 'fieldroutes-state.json');
+
+const LOGIN_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 mkdirSync(AUTH_DIR, { recursive: true });
 
@@ -27,21 +28,33 @@ const page = await context.newPage();
 
 await page.goto('https://greenshieldpestsolutions.fieldroutes.com/');
 
-console.log('[FieldRoutes Login] A browser window has opened.');
+console.log('[FieldRoutes Login] Browser is open.');
 console.log('[FieldRoutes Login] Log in to FieldRoutes normally (username + password).');
-console.log('[FieldRoutes Login] Once you see the dashboard, return here and press Enter.\n');
+console.log('[FieldRoutes Login] Auth state will be saved automatically once you reach the dashboard.\n');
+console.log('[FieldRoutes Login] Waiting up to 5 minutes — just log in, nothing else needed.\n');
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-await rl.question('Press Enter when you are logged in and on the FieldRoutes dashboard... ');
-rl.close();
+// Give the login page a moment to fully render before we start watching
+await page.waitForTimeout(2500);
 
-// Verify we are not still on the login page
-const currentUrl = page.url();
-if (currentUrl.includes('login') || currentUrl.includes('index.php')) {
-  console.error('\n[FieldRoutes Login] ✗ Still on login page. Please log in first, then re-run this script.\n');
+// Detect login by DOM: wait until there is no password input on the page.
+// This works regardless of what URL FieldRoutes uses for its login screen.
+try {
+  await page.waitForFunction(
+    () => {
+      if (document.readyState !== 'complete') return false;
+      const pwd = document.querySelector('input[type="password"]');
+      return !pwd;
+    },
+    { timeout: LOGIN_TIMEOUT_MS, polling: 2000 }
+  );
+} catch {
+  console.error('\n[FieldRoutes Login] ✗ Timed out waiting for login. Please re-run the script and log in within 5 minutes.\n');
   await browser.close();
   process.exit(1);
 }
+
+// Extra brief pause to let the dashboard finish loading cookies
+await page.waitForTimeout(1500);
 
 await context.storageState({ path: AUTH_STATE });
 console.log(`\n[FieldRoutes Login] ✓ Auth state saved to: ${AUTH_STATE}`);

@@ -38,6 +38,12 @@ export const NH_CONFIG = {
   approvedTechIds:   [10068],
 };
 
+// Technicians permanently excluded from all Route Finder recommendations
+const EXCLUDED_TECH_PATTERNS = [
+  /no tech assigned/i,
+  /\bleo\b/i,
+];
+
 const WINDOW_SLOTS = [
   { start: 480,  end: 600,  label: '8:00 AM – 10:00 AM' },
   { start: 600,  end: 720,  label: '10:00 AM – 12:00 PM' },
@@ -1250,10 +1256,16 @@ export function scoreRoutes(technicians, lead, topN = 3) {
   const dayOfWeek  = lead.date ? new Date(lead.date + 'T12:00:00').getDay() : null;
   const routingCtx = { routeArea, dayOfWeek };
 
+  // Global exclusions — always applied before any other filtering
+  const allowedTechs = technicians.filter(t => {
+    if (!t.techName) return false;
+    return !EXCLUDED_TECH_PATTERNS.some(re => re.test(t.techName));
+  });
+
   // NH: restrict to approved technicians
-  let eligibleTechs = technicians;
+  let eligibleTechs = allowedTechs;
   if (routeArea === 'new_hampshire') {
-    eligibleTechs = technicians.filter(t =>
+    eligibleTechs = allowedTechs.filter(t =>
       NH_CONFIG.approvedTechNames.includes(t.techName) ||
       NH_CONFIG.approvedTechIds.includes(t.techId)
     );
