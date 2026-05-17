@@ -14,10 +14,19 @@ const W = { geo: 0.20, travel: 0.40, window: 0.30, capacity: 0.10 };
 
 // Service duration defaults by type (minutes)
 const SERVICE_DURATIONS = {
-  'Regular Service': 30,
-  'T&M':             30,
-  'Initial Service': 60,
-  'Initial':         60,
+  'Regular Service':        30,
+  'T&M':                    30,
+  'Initial Service':        60,
+  'Initial':                60,
+  'Tick and Mosquito':      30,
+  'Tick and Mosquito Service': 30,
+  'Insect Quarterly':       30,
+  'Insect Quarterly Service': 30,
+  'Re-service':             30,
+  'Reservice':              30,
+  'Commercial Account':     60,
+  'Commercial Service':     60,
+  'Commercial':             60,
 };
 
 export function getDefaultDuration(serviceType) {
@@ -44,13 +53,7 @@ const EXCLUDED_TECH_PATTERNS = [
   /\bleo\b/i,
 ];
 
-const WINDOW_SLOTS = [
-  { start: 480,  end: 600,  label: '8:00 AM – 10:00 AM' },
-  { start: 600,  end: 720,  label: '10:00 AM – 12:00 PM' },
-  { start: 720,  end: 840,  label: '12:00 PM – 2:00 PM' },
-  { start: 840,  end: 960,  label: '2:00 PM – 4:00 PM' },
-  { start: 960,  end: 1080, label: '4:00 PM – 6:00 PM' },
-];
+const DAY_START_MIN = 480; // 8:00 AM — all technicians begin here
 
 // ---------------------------------------------------------------------------
 // Core math utilities
@@ -146,12 +149,45 @@ function timedRiskLevel(violations) {
   return 'high';
 }
 
-function suggestCustomerWindow(arrivalMin) {
+/**
+ * Recommend AM or PM as the broad arrival window.
+ *
+ * Clear zones:
+ *   < 11:00 AM (660) → AM
+ *   ≥ 12:00 PM (720) → PM
+ *
+ * Border zone 11:00 AM–12:00 PM: resolve using route context —
+ *   nearby AM vs PM stop counts, AM service load, and position in day.
+ */
+function suggestBroadWindow(arrivalMin, stops, leadLat, leadLng) {
   if (arrivalMin == null) return null;
-  for (const slot of WINDOW_SLOTS) {
-    if (arrivalMin >= slot.start && arrivalMin < slot.end) return slot.label;
-  }
-  return arrivalMin < 480 ? WINDOW_SLOTS[0].label : WINDOW_SLOTS[WINDOW_SLOTS.length - 1].label;
+  const BORDER_START = 660;  // 11:00 AM
+  const NOON         = 720;  // 12:00 PM
+
+  if (arrivalMin < BORDER_START) return 'AM';
+  if (arrivalMin >= NOON)        return 'PM';
+
+  // Border zone — use route context to decide
+  const amStops = stops.filter(s => s.spotStartMinutes != null && s.spotStartMinutes < NOON);
+  const pmStops = stops.filter(s => s.spotStartMinutes != null && s.spotStartMinutes >= NOON);
+
+  // Nearby stops in each half
+  const nearbyAM = amStops.filter(
+    s => s.lat && s.lng && haversine(leadLat, leadLng, s.lat, s.lng) <= CLUSTER_RADIUS_MILES
+  ).length;
+  const nearbyPM = pmStops.filter(
+    s => s.lat && s.lng && haversine(leadLat, leadLng, s.lat, s.lng) <= CLUSTER_RADIUS_MILES
+  ).length;
+
+  if (nearbyAM > nearbyPM) return 'AM';
+  if (nearbyPM > nearbyAM) return 'PM';
+
+  // Tiebreak: if AM block already carries > 3 hours of service and PM has room
+  const amServiceLoad = amStops.reduce((sum, s) => sum + (s.durationMinutes || 30), 0);
+  if (amServiceLoad > 180 && pmStops.length > 0) return 'PM';
+
+  // Final tiebreak: 11:00–11:30 → AM, 11:30–12:00 → PM
+  return arrivalMin < 690 ? 'AM' : 'PM';
 }
 
 // ---------------------------------------------------------------------------
@@ -573,7 +609,7 @@ function computeOptimizationConfidence(stops, insertion) {
   if (!hasGoodData) return 'Low';
 
   // High confidence: good coord coverage + clear insertion point + not end-biased
-  if (coordCoverage >= 0.9 && insertion.localProximityMiles < 3 && insertion.eodSafe) {
+  if (coordCoverage >= 0.9 && insertion.localProximityMiles < 3) {
     return 'High';
   }
   if (coordCoverage >= 0.75) return 'Medium';
@@ -613,8 +649,7 @@ function buildTimedSafetyLabel(insertion) {
 function insertionCandidateScore(c, prefStart, prefEnd, durationMin) {
   let score = 0;
 
-  // Hard constraints
-  if (!c.eodSafe)             score += 1000;
+  // Hard constraint — timed appointment violations only; EOD is no longer a hard gate
   if (c.timedRisk === 'high') score += 500;
 
   // Primary: geographic insertion quality
@@ -867,7 +902,7 @@ function findBestInsertion(
       detourMiles:          Math.round(detour * 10) / 10,
       localProximityMiles:  Math.round(dLast * 10) / 10,
       gapAvailableMin:      null,
-      viable:               projectedEnd <= WORKDAY_END,
+      viable:               true,
       backtracking:         false,
       backtrackingRisk:     'None',
       backtrackingSeverity: 0,
@@ -878,7 +913,7 @@ function findBestInsertion(
       minTimingBuffer:      null,
       addedDriveMinutes:    Math.round(travelMin(dLast)),
       projectedRouteEnd:    projectedEnd,
-      eodSafe:              projectedEnd <= WORKDAY_END,
+      eodSafe:              projectedEnd <= WORKDAY_END, // informational only
       clusterQuality:       cluster.quality,
     });
   }
@@ -899,7 +934,7 @@ function findBestInsertion(
 
 function getRouteSmoothness(insertion) {
   if (!insertion) return null;
-  if (!insertion.eodSafe || insertion.timedRisk === 'high') return 'Difficult fit';
+  if (insertion.timedRisk === 'high') return 'Difficult fit';
   if (insertion.timedRisk === 'medium') return 'Some disruption';
   if (insertion.backtrackingRisk === 'High' || insertion.backtrackingRisk === 'Severe') return 'Some disruption';
   if (insertion.backtrackingRisk === 'Moderate' || insertion.timedRisk === 'low') return 'Minor adjustment';
@@ -1005,7 +1040,20 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
   // ── Step 1: internally optimize the route ────────────────────────────────
   const startLoc = tech.startLocation;
   const endLoc   = tech.endLocation;
-  const { stops, wasOptimized } = optimizeRouteOrder(allStops, startLoc, endLoc);
+  const { stops: orderedStops, wasOptimized } = optimizeRouteOrder(allStops, startLoc, endLoc);
+
+  // ── Step 1b: rebuild timing from 8 AM for the optimized order ────────────
+  // All techs start at 8 AM. Rebuilding spotStartMinutes from DAY_START_MIN
+  // gives accurate arrival estimates regardless of whether FieldRoutes has
+  // already optimized the schedule.
+  const hasStartLoc = startLoc?.lat != null && startLoc?.lng != null;
+  const simFromLat  = hasStartLoc ? startLoc.lat : (orderedStops[0]?.lat ?? lead.lat);
+  const simFromLng  = hasStartLoc ? startLoc.lng : (orderedStops[0]?.lng ?? lead.lng);
+  const timeline    = simulateRouteTiming(orderedStops, simFromLat, simFromLng, DAY_START_MIN);
+  const stops       = orderedStops.map((stop, i) => ({
+    ...stop,
+    spotStartMinutes: timeline[i]?.arrivalMin ?? stop.spotStartMinutes ?? DAY_START_MIN,
+  }));
 
   // ── Step 2: compute overall route direction bearing ───────────────────────
   const routeDirectionBearing = computeRouteDirectionBearing(stops, startLoc, endLoc);
@@ -1070,11 +1118,10 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
     capacityScore * W.capacity
   );
 
-  // Penalties
+  // Penalties — timed appointment risk only; EOD is no longer a scoring constraint
   if (insertion.timedRisk === 'high')   total -= 60;
   if (insertion.timedRisk === 'medium') total -= 35;
   if (insertion.timedRisk === 'low')    total -= 15;
-  if (!insertion.eodSafe)               total -= 50;
 
   // Backtracking penalty (bearing-based)
   const btPenalties = { Severe: 25, High: 15, Moderate: 8, Low: 3, None: 0 };
@@ -1095,7 +1142,8 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
   if (routeAreaBonus > 0) total = Math.min(100, total + routeAreaBonus);
 
   // ── Step 7: build rich output ─────────────────────────────────────────────
-  const suggestedWindow = suggestCustomerWindow(insertion.estimatedArrivalMin);
+  // Broad AM/PM recommendation — route-context aware at the 11 AM–noon border
+  const suggestedWindow = suggestBroadWindow(insertion.estimatedArrivalMin, stops, lead.lat, lead.lng);
 
   const startEndFit = buildStartEndFit(tech, lead.lat, lead.lng, insertion.estimatedArrivalMin);
   const optimizationConfidence = computeOptimizationConfidence(stops, insertion);
@@ -1162,10 +1210,10 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
     routeDirectionBearing,
   });
 
-  // EOD label including travel-to-end if available
-  const eodLabel = insertion.eodSafe
-    ? `Safe — done by ${fmtTime12h(insertion.projectedRouteEnd)}`
-    : `Rejected — route would end at ${fmtTime12h(insertion.projectedRouteEnd)} (past 6:00 PM)`;
+  // EOD label — informational only, not a rejection
+  const eodLabel = fmtTime12h(insertion.projectedRouteEnd)
+    ? `Est. done by ${fmtTime12h(insertion.projectedRouteEnd)}`
+    : null;
 
   return {
     techName:  tech.techName,
@@ -1287,7 +1335,7 @@ export function scoreRoutes(technicians, lead, topN = 3) {
     const noSafeRoute =
       eligibleTechs.length === 0 ||
       scored.length === 0 ||
-      !scored[0].bestInsertion?.eodSafe;
+      !scored[0].bestInsertion;
     if (noSafeRoute) {
       const msg = eligibleTechs.length === 0
         ? 'Alex Gray is not scheduled for this date — no New Hampshire route available.'

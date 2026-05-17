@@ -354,13 +354,11 @@ function ResultCard({ match, rank, routeArea }) {
         </div>
       )}
 
-      {/* End-of-day safety */}
+      {/* Estimated end of day — informational */}
       {ins?.eodLabel && (
         <div style={{ marginTop: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: ins.eodSafe !== false ? '#16A34A' : '#DC2626' }}>
-            {ins.eodSafe !== false ? '✓' : '✗'} End of day:
-          </span>{' '}
-          <span style={{ fontSize: 10, color: ins.eodSafe !== false ? '#16A34A' : '#DC2626' }}>{ins.eodLabel}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#64748B' }}>◷ Est. end:</span>{' '}
+          <span style={{ fontSize: 10, color: '#475569' }}>{ins.eodLabel}</span>
         </div>
       )}
 
