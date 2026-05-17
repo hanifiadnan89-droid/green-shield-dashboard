@@ -175,8 +175,16 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Distance-based speed heuristic: urban < 2 mi, suburban 2–8 mi, highway > 8 mi
+function pickSpeed(miles) {
+  const { profiles } = SCORER_CONFIG.speed;
+  if (miles < 2) return profiles.urban;    // 22 mph
+  if (miles < 8) return profiles.suburban; // 30 mph
+  return profiles.highway;                 // 45 mph
+}
+
 function travelMin(miles) {
-  return (miles / AVG_SPEED_MPH) * 60;
+  return (miles / pickSpeed(miles)) * 60;
 }
 
 // Compass bearing (degrees 0–360) from point A to point B
@@ -837,12 +845,11 @@ function simulateInsertionDelay(stops, insertIdx, newLat, newLng, newDurationMin
   let delayAdded = 0;
 
   if (insertIdx === -1) {
+    // Inserting before the first stop: the new stop takes service time + travel to first stop.
+    // That's the additional delay pushed onto the first stop and all downstream stops.
     const first = stops[0];
-    const dToNew  = haversine(first.lat, first.lng, newLat, newLng);
-    const dNewToF = haversine(newLat, newLng, first.lat, first.lng);
-    const timeNeeded = Math.round(travelMin(dToNew) + newDurationMin + travelMin(dNewToF));
-    const latestStart = first.spotStartMinutes - timeNeeded;
-    delayAdded = latestStart >= 480 ? 0 : Math.max(0, 480 - latestStart);
+    const dNewToFirst = haversine(newLat, newLng, first.lat, first.lng);
+    delayAdded = Math.round(newDurationMin + travelMin(dNewToFirst));
   } else {
     const prev = stops[insertIdx];
     const next = stops[insertIdx + 1];
@@ -1214,7 +1221,9 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
   } : null;
 
   const minDist  = closestStopData?.dist ?? Infinity;
-  const geoScore = Math.max(0, 100 - (minDist / GEO_ZERO_MILES) * 100);
+  // Exponential decay: score = 100·exp(-dist / scale). Gentler than linear —
+  // never punishes a distant-but-viable route down to 0.
+  const geoScore = Math.round(100 * Math.exp(-minDist / GEO_ZERO_MILES));
 
   // ── Step 5: find best insertion in the optimized route ────────────────────
   const { best: insertion, clusterData: insertionCluster } = findBestInsertion(
@@ -1225,7 +1234,7 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
   if (!insertion) return null;
 
   // ── Step 6: compute scores ────────────────────────────────────────────────
-  const travelScore = Math.max(0, 100 - (insertion.detourMiles / TRAVEL_ZERO_MILES) * 100);
+  const travelScore = Math.round(100 * Math.exp(-insertion.detourMiles / TRAVEL_ZERO_MILES));
 
   // Window score
   const homeProximity = measureHomeProximity(tech, lead.lat, lead.lng);
@@ -1246,9 +1255,10 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
   const capacityScore = cap.maxHours > 0
     ? Math.min(100, Math.max(0, (cap.remainingHours / cap.maxHours) * 100))
     : 50;
+  const isOverCapacity = cap.remainingHours < durationMin / 60;
 
   const localProxMiles = insertion.localProximityMiles;
-  const insertionProximityScore = Math.round(Math.max(0, 100 - (localProxMiles / GEO_ZERO_MILES) * 100));
+  const insertionProximityScore = Math.round(100 * Math.exp(-localProxMiles / GEO_ZERO_MILES));
 
   let total = Math.round(
     geoScore      * cfg.weights.geo      +
@@ -1274,6 +1284,9 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
   if (insertion.afterIndex === stops.length - 1 && clusterData.count > 0) total -= 8;
 
   total = Math.max(0, total);
+
+  // Hard capacity gate: route cannot absorb this lead → floor score to 0
+  if (isOverCapacity) total = 0;
 
   // Route area / day-of-week bonus
   const routeAreaBonus = dayOfWeek !== null
@@ -1396,7 +1409,7 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
       localProximityMiles:     insertion.localProximityMiles,
       insertionPositionLabel,
       gapAvailableMin:         insertion.gapAvailableMin,
-      viable:                  insertion.viable,
+      viable:                  isOverCapacity ? false : insertion.viable,
       // Backtracking
       backtracking:            insertion.backtracking,
       backtrackingRisk:        insertion.backtrackingRisk,
