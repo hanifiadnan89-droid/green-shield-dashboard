@@ -1075,6 +1075,196 @@ function findBestInsertion(
 }
 
 // ---------------------------------------------------------------------------
+// VRPTW insertion engine (Phase 4)
+//
+// Replaces the heuristic candidate-score ranking with a principled
+// cost-minimization objective subject to hard constraints.
+//
+// Objective (lower = better):
+//   cost(i) = α·detour_mi
+//           + β·max(0, arrival_i − w_b) + β2·max(0, w_a − arrival_i)
+//           + γ·Σ lateness_k for timed anchors k > i
+//           + δ·routeDirectionPenalty(i)
+//           + ε·clusterDisruption(i)
+//           + ζ·max(0, projectedEnd_i − tech.dayEndMin)
+//
+// Hard constraints (cost = +Infinity):
+//   - Any timed anchor projected past window_b + timedToleranceMin
+//   - projectedEnd > dayEndMin + dayEndHardSlackMin
+//   - durationMin > remainingHours * 60 (handled upstream via isOverCapacity)
+// ---------------------------------------------------------------------------
+
+function vrptwInsertion(
+  stops, leadLat, leadLng, durationMin, prefWindow,
+  startLoc, endLoc, routeDirectionBearing, clusterData, cfg
+) {
+  if (stops.length === 0) return null;
+
+  const v = cfg.vrptw;
+  const dayEndHard = cfg.workday.dayEndMin + v.dayEndHardSlackMin;
+  const hasStart = startLoc?.lat != null && startLoc?.lng != null;
+  const hasEnd   = endLoc?.lat   != null && endLoc?.lng   != null;
+
+  // Forward-sweep: propagate arrivals through the route after inserting at slot i.
+  // Returns { arrivals, projectedEnd, timedViolations, timedLatenessSum } or null if hard-fail.
+  function propagate(insertIdx) {
+    const arrivals = [];
+    let cur = hasStart ? { lat: startLoc.lat, lng: startLoc.lng } : (stops[0] ?? null);
+    let curTime = DAY_START_MIN;
+
+    // Build the route in insertion order
+    for (let k = 0; k <= stops.length; k++) {
+      const isNew = (k === insertIdx + 1); // insert new stop here (insertIdx=-1 → k=0)
+      const stop = isNew ? { lat: leadLat, lng: leadLng, durationMinutes: durationMin, _isNew: true }
+                         : stops[k > insertIdx + 1 ? k - 1 : k]; // stops after insertion shift
+
+      if (!stop) break;
+      if (!stop.lat || !stop.lng) {
+        arrivals.push({ stop, arrivalMin: curTime, isNew });
+        curTime += stop.durationMinutes;
+        continue;
+      }
+
+      const drive = travelMin(haversine(cur?.lat ?? stop.lat, cur?.lng ?? stop.lng, stop.lat, stop.lng));
+      let arrival = curTime + drive;
+
+      // Respect timed window start for non-new stops
+      if (!isNew && isTimedStop(stop)) {
+        const ws = parseTimeStr(stop.startTime);
+        if (ws != null) arrival = Math.max(arrival, ws);
+      }
+
+      arrivals.push({ stop, arrivalMin: arrival, isNew });
+      curTime = arrival + stop.durationMinutes;
+      cur = stop;
+    }
+
+    // Travel to endLoc after last stop
+    const lastArr = arrivals[arrivals.length - 1];
+    const endTravel = (hasEnd && lastArr?.stop?.lat && lastArr?.stop?.lng)
+      ? travelMin(haversine(lastArr.stop.lat, lastArr.stop.lng, endLoc.lat, endLoc.lng))
+      : 0;
+    const projectedEnd = (lastArr?.arrivalMin ?? DAY_START_MIN) + (lastArr?.stop?.durationMinutes ?? 0) + endTravel;
+
+    // Hard fail: projected end too late
+    if (projectedEnd > dayEndHard) return null;
+
+    // Timed violations among existing stops
+    const timedViolations = [];
+    let timedLatenessSum = 0;
+    for (const { stop, arrivalMin, isNew } of arrivals) {
+      if (isNew || !isTimedStop(stop)) continue;
+      const windowEnd = parseTimeStr(stop.endTime);
+      if (windowEnd == null) continue;
+      const lateness = Math.max(0, arrivalMin - windowEnd);
+      if (lateness > v.timedToleranceMin) {
+        timedViolations.push({ stop, arrivalMin, windowEnd, lateness });
+        if (lateness > v.timedToleranceMin) return null; // hard fail on any anchor violation
+      }
+      timedLatenessSum += lateness;
+    }
+
+    return { arrivals, projectedEnd, timedViolations, timedLatenessSum };
+  }
+
+  const candidates = [];
+
+  for (let insertIdx = -1; insertIdx < stops.length; insertIdx++) {
+    const result = propagate(insertIdx);
+    if (result === null) continue; // hard constraint violated
+
+    const { arrivals, projectedEnd, timedViolations, timedLatenessSum } = result;
+    const newArrEntry = arrivals.find(e => e.isNew);
+    if (!newArrEntry) continue;
+
+    const arrivalMin = newArrEntry.arrivalMin;
+    const afterStop  = insertIdx >= 0 ? stops[insertIdx] : null;
+    const beforeStop = insertIdx + 1 < stops.length ? stops[insertIdx + 1] : null;
+
+    // Detour miles
+    const prevLat = afterStop?.lat ?? (hasStart ? startLoc.lat : (stops[0]?.lat ?? leadLat));
+    const prevLng = afterStop?.lng ?? (hasStart ? startLoc.lng : (stops[0]?.lng ?? leadLng));
+    const nextLat = beforeStop?.lat ?? (hasEnd ? endLoc.lat : (stops[stops.length - 1]?.lat ?? leadLat));
+    const nextLng = beforeStop?.lng ?? (hasEnd ? endLoc.lng : (stops[stops.length - 1]?.lng ?? leadLng));
+    const dPN   = haversine(prevLat, prevLng, leadLat, leadLng);
+    const dNX   = haversine(leadLat, leadLng, nextLat, nextLng);
+    const dPX   = haversine(prevLat, prevLng, nextLat, nextLng);
+    const detourMiles = Math.max(0, dPN + dNX - dPX);
+
+    // Window cost
+    const windowCostLate  = v.betaSoftLate  * Math.max(0, arrivalMin - prefWindow.end);
+    const windowCostEarly = v.betaSoftEarly * Math.max(0, prefWindow.start - arrivalMin);
+
+    // Timed anchor cost
+    const timedAnchorCost = v.gammaTimedAnchor * timedLatenessSum;
+
+    // Route direction cost
+    let directionCost = 0;
+    if (afterStop?.lat && beforeStop?.lat && routeDirectionBearing != null) {
+      const bt = measureBacktracking(afterStop, leadLat, leadLng, beforeStop, routeDirectionBearing);
+      directionCost = v.deltaDirection * bt.severity;
+    }
+
+    // Cluster disruption cost
+    const clusterCost = v.epsilonCluster * Math.max(0, clusterData.count - 0);
+
+    // EOD overshoot cost
+    const eodCost = v.zetaOvershoot * Math.max(0, projectedEnd - cfg.workday.dayEndMin);
+
+    const totalCost = v.alphaDetour * detourMiles
+      + windowCostLate + windowCostEarly
+      + timedAnchorCost
+      + directionCost
+      + clusterCost
+      + eodCost;
+
+    // Re-use legacy backtracking output for ResultCard fields
+    const bt = (afterStop?.lat && beforeStop?.lat)
+      ? measureBacktracking(afterStop, leadLat, leadLng, beforeStop, routeDirectionBearing)
+      : { backtracking: false, severity: 0, risk: 'None', detail: null };
+
+    const localProxMiles = Math.round(Math.min(dPN, dNX) * 10) / 10;
+    const addedDriveMinutes = Math.max(0, Math.round(travelMin(dPN + dNX - dPX)));
+
+    candidates.push({
+      _vrptwCost:           totalCost,
+      afterIndex:           insertIdx,
+      afterStop,
+      beforeStop,
+      estimatedArrivalMin:  Math.round(arrivalMin),
+      detourMiles:          Math.round(detourMiles * 10) / 10,
+      localProximityMiles:  localProxMiles,
+      gapAvailableMin:      beforeStop ? beforeStop.spotStartMinutes - arrivalMin : null,
+      viable:               true, // hard constraints already filtered
+      backtracking:         bt.backtracking,
+      backtrackingRisk:     bt.risk,
+      backtrackingSeverity: bt.severity,
+      backtrackingDetail:   bt.detail,
+      delayAdded:           0, // VRPTW models delay in cost, not as a separate field
+      timedViolations:      timedViolations.map(v => ({
+        customerName:     v.stop.customerName,
+        originalArrival:  v.stop.spotStartMinutes,
+        projectedArrival: v.arrivalMin,
+        windowEnd:        v.windowEnd,
+        lateness:         v.lateness,
+      })),
+      timedRisk:            timedLatenessSum > 30 ? 'high' : timedLatenessSum > 0 ? 'medium' : 'none',
+      minTimingBuffer:      null,
+      addedDriveMinutes,
+      projectedRouteEnd:    projectedEnd,
+      eodSafe:              projectedEnd <= cfg.workday.dayEndMin,
+      clusterQuality:       clusterData.quality,
+    });
+  }
+
+  if (candidates.length === 0) return null;
+
+  // Pick minimum VRPTW cost
+  candidates.sort((a, b) => a._vrptwCost - b._vrptwCost);
+  return { best: candidates[0], clusterData };
+}
+
+// ---------------------------------------------------------------------------
 // Route smoothness label
 // ---------------------------------------------------------------------------
 
@@ -1226,10 +1416,16 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
   const geoScore = Math.round(100 * Math.exp(-minDist / GEO_ZERO_MILES));
 
   // ── Step 5: find best insertion in the optimized route ────────────────────
-  const { best: insertion, clusterData: insertionCluster } = findBestInsertion(
-    stops, lead.lat, lead.lng, durationMin, prefWindow,
-    startLoc, endLoc, routeDirectionBearing
-  );
+  const insertionResult = cfg.engine === 'vrptw'
+    ? vrptwInsertion(
+        stops, lead.lat, lead.lng, durationMin, prefWindow,
+        startLoc, endLoc, routeDirectionBearing, clusterData, cfg
+      )
+    : findBestInsertion(
+        stops, lead.lat, lead.lng, durationMin, prefWindow,
+        startLoc, endLoc, routeDirectionBearing
+      );
+  const { best: insertion, clusterData: insertionCluster } = insertionResult ?? {};
 
   if (!insertion) return null;
 
