@@ -1130,7 +1130,7 @@ function buildReason({
 // Per-route scorer
 // ---------------------------------------------------------------------------
 
-function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
+function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG) {
   const { routeArea = 'general', dayOfWeek = null } = routingCtx;
   const allStops = tech.stops.filter(s => s.lat && s.lng);
   if (allStops.length === 0) return null;
@@ -1212,20 +1212,20 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
   const insertionProximityScore = Math.round(Math.max(0, 100 - (localProxMiles / GEO_ZERO_MILES) * 100));
 
   let total = Math.round(
-    geoScore      * W.geo      +
-    travelScore   * W.travel   +
-    windowScore   * W.window   +
-    capacityScore * W.capacity
+    geoScore      * cfg.weights.geo      +
+    travelScore   * cfg.weights.travel   +
+    windowScore   * cfg.weights.window   +
+    capacityScore * cfg.weights.capacity
   );
 
   // Penalties — timed appointment risk only; EOD is no longer a scoring constraint
-  const timedPen = SCORER_CONFIG.penalties.timedRisk;
+  const timedPen = cfg.penalties.timedRisk;
   if (insertion.timedRisk === 'high')   total -= timedPen.high;
   if (insertion.timedRisk === 'medium') total -= timedPen.medium;
   if (insertion.timedRisk === 'low')    total -= timedPen.low;
 
   // Backtracking penalty (bearing-based)
-  const btPenalties = SCORER_CONFIG.penalties.backtracking;
+  const btPenalties = cfg.penalties.backtracking;
   total -= btPenalties[insertion.backtrackingRisk] ?? 0;
 
   // Cluster quality bonus
@@ -1396,32 +1396,34 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Internal orchestrator — accepts a config override so tests can inject
+// custom weights/thresholds without touching the global SCORER_CONFIG.
 // ---------------------------------------------------------------------------
 
-export function scoreRoutes(technicians, lead, topN = 3) {
+function runScorer(technicians, lead, topN, cfg) {
   const prefWindow = parseWindow(lead.timeWindowPreference);
   const routeArea  = lead.routeArea ?? 'general';
   const dayOfWeek  = lead.date ? new Date(lead.date + 'T12:00:00').getDay() : null;
   const routingCtx = { routeArea, dayOfWeek };
 
   // Global exclusions — always applied before any other filtering
+  const exclusionPatterns = cfg.exclusions.techNamePatterns;
   const allowedTechs = technicians.filter(t => {
     if (!t.techName) return false;
-    return !EXCLUDED_TECH_PATTERNS.some(re => re.test(t.techName));
+    return !exclusionPatterns.some(re => re.test(t.techName));
   });
 
   // NH: restrict to approved technicians
   let eligibleTechs = allowedTechs;
   if (routeArea === 'new_hampshire') {
     eligibleTechs = allowedTechs.filter(t =>
-      SCORER_CONFIG.nh.approvedTechNames.includes(t.techName) ||
-      SCORER_CONFIG.nh.approvedTechIds.includes(t.techId)
+      cfg.nh.approvedTechNames.includes(t.techName) ||
+      cfg.nh.approvedTechIds.includes(t.techId)
     );
   }
 
   const scored = eligibleTechs
-    .map(tech => scoreRoute(tech, lead, prefWindow, routingCtx))
+    .map(tech => scoreRoute(tech, lead, prefWindow, routingCtx, cfg))
     .filter(Boolean)
     .sort((a, b) => b.scores.total - a.scores.total);
 
@@ -1471,4 +1473,12 @@ export function scoreRoutes(technicians, lead, topN = 3) {
       wasOptimized: r.wasOptimized,
     })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export function scoreRoutes(technicians, lead, topN = 3) {
+  return runScorer(technicians, lead, topN, SCORER_CONFIG);
 }
