@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, startTransition } from 'react';
 import { api } from '../../api/client.js';
 import { deriveStats } from './mockData.js';
 import PremiumSidebar from './components/PremiumSidebar.jsx';
@@ -71,6 +71,7 @@ export default function CRMPreview({ testMode }) {
   const [activity, setActivity] = useState(null); // eslint-disable-line no-unused-vars
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(false);
+  const loadingRef              = useRef(false);
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [search, setSearch]             = useState('');
@@ -78,6 +79,7 @@ export default function CRMPreview({ testMode }) {
   const pipelineRef = useRef(null);
 
   const refresh = useCallback(async () => {
+    loadingRef.current = true;
     setLoading(true);
     setError(false);
     try {
@@ -90,11 +92,24 @@ export default function CRMPreview({ testMode }) {
     } catch {
       setError(true);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // 30-second background leads refresh — no UI state reset, no scraping
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (loadingRef.current) return;
+      try {
+        const data = await api.leads.list();
+        startTransition(() => setLeads(data.leads || []));
+      } catch { /* ignore — user can manually refresh */ }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -104,6 +119,15 @@ export default function CRMPreview({ testMode }) {
   const handlePreviewAction = useCallback((type) => {
     if (type === 'stop') showToast('Use the Leads page to stop or resume a lead');
     if (type === 'edit') showToast('Use the Leads page to edit lead details');
+  }, [showToast]);
+
+  const handleLeadDeleted = useCallback(async (lead) => {
+    try {
+      await api.leads.delete(lead.row_number, lead.name);
+      setLeads(prev => (prev || []).filter(l => l.row_number !== lead.row_number));
+    } catch {
+      showToast('Could not delete lead — try again');
+    }
   }, [showToast]);
 
   const handleFilterChange = useCallback((filter) => {
@@ -139,17 +163,17 @@ export default function CRMPreview({ testMode }) {
               {/* Sales summary bar */}
               <SalesSummaryBar leads={leads ?? []} loading={false} />
 
-              {/* Pipeline Summary + Priority Work Queue */}
+              {/* Pipeline Summary + Route Finder */}
               <div className="grid grid-cols-12 gap-5">
                 <div className="col-span-8">
                   <PipelineSummary stats={stats ?? {}} />
                 </div>
                 <div className="col-span-4 h-full">
-                  <PriorityQueue leads={leads ?? []} loading={false} />
+                  <RouteFinderWidget />
                 </div>
               </div>
 
-              {/* Lead Pipeline + Activity Feed */}
+              {/* Lead Pipeline + Priority Work Queue */}
               <div ref={pipelineRef} className="grid grid-cols-12 gap-5 pb-6">
                 <div className="col-span-8">
                   <LeadPipeline
@@ -159,10 +183,11 @@ export default function CRMPreview({ testMode }) {
                     search={search}
                     setSearch={setSearch}
                     onPreviewAction={handlePreviewAction}
+                    onDelete={handleLeadDeleted}
                   />
                 </div>
                 <div className="col-span-4 h-full">
-                  <RouteFinderWidget />
+                  <PriorityQueue leads={leads ?? []} loading={false} />
                 </div>
               </div>
             </div>
