@@ -469,6 +469,11 @@ export default function RouteFinderWidget() {
   const [geocodeError, setGeocodeError]   = useState('');
   const [isEditing, setIsEditing]         = useState(false);
 
+  // Address autocomplete
+  const [suggestions, setSuggestions]         = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+
   // Time preference
   const [timePref, setTimePref]         = useState(null);
   const [specificSlot, setSpecificSlot] = useState(null);
@@ -482,9 +487,11 @@ export default function RouteFinderWidget() {
   const [scoringError, setScoringError]   = useState('');
   const [results, setResults]             = useState(null);
 
-  const geocodeCacheRef = useRef({});
-  const pollRef         = useRef(null);
-  const bgStatusRef     = useRef(null);
+  const geocodeCacheRef    = useRef({});
+  const suggestDebounceRef = useRef(null);
+  const suppressBlurRef    = useRef(false);
+  const pollRef            = useRef(null);
+  const bgStatusRef        = useRef(null);
   const dateKeysRef     = useRef(DATE_KEYS);
   useEffect(() => { dateKeysRef.current = DATE_KEYS; }, [DATE_KEYS]);
   const activeDateRef   = useRef(activeDate);
@@ -624,6 +631,60 @@ export default function RouteFinderWidget() {
   }, [DATE_KEYS, startPolling]);
 
   // ---------------------------------------------------------------------------
+  // Address autocomplete
+  // ---------------------------------------------------------------------------
+  const fetchSuggestions = useCallback(async (query) => {
+    if (query.trim().length < 4) { setSuggestions([]); setShowSuggestions(false); return; }
+    try {
+      // Bias toward ME/NH area (bounded=0 allows results outside viewport too)
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=6&countrycodes=us&addressdetails=1&viewbox=-73.0,42.5,-69.5,47.5&bounded=0`;
+      const resp = await fetch(url, { headers: { 'User-Agent': 'GreenShieldDashboard/1.0' } });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const formatted = data.map(item => {
+        const a = item.address || {};
+        const streetNum = a.house_number || '';
+        const street    = a.road || a.pedestrian || a.path || '';
+        const primary   = [streetNum, street].filter(Boolean).join(' ') ||
+                          item.display_name.split(',')[0].trim();
+        const city  = a.city || a.town || a.village || a.hamlet || '';
+        const state = a.state || '';
+        const zip   = a.postcode || '';
+        const secondary = [city, [state, zip].filter(Boolean).join(' ')]
+                            .filter(Boolean).join(', ');
+        const shortDisplay = [primary, secondary].filter(Boolean).join(', ');
+        return { primary, secondary, shortDisplay, full: item.display_name,
+                 lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
+      }).filter(s => s.primary);
+      setSuggestions(formatted);
+      setShowSuggestions(formatted.length > 0);
+      setActiveSuggestion(-1);
+    } catch {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, []);
+
+  const selectSuggestion = useCallback((s) => {
+    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setActiveSuggestion(-1);
+    setAddressInput(s.shortDisplay);
+    // Use coordinates directly from the suggestion — no second geocode call needed
+    const result = { lat: s.lat, lng: s.lng, display: s.shortDisplay, full: s.full };
+    geocodeCacheRef.current[s.shortDisplay] = result;
+    setGeocode(result);
+    setGeocodeStatus('success');
+    setResults(null);
+    setScoringStatus('idle');
+    setTimePref(null);
+    setSpecificSlot(null);
+    setShowOther(false);
+    setIsEditing(false);
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Geocode
   // ---------------------------------------------------------------------------
   const doGeocode = useCallback(async (addr) => {
@@ -659,7 +720,32 @@ export default function RouteFinderWidget() {
     }
   }, []);
 
-  const handleAddressKey = (e) => { if (e.key === 'Enter') doGeocode(addressInput); };
+  const handleAddressKey = (e) => {
+    if (showSuggestions && suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSuggestion(prev => Math.min(prev + 1, suggestions.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSuggestion(prev => Math.max(prev - 1, -1));
+        return;
+      }
+      if (e.key === 'Enter' && activeSuggestion >= 0) {
+        e.preventDefault();
+        selectSuggestion(suggestions[activeSuggestion]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setActiveSuggestion(-1);
+        return;
+      }
+    }
+    if (e.key === 'Enter') doGeocode(addressInput);
+  };
 
   // ---------------------------------------------------------------------------
   // Scoring
@@ -724,6 +810,10 @@ export default function RouteFinderWidget() {
     setSpecialNotes('');
     setResults(null);
     setScoringStatus('idle');
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setActiveSuggestion(-1);
+    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
   };
 
   // ---------------------------------------------------------------------------
@@ -847,23 +937,40 @@ export default function RouteFinderWidget() {
             </div>
           ) : (
             <div style={{ position: 'relative' }}>
-              <MapPin size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+              <MapPin size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', zIndex: 1 }} />
               <input
                 autoFocus={isEditing}
                 value={addressInput}
-                onChange={e => setAddressInput(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  setAddressInput(val);
+                  setActiveSuggestion(-1);
+                  if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+                  if (val.trim().length >= 4) {
+                    suggestDebounceRef.current = setTimeout(() => fetchSuggestions(val), 350);
+                  } else {
+                    setSuggestions([]);
+                    setShowSuggestions(false);
+                  }
+                }}
                 onKeyDown={handleAddressKey}
-                placeholder="e.g. 286 York St, York, ME 03909"
+                placeholder="Start typing an address…"
                 style={{
                   width: '100%', boxSizing: 'border-box',
                   padding: '8px 36px 8px 28px', borderRadius: 10,
                   border: `1px solid ${geocodeStatus === 'error' ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.1)'}`,
                   fontSize: 12, color: '#0F172A', background: '#f8fafc', outline: 'none',
                 }}
-                onFocus={e => { e.target.style.borderColor = 'rgba(22,163,74,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)'; }}
+                onFocus={e => {
+                  e.target.style.borderColor = 'rgba(22,163,74,0.4)';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)';
+                  if (suggestions.length > 0) setShowSuggestions(true);
+                }}
                 onBlur={e => {
+                  if (suppressBlurRef.current) { suppressBlurRef.current = false; return; }
                   e.target.style.borderColor = geocodeStatus === 'error' ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.1)';
                   e.target.style.boxShadow = 'none';
+                  setShowSuggestions(false);
                   if (addressInput.trim()) doGeocode(addressInput);
                 }}
               />
@@ -877,6 +984,45 @@ export default function RouteFinderWidget() {
                   <Search size={12} />
                 </button>
               )}
+
+              {/* Autocomplete dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                  background: '#fff', borderRadius: 10, marginTop: 4,
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+                  overflow: 'hidden',
+                }}>
+                  {suggestions.map((s, i) => (
+                    <div
+                      key={i}
+                      onMouseDown={() => { suppressBlurRef.current = true; selectSuggestion(s); }}
+                      onMouseEnter={() => setActiveSuggestion(i)}
+                      style={{
+                        padding: '7px 11px',
+                        cursor: 'pointer',
+                        background: i === activeSuggestion ? 'rgba(22,163,74,0.06)' : '#fff',
+                        borderBottom: i < suggestions.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                        display: 'flex', alignItems: 'flex-start', gap: 8,
+                        transition: 'background 0.1s',
+                      }}
+                    >
+                      <MapPin size={11} style={{ color: i === activeSuggestion ? '#16A34A' : '#94A3B8', marginTop: 2, flexShrink: 0 }} />
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', margin: 0, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {s.primary}
+                        </p>
+                        {s.secondary && (
+                          <p style={{ fontSize: 10, color: '#64748B', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {s.secondary}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -885,7 +1031,7 @@ export default function RouteFinderWidget() {
               <AlertCircle size={10} /> {geocodeError} — try a more complete address
             </p>
           )}
-          <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>Press Enter or click search to look up coordinates</p>
+          <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>Type to see suggestions · press Enter or ↑↓ to navigate</p>
         </div>
 
         {/* ── Other windows toggle ── */}
