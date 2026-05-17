@@ -146,8 +146,18 @@ const TRAVEL_ZERO_MILES   = SCORER_CONFIG.thresholds.travelZeroMiles;
 const HOME_NEAR_MILES     = SCORER_CONFIG.thresholds.homeNearMiles;
 const TIMED_WINDOW_MAX_MIN = SCORER_CONFIG.thresholds.timedWindowMaxMin;
 
+function normalizeServiceType(str) {
+  return str?.toLowerCase().replace(/[^a-z0-9]+/g, '') ?? '';
+}
+
+// Build normalized lookup once at module load
+const DURATION_LOOKUP = new Map(
+  Object.entries(SCORER_CONFIG.durations.map).map(([k, v]) => [normalizeServiceType(k), v])
+);
+
 export function getDefaultDuration(serviceType) {
-  return SCORER_CONFIG.durations.map[serviceType] ?? SCORER_CONFIG.durations.defaultMin;
+  return DURATION_LOOKUP.get(normalizeServiceType(serviceType))
+    ?? SCORER_CONFIG.durations.defaultMin;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +226,7 @@ function parseWindow(pref) {
   if (pref === 'AM') return { start: 480, end: 720 };
   if (pref === 'PM') return { start: 720, end: 1080 };
   const m = pref.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
-  if (!m) return { start: 480, end: 1200 };
+  if (!m) return { start: 480, end: WORKDAY_END };
   return { start: parseWindowHalf(m[1]), end: parseWindowHalf(m[2]) };
 }
 
@@ -299,25 +309,51 @@ export function detectRouteArea(fullAddress) {
 
 function getRouteAreaDayBonus(routeArea, lat, lng, dayOfWeek) {
   const cfg = SCORER_CONFIG.areaBonus;
+  const falloff = cfg.boundaryFalloffMiles;
+
+  // Miles per degree (approximate at the given latitude)
+  const milesPerDegLat = 69.0;
+  const milesPerDegLng = 69.0 * Math.cos(lat * Math.PI / 180);
+
+  // Linear taper: full bonus when ≥ falloff miles inside the zone,
+  // proportional when 0–falloff miles inside, 0 when outside.
+  function taper(bonus, distInsideMiles) {
+    if (distInsideMiles <= 0) return 0;
+    if (distInsideMiles >= falloff) return bonus;
+    return Math.round(bonus * (distInsideMiles / falloff));
+  }
 
   if (routeArea === 'new_hampshire') {
-    const areaCfg   = cfg.new_hampshire;
-    const isMWF     = [1, 3, 5].includes(dayOfWeek);
-    const isTuTh    = [2, 4].includes(dayOfWeek);
-    const isSouthNH = lat < areaCfg.mwf.latMax;
-    const isNorthNH = lat >= areaCfg.mwf.latMax;
-    const isSeacoast = lng > areaCfg.tuth.lngEast;
-    if (isMWF  && isSouthNH)                 return areaCfg.bonus;
-    if (isTuTh && (isNorthNH || isSeacoast)) return areaCfg.bonus;
+    const areaCfg = cfg.new_hampshire;
+    const isMWF  = [1, 3, 5].includes(dayOfWeek);
+    const isTuTh = [2, 4].includes(dayOfWeek);
+    if (isMWF) {
+      // South NH: lat < latMax (43.5)
+      const distInside = (areaCfg.mwf.latMax - lat) * milesPerDegLat;
+      return taper(areaCfg.bonus, distInside);
+    }
+    if (isTuTh) {
+      // North NH (lat >= latMin) OR Seacoast (lng > lngEast)
+      const distNorth = (lat - areaCfg.tuth.latMin) * milesPerDegLat;
+      const distEast  = (lng - areaCfg.tuth.lngEast) * milesPerDegLng;
+      return taper(areaCfg.bonus, Math.max(distNorth, distEast));
+    }
   }
 
   if (routeArea === 'maine') {
-    const areaCfg   = cfg.maine;
-    const isMWF     = [1, 3, 5].includes(dayOfWeek);
-    const isTuTh    = [2, 4].includes(dayOfWeek);
-    const isCoastal = lng > areaCfg.mwf.lngEast;
-    if (isMWF  && isCoastal)  return areaCfg.bonus;
-    if (isTuTh && !isCoastal) return areaCfg.bonus;
+    const areaCfg = cfg.maine;
+    const isMWF  = [1, 3, 5].includes(dayOfWeek);
+    const isTuTh = [2, 4].includes(dayOfWeek);
+    if (isMWF) {
+      // Coastal: lng > lngEast (-70.5)
+      const distInside = (lng - areaCfg.mwf.lngEast) * milesPerDegLng;
+      return taper(areaCfg.bonus, distInside);
+    }
+    if (isTuTh) {
+      // Inland: lng <= lngWest (-70.5) → distInside = boundary - lng
+      const distInside = (areaCfg.tuth.lngWest - lng) * milesPerDegLng;
+      return taper(areaCfg.bonus, distInside);
+    }
   }
 
   return 0;
@@ -520,10 +556,13 @@ function optimizeRouteOrder(stops, startLoc, endLoc) {
 
   result.push(...withoutCoords);
 
-  // Check if we actually changed the order
-  const originalIds = stops.map(s => s.appointmentId);
-  const newIds      = result.map(s => s.appointmentId);
-  const wasOptimized = !originalIds.every((id, i) => id === newIds[i]);
+  // Check if we actually changed the order using a stable stop identity hash
+  // (appointmentId may be undefined on some stops, causing false-negatives)
+  const stopHash = s =>
+    `${s.lat?.toFixed(5)}|${s.lng?.toFixed(5)}|${s.customerName ?? ''}|${s.startTime ?? ''}`;
+  const originalHash = stops.map(stopHash);
+  const newHash      = result.map(stopHash);
+  const wasOptimized = !originalHash.every((h, i) => h === newHash[i]);
 
   return { stops: result, wasOptimized };
 }
