@@ -15,8 +15,8 @@
 // clone and override without touching algorithm code.
 // ---------------------------------------------------------------------------
 export const SCORER_CONFIG = {
-  // 'legacy' engine is the only option in Phase 1–3; 'vrptw' added in Phase 4
-  engine: 'legacy',
+  // 'vrptw' is the default engine as of Phase 5; 'legacy' retained for rollback
+  engine: 'vrptw',
 
   // Scoring weights — must sum to 1.0
   weights: { geo: 0.20, travel: 0.40, window: 0.30, capacity: 0.10 },
