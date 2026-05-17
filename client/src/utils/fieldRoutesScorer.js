@@ -9,51 +9,146 @@
  *                             quality, start/end fit, and rich output fields
  */
 
-// Scoring weights — must sum to 1.0
-const W = { geo: 0.20, travel: 0.40, window: 0.30, capacity: 0.10 };
+// ---------------------------------------------------------------------------
+// SCORER_CONFIG — single source of truth for all weights, thresholds, and
+// business rules. Centralised here so callers (tests, future A/B) can
+// clone and override without touching algorithm code.
+// ---------------------------------------------------------------------------
+export const SCORER_CONFIG = {
+  // 'legacy' engine is the only option in Phase 1–3; 'vrptw' added in Phase 4
+  engine: 'legacy',
 
-// Service duration defaults by type (minutes)
-const SERVICE_DURATIONS = {
-  'Regular Service':        30,
-  'T&M':                    30,
-  'Initial Service':        60,
-  'Initial':                60,
-  'Tick and Mosquito':      30,
-  'Tick and Mosquito Service': 30,
-  'Insect Quarterly':       30,
-  'Insect Quarterly Service': 30,
-  'Re-service':             30,
-  'Reservice':              30,
-  'Commercial Account':     60,
-  'Commercial Service':     60,
-  'Commercial':             60,
+  // Scoring weights — must sum to 1.0
+  weights: { geo: 0.20, travel: 0.40, window: 0.30, capacity: 0.10 },
+
+  speed: {
+    avgMph: 30,
+    // Phase 3: replace with distance-based profile heuristic
+    profiles: { urban: 22, suburban: 30, highway: 45 },
+  },
+
+  workday: {
+    dayStartMin:    480,  // 8:00 AM
+    dayEndMin:      1080, // 6:00 PM
+    defaultMaxHours: 10.5,
+  },
+
+  thresholds: {
+    clusterRadiusMiles:  5,
+    geoZeroMiles:        15,
+    travelZeroMiles:     8,
+    homeNearMiles:       5,
+    timedWindowMaxMin:   360, // ≤ 6-hour window = timed stop
+  },
+
+  // Service duration defaults by type (minutes)
+  durations: {
+    map: {
+      'Regular Service':             30,
+      'T&M':                         30,
+      'Initial Service':             60,
+      'Initial':                     60,
+      'Tick and Mosquito':           30,
+      'Tick and Mosquito Service':   30,
+      'Insect Quarterly':            30,
+      'Insect Quarterly Service':    30,
+      'Re-service':                  30,
+      'Reservice':                   30,
+      'Commercial Account':          60,
+      'Commercial Service':          60,
+      'Commercial':                  60,
+    },
+    defaultMin: 30,
+  },
+
+  exclusions: {
+    techNamePatterns: [
+      /no tech assigned/i,
+      /\bleo\b/i,
+    ],
+  },
+
+  nh: {
+    approvedTechNames: ['Alex Gray'],
+    approvedTechIds:   [10068],
+  },
+
+  areaBonus: {
+    boundaryFalloffMiles: 5,
+    new_hampshire: {
+      mwf:  { latMax: 43.5 },
+      tuth: { latMin: 43.5, lngEast: -71.0 },
+      bonus: 8,
+    },
+    maine: {
+      mwf:  { lngEast: -70.5 },
+      tuth: { lngWest: -70.5 },
+      bonus: 6,
+    },
+  },
+
+  penalties: {
+    timedRisk:    { high: 60, medium: 35, low: 15 },
+    backtracking: { Severe: 25, High: 15, Moderate: 8, Low: 3, None: 0 },
+    backtrackingBearing: {
+      // deviation thresholds (degrees) and detour-ratio thresholds
+      severe:   { dev: 135, detour: 1.5 },
+      high:     { dev: 100, detour: 1.3 },
+      moderate: { dev: 70,  detour: 1.2 },
+      low:      { dev: 40,  detour: 1.1 },
+      routeDirDetour: { dev: 120, detour: 1.3 },
+    },
+    insertionCandidate: {
+      hardTimedConflict:     500,
+      detourPerMile:         10,
+      localProxPerMile:      5,
+      timedRiskMedium:       50,
+      timedRiskLow:          20,
+      windowMiss:            15,
+      clusterBonusPerQuality: 0.3,
+      viabilityMiss:         10,
+      backtrackingSeverity:  {
+        Severe: 35, High: 20, Moderate: 10, Low: 4, None: 0,
+      },
+      backtrackingMultiplier: 5,
+    },
+  },
+
+  // Phase 4: VRPTW objective coefficients
+  vrptw: {
+    alphaDetour:       10,
+    betaSoftLate:       2.0,
+    betaSoftEarly:      0.5,
+    gammaTimedAnchor:   8.0,
+    deltaDirection:    12,
+    epsilonCluster:     1.5,
+    zetaOvershoot:      5.0,
+    timedToleranceMin:  0,
+    dayEndHardSlackMin: 30,
+  },
 };
 
-export function getDefaultDuration(serviceType) {
-  return SERVICE_DURATIONS[serviceType] ?? 30;
-}
-
-const CLUSTER_RADIUS_MILES  = 5;
-const GEO_ZERO_MILES        = 15;
-const TRAVEL_ZERO_MILES     = 8;
-const AVG_SPEED_MPH         = 30;
-const WORKDAY_END           = 1080; // 6:00 PM in minutes
-const DEFAULT_MAX_HOURS     = 10.5;
-const HOME_NEAR_MILES       = 5;
-const TIMED_WINDOW_MAX_MIN  = 360; // ≤ 6-hour window = timed stop
-
-export const NH_CONFIG = {
-  approvedTechNames: ['Alex Gray'],
-  approvedTechIds:   [10068],
-};
+// Backwards-compatible re-export for existing callers
+export const NH_CONFIG = SCORER_CONFIG.nh;
 
 // Technicians permanently excluded from all Route Finder recommendations
-const EXCLUDED_TECH_PATTERNS = [
-  /no tech assigned/i,
-  /\bleo\b/i,
-];
+const EXCLUDED_TECH_PATTERNS = SCORER_CONFIG.exclusions.techNamePatterns;
 
-const DAY_START_MIN = 480; // 8:00 AM — all technicians begin here
+// Convenience aliases (keeps algorithm code readable without long config paths)
+const W                   = SCORER_CONFIG.weights;
+const AVG_SPEED_MPH       = SCORER_CONFIG.speed.avgMph;
+const DAY_START_MIN       = SCORER_CONFIG.workday.dayStartMin;
+const WORKDAY_END         = SCORER_CONFIG.workday.dayEndMin;
+const DEFAULT_MAX_HOURS   = SCORER_CONFIG.workday.defaultMaxHours;
+const CLUSTER_RADIUS_MILES = SCORER_CONFIG.thresholds.clusterRadiusMiles;
+const GEO_ZERO_MILES      = SCORER_CONFIG.thresholds.geoZeroMiles;
+const TRAVEL_ZERO_MILES   = SCORER_CONFIG.thresholds.travelZeroMiles;
+const HOME_NEAR_MILES     = SCORER_CONFIG.thresholds.homeNearMiles;
+const TIMED_WINDOW_MAX_MIN = SCORER_CONFIG.thresholds.timedWindowMaxMin;
+
+export function getDefaultDuration(serviceType) {
+  return SCORER_CONFIG.durations.map[serviceType] ?? SCORER_CONFIG.durations.defaultMin;
+}
 
 // ---------------------------------------------------------------------------
 // Core math utilities
@@ -203,22 +298,28 @@ export function detectRouteArea(fullAddress) {
 }
 
 function getRouteAreaDayBonus(routeArea, lat, lng, dayOfWeek) {
+  const cfg = SCORER_CONFIG.areaBonus;
+
   if (routeArea === 'new_hampshire') {
-    const isMWF      = [1, 3, 5].includes(dayOfWeek);
-    const isTuTh     = [2, 4].includes(dayOfWeek);
-    const isSouthNH  = lat < 43.5;
-    const isNorthNH  = lat >= 43.5;
-    const isSeacoast = lng > -71.0;
-    if (isMWF  && isSouthNH)                 return 8;
-    if (isTuTh && (isNorthNH || isSeacoast)) return 8;
-  }
-  if (routeArea === 'maine') {
+    const areaCfg   = cfg.new_hampshire;
     const isMWF     = [1, 3, 5].includes(dayOfWeek);
     const isTuTh    = [2, 4].includes(dayOfWeek);
-    const isCoastal = lng > -70.5;
-    if (isMWF  && isCoastal)  return 6;
-    if (isTuTh && !isCoastal) return 6;
+    const isSouthNH = lat < areaCfg.mwf.latMax;
+    const isNorthNH = lat >= areaCfg.mwf.latMax;
+    const isSeacoast = lng > areaCfg.tuth.lngEast;
+    if (isMWF  && isSouthNH)                 return areaCfg.bonus;
+    if (isTuTh && (isNorthNH || isSeacoast)) return areaCfg.bonus;
   }
+
+  if (routeArea === 'maine') {
+    const areaCfg   = cfg.maine;
+    const isMWF     = [1, 3, 5].includes(dayOfWeek);
+    const isTuTh    = [2, 4].includes(dayOfWeek);
+    const isCoastal = lng > areaCfg.mwf.lngEast;
+    if (isMWF  && isCoastal)  return areaCfg.bonus;
+    if (isTuTh && !isCoastal) return areaCfg.bonus;
+  }
+
   return 0;
 }
 
@@ -454,6 +555,8 @@ function measureBacktracking(prev, newLat, newLng, next, routeDirectionBearing) 
     return { backtracking: false, severity: 0, risk: 'None', detail: null };
   }
 
+  const btCfg = SCORER_CONFIG.penalties.backtrackingBearing;
+
   const routeBearing = bearing(prev.lat, prev.lng, next.lat, next.lng);
   const newBearing   = bearing(prev.lat, prev.lng, newLat, newLng);
   const deviation    = angularDiff(routeBearing, newBearing);
@@ -467,19 +570,21 @@ function measureBacktracking(prev, newLat, newLng, next, routeDirectionBearing) 
   let routeDirPenalty = 0;
   if (routeDirectionBearing != null) {
     const dirDev = angularDiff(routeDirectionBearing, newBearing);
-    if (dirDev > 120 && detourRatio > 1.3) routeDirPenalty = 1;
+    if (dirDev > btCfg.routeDirDetour.dev && detourRatio > btCfg.routeDirDetour.detour) {
+      routeDirPenalty = 1;
+    }
   }
 
   let risk = 'None';
   let severity = 0;
 
-  if (deviation > 135 && detourRatio > 1.5) {
+  if (deviation > btCfg.severe.dev && detourRatio > btCfg.severe.detour) {
     risk = 'Severe'; severity = 3 + routeDirPenalty;
-  } else if (deviation > 100 && detourRatio > 1.3) {
+  } else if (deviation > btCfg.high.dev && detourRatio > btCfg.high.detour) {
     risk = 'High';   severity = 2 + routeDirPenalty;
-  } else if (deviation > 70  && detourRatio > 1.2) {
+  } else if (deviation > btCfg.moderate.dev && detourRatio > btCfg.moderate.detour) {
     risk = 'Moderate'; severity = 1 + routeDirPenalty;
-  } else if (deviation > 40  && detourRatio > 1.1) {
+  } else if (deviation > btCfg.low.dev && detourRatio > btCfg.low.detour) {
     risk = 'Low';    severity = 0.5;
   }
 
@@ -647,40 +752,35 @@ function buildTimedSafetyLabel(insertion) {
 // ---------------------------------------------------------------------------
 
 function insertionCandidateScore(c, prefStart, prefEnd, durationMin) {
+  const pen = SCORER_CONFIG.penalties.insertionCandidate;
   let score = 0;
 
   // Hard constraint — timed appointment violations only; EOD is no longer a hard gate
-  if (c.timedRisk === 'high') score += 500;
+  if (c.timedRisk === 'high') score += pen.hardTimedConflict;
 
   // Primary: geographic insertion quality
-  score += c.detourMiles * 10;
-  score += c.localProximityMiles * 5;
+  score += c.detourMiles * pen.detourPerMile;
+  score += c.localProximityMiles * pen.localProxPerMile;
 
   // Timed risk (soft)
-  if (c.timedRisk === 'medium') score += 50;
-  if (c.timedRisk === 'low')    score += 20;
+  if (c.timedRisk === 'medium') score += pen.timedRiskMedium;
+  if (c.timedRisk === 'low')    score += pen.timedRiskLow;
 
   // Window fit
   const inWindow = c.estimatedArrivalMin >= prefStart &&
                    c.estimatedArrivalMin + durationMin <= prefEnd;
-  if (!inWindow) score += 15;
+  if (!inWindow) score += pen.windowMiss;
 
   // Cluster bonus
-  score -= c.clusterQuality * 0.3;
+  score -= c.clusterQuality * pen.clusterBonusPerQuality;
 
   // Viability
-  if (!c.viable) score += 10;
+  if (!c.viable) score += pen.viabilityMiss;
 
   // Backtracking penalty — bearing-based severity
   if (c.backtracking) {
-    const severityPenalty = {
-      'Severe':   35,
-      'High':     20,
-      'Moderate': 10,
-      'Low':       4,
-      'None':      0,
-    };
-    score += (severityPenalty[c.backtrackingRisk] ?? 0) + c.backtrackingSeverity * 5;
+    const btPen = pen.backtrackingSeverity;
+    score += (btPen[c.backtrackingRisk] ?? 0) + c.backtrackingSeverity * pen.backtrackingMultiplier;
   }
 
   return score;
@@ -913,7 +1013,7 @@ function findBestInsertion(
       minTimingBuffer:      null,
       addedDriveMinutes:    Math.round(travelMin(dLast)),
       projectedRouteEnd:    projectedEnd,
-      eodSafe:              projectedEnd <= WORKDAY_END, // informational only
+      eodSafe:              projectedEnd <= WORKDAY_END,
       clusterQuality:       cluster.quality,
     });
   }
@@ -1119,12 +1219,13 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}) {
   );
 
   // Penalties — timed appointment risk only; EOD is no longer a scoring constraint
-  if (insertion.timedRisk === 'high')   total -= 60;
-  if (insertion.timedRisk === 'medium') total -= 35;
-  if (insertion.timedRisk === 'low')    total -= 15;
+  const timedPen = SCORER_CONFIG.penalties.timedRisk;
+  if (insertion.timedRisk === 'high')   total -= timedPen.high;
+  if (insertion.timedRisk === 'medium') total -= timedPen.medium;
+  if (insertion.timedRisk === 'low')    total -= timedPen.low;
 
   // Backtracking penalty (bearing-based)
-  const btPenalties = { Severe: 25, High: 15, Moderate: 8, Low: 3, None: 0 };
+  const btPenalties = SCORER_CONFIG.penalties.backtracking;
   total -= btPenalties[insertion.backtrackingRisk] ?? 0;
 
   // Cluster quality bonus
@@ -1314,8 +1415,8 @@ export function scoreRoutes(technicians, lead, topN = 3) {
   let eligibleTechs = allowedTechs;
   if (routeArea === 'new_hampshire') {
     eligibleTechs = allowedTechs.filter(t =>
-      NH_CONFIG.approvedTechNames.includes(t.techName) ||
-      NH_CONFIG.approvedTechIds.includes(t.techId)
+      SCORER_CONFIG.nh.approvedTechNames.includes(t.techName) ||
+      SCORER_CONFIG.nh.approvedTechIds.includes(t.techId)
     );
   }
 
