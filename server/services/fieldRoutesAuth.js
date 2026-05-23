@@ -22,6 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const AUTH_STATE       = resolve(__dirname, '../../playwright/.auth/fieldroutes-state.json');
 const STATUS_PATH      = resolve(__dirname, '../../data/fieldroutes-auth-status.json');
 const FIELDROUTES_BASE = 'https://greenshieldpestsolutions.fieldroutes.com';
+const AUTH_STATE_ENV   = 'FIELDROUTES_AUTH_STATE_JSON';
 
 // ---------------------------------------------------------------------------
 // In-memory auth status (fast reads, no file I/O on every status check)
@@ -80,6 +81,40 @@ export function setAuthStatus(status, message = null) {
   persistAuthStatus(); // fire-and-forget
 }
 
+function parseAuthStateJson(raw, sourceLabel) {
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`${sourceLabel} is not valid JSON: ${err.message}`);
+  }
+}
+
+export async function readFieldRoutesAuthState() {
+  const envValue = process.env[AUTH_STATE_ENV];
+  if (envValue?.trim()) {
+    return parseAuthStateJson(envValue, AUTH_STATE_ENV);
+  }
+
+  if (!existsSync(AUTH_STATE)) {
+    throw new Error('needs_login: FieldRoutes auth state not found.');
+  }
+
+  const raw = await fs.readFile(AUTH_STATE, 'utf8');
+  return parseAuthStateJson(raw, AUTH_STATE);
+}
+
+export async function getFieldRoutesStorageStateForPlaywright() {
+  if (process.env[AUTH_STATE_ENV]?.trim()) {
+    return readFieldRoutesAuthState();
+  }
+
+  if (!existsSync(AUTH_STATE)) {
+    throw new Error('needs_login: FieldRoutes auth state not found.');
+  }
+
+  return AUTH_STATE;
+}
+
 // ---------------------------------------------------------------------------
 // Lightweight auth health check
 // Uses raw HTTP fetch (no Playwright, no browser process).
@@ -89,21 +124,20 @@ export function setAuthStatus(status, message = null) {
 // ---------------------------------------------------------------------------
 
 export async function checkAuthHealth() {
-  if (!existsSync(AUTH_STATE)) {
-    setAuthStatus('needs_login', 'Auth state file not found — run the login script.');
-    return 'needs_login';
-  }
-
   let cookieHeader;
   try {
-    const raw    = await fs.readFile(AUTH_STATE, 'utf8');
-    const state  = JSON.parse(raw);
+    const state = await readFieldRoutesAuthState();
     cookieHeader = (state.cookies || [])
       .filter(c => (c.domain || '').includes('fieldroutes.com'))
       .map(c => `${c.name}=${c.value}`)
       .join('; ');
   } catch (err) {
-    setAuthStatus('failed', `Cannot read auth state: ${err.message}`);
+    const msg = err.message || 'Cannot read FieldRoutes auth state.';
+    if (msg.includes('needs_login')) {
+      setAuthStatus('needs_login', 'Auth state not found — set FIELDROUTES_AUTH_STATE_JSON on Render or run the local login script.');
+      return 'needs_login';
+    }
+    setAuthStatus('failed', `Cannot read auth state: ${msg}`);
     return 'failed';
   }
 

@@ -1,13 +1,17 @@
-import { promises as fs, existsSync } from 'fs';
+import { promises as fs } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { extractRoutePayload } from '../../client/src/utils/fieldRoutesExtractor.js';
-import { getAuthStatus, setAuthStatus } from './fieldRoutesAuth.js';
+import {
+  getAuthStatus,
+  setAuthStatus,
+  getFieldRoutesStorageStateForPlaywright,
+} from './fieldRoutesAuth.js';
+import { launchFieldRoutesChromium } from './playwrightRuntime.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROUTES_DIR       = resolve(__dirname, '../../data/routes');
 const META_PATH        = resolve(ROUTES_DIR, 'cache-meta.json');
-const AUTH_STATE       = resolve(__dirname, '../../playwright/.auth/fieldroutes-state.json');
 const FIELDROUTES_BASE = 'https://greenshieldpestsolutions.fieldroutes.com';
 
 // ---------------------------------------------------------------------------
@@ -40,39 +44,11 @@ function fmtTime12h(isoStr) {
 // ---------------------------------------------------------------------------
 
 async function fetchRawPayload(date) {
-  if (!existsSync(AUTH_STATE)) {
-    throw new Error(
-      'needs_login: FieldRoutes auth state not found — ' +
-      'run: node scripts/fieldRoutesLogin.mjs'
-    );
-  }
-
-  let playwrightMod;
-  try {
-    playwrightMod = await import('playwright');
-  } catch {
-    throw new Error(
-      'Playwright not installed — ' +
-      'run: npm install playwright && cd server && npx playwright install chromium'
-    );
-  }
-
-  const chromium = playwrightMod.default?.chromium ?? playwrightMod.chromium;
-  let browser;
-
-  try {
-    browser = await chromium.launch({ headless: true });
-  } catch (err) {
-    if (err.message?.includes('Executable') || err.message?.includes('executable')) {
-      throw new Error(
-        'Chromium not installed — run: cd server && npx playwright install chromium'
-      );
-    }
-    throw err;
-  }
+  const storageState = await getFieldRoutesStorageStateForPlaywright();
+  const browser = await launchFieldRoutesChromium();
 
   const context = await browser.newContext({
-    storageState: AUTH_STATE,
+    storageState,
     extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
   });
   const page = await context.newPage();
@@ -254,6 +230,7 @@ export async function refreshDate(date) {
     throw new Error('needs_login: FieldRoutes session is not authenticated.');
   }
 
+  console.log(`[preloader] Refresh starting for ${date}`);
   await updateMeta(date, { status: 'refreshing', timestamp: new Date().toISOString() });
   try {
     const raw = await fetchRawPayload(date);
@@ -299,6 +276,7 @@ export async function refreshDate(date) {
       timestamp: new Date().toISOString(),
       error: msg,
     });
+    console.warn(`[preloader] ${date} failed: ${msg}`);
     throw err;
   }
 }

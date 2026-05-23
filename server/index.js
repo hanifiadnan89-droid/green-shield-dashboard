@@ -12,6 +12,7 @@ import documentsRouter from './routes/documents.js';
 import routesRouter from './routes/routes.js';
 import { startCron } from './services/fieldRoutesCron.js';
 import { loadAuthStatus, checkAuthHealth, startAuthKeepalive } from './services/fieldRoutesAuth.js';
+import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -47,6 +48,8 @@ loadAuthStatus();
 checkAuthHealth()
   .then(s => console.log(`[auth] Startup check: FieldRoutes auth is ${s}`))
   .catch(err => console.warn('[auth] Startup check failed:', err.message));
+logPlaywrightChromiumDiagnostics()
+  .catch(err => console.warn('[playwright] Startup diagnostic failed:', err.message));
 startAuthKeepalive();
 
 app.listen(PORT, () => {
