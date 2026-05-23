@@ -48,8 +48,7 @@ async function fetchRawPayload(date) {
     playwrightMod = await import('playwright');
   } catch {
     throw new Error(
-      'Playwright not installed — ' +
-      'run: npm install playwright && cd server && npx playwright install chromium'
+      'Playwright not installed — run: npm install playwright && cd server && npx playwright install chromium'
     );
   }
 
@@ -57,12 +56,20 @@ async function fetchRawPayload(date) {
   let browser;
 
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+      ],
+    });
   } catch (err) {
     if (err.message?.includes('Executable') || err.message?.includes('executable')) {
-      throw new Error(
-        'Chromium not installed — run: cd server && npx playwright install chromium'
-      );
+      throw new Error('Chromium not installed — update Render Build Command to: npm run render:build');
     }
     throw err;
   }
@@ -82,11 +89,7 @@ async function fetchRawPayload(date) {
       page.on('response', async (response) => {
         if (routePayload) return;
         const url = response.url();
-        if (
-          url.includes('routeDelegate') &&
-          url.includes('getGroupData') &&
-          response.status() === 200
-        ) {
+        if (url.includes('routeDelegate') && url.includes('getGroupData') && response.status() === 200) {
           try {
             const json = await response.json();
             routePayload = json;
@@ -106,9 +109,7 @@ async function fetchRawPayload(date) {
 
     const currentUrl = page.url();
     if (!currentUrl.includes('day.php')) {
-      throw new Error(
-        'needs_login: FieldRoutes session expired — run the FieldRoutes login script and update FIELDROUTES_AUTH_STATE_JSON in Render'
-      );
+      throw new Error('needs_login: FieldRoutes session expired — update FIELDROUTES_AUTH_STATE_JSON in Render');
     }
 
     routePayload = await capturePromise;
@@ -128,28 +129,22 @@ async function fetchRawPayload(date) {
       });
 
       if (!tabSession) {
-        throw new Error(
-          `Could not extract tabSession from day.php?date=${date} — ` +
-          'the page structure may have changed or no routes exist for this date'
-        );
+        throw new Error(`Could not extract tabSession from day.php?date=${date} — page loaded but route session data was not found`);
       }
 
       const groupId = process.env.FIELDROUTES_GROUP_ID || '2058';
 
       routePayload = await page.evaluate(
         async ({ groupId, tabSession }) => {
-          const resp = await fetch(
-            '/resources/delegates/day/routeDelegate?action=getGroupData',
-            {
-              method: 'POST',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/x-json;charset=UTF-8',
-                'X-Requested-With': 'XMLHttpRequest',
-              },
-              body: `groupID=${groupId}&tabSession=${tabSession}&action=getGroupData`,
-            }
-          );
+          const resp = await fetch('/resources/delegates/day/routeDelegate?action=getGroupData', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/x-json;charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: `groupID=${groupId}&tabSession=${tabSession}&action=getGroupData`,
+          });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           return resp.json();
         },
@@ -162,7 +157,6 @@ async function fetchRawPayload(date) {
     }
 
     return routePayload;
-
   } finally {
     await context.close();
     await browser.close();
@@ -238,19 +232,14 @@ export async function refreshDate(date) {
     throw new Error('needs_login: FieldRoutes session is not authenticated.');
   }
 
+  console.log(`[preloader] Refresh starting for ${date}`);
   await updateMeta(date, { status: 'refreshing', timestamp: new Date().toISOString() });
   try {
     const raw = await fetchRawPayload(date);
     await fs.mkdir(ROUTES_DIR, { recursive: true });
-    await fs.writeFile(
-      resolve(ROUTES_DIR, `${date}.raw.json`),
-      JSON.stringify(raw, null, 2)
-    );
+    await fs.writeFile(resolve(ROUTES_DIR, `${date}.raw.json`), JSON.stringify(raw, null, 2));
     const { result, stats } = extractRoutePayload(raw);
-    await fs.writeFile(
-      resolve(ROUTES_DIR, `${date}.normalized.json`),
-      JSON.stringify(result, null, 2)
-    );
+    await fs.writeFile(resolve(ROUTES_DIR, `${date}.normalized.json`), JSON.stringify(result, null, 2));
     await replaceMeta(date, {
       status: 'cached',
       timestamp: new Date().toISOString(),
@@ -262,26 +251,11 @@ export async function refreshDate(date) {
     return result;
   } catch (err) {
     const msg = err.message || '';
-    const isAuthError =
-      msg.includes('needs_login') ||
-      msg.includes('Session expired') ||
-      msg.includes('auth state not found');
-
-    const status = isAuthError
-      ? 'needs_login'
-      : msg.includes('not implemented')
-      ? 'not_configured'
-      : 'failed';
-
-    if (isAuthError) {
-      setAuthStatus('needs_login', 'FieldRoutes session expired during scrape.');
-    }
-
-    await updateMeta(date, {
-      status,
-      timestamp: new Date().toISOString(),
-      error: msg,
-    });
+    console.error(`[preloader] ${date} failed:`, msg);
+    const isAuthError = msg.includes('needs_login') || msg.includes('Session expired') || msg.includes('auth state not found');
+    const status = isAuthError ? 'needs_login' : msg.includes('not implemented') ? 'not_configured' : 'failed';
+    if (isAuthError) setAuthStatus('needs_login', 'FieldRoutes session expired during scrape.');
+    await updateMeta(date, { status, timestamp: new Date().toISOString(), error: msg });
     throw err;
   }
 }
@@ -290,10 +264,7 @@ export async function getStatus() {
   const dates = getNextSixWorkingDays();
   const meta  = await readMeta();
   const result = {};
-
-  for (const date of dates) {
-    result[date] = meta[date] || { status: 'missing' };
-  }
+  for (const date of dates) result[date] = meta[date] || { status: 'missing' };
 
   const lastRefresh = Object.values(meta)
     .filter(e => e?.status === 'cached' && e?.timestamp)
@@ -303,14 +274,13 @@ export async function getStatus() {
 
   const auth = getAuthStatus();
   result._auth = {
-    status:              auth.status,
-    lastCheck:           auth.lastCheck,
-    lastCheckFormatted:  fmtTime12h(auth.lastCheck),
-    message:             auth.message,
+    status: auth.status,
+    lastCheck: auth.lastCheck,
+    lastCheckFormatted: fmtTime12h(auth.lastCheck),
+    message: auth.message,
     lastRefresh,
     lastRefreshFormatted: fmtTime12h(lastRefresh),
   };
-
   return result;
 }
 
