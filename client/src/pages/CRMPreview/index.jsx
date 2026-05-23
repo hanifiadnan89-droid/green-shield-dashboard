@@ -43,7 +43,7 @@ function PreviewToast({ message, onClose }) {
   );
 }
 
-function ErrorState({ onRetry }) {
+function ErrorState({ onRetry, message }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-12">
       <div style={{ background: '#fef2f2', borderRadius: '16px', padding: '16px', display: 'inline-flex' }}>
@@ -51,7 +51,9 @@ function ErrorState({ onRetry }) {
       </div>
       <div>
         <p className="font-heading font-semibold text-[#0F172A] text-base">Could not load data</p>
-        <p className="text-sm text-[#64748B] mt-1">Check that the dev server is running on port 3001</p>
+        <p className="text-sm text-[#64748B] mt-1 max-w-xl">
+          {message || 'The hosted API is reachable, but the dashboard could not load leads or activity data. Check Render logs for the exact API error.'}
+        </p>
       </div>
       <button
         onClick={onRetry}
@@ -71,6 +73,7 @@ export default function CRMPreview({ testMode }) {
   const [activity, setActivity] = useState(null); // eslint-disable-line no-unused-vars
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const loadingRef              = useRef(false);
 
   const [activeFilter, setActiveFilter] = useState('all');
@@ -82,6 +85,7 @@ export default function CRMPreview({ testMode }) {
     loadingRef.current = true;
     setLoading(true);
     setError(false);
+    setErrorMessage('');
     try {
       const [leadsData, activityData] = await Promise.all([
         api.leads.list(),
@@ -89,8 +93,9 @@ export default function CRMPreview({ testMode }) {
       ]);
       setLeads(leadsData.leads || []);
       setActivity(activityData.log || []);
-    } catch {
+    } catch (err) {
       setError(true);
+      setErrorMessage(err?.message || 'Unknown API error');
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -154,7 +159,7 @@ export default function CRMPreview({ testMode }) {
 
         <main className="flex-1 overflow-y-auto">
           {error ? (
-            <ErrorState onRetry={refresh} />
+            <ErrorState onRetry={refresh} message={errorMessage} />
           ) : loading ? (
             <LoadingSkeleton />
           ) : (
