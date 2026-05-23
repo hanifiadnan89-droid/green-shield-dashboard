@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import leadsRouter from './routes/leads.js';
@@ -17,6 +18,8 @@ import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.j
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
+const CLIENT_DIST = path.resolve(__dirname, '../client/dist');
+const CLIENT_INDEX = path.join(CLIENT_DIST, 'index.html');
 
 app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
 app.use(express.json());
@@ -40,6 +43,19 @@ app.use('/api/drive', driveRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/routes', routesRouter);
 
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API route not found' });
+});
+
+app.use(express.static(CLIENT_DIST));
+
+app.get('*', (req, res) => {
+  if (!existsSync(CLIENT_INDEX)) {
+    return res.status(404).send('Dashboard UI build not found. Run npm run build first.');
+  }
+  res.sendFile(CLIENT_INDEX);
+});
+
 startCron();
 
 // Startup: restore last known auth status from disk, then run an immediate
@@ -56,6 +72,7 @@ app.listen(PORT, () => {
   const mode = process.env.TEST_MODE === 'true' ? '🔒 TEST MODE' : '🔴 LIVE MODE';
   console.log(`\n✅ Green Shield API running on http://localhost:${PORT}`);
   console.log(`   Mode: ${mode}`);
+  console.log(`   Dashboard UI: ${existsSync(CLIENT_INDEX) ? 'served from client/dist' : '⚠️  client/dist missing'}`);
   console.log(`   Google Sheets: ${process.env.SHEET_ID ? 'configured' : '⚠️  SHEET_ID missing'}`);
   console.log(`   n8n: ${process.env.N8N_BASE_URL || '⚠️  N8N_BASE_URL missing'}`);
   console.log(`   Credentials: ${process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_FILE ? '✓' : '⚠️  GOOGLE_SERVICE_ACCOUNT missing'}\n`);
