@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node --watch index.js",
     "start": "node index.js",
-    "playwright:install": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium"
+    "playwright:install": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium"
   },
   "dependencies": {
     "cors": "^2.8.5",
