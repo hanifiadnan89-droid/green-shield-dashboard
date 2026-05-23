@@ -6,7 +6,8 @@
     "dev": "concurrently -n SERVER,CLIENT -c cyan,green \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
     "build": "npm run build --prefix client",
-    "render:build": "npm run install:all && npm run playwright:install --prefix server && npm run build"
+    "render:build": "npm run install:all && npm run playwright:install --prefix server && npm run build",
+    "start": "npm start --prefix server"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
