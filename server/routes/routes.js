@@ -1,4 +1,7 @@
 import express from 'express';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import path from 'path';
 import {
   refreshDate,
   getStatus,
@@ -6,6 +9,9 @@ import {
   preloadNextSixWorkingDays,
 } from '../services/fieldRoutesPreloader.js';
 import { getAuthStatus, checkAuthHealth } from '../services/fieldRoutesAuth.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const router = express.Router();
 
@@ -58,6 +64,51 @@ router.post('/refresh', (req, res) => {
   refreshDate(date).catch(err => {
     console.error(`[routes] refresh ${date} failed:`, err.message);
   });
+});
+
+// POST /api/routes/login-refresh — spawn the interactive login script (localhost only)
+// The script opens a Chromium window so the user can log in manually.
+// Returns immediately; the browser process runs independently.
+router.post('/login-refresh', (req, res) => {
+  if (process.env.RENDER) {
+    return res.status(400).json({
+      error: 'Interactive FieldRoutes login is only available locally. Update FIELDROUTES_AUTH_STATE_JSON in Render instead.',
+    });
+  }
+
+  const remoteIp = req.socket.remoteAddress || '';
+  if (!remoteIp.includes('127.0.0.1') && !remoteIp.includes('::1') && remoteIp !== '::ffff:127.0.0.1') {
+    return res.status(403).json({ error: 'localhost only' });
+  }
+
+  const scriptPath = path.join(PROJECT_ROOT, 'scripts', 'fieldRoutesLogin.mjs');
+  const child = spawn(process.execPath, [scriptPath], {
+    cwd: PROJECT_ROOT,
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  child.stdout.on('data', (d) => process.stdout.write(`[login-script] ${d}`));
+  child.stderr.on('data', (d) => process.stderr.write(`[login-script] ${d}`));
+  child.on('exit', async (code) => {
+    console.log(`[login-script] exited with code ${code}`);
+    if (code !== 0) return;
+
+    try {
+      const result = await checkAuthHealth();
+      console.log(`[login-script] post-login auth check: ${result}`);
+      if (result === 'ok') {
+        preloadNextSixWorkingDays({ force: false }).catch(err => {
+          console.error('[login-script] post-login preload failed:', err.message);
+        });
+      }
+    } catch (err) {
+      console.warn('[login-script] post-login auth check failed:', err.message);
+    }
+  });
+  child.unref();
+
+  res.json({ started: true });
 });
 
 // POST /api/routes/preload — fire-and-forget preload for next 6 working days

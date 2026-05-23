@@ -60,8 +60,8 @@ await context.storageState({ path: AUTH_STATE });
 console.log(`\n[FieldRoutes Login] ✓ Auth state saved to: ${AUTH_STATE}`);
 console.log('[FieldRoutes Login]   The server can now fetch FieldRoutes route data.\n');
 console.log('   Next steps:');
-console.log('   1. Restart the server: npm start (in the server/ directory)');
-console.log('   2. The Route Finder will auto-preload today\'s routes on next CRM open.\n');
+console.log('   1. Return to the dashboard.');
+console.log('   2. Route Finder will re-check the session and preload routes automatically.\n');
 
 await browser.close();
 process.exit(0);

@@ -45,8 +45,9 @@ export const api = {
     status:     () => request('/routes/status'),
     authStatus: () => request('/routes/auth-status'),
     authCheck:  () => request('/routes/auth-check', { method: 'POST' }),
-    refresh:    (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
-    preload:    (force = false) => request(`/routes/preload${force ? '?force=true' : ''}`, { method: 'POST' }),
+    refresh:      (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
+    preload:      (force = false) => request(`/routes/preload${force ? '?force=true' : ''}`, { method: 'POST' }),
+    loginRefresh: () => request('/routes/login-refresh', { method: 'POST' }),
   },
 
   documents: {
