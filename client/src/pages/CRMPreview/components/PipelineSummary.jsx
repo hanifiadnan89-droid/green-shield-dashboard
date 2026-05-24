@@ -91,6 +91,68 @@ const TIMELINE_STEPS = [
   { time: '4:00', title: 'Metrics Update', desc: 'Metrics animate smoothly with subtle glow' },
 ];
 
+// ─── Particle keyframe generator ──────────────────────────────────────────────
+// Converts each stream's SVG cubic bezier path into CSS @keyframes using only
+// transform:translate() — the one property Chrome guarantees is compositor-threaded.
+// transform-box:view-box makes % values relative to the SVG viewport (1080×480),
+// so positions stay correct at any rendered container size.
+
+function parseCubicBeziers(d) {
+  const segs = [];
+  let cx = 0, cy = 0;
+  const tokens = d.replace(/,/g, ' ').trim().split(/\s+/);
+  let i = 0;
+  while (i < tokens.length) {
+    const tok = tokens[i++];
+    if (tok === 'M') {
+      cx = parseFloat(tokens[i++]);
+      cy = parseFloat(tokens[i++]);
+    } else if (tok === 'C') {
+      while (i < tokens.length && tokens[i] !== 'C' && tokens[i] !== 'M') {
+        const cx1 = parseFloat(tokens[i++]), cy1 = parseFloat(tokens[i++]);
+        const cx2 = parseFloat(tokens[i++]), cy2 = parseFloat(tokens[i++]);
+        const x1  = parseFloat(tokens[i++]), y1  = parseFloat(tokens[i++]);
+        segs.push({ x0: cx, y0: cy, cx1, cy1, cx2, cy2, x1, y1 });
+        cx = x1; cy = y1;
+      }
+    }
+  }
+  return segs;
+}
+
+function evalCubic(t, { x0, y0, cx1, cy1, cx2, cy2, x1, y1 }) {
+  const u = 1 - t;
+  return {
+    x: u*u*u*x0 + 3*u*u*t*cx1 + 3*u*t*t*cx2 + t*t*t*x1,
+    y: u*u*u*y0 + 3*u*u*t*cy1 + 3*u*t*t*cy2 + t*t*t*y1,
+  };
+}
+
+function buildStreamKeyframes(id, d, steps = 20) {
+  const segs = parseCubicBeziers(d);
+  const n = segs.length;
+  const kf = [];
+  for (let i = 0; i <= steps; i++) {
+    const tg = i / steps;
+    const si = Math.min(Math.floor(tg * n), n - 1);
+    const { x, y } = evalCubic(tg * n - si, segs[si]);
+    kf.push(`${(tg * 100).toFixed(1)}%{transform:translate(${(x / 1080 * 100).toFixed(3)}%,${(y / 480 * 100).toFixed(3)}%)}`);
+  }
+  return `@keyframes ps-mv-${id}{${kf.join('')}}`;
+}
+
+const PARTICLE_KF_CSS = [
+  '@keyframes ps-pfade{0%,100%{opacity:0}8%{opacity:1}92%{opacity:1}}',
+  ...STREAM_DEFS.map(s => buildStreamKeyframes(s.id, s.path)),
+].join('\n');
+
+if (typeof document !== 'undefined' && !document.getElementById('ps-pk')) {
+  const el = document.createElement('style');
+  el.id = 'ps-pk';
+  el.textContent = PARTICLE_KF_CSS;
+  document.head.appendChild(el);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatPercent = v => `${Math.round(Math.min(Math.max(+(v ?? 0), 0), 100))}%`;
@@ -171,7 +233,7 @@ const RingCard = memo(function RingCard({ def, pct }) {
 
 // ─── FlowOverlay ───────────────────────────────────────────────────────────────
 // Two-SVG system: back layer (glow+lines) behind panels, front layer (particles) above orb.
-// Particles use SMIL animateMotion — browser-native SVG engine, never pauses during scroll.
+// Particles use CSS @keyframes transform — pre-computed bezier waypoints, compositor-threaded.
 
 const FlowOverlay = memo(function FlowOverlay() {
   const svgStyle = {
@@ -226,7 +288,7 @@ const FlowOverlay = memo(function FlowOverlay() {
         ))}
       </svg>
 
-      {/* FRONT SVG — SMIL animateMotion particles, browser-native SVG engine, never pauses */}
+      {/* FRONT SVG — CSS @keyframes transform particles, guaranteed compositor-threaded */}
       <svg
         viewBox="0 0 1080 480"
         preserveAspectRatio="none"
@@ -236,28 +298,25 @@ const FlowOverlay = memo(function FlowOverlay() {
       >
         {STREAM_DEFS.flatMap(s =>
           Array.from({ length: s.particles }, (_, i) => {
-            const begin = `${(-(i / Math.max(s.particles, 1)) * s.dur).toFixed(2)}s`;
+            const delay = `${(-(i / Math.max(s.particles, 1)) * s.dur).toFixed(2)}s`;
             return (
               <circle
                 key={`p-${s.id}-${i}`}
+                cx={0}
+                cy={0}
                 r={i === 0 ? 3.2 : 2.2}
                 fill={i === 0 ? '#FFFFFF' : s.lighter}
-              >
-                <animateMotion
-                  dur={`${s.dur}s`}
-                  repeatCount="indefinite"
-                  begin={begin}
-                  path={s.path}
-                />
-                <animate
-                  attributeName="opacity"
-                  values="0;1;1;0"
-                  keyTimes="0;0.08;0.92;1"
-                  dur={`${s.dur}s`}
-                  repeatCount="indefinite"
-                  begin={begin}
-                />
-              </circle>
+                style={{
+                  transformBox: 'view-box',
+                  animationName: `ps-mv-${s.id}, ps-pfade`,
+                  animationDuration: `${s.dur}s, ${s.dur}s`,
+                  animationTimingFunction: 'linear, ease-in-out',
+                  animationIterationCount: 'infinite, infinite',
+                  animationDelay: `${delay}, ${delay}`,
+                  animationPlayState: 'running, running',
+                  willChange: 'transform, opacity',
+                }}
+              />
             );
           })
         )}
