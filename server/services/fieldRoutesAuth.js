@@ -8,9 +8,11 @@
  * shows the last known state immediately on page load, even before the first
  * network check completes.
  *
- * Auth state file (cookies): playwright/.auth/fieldroutes-state.json
- * Status file:               data/fieldroutes-auth-status.json
- * Both are gitignored — no credentials or session data are ever committed.
+ * Auth state sources:
+ * 1. FIELDROUTES_AUTH_STATE_JSON environment variable, for hosted Render deploys
+ * 2. playwright/.auth/fieldroutes-state.json local file, for Mac/local development
+ *
+ * Status file: data/fieldroutes-auth-status.json
  */
 
 import { promises as fs, existsSync } from 'fs';
@@ -22,23 +24,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const AUTH_STATE       = resolve(__dirname, '../../playwright/.auth/fieldroutes-state.json');
 const STATUS_PATH      = resolve(__dirname, '../../data/fieldroutes-auth-status.json');
 const FIELDROUTES_BASE = 'https://greenshieldpestsolutions.fieldroutes.com';
-const AUTH_STATE_ENV   = 'FIELDROUTES_AUTH_STATE_JSON';
-
-// ---------------------------------------------------------------------------
-// In-memory auth status (fast reads, no file I/O on every status check)
-// ---------------------------------------------------------------------------
 
 let _authStatus = {
-  status:     'unknown', // ok | needs_login | failed | unknown
-  lastCheck:  null,      // ISO timestamp
+  status:     'unknown',
+  lastCheck:  null,
   message:    null,
 };
 
 let _keepaliveTimer = null;
-
-// ---------------------------------------------------------------------------
-// Persistence — status file is gitignored via data/*.json
-// ---------------------------------------------------------------------------
 
 export async function loadAuthStatus() {
   try {
@@ -64,10 +57,6 @@ async function persistAuthStatus() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Public status accessors
-// ---------------------------------------------------------------------------
-
 export function getAuthStatus() {
   return { ..._authStatus };
 }
@@ -78,68 +67,45 @@ export function setAuthStatus(status, message = null) {
     lastCheck: new Date().toISOString(),
     message,
   };
-  persistAuthStatus(); // fire-and-forget
+  persistAuthStatus();
 }
 
-function parseAuthStateJson(raw, sourceLabel) {
-  try {
-    return JSON.parse(raw);
-  } catch (err) {
-    throw new Error(`${sourceLabel} is not valid JSON: ${err.message}`);
-  }
-}
-
-export async function readFieldRoutesAuthState() {
-  const envValue = process.env[AUTH_STATE_ENV];
-  if (envValue?.trim()) {
-    return parseAuthStateJson(envValue, AUTH_STATE_ENV);
+async function readAuthState() {
+  if (process.env.FIELDROUTES_AUTH_STATE_JSON) {
+    try {
+      return JSON.parse(process.env.FIELDROUTES_AUTH_STATE_JSON);
+    } catch (err) {
+      throw new Error(`FIELDROUTES_AUTH_STATE_JSON is not valid JSON: ${err.message}`);
+    }
   }
 
   if (!existsSync(AUTH_STATE)) {
-    throw new Error('needs_login: FieldRoutes auth state not found.');
+    return null;
   }
 
   const raw = await fs.readFile(AUTH_STATE, 'utf8');
-  return parseAuthStateJson(raw, AUTH_STATE);
+  return JSON.parse(raw);
 }
-
-export async function getFieldRoutesStorageStateForPlaywright() {
-  if (process.env[AUTH_STATE_ENV]?.trim()) {
-    return readFieldRoutesAuthState();
-  }
-
-  if (!existsSync(AUTH_STATE)) {
-    throw new Error('needs_login: FieldRoutes auth state not found.');
-  }
-
-  return AUTH_STATE;
-}
-
-// ---------------------------------------------------------------------------
-// Lightweight auth health check
-// Uses raw HTTP fetch (no Playwright, no browser process).
-// Reads cookies from the saved Playwright auth state and makes a single GET
-// to day.php. Detects login redirects and login-page false-positives.
-// Typically completes in 300–800 ms.
-// ---------------------------------------------------------------------------
 
 export async function checkAuthHealth() {
-  let cookieHeader;
+  let state;
+
   try {
-    const state = await readFieldRoutesAuthState();
-    cookieHeader = (state.cookies || [])
-      .filter(c => (c.domain || '').includes('fieldroutes.com'))
-      .map(c => `${c.name}=${c.value}`)
-      .join('; ');
+    state = await readAuthState();
   } catch (err) {
-    const msg = err.message || 'Cannot read FieldRoutes auth state.';
-    if (msg.includes('needs_login')) {
-      setAuthStatus('needs_login', 'Auth state not found — set FIELDROUTES_AUTH_STATE_JSON on Render or run the local login script.');
-      return 'needs_login';
-    }
-    setAuthStatus('failed', `Cannot read auth state: ${msg}`);
+    setAuthStatus('failed', err.message);
     return 'failed';
   }
+
+  if (!state) {
+    setAuthStatus('needs_login', 'Auth state not found — run the FieldRoutes login script locally and add FIELDROUTES_AUTH_STATE_JSON in Render.');
+    return 'needs_login';
+  }
+
+  const cookieHeader = (state.cookies || [])
+    .filter(c => (c.domain || '').includes('fieldroutes.com'))
+    .map(c => `${c.name}=${c.value}`)
+    .join('; ');
 
   if (!cookieHeader) {
     setAuthStatus('needs_login', 'No FieldRoutes session cookies found in auth state.');
@@ -155,11 +121,10 @@ export async function checkAuthHealth() {
         Accept:            'text/html,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
-      redirect: 'manual',           // Do not follow redirects — inspect them directly
+      redirect: 'manual',
       signal: AbortSignal.timeout(12000),
     });
 
-    // 3xx redirect — check destination to distinguish login redirect from date redirect
     if (resp.status >= 300 && resp.status < 400) {
       const loc = resp.headers.get('location') || '';
       const isLoginRedirect =
@@ -171,13 +136,11 @@ export async function checkAuthHealth() {
         setAuthStatus('needs_login', 'FieldRoutes redirected to login — session expired.');
         return 'needs_login';
       }
-      // A redirect to another day.php URL or similar → auth is fine
       setAuthStatus('ok');
       return 'ok';
     }
 
     if (resp.status === 200) {
-      // Read first 6 KB to detect login page returned with 200
       let snippet = '';
       try {
         const reader = resp.body?.getReader();
@@ -204,7 +167,6 @@ export async function checkAuthHealth() {
       return 'ok';
     }
 
-    // 4xx / 5xx
     const errStatus = resp.status >= 500 ? 'failed' : 'needs_login';
     setAuthStatus(errStatus, `FieldRoutes returned HTTP ${resp.status}`);
     return errStatus;
@@ -217,32 +179,20 @@ export async function checkAuthHealth() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Session keepalive
-// Runs every 45 minutes by default. Makes the same lightweight HTTP GET to
-// day.php — this touches the PHP session on the FieldRoutes server and resets
-// its idle timer, preventing garbage collection between route scrapes.
-// Skips the check when auth is already known to need login (no point pinging).
-// ---------------------------------------------------------------------------
-
-const DEFAULT_KEEPALIVE_MS = 45 * 60 * 1000; // 45 minutes
+const DEFAULT_KEEPALIVE_MS = 45 * 60 * 1000;
 
 export function startAuthKeepalive(intervalMs = DEFAULT_KEEPALIVE_MS) {
-  if (_keepaliveTimer) return; // already running
+  if (_keepaliveTimer) return;
   const minutes = Math.round(intervalMs / 60000);
   console.log(`[auth] FieldRoutes session keepalive every ${minutes} min`);
 
   _keepaliveTimer = setInterval(async () => {
-    if (_authStatus.status === 'needs_login') {
-      // No point pinging if we already know auth is expired
-      return;
-    }
+    if (_authStatus.status === 'needs_login') return;
     console.log('[auth] Keepalive: checking FieldRoutes session...');
     const result = await checkAuthHealth();
     console.log(`[auth] Keepalive result: ${result}`);
   }, intervalMs);
 
-  // Let Node.js exit cleanly even if the timer is pending
   if (_keepaliveTimer.unref) _keepaliveTimer.unref();
 }
 

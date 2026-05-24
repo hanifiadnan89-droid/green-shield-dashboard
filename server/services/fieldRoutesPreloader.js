@@ -1,22 +1,14 @@
-import { promises as fs } from 'fs';
+import { promises as fs, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { extractRoutePayload } from '../../client/src/utils/fieldRoutesExtractor.js';
-import {
-  getAuthStatus,
-  setAuthStatus,
-  getFieldRoutesStorageStateForPlaywright,
-} from './fieldRoutesAuth.js';
-import { launchFieldRoutesChromium } from './playwrightRuntime.js';
+import { getAuthStatus, setAuthStatus } from './fieldRoutesAuth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROUTES_DIR       = resolve(__dirname, '../../data/routes');
 const META_PATH        = resolve(ROUTES_DIR, 'cache-meta.json');
+const AUTH_STATE       = resolve(__dirname, '../../playwright/.auth/fieldroutes-state.json');
 const FIELDROUTES_BASE = 'https://greenshieldpestsolutions.fieldroutes.com';
-
-// ---------------------------------------------------------------------------
-// Time formatting (12-hour AM/PM) for status display
-// ---------------------------------------------------------------------------
 
 function fmtTime12h(isoStr) {
   if (!isoStr) return null;
@@ -29,23 +21,58 @@ function fmtTime12h(isoStr) {
   return `${h12}:${String(m).padStart(2, '0')} ${period}`;
 }
 
-// ---------------------------------------------------------------------------
-// FieldRoutes page fetch via Playwright
-//
-// Strategy:
-//   1. Load day.php?date=YYYY-MM-DD using the saved Playwright auth state.
-//   2. The page automatically fires a POST to routeDelegate?action=getGroupData.
-//      We intercept that response directly.
-//   3. If the XHR isn't captured, fall back to extracting tabSession from the
-//      page and posting manually.
-//   4. If the session has expired, throw a needs_login error.
-//
-// One-time setup:  node scripts/fieldRoutesLogin.mjs
-// ---------------------------------------------------------------------------
+async function getStorageStateForPlaywright() {
+  if (process.env.FIELDROUTES_AUTH_STATE_JSON) {
+    try {
+      return JSON.parse(process.env.FIELDROUTES_AUTH_STATE_JSON);
+    } catch (err) {
+      throw new Error(`needs_login: FIELDROUTES_AUTH_STATE_JSON is not valid JSON: ${err.message}`);
+    }
+  }
+
+  if (!existsSync(AUTH_STATE)) {
+    throw new Error(
+      'needs_login: FieldRoutes auth state not found — ' +
+      'run: node scripts/fieldRoutesLogin.mjs'
+    );
+  }
+
+  return AUTH_STATE;
+}
 
 async function fetchRawPayload(date) {
-  const storageState = await getFieldRoutesStorageStateForPlaywright();
-  const browser = await launchFieldRoutesChromium();
+  const storageState = await getStorageStateForPlaywright();
+
+  let playwrightMod;
+  try {
+    playwrightMod = await import('playwright');
+  } catch {
+    throw new Error(
+      'Playwright not installed — run: npm install playwright && cd server && npx playwright install chromium'
+    );
+  }
+
+  const chromium = playwrightMod.default?.chromium ?? playwrightMod.chromium;
+  let browser;
+
+  try {
+    browser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+      ],
+    });
+  } catch (err) {
+    if (err.message?.includes('Executable') || err.message?.includes('executable')) {
+      throw new Error('Chromium not installed — update Render Build Command to: npm run render:build');
+    }
+    throw err;
+  }
 
   const context = await browser.newContext({
     storageState,
@@ -62,11 +89,7 @@ async function fetchRawPayload(date) {
       page.on('response', async (response) => {
         if (routePayload) return;
         const url = response.url();
-        if (
-          url.includes('routeDelegate') &&
-          url.includes('getGroupData') &&
-          response.status() === 200
-        ) {
+        if (url.includes('routeDelegate') && url.includes('getGroupData') && response.status() === 200) {
           try {
             const json = await response.json();
             routePayload = json;
@@ -84,18 +107,13 @@ async function fetchRawPayload(date) {
       timeout: 30000,
     });
 
-    // Detect session expiration via URL redirect to login
     const currentUrl = page.url();
     if (!currentUrl.includes('day.php')) {
-      throw new Error(
-        'needs_login: FieldRoutes session expired — ' +
-        'run: node scripts/fieldRoutesLogin.mjs'
-      );
+      throw new Error('needs_login: FieldRoutes session expired — update FIELDROUTES_AUTH_STATE_JSON in Render');
     }
 
     routePayload = await capturePromise;
 
-    // Fallback: extract tabSession from page, POST manually
     if (!routePayload) {
       console.warn(`[preloader] XHR not intercepted for ${date}, trying tabSession fallback`);
 
@@ -111,28 +129,22 @@ async function fetchRawPayload(date) {
       });
 
       if (!tabSession) {
-        throw new Error(
-          `Could not extract tabSession from day.php?date=${date} — ` +
-          'the page structure may have changed or no routes exist for this date'
-        );
+        throw new Error(`Could not extract tabSession from day.php?date=${date} — page loaded but route session data was not found`);
       }
 
       const groupId = process.env.FIELDROUTES_GROUP_ID || '2058';
 
       routePayload = await page.evaluate(
         async ({ groupId, tabSession }) => {
-          const resp = await fetch(
-            '/resources/delegates/day/routeDelegate?action=getGroupData',
-            {
-              method: 'POST',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/x-json;charset=UTF-8',
-                'X-Requested-With': 'XMLHttpRequest',
-              },
-              body: `groupID=${groupId}&tabSession=${tabSession}&action=getGroupData`,
-            }
-          );
+          const resp = await fetch('/resources/delegates/day/routeDelegate?action=getGroupData', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/x-json;charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: `groupID=${groupId}&tabSession=${tabSession}&action=getGroupData`,
+          });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           return resp.json();
         },
@@ -145,16 +157,11 @@ async function fetchRawPayload(date) {
     }
 
     return routePayload;
-
   } finally {
     await context.close();
     await browser.close();
   }
 }
-
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
 
 function getLocalDateStr(offsetDays = 0) {
   const d = new Date();
@@ -214,18 +221,13 @@ async function replaceMeta(date, entry) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 export async function refreshDate(date) {
-  // Auth guard: skip expensive Playwright launch if session is known expired
   const auth = getAuthStatus();
   if (auth.status === 'needs_login') {
     await updateMeta(date, {
       status: 'needs_login',
       timestamp: new Date().toISOString(),
-      error: 'FieldRoutes session expired — run the login script.',
+      error: 'FieldRoutes session expired — update FIELDROUTES_AUTH_STATE_JSON in Render.',
     });
     throw new Error('needs_login: FieldRoutes session is not authenticated.');
   }
@@ -235,48 +237,25 @@ export async function refreshDate(date) {
   try {
     const raw = await fetchRawPayload(date);
     await fs.mkdir(ROUTES_DIR, { recursive: true });
-    await fs.writeFile(
-      resolve(ROUTES_DIR, `${date}.raw.json`),
-      JSON.stringify(raw, null, 2)
-    );
+    await fs.writeFile(resolve(ROUTES_DIR, `${date}.raw.json`), JSON.stringify(raw, null, 2));
     const { result, stats } = extractRoutePayload(raw);
-    await fs.writeFile(
-      resolve(ROUTES_DIR, `${date}.normalized.json`),
-      JSON.stringify(result, null, 2)
-    );
+    await fs.writeFile(resolve(ROUTES_DIR, `${date}.normalized.json`), JSON.stringify(result, null, 2));
     await replaceMeta(date, {
       status: 'cached',
       timestamp: new Date().toISOString(),
       techCount: result.technicians.length,
       stopCount: stats.stopsExtracted,
     });
-    // Successful scrape confirms auth is working
     setAuthStatus('ok');
     console.log(`[preloader] ${date} cached — ${result.technicians.length} techs, ${stats.stopsExtracted} stops`);
     return result;
   } catch (err) {
     const msg = err.message || '';
-    const isAuthError =
-      msg.includes('needs_login') ||
-      msg.includes('Session expired') ||
-      msg.includes('auth state not found');
-
-    const status = isAuthError
-      ? 'needs_login'
-      : msg.includes('not implemented')
-      ? 'not_configured'
-      : 'failed';
-
-    if (isAuthError) {
-      setAuthStatus('needs_login', 'FieldRoutes session expired during scrape.');
-    }
-
-    await updateMeta(date, {
-      status,
-      timestamp: new Date().toISOString(),
-      error: msg,
-    });
-    console.warn(`[preloader] ${date} failed: ${msg}`);
+    console.error(`[preloader] ${date} failed:`, msg);
+    const isAuthError = msg.includes('needs_login') || msg.includes('Session expired') || msg.includes('auth state not found');
+    const status = isAuthError ? 'needs_login' : msg.includes('not implemented') ? 'not_configured' : 'failed';
+    if (isAuthError) setAuthStatus('needs_login', 'FieldRoutes session expired during scrape.');
+    await updateMeta(date, { status, timestamp: new Date().toISOString(), error: msg });
     throw err;
   }
 }
@@ -285,29 +264,23 @@ export async function getStatus() {
   const dates = getNextSixWorkingDays();
   const meta  = await readMeta();
   const result = {};
+  for (const date of dates) result[date] = meta[date] || { status: 'missing' };
 
-  for (const date of dates) {
-    result[date] = meta[date] || { status: 'missing' };
-  }
-
-  // Find most recent successful route cache timestamp for "Last Refresh" display
   const lastRefresh = Object.values(meta)
     .filter(e => e?.status === 'cached' && e?.timestamp)
     .map(e => e.timestamp)
     .sort()
     .reverse()[0] ?? null;
 
-  // Attach auth status so the widget gets it in the same poll cycle as date statuses
   const auth = getAuthStatus();
   result._auth = {
-    status:              auth.status,
-    lastCheck:           auth.lastCheck,
-    lastCheckFormatted:  fmtTime12h(auth.lastCheck),
-    message:             auth.message,
+    status: auth.status,
+    lastCheck: auth.lastCheck,
+    lastCheckFormatted: fmtTime12h(auth.lastCheck),
+    message: auth.message,
     lastRefresh,
     lastRefreshFormatted: fmtTime12h(lastRefresh),
   };
-
   return result;
 }
 
@@ -322,7 +295,6 @@ export async function getNormalizedForDate(date) {
 }
 
 export async function preloadNextSixWorkingDays({ force = false } = {}) {
-  // Auth guard: check once at the start to avoid launching 6 browsers when expired
   const auth = getAuthStatus();
   if (auth.status === 'needs_login') {
     console.warn('[preloader] Skipping preload — FieldRoutes auth needs login.');
@@ -340,7 +312,7 @@ export async function preloadNextSixWorkingDays({ force = false } = {}) {
             ...(m[d] || {}),
             status: 'needs_login',
             timestamp: new Date().toISOString(),
-            error: 'FieldRoutes session expired — run: node scripts/fieldRoutesLogin.mjs',
+            error: 'FieldRoutes session expired — update FIELDROUTES_AUTH_STATE_JSON in Render.',
           };
         }
         await writeMeta(m);
@@ -362,12 +334,10 @@ export async function preloadNextSixWorkingDays({ force = false } = {}) {
     try {
       await refreshDate(date);
     } catch (err) {
-      // If auth expired mid-run, stop trying remaining dates
       if (err.message?.includes('needs_login')) {
         console.warn('[preloader] Auth expired mid-preload — stopping remaining dates.');
         break;
       }
-      // Other errors (empty data, extractor error) → continue to next date
     }
   }
 }

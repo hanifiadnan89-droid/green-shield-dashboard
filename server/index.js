@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { existsSync } from 'fs';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import leadsRouter from './routes/leads.js';
@@ -13,16 +13,48 @@ import documentsRouter from './routes/documents.js';
 import routesRouter from './routes/routes.js';
 import { startCron } from './services/fieldRoutesCron.js';
 import { loadAuthStatus, checkAuthHealth, startAuthKeepalive } from './services/fieldRoutesAuth.js';
-import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
-const CLIENT_DIST = path.resolve(__dirname, '../client/dist');
-const CLIENT_INDEX = path.join(CLIENT_DIST, 'index.html');
+const isProduction = process.env.NODE_ENV === 'production';
+const clientDistPath = path.resolve(__dirname, '../client/dist');
+
+function requireDashboardLogin(req, res, next) {
+  const expectedUsername = process.env.DASHBOARD_USERNAME;
+  const expectedPassword = process.env.DASHBOARD_PASSWORD;
+
+  if (!expectedUsername || !expectedPassword) {
+    return next();
+  }
+
+  const authHeader = req.headers.authorization || '';
+
+  if (!authHeader.startsWith('Basic ')) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Green Shield Dashboard"');
+    return res.status(401).send('Authentication required');
+  }
+
+  const credentials = Buffer.from(authHeader.slice('Basic '.length), 'base64').toString('utf8');
+  const separatorIndex = credentials.indexOf(':');
+  const username = separatorIndex >= 0 ? credentials.slice(0, separatorIndex) : '';
+  const password = separatorIndex >= 0 ? credentials.slice(separatorIndex + 1) : '';
+
+  if (username === expectedUsername && password === expectedPassword) {
+    return next();
+  }
+
+  res.setHeader('WWW-Authenticate', 'Basic realm="Green Shield Dashboard"');
+  return res.status(401).send('Invalid credentials');
+}
+
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
 
 app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
 app.use(express.json());
+app.use(requireDashboardLogin);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -43,18 +75,17 @@ app.use('/api/drive', driveRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/routes', routesRouter);
 
-app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'API route not found' });
-});
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
 
-app.use(express.static(CLIENT_DIST));
-
-app.get('*', (req, res) => {
-  if (!existsSync(CLIENT_INDEX)) {
-    return res.status(404).send('Dashboard UI build not found. Run npm run build first.');
-  }
-  res.sendFile(CLIENT_INDEX);
-});
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.status(200).send('Green Shield API is running. Build the client to serve the dashboard UI.');
+  });
+}
 
 startCron();
 
@@ -64,15 +95,14 @@ loadAuthStatus();
 checkAuthHealth()
   .then(s => console.log(`[auth] Startup check: FieldRoutes auth is ${s}`))
   .catch(err => console.warn('[auth] Startup check failed:', err.message));
-logPlaywrightChromiumDiagnostics()
-  .catch(err => console.warn('[playwright] Startup diagnostic failed:', err.message));
 startAuthKeepalive();
 
 app.listen(PORT, () => {
   const mode = process.env.TEST_MODE === 'true' ? '🔒 TEST MODE' : '🔴 LIVE MODE';
-  console.log(`\n✅ Green Shield API running on http://localhost:${PORT}`);
+  console.log(`\n✅ Green Shield API running on port ${PORT}`);
   console.log(`   Mode: ${mode}`);
-  console.log(`   Dashboard UI: ${existsSync(CLIENT_INDEX) ? 'served from client/dist' : '⚠️  client/dist missing'}`);
+  console.log(`   Dashboard UI: ${fs.existsSync(clientDistPath) ? 'served from client/dist' : 'not built yet'}`);
+  console.log(`   Login: ${process.env.DASHBOARD_USERNAME && process.env.DASHBOARD_PASSWORD ? 'enabled' : 'disabled'}`);
   console.log(`   Google Sheets: ${process.env.SHEET_ID ? 'configured' : '⚠️  SHEET_ID missing'}`);
   console.log(`   n8n: ${process.env.N8N_BASE_URL || '⚠️  N8N_BASE_URL missing'}`);
   console.log(`   Credentials: ${process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_FILE ? '✓' : '⚠️  GOOGLE_SERVICE_ACCOUNT missing'}\n`);

@@ -1,0 +1,83 @@
+# Green Shield Dashboard Deployment
+
+This project is ready to deploy as one Render Web Service.
+
+## What this deployment does
+
+- Builds the Vite client from `client/`
+- Starts the Express server from `server/`
+- Serves the built dashboard UI from `client/dist`
+- Keeps the API available under `/api`
+- Adds browser username/password protection when `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD` are set
+
+## Render setup
+
+1. Go to Render.
+2. Create a new Web Service.
+3. Connect this GitHub repository.
+4. Use these settings:
+
+```txt
+Runtime: Node
+Branch: main
+Build Command: npm run install:all && npm run build
+Start Command: npm start
+```
+
+## Environment variables
+
+Add these in Render under the service Environment tab.
+
+Required for login:
+
+```txt
+DASHBOARD_USERNAME=adnan
+DASHBOARD_PASSWORD=choose-a-strong-password
+NODE_ENV=production
+```
+
+Required for dashboard data:
+
+```txt
+TEST_MODE=false
+SHEET_ID=your-google-sheet-id
+N8N_BASE_URL=your-n8n-base-url
+GOOGLE_SERVICE_ACCOUNT_JSON=your-full-service-account-json
+```
+
+Optional, depending on your existing integrations:
+
+```txt
+GMAIL_USER=
+GMAIL_APP_PASSWORD=
+FIELDROUTES_USERNAME=
+FIELDROUTES_PASSWORD=
+FIELDROUTES_BASE_URL=
+```
+
+Use the same values from your local `server/.env`, but do not commit that `.env` file to GitHub.
+
+## Google service account note
+
+If you use `GOOGLE_SERVICE_ACCOUNT_JSON`, paste the entire JSON value into Render as one environment variable. Make sure the Google Sheet is shared with the service account email.
+
+## After deployment
+
+Render will give you a URL like:
+
+```txt
+https://green-shield-dashboard.onrender.com
+```
+
+Open that URL. The browser should ask for the username and password you set in Render.
+
+## Local development still works
+
+For local development, continue using:
+
+```bash
+npm run install:all
+npm run dev
+```
+
+The login is only enabled when `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD` exist in the environment.
