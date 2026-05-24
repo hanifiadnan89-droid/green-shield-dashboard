@@ -89,6 +89,16 @@ const TIMELINE_STEPS = [
   { time: '4:00', title: 'Metrics Update', desc: 'Metrics animate smoothly with subtle glow' },
 ];
 
+// Orbital particles: 5 colored dots on 3 concentric paths.
+// rev=true → counter-clockwise (adds variety without extra markup).
+const ORBITAL_PARTICLES = [
+  { color: '#22C55E', size: 12, radius: 134, dur: 32, delay:   0           }, // green,  outer  CW
+  { color: '#3B82F6', size: 10, radius: 128, dur: 32, delay: -13, rev: true }, // blue,   outer  CCW
+  { color: '#F97316', size: 11, radius: 110, dur: 24, delay:  -4           }, // orange, middle CW
+  { color: '#A855F7', size: 10, radius: 105, dur: 24, delay: -15, rev: true }, // purple, middle CCW
+  { color: '#EF4444', size: 11, radius:  88, dur: 18, delay:  -7           }, // red,    inner  CW
+];
+
 // ─── Bezier path utilities (shared by Canvas particle system) ─────────────────
 
 function parseCubicBeziers(d) {
@@ -415,8 +425,10 @@ const FlowOverlay = memo(function FlowOverlay({ isScrollingRef }) {
 });
 
 // ─── ReactiveOrb ───────────────────────────────────────────────────────────────
-// Pulses use CSS @keyframes triggered by remounting the span (key change).
-// No GSAP ticker — zero continuous RAF usage at rest.
+// Layer order (back→front):
+//   tracks (static rings) → orbital particles → glass body (breathing) → text (fixed)
+// Text lives OUTSIDE .ps-orb__body so it is never affected by the breathing scale.
+// All animations: transform + opacity only. No filter, no box-shadow animation.
 
 const ReactiveOrb = memo(function ReactiveOrb({ stats }) {
   const [pulseReply, setPulseReply] = useState(0);
@@ -427,26 +439,61 @@ const ReactiveOrb = memo(function ReactiveOrb({ stats }) {
   useEffect(() => {
     const prev = prevRef.current;
     if (!prev) { prevRef.current = stats; return; }
-
     if (stats.replied > (prev.replied ?? 0)) setPulseReply(n => n + 1);
     if (stats.errors  > (prev.errors  ?? 0)) setPulseError(n => n + 1);
     if (stats.sold    > (prev.sold    ?? 0)) setPulseSold(n  => n + 1);
-
     prevRef.current = stats;
   }, [stats.total, stats.replied, stats.errors, stats.sold]); // eslint-disable-line
 
   return (
     <div className="ps-orb">
-      <span key={`rp-${pulseReply}`} className={`ps-orb__pulse ps-orb__pulse--reply${pulseReply ? ' ps-orb__pulse--active' : ''}`} />
-      <span key={`ep-${pulseError}`} className={`ps-orb__pulse ps-orb__pulse--error${pulseError ? ' ps-orb__pulse--active' : ''}`} />
-      <span key={`sp-${pulseSold}`}  className={`ps-orb__pulse ps-orb__pulse--sold${pulseSold   ? ' ps-orb__pulse--active' : ''}`} />
-      <span className="ps-orb__shell" />
-      <span className="ps-orb__shimmer" />
-      <span className="ps-orb__ring" />
-      <span className="ps-orb__energy" />
-      <span className="ps-orb__glass" />
-      <AnimatedNumber value={stats.total} className="ps-orb__value" />
-      <span className="ps-orb__label">TOTAL LEADS</span>
+
+      {/* ── Concentric orbital track rings (static, no animation) ── */}
+      <div className="ps-orb__track ps-orb__track--1" />
+      <div className="ps-orb__track ps-orb__track--2" />
+      <div className="ps-orb__track ps-orb__track--3" />
+      <div className="ps-orb__track ps-orb__track--4" />
+
+      {/* ── Orbital particles — CSS transform rotation, compositor-threaded ── */}
+      {ORBITAL_PARTICLES.map((p, i) => (
+        <div
+          key={i}
+          className={`ps-orbit-wrapper${p.rev ? ' ps-orbit-wrapper--rev' : ''}`}
+          style={{ '--orb-dur': `${p.dur}s`, '--orb-delay': `${p.delay}s` }}
+        >
+          <div
+            className="ps-orbit-dot"
+            style={{ '--dot-color': p.color, '--dot-r': `${p.radius}px`, '--dot-size': `${p.size}px` }}
+          />
+        </div>
+      ))}
+
+      {/* ── Glass body (breathing) — text is OUTSIDE so it never moves ── */}
+      <div className="ps-orb__body">
+        {/* Reaction pulses — remount key triggers CSS animation */}
+        <span key={`rp-${pulseReply}`} className={`ps-orb__pulse ps-orb__pulse--reply${pulseReply ? ' ps-orb__pulse--active' : ''}`} />
+        <span key={`ep-${pulseError}`} className={`ps-orb__pulse ps-orb__pulse--error${pulseError ? ' ps-orb__pulse--active' : ''}`} />
+        <span key={`sp-${pulseSold}`}  className={`ps-orb__pulse ps-orb__pulse--sold${pulseSold   ? ' ps-orb__pulse--active' : ''}`} />
+
+        {/* Soft outer atmosphere (no filter) */}
+        <div className="ps-orb__atmosphere" />
+
+        {/* Multi-color energy ring — conic-gradient rotating via transform */}
+        <div className="ps-orb__energy-ring" />
+
+        {/* White glass sphere with internal refraction */}
+        <div className="ps-orb__shell">
+          <div className="ps-orb__refraction" />
+          <div className="ps-orb__specular" />
+        </div>
+      </div>
+
+      {/* ── Text anchor — absolutely centered, zero animation, never moves ── */}
+      <div className="ps-orb__text">
+        <AnimatedNumber value={stats.total} className="ps-orb__value" />
+        <span className="ps-orb__label">TOTAL LEADS</span>
+      </div>
+
     </div>
   );
 });
@@ -842,7 +889,7 @@ const PS_STYLES = `
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
-.ps-panel--center { padding: 22px 20px 20px; }
+.ps-panel--center { padding: 22px 20px 20px; overflow: visible; }
 
 /* ── ps-rings-stack ── */
 .ps-rings-stack {
@@ -939,27 +986,12 @@ const PS_STYLES = `
   position: relative;
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   min-height: 400px;
   border-radius: 16px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 44%, rgba(255,255,255,0.46), rgba(255,255,255,0.14) 38%, transparent 58%),
-    radial-gradient(circle at 44% 46%, rgba(22,163,74,0.10), transparent 35%),
-    radial-gradient(circle at 62% 44%, rgba(37,99,235,0.10), transparent 36%),
-    linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06));
-}
-.ps-center-stage::before {
-  content: '';
-  position: absolute;
-  inset: 40px 60px 80px;
-  pointer-events: none;
-  border-radius: 999px;
-  background:
-    repeating-radial-gradient(circle, rgba(148,163,184,0.12) 0 1px, transparent 1px 28px),
-    radial-gradient(circle, rgba(255,255,255,0.26), transparent 68%);
-  opacity: 0.34;
+  overflow: visible;
+  background: radial-gradient(circle at 50% 48%, rgba(248,250,252,0.55), transparent 70%);
 }
 
 /* ── ps-flow overlay sharp paths (override stroke-dasharray) ── */
@@ -968,117 +1000,203 @@ const PS_STYLES = `
   opacity: 0.68;
 }
 
-/* ── ps-orb ── */
+/* ── ps-orb — fills center stage, all children position relative to its center ── */
 .ps-orb {
   position: relative;
   z-index: 5;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: clamp(200px, 40%, 248px);
-  aspect-ratio: 1;
-  border-radius: 999px;
+  width: 100%;
+  align-self: stretch;
+  min-height: 360px;
   transform: translateZ(0);
 }
+
+/* ── Concentric orbital track rings (static borders, no animation) ── */
+.ps-orb__track {
+  position: absolute;
+  top: 50%; left: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.ps-orb__track--1 { width: 208px; height: 208px; border: 1px solid rgba(148,163,184,0.20); }
+.ps-orb__track--2 { width: 256px; height: 256px; border: 1px dashed rgba(148,163,184,0.13); }
+.ps-orb__track--3 { width: 296px; height: 296px; border: 1px solid rgba(148,163,184,0.08); }
+.ps-orb__track--4 { width: 336px; height: 336px; border: 1px dashed rgba(148,163,184,0.055); }
+
+/* ── Orbital particle wrappers — only transform:rotate animates (compositor-threaded) ── */
+.ps-orbit-wrapper {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  animation: ps-orbit-cw linear infinite;
+  animation-duration: var(--orb-dur, 32s);
+  animation-delay: var(--orb-delay, 0s);
+}
+.ps-orbit-wrapper--rev { animation-name: ps-orbit-ccw; }
+@keyframes ps-orbit-cw  { to { transform: rotate(360deg);  } }
+@keyframes ps-orbit-ccw { to { transform: rotate(-360deg); } }
+
+/* ── Orbital dot ── */
+.ps-orbit-dot {
+  position: absolute;
+  width: var(--dot-size, 10px);
+  height: var(--dot-size, 10px);
+  top: calc(var(--dot-size, 10px) * -0.5);
+  left: calc(var(--dot-r, 120px) - var(--dot-size, 10px) * 0.5);
+  border-radius: 50%;
+  background: var(--dot-color, #22C55E);
+  box-shadow: 0 0 5px var(--dot-color), 0 0 12px color-mix(in srgb, var(--dot-color) 40%, transparent);
+}
+.ps-orbit-dot::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300%;
+  height: 300%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--dot-color) 0%, transparent 60%);
+  opacity: 0.13;
+  pointer-events: none;
+}
+
+/* ── Glass body — centered absolute, breathing scale, text is NOT inside ── */
+.ps-orb__body {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: clamp(148px, 36%, 186px);
+  height: clamp(148px, 36%, 186px);
+  border-radius: 50%;
+  will-change: transform;
+  animation: ps-orb-breathe 10s ease-in-out infinite;
+}
+@keyframes ps-orb-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(1);     }
+  50%       { transform: translate(-50%, -50%) scale(1.008); }
+}
+
+/* ── Reaction pulse rings ── */
 .ps-orb__pulse {
   position: absolute;
   inset: -10px;
-  border-radius: 999px;
+  border-radius: 50%;
   opacity: 0;
   pointer-events: none;
 }
-.ps-orb__pulse--reply {
-  border: 1px solid rgba(22,163,74,0.55);
-  box-shadow: 0 0 0 6px rgba(22,163,74,0.10);
-}
-.ps-orb__pulse--error {
-  border: 1px solid rgba(220,38,38,0.46);
-  box-shadow: 0 0 0 6px rgba(220,38,38,0.08);
-}
-.ps-orb__pulse--sold {
-  border: 1px solid rgba(147,51,234,0.50);
-  box-shadow: 0 0 0 5px rgba(147,51,234,0.10);
-}
-.ps-orb__pulse--active {
-  animation: ps-orb-pulse-out 0.92s ease-out forwards;
-}
+.ps-orb__pulse--reply  { border: 1.5px solid rgba(34,197,94,0.65);  }
+.ps-orb__pulse--error  { border: 1.5px solid rgba(239,68,68,0.55);  }
+.ps-orb__pulse--sold   { border: 1.5px solid rgba(168,85,247,0.62); }
+.ps-orb__pulse--active { animation: ps-orb-pulse-out 0.92s ease-out forwards; }
 @keyframes ps-orb-pulse-out {
-  0%   { opacity: 0.50; transform: scale(1); }
-  100% { opacity: 0;    transform: scale(1.38); }
+  0%   { opacity: 0.55; transform: scale(1);    }
+  100% { opacity: 0;    transform: scale(1.44); }
 }
+
+/* ── Soft outer atmosphere (no filter, no animation) ── */
+.ps-orb__atmosphere {
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,215,235,0.09) 0%, transparent 68%);
+  pointer-events: none;
+}
+
+/* ── Multi-color energy ring — conic-gradient ring via CSS mask, rotates via transform ── */
+.ps-orb__energy-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #22C55E 0%,
+    #06B6D4 18%,
+    #818CF8 36%,
+    #EC4899 52%,
+    #F97316 68%,
+    #EAB308 84%,
+    #22C55E 100%
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff 0);
+          mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff 0);
+  opacity: 0.86;
+  will-change: transform;
+  animation: ps-energy-ring-cw 40s linear infinite;
+}
+@keyframes ps-energy-ring-cw {
+  to { transform: rotate(360deg); }
+}
+
+/* ── White glass sphere ── */
 .ps-orb__shell {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: 50%;
+  overflow: hidden;
   background:
-    radial-gradient(circle at 26% 18%, rgba(255,255,255,0.95), rgba(255,255,255,0.42) 18%, transparent 30%),
-    radial-gradient(circle at 68% 30%, rgba(147,51,234,0.16), transparent 38%),
-    radial-gradient(circle at 30% 78%, rgba(22,163,74,0.22), transparent 42%),
-    linear-gradient(145deg, rgba(255,255,255,0.62), rgba(221,246,237,0.38));
-  border: 1px solid rgba(255,255,255,0.82);
+    radial-gradient(circle at 34% 28%, rgba(255,255,255,1.0) 0%, rgba(255,255,255,0.95) 20%,
+      rgba(224,242,254,0.90) 54%, rgba(209,250,229,0.84) 80%, rgba(240,253,250,0.78) 100%);
   box-shadow:
-    0 12px 30px rgba(14,165,233,0.12),
-    0 0 0 6px rgba(255,255,255,0.20),
-    inset 10px 12px 26px rgba(255,255,255,0.50),
-    inset -10px -10px 26px rgba(15,42,20,0.12);
-  animation: ps-orb-breathe 10s ease-in-out infinite;
+    inset 8px 10px 24px rgba(255,255,255,0.88),
+    inset -5px -5px 16px rgba(148,163,184,0.12),
+    0 0 0 1.5px rgba(255,255,255,0.96);
 }
-.ps-orb__shimmer {
+
+/* ── Moving refraction highlight (transform + opacity, compositor-threaded) ── */
+.ps-orb__refraction {
   position: absolute;
-  inset: 12px;
-  border-radius: inherit;
-  background:
-    radial-gradient(ellipse at 28% 16%, rgba(255,255,255,0.88), transparent 25%),
-    linear-gradient(126deg, rgba(255,255,255,0.34), transparent 34%, rgba(255,255,255,0.16) 60%, transparent),
-    conic-gradient(from 38deg, rgba(22,163,74,0.12), rgba(37,99,235,0.14), rgba(147,51,234,0.12), rgba(217,119,6,0.10), rgba(22,163,74,0.12));
-  opacity: 0.70;
-  mix-blend-mode: screen;
-  animation: ps-orb-glass-drift 16s ease-in-out infinite;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 28% 36%, rgba(255,255,255,0.90) 0%, rgba(255,255,255,0) 52%);
+  will-change: transform, opacity;
+  animation: ps-refraction-drift 18s ease-in-out infinite;
 }
-.ps-orb__ring {
-  position: absolute;
-  inset: 18px;
-  border-radius: inherit;
-  border: 1px solid rgba(125,211,252,0.40);
-  box-shadow: 0 0 18px rgba(125,211,252,0.18), inset 0 0 20px rgba(22,163,74,0.10);
-  animation: ps-orb-ring-pulse 10s ease-in-out infinite;
+@keyframes ps-refraction-drift {
+  0%, 100% { transform: translateX(-10%) translateY(-4%); opacity: 0.90; }
+  50%       { transform: translateX(10%)  translateY(4%);  opacity: 0.60; }
 }
-.ps-orb__energy {
+
+/* ── Static specular top-left shine ── */
+.ps-orb__specular {
   position: absolute;
-  inset: 26px;
-  border-radius: inherit;
-  background:
-    linear-gradient(90deg, transparent 8%, rgba(255,255,255,0.36) 48%, transparent 72%),
-    radial-gradient(circle at 55% 42%, rgba(125,211,252,0.18), transparent 44%);
-  opacity: 0.34;
-  animation: ps-orb-energy-drift 14s ease-in-out infinite;
+  top: 9%; left: 13%;
+  width: 32%; height: 26%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
 }
-.ps-orb__glass {
+
+/* ── Text anchor — absolutely centered, ZERO animation, never moves ── */
+.ps-orb__text {
   position: absolute;
-  inset: 14px;
-  border-radius: inherit;
-  background: radial-gradient(circle at 50% 48%, rgba(244,250,255,0.9) 0%, rgba(232,245,252,0.7) 58%, rgba(216,237,250,0.16) 86%, transparent 100%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
 }
 .ps-orb__value {
-  position: relative;
-  z-index: 6;
+  display: block;
   font-family: Poppins, Inter, sans-serif;
-  font-size: clamp(46px, 4.5vw, 60px);
+  font-size: clamp(40px, 3.8vw, 56px);
   font-weight: 850;
-  line-height: 0.9;
+  line-height: 0.95;
   color: #0F172A;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 .ps-orb__label {
-  position: relative;
-  z-index: 6;
-  margin-top: 12px;
-  color: #1E3A5F;
+  display: block;
+  margin-top: 10px;
+  color: #334E71;
   font-size: 11px;
-  font-weight: 850;
-  letter-spacing: 0.11em;
+  font-weight: 750;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
@@ -1287,40 +1405,23 @@ const PS_STYLES = `
   animation-play-state: paused !important;
 }
 
-.ps-root.ps-scrolling .ps-orb__shell,
-.ps-root.ps-scrolling .ps-orb__shimmer,
-.ps-root.ps-scrolling .ps-orb__ring,
-.ps-root.ps-scrolling .ps-orb__energy {
+.ps-root.ps-scrolling .ps-orb__body,
+.ps-root.ps-scrolling .ps-orb__energy-ring,
+.ps-root.ps-scrolling .ps-orb__refraction,
+.ps-root.ps-scrolling .ps-orbit-wrapper {
   animation-play-state: paused !important;
 }
 
 /* At rest: ensure animations are running */
-.ps-orb__shell,
-.ps-orb__shimmer,
-.ps-orb__ring,
-.ps-orb__energy,
+.ps-orb__body,
+.ps-orb__energy-ring,
+.ps-orb__refraction,
+.ps-orbit-wrapper,
 .ps-flow__sharp,
 .ps-flow__highlight {
   animation-play-state: running;
 }
 
-/* ── orb keyframes ── */
-@keyframes ps-orb-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.98; }
-  50% { transform: scale(1.006); opacity: 1; }
-}
-@keyframes ps-orb-glass-drift {
-  0%, 100% { transform: translate3d(-1px,1px,0) scale(1); opacity: 0.66; }
-  50% { transform: translate3d(2px,-2px,0) scale(1.01); opacity: 0.78; }
-}
-@keyframes ps-orb-ring-pulse {
-  0%, 100% { opacity: 0.40; transform: scale(0.98); }
-  50% { opacity: 0.80; transform: scale(1.02); }
-}
-@keyframes ps-orb-energy-drift {
-  0%, 100% { transform: translate3d(-7%,2%,0); opacity: 0.25; }
-  50% { transform: translate3d(7%,-2%,0); opacity: 0.42; }
-}
 
 /* ── responsive ── */
 @media (max-width: 1180px) {
