@@ -565,14 +565,13 @@ const PS_STYLES = `
     radial-gradient(circle at 9% -8%, rgba(22,163,74,0.12), transparent 34%),
     radial-gradient(circle at 46% -6%, rgba(37,99,235,0.10), transparent 36%),
     radial-gradient(circle at 90% 0%, rgba(147,51,234,0.10), transparent 32%),
-    linear-gradient(135deg, rgba(255,255,255,0.97), rgba(249,252,255,0.88) 48%, rgba(246,252,248,0.84));
+    linear-gradient(135deg, rgba(255,255,255,1.00), rgba(249,252,255,0.97) 48%, rgba(246,252,248,0.95));
   border: 1px solid rgba(226,232,240,0.84);
   border-radius: 22px;
   box-shadow:
     0 30px 78px rgba(15,42,20,0.13),
     0 2px 0 rgba(255,255,255,0.70) inset,
     0 -1px 0 rgba(15,42,20,0.035) inset;
-  backdrop-filter: blur(16px) saturate(1.08);
   transform: translateZ(0);
 }
 .ps-root__glow {
@@ -688,13 +687,12 @@ const PS_STYLES = `
   flex-direction: column;
   overflow: hidden;
   border-radius: 19px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.62), rgba(255,255,255,0.38));
+  background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.82));
   border: 1px solid rgba(226,232,240,0.66);
   box-shadow:
     0 18px 36px rgba(15,42,20,0.055),
     0 1px 0 rgba(255,255,255,0.88) inset,
     0 -1px 0 rgba(15,42,20,0.03) inset;
-  backdrop-filter: blur(12px) saturate(1.08);
   padding: 22px 24px 26px;
 }
 .ps-panel::before {
