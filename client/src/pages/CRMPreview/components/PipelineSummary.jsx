@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   AlertCircle,
@@ -13,8 +13,6 @@ import {
   TrendingUp,
   BarChart3,
 } from 'lucide-react';
-import gsap from 'gsap';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import './PipelineSummaryLivingFlow.css';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -158,18 +156,46 @@ if (typeof document !== 'undefined' && !document.getElementById('ps-pk')) {
 const formatPercent = v => `${Math.round(Math.min(Math.max(+(v ?? 0), 0), 100))}%`;
 
 // ─── AnimatedNumber ────────────────────────────────────────────────────────────
+// Plain RAF counter — only runs during the ~600 ms animation, then stops.
+// No continuous subscription, no main-thread pressure at rest.
 
 const AnimatedNumber = memo(function AnimatedNumber({ value = 0, className = '' }) {
   const numeric = Number.isFinite(Number(value)) ? Number(value) : 0;
-  const mv = useMotionValue(numeric);
-  const spring = useSpring(mv, { stiffness: 110, damping: 22, mass: 0.6 });
-  const rounded = useTransform(spring, latest => Math.round(latest).toLocaleString());
+  const displayedRef = useRef(numeric);
+  const [displayed, setDisplayed] = useState(numeric);
+  const rafRef = useRef(null);
 
   useEffect(() => {
-    mv.set(numeric);
-  }, [mv, numeric]);
+    const from = displayedRef.current;
+    const to = numeric;
+    if (from === to) return;
 
-  return <motion.span className={className}>{rounded}</motion.span>;
+    const duration = 600;
+    let startTime = null;
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    const tick = (now) => {
+      if (!startTime) startTime = now;
+      const t = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const cur = Math.round(from + (to - from) * eased);
+      displayedRef.current = cur;
+      setDisplayed(cur);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    };
+  }, [numeric]);
+
+  return <span className={className}>{displayed.toLocaleString()}</span>;
 });
 
 // ─── RingCard ──────────────────────────────────────────────────────────────────
@@ -326,58 +352,31 @@ const FlowOverlay = memo(function FlowOverlay() {
 });
 
 // ─── ReactiveOrb ───────────────────────────────────────────────────────────────
+// Pulses use CSS @keyframes triggered by remounting the span (key change).
+// No GSAP ticker — zero continuous RAF usage at rest.
 
 const ReactiveOrb = memo(function ReactiveOrb({ stats }) {
-  const orbRef = useRef(null);
-  const replyPulseRef = useRef(null);
-  const errorPulseRef = useRef(null);
-  const soldPulseRef = useRef(null);
-  const prevRef = useRef(stats);
+  const [pulseReply, setPulseReply] = useState(0);
+  const [pulseError, setPulseError] = useState(0);
+  const [pulseSold,  setPulseSold]  = useState(0);
+  const prevRef = useRef(null);
 
   useEffect(() => {
     const prev = prevRef.current;
     if (!prev) { prevRef.current = stats; return; }
 
-    if (stats.total !== prev.total && orbRef.current) {
-      gsap.fromTo(
-        orbRef.current,
-        { scale: 0.994 },
-        { scale: 1, duration: 0.42, ease: 'power2.out', overwrite: 'auto' },
-      );
-    }
-
-    if (stats.replied > (prev.replied ?? 0) && replyPulseRef.current) {
-      gsap.fromTo(
-        replyPulseRef.current,
-        { opacity: 0.48, scale: 1 },
-        { opacity: 0, scale: 1.32, duration: 0.92, ease: 'power2.out', overwrite: 'auto' },
-      );
-    }
-
-    if (stats.errors > (prev.errors ?? 0) && errorPulseRef.current) {
-      gsap.fromTo(
-        errorPulseRef.current,
-        { opacity: 0.40, scale: 1 },
-        { opacity: 0, scale: 1.38, duration: 1.0, ease: 'power2.out', overwrite: 'auto' },
-      );
-    }
-
-    if (stats.sold > (prev.sold ?? 0) && soldPulseRef.current) {
-      gsap.fromTo(
-        soldPulseRef.current,
-        { opacity: 0.54, scale: 0.96 },
-        { opacity: 0, scale: 1.26, duration: 0.70, ease: 'back.out(1.8)', overwrite: 'auto' },
-      );
-    }
+    if (stats.replied > (prev.replied ?? 0)) setPulseReply(n => n + 1);
+    if (stats.errors  > (prev.errors  ?? 0)) setPulseError(n => n + 1);
+    if (stats.sold    > (prev.sold    ?? 0)) setPulseSold(n  => n + 1);
 
     prevRef.current = stats;
   }, [stats.total, stats.replied, stats.errors, stats.sold]); // eslint-disable-line
 
   return (
-    <div className="ps-orb" ref={orbRef}>
-      <span ref={replyPulseRef} className="ps-orb__pulse ps-orb__pulse--reply" />
-      <span ref={errorPulseRef} className="ps-orb__pulse ps-orb__pulse--error" />
-      <span ref={soldPulseRef}  className="ps-orb__pulse ps-orb__pulse--sold" />
+    <div className="ps-orb">
+      <span key={`rp-${pulseReply}`} className={`ps-orb__pulse ps-orb__pulse--reply${pulseReply ? ' ps-orb__pulse--active' : ''}`} />
+      <span key={`ep-${pulseError}`} className={`ps-orb__pulse ps-orb__pulse--error${pulseError ? ' ps-orb__pulse--active' : ''}`} />
+      <span key={`sp-${pulseSold}`}  className={`ps-orb__pulse ps-orb__pulse--sold${pulseSold   ? ' ps-orb__pulse--active' : ''}`} />
       <span className="ps-orb__shell" />
       <span className="ps-orb__shimmer" />
       <span className="ps-orb__ring" />
@@ -935,6 +934,13 @@ const PS_STYLES = `
 .ps-orb__pulse--sold {
   border: 1px solid rgba(147,51,234,0.50);
   box-shadow: 0 0 0 5px rgba(147,51,234,0.10);
+}
+.ps-orb__pulse--active {
+  animation: ps-orb-pulse-out 0.92s ease-out forwards;
+}
+@keyframes ps-orb-pulse-out {
+  0%   { opacity: 0.50; transform: scale(1); }
+  100% { opacity: 0;    transform: scale(1.38); }
 }
 .ps-orb__shell {
   position: absolute;
