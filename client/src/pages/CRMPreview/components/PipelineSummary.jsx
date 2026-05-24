@@ -246,7 +246,7 @@ const RingCard = memo(function RingCard({ def, pct }) {
 // The compositor re-uses the last GPU texture during scroll, so particles never
 // freeze even if the main thread is briefly busy. No SVG style recalculation.
 
-const ParticleCanvas = memo(function ParticleCanvas() {
+const ParticleCanvas = memo(function ParticleCanvas({ isScrollingRef }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -300,6 +300,14 @@ const ParticleCanvas = memo(function ParticleCanvas() {
 
       ctx.clearRect(0, 0, displayW, displayH);
 
+      // During scroll: advance time but skip drawing — canvas stays blank.
+      // The GPU texture holds the last frame; compositor shows it without freeze.
+      if (isScrollingRef?.current) {
+        for (const p of particles) p.t = (p.t + dt * p.speed) % 1;
+        animFrame = requestAnimationFrame(draw);
+        return;
+      }
+
       for (const p of particles) {
         p.t = (p.t + dt * p.speed) % 1;
         const s = STREAM_DEFS[p.si];
@@ -326,7 +334,7 @@ const ParticleCanvas = memo(function ParticleCanvas() {
       cancelAnimationFrame(animFrame);
       ro.disconnect();
     };
-  }, []);
+  }, []); // eslint-disable-line
 
   return (
     <canvas
@@ -349,7 +357,7 @@ const ParticleCanvas = memo(function ParticleCanvas() {
 // Back SVG: static glow washes + CSS dash-flow lines.
 // Particles are drawn on a Canvas compositor layer (ParticleCanvas) — no SVG circles.
 
-const FlowOverlay = memo(function FlowOverlay() {
+const FlowOverlay = memo(function FlowOverlay({ isScrollingRef }) {
   const svgStyle = {
     position: 'absolute', inset: 0,
     width: '100%', height: '100%',
@@ -358,7 +366,7 @@ const FlowOverlay = memo(function FlowOverlay() {
 
   return (
     <>
-      {/* BACK SVG — glow washes + main lines + thin highlights */}
+      {/* Single SVG: glow washes + animated dash-flow lines + thin highlights */}
       <svg
         viewBox="0 0 1080 480"
         preserveAspectRatio="none"
@@ -366,44 +374,42 @@ const FlowOverlay = memo(function FlowOverlay() {
         className="ps-streams-back"
         style={svgStyle}
       >
-        {/* Layer 1 — Wide soft glow wash (no SVG filter — wide stroke + opacity only, GPU-safe) */}
+        {/* Glow wash — wide stroke, low opacity, no filter */}
         {STREAM_DEFS.map(s => (
           <path key={`glow-${s.id}`} d={s.path}
             fill="none" stroke={s.glow}
             strokeWidth={s.glowW} strokeLinecap="round"
-            opacity={0.10}
+            opacity={0.08}
           />
         ))}
 
-        {/* Layer 2 — Main luminous lines (CSS-animated dashoffset, never pauses) */}
+        {/* Main lines — stroke-dashoffset animation */}
         {STREAM_DEFS.map(s => (
           <path key={`sharp-${s.id}`}
-            id={`ps-sharp-${s.id}`}
             d={s.path}
             fill="none" stroke={s.color}
             strokeWidth={s.mainW} strokeLinecap="round"
-            opacity={0.84}
+            opacity={0.82}
             className="ps-flow__sharp"
             style={{ '--flow-dur': `${s.dur}s` }}
           />
         ))}
 
-        {/* Layer 3 — Thin highlight lines (CSS-animated, faster) */}
+        {/* Thin highlights */}
         {STREAM_DEFS.map(s => (
           <path key={`hl-${s.id}`}
-            id={`ps-hl-${s.id}`}
             d={s.path}
             fill="none" stroke={s.lighter}
             strokeWidth={s.hlW} strokeLinecap="round"
-            opacity={0.70}
+            opacity={0.60}
             className="ps-flow__highlight"
             style={{ '--flow-dur': `${(s.dur * 0.76).toFixed(2)}s` }}
           />
         ))}
       </svg>
 
-      {/* Canvas layer — particles on GPU texture, never freezes on scroll */}
-      <ParticleCanvas />
+      {/* Canvas layer — particles on GPU texture, blanks during scroll */}
+      <ParticleCanvas isScrollingRef={isScrollingRef} />
     </>
   );
 });
@@ -584,6 +590,26 @@ const TimelineStrip = memo(function TimelineStrip() {
 function PipelineSummaryFlow({ stats }) {
   const navigate = useNavigate();
   const sectionRef = useRef(null);
+  const isScrollingRef = useRef(false);
+
+  // Passive scroll listener — toggles ps-scrolling class via direct DOM (no React re-render).
+  // CSS handles all visual degradation during scroll; ref tells canvas to skip drawing.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    let timer = null;
+    const onScroll = () => {
+      isScrollingRef.current = true;
+      el.classList.add('ps-scrolling');
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        isScrollingRef.current = false;
+        el.classList.remove('ps-scrolling');
+      }, 150);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); clearTimeout(timer); };
+  }, []);
 
   const {
     total = 0,
@@ -650,7 +676,7 @@ function PipelineSummaryFlow({ stats }) {
       </header>
 
       <div className="ps-main">
-        <FlowOverlay />
+        <FlowOverlay isScrollingRef={isScrollingRef} />
         <PerformanceEngine rates={rates} />
         <LivingDataFlow stats={{ total, replied, errors, sold }} />
         <KeyMetrics metrics={metrics} rates={rates} />
@@ -681,11 +707,10 @@ const PS_STYLES = `
     linear-gradient(135deg, rgba(255,255,255,1.00), rgba(249,252,255,0.97) 48%, rgba(246,252,248,0.95));
   border: 1px solid rgba(226,232,240,0.84);
   border-radius: 22px;
-  box-shadow:
-    0 30px 78px rgba(15,42,20,0.13),
-    0 2px 0 rgba(255,255,255,0.70) inset,
-    0 -1px 0 rgba(15,42,20,0.035) inset;
+  box-shadow: 0 20px 50px rgba(15,42,20,0.10), 0 1px 0 rgba(255,255,255,0.70) inset;
   transform: translateZ(0);
+  contain: layout paint style;
+  isolation: isolate;
 }
 .ps-root__glow {
   position: absolute;
@@ -792,10 +817,7 @@ const PS_STYLES = `
   border-radius: 19px;
   background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.82));
   border: 1px solid rgba(226,232,240,0.66);
-  box-shadow:
-    0 18px 36px rgba(15,42,20,0.055),
-    0 1px 0 rgba(255,255,255,0.88) inset,
-    0 -1px 0 rgba(15,42,20,0.03) inset;
+  box-shadow: 0 10px 24px rgba(15,42,20,0.05), 0 1px 0 rgba(255,255,255,0.88) inset;
   padding: 22px 24px 26px;
 }
 .ps-panel::before {
@@ -990,18 +1012,16 @@ const PS_STYLES = `
   inset: 0;
   border-radius: inherit;
   background:
-    radial-gradient(circle at 26% 18%, rgba(255,255,255,0.98), rgba(255,255,255,0.46) 16%, transparent 29%),
-    radial-gradient(circle at 68% 30%, rgba(147,51,234,0.20), transparent 38%),
-    radial-gradient(circle at 30% 78%, rgba(22,163,74,0.28), transparent 42%),
-    radial-gradient(circle at 58% 64%, rgba(37,99,235,0.22), transparent 44%),
-    linear-gradient(145deg, rgba(255,255,255,0.68), rgba(221,246,237,0.44));
-  border: 1px solid rgba(255,255,255,0.84);
+    radial-gradient(circle at 26% 18%, rgba(255,255,255,0.95), rgba(255,255,255,0.42) 18%, transparent 30%),
+    radial-gradient(circle at 68% 30%, rgba(147,51,234,0.16), transparent 38%),
+    radial-gradient(circle at 30% 78%, rgba(22,163,74,0.22), transparent 42%),
+    linear-gradient(145deg, rgba(255,255,255,0.62), rgba(221,246,237,0.38));
+  border: 1px solid rgba(255,255,255,0.82);
   box-shadow:
-    0 18px 42px rgba(14,165,233,0.16),
-    0 0 0 9px rgba(255,255,255,0.28),
-    0 0 38px rgba(34,211,238,0.20),
-    inset 16px 18px 36px rgba(255,255,255,0.58),
-    inset -18px -18px 42px rgba(15,42,20,0.16);
+    0 12px 30px rgba(14,165,233,0.12),
+    0 0 0 6px rgba(255,255,255,0.20),
+    inset 10px 12px 26px rgba(255,255,255,0.50),
+    inset -10px -10px 26px rgba(15,42,20,0.12);
   animation: ps-orb-breathe 10s ease-in-out infinite;
 }
 .ps-orb__shimmer {
@@ -1081,9 +1101,9 @@ const PS_STYLES = `
   border: 1px solid rgba(226,232,240,0.66);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 88% 42%, color-mix(in srgb, var(--mc) 12%, transparent), transparent 52%),
+    radial-gradient(circle at 88% 42%, color-mix(in srgb, var(--mc) 10%, transparent), transparent 52%),
     linear-gradient(180deg, rgba(255,255,255,0.80), rgba(255,255,255,0.54));
-  box-shadow: 0 10px 24px rgba(15,42,20,0.065), 0 1px 0 rgba(255,255,255,0.92) inset;
+  box-shadow: 0 6px 16px rgba(15,42,20,0.055), 0 1px 0 rgba(255,255,255,0.90) inset;
   color: #0F172A;
   text-align: left;
   cursor: pointer;
@@ -1248,16 +1268,40 @@ const PS_STYLES = `
   background: #F8FAFC;
 }
 
-/* Force all CSS animations to keep running during scroll */
+/* ── Scroll-performance degradation ──────────────────────────────────────────
+   .ps-scrolling is set via direct DOM classList (no React re-render).
+   During scroll: pause stroke-dashoffset + orb animations to free main thread.
+   Glow fades to zero. Canvas blanks itself via isScrollingRef in JS.
+   Everything restores smoothly via CSS transition after 150ms idle. */
+
+.ps-root__glow {
+  transition: opacity 0.35s ease;
+}
+.ps-root.ps-scrolling .ps-root__glow {
+  opacity: 0 !important;
+  transition: opacity 0.08s ease;
+}
+
+.ps-root.ps-scrolling .ps-flow__sharp,
+.ps-root.ps-scrolling .ps-flow__highlight {
+  animation-play-state: paused !important;
+}
+
+.ps-root.ps-scrolling .ps-orb__shell,
+.ps-root.ps-scrolling .ps-orb__shimmer,
+.ps-root.ps-scrolling .ps-orb__ring,
+.ps-root.ps-scrolling .ps-orb__energy {
+  animation-play-state: paused !important;
+}
+
+/* At rest: ensure animations are running */
 .ps-orb__shell,
 .ps-orb__shimmer,
 .ps-orb__ring,
-.ps-orb__energy {
-  animation-play-state: running !important;
-}
+.ps-orb__energy,
 .ps-flow__sharp,
 .ps-flow__highlight {
-  animation-play-state: running !important;
+  animation-play-state: running;
 }
 
 /* ── orb keyframes ── */
