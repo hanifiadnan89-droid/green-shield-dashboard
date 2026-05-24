@@ -89,11 +89,7 @@ const TIMELINE_STEPS = [
   { time: '4:00', title: 'Metrics Update', desc: 'Metrics animate smoothly with subtle glow' },
 ];
 
-// ─── Particle keyframe generator ──────────────────────────────────────────────
-// Converts each stream's SVG cubic bezier path into CSS @keyframes using only
-// transform:translate() — the one property Chrome guarantees is compositor-threaded.
-// transform-box:view-box makes % values relative to the SVG viewport (1080×480),
-// so positions stay correct at any rendered container size.
+// ─── Bezier path utilities (shared by Canvas particle system) ─────────────────
 
 function parseCubicBeziers(d) {
   const segs = [];
@@ -126,30 +122,18 @@ function evalCubic(t, { x0, y0, cx1, cy1, cx2, cy2, x1, y1 }) {
   };
 }
 
-function buildStreamKeyframes(id, d, steps = 20) {
-  const segs = parseCubicBeziers(d);
-  const n = segs.length;
-  const kf = [];
-  for (let i = 0; i <= steps; i++) {
-    const tg = i / steps;
-    const si = Math.min(Math.floor(tg * n), n - 1);
-    const { x, y } = evalCubic(tg * n - si, segs[si]);
-    kf.push(`${(tg * 100).toFixed(1)}%{transform:translate(${(x / 1080 * 100).toFixed(3)}%,${(y / 480 * 100).toFixed(3)}%)}`);
-  }
-  return `@keyframes ps-mv-${id}{${kf.join('')}}`;
+// ─── Canvas particle system helpers ───────────────────────────────────────────
+
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
 }
 
-const PARTICLE_KF_CSS = [
-  '@keyframes ps-pfade{0%,100%{opacity:0}8%{opacity:1}92%{opacity:1}}',
-  ...STREAM_DEFS.map(s => buildStreamKeyframes(s.id, s.path)),
-].join('\n');
-
-if (typeof document !== 'undefined' && !document.getElementById('ps-pk')) {
-  const el = document.createElement('style');
-  el.id = 'ps-pk';
-  el.textContent = PARTICLE_KF_CSS;
-  document.head.appendChild(el);
-}
+const STREAM_RGB = STREAM_DEFS.map(s => hexToRgb(s.lighter));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -257,9 +241,113 @@ const RingCard = memo(function RingCard({ def, pct }) {
   );
 });
 
+// ─── ParticleCanvas ────────────────────────────────────────────────────────────
+// Canvas 2D promoted to its own compositor layer (willChange:transform).
+// The compositor re-uses the last GPU texture during scroll, so particles never
+// freeze even if the main thread is briefly busy. No SVG style recalculation.
+
+const ParticleCanvas = memo(function ParticleCanvas() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    let displayW = 1080, displayH = 480;
+    let scaleX = 1, scaleY = 1;
+    let animFrame = null;
+    let lastTime = null;
+
+    const ctx = canvas.getContext('2d', { alpha: true });
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      displayW = rect.width || 1080;
+      displayH = rect.height || 480;
+      canvas.width = displayW * dpr;
+      canvas.height = displayH * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      scaleX = displayW / 1080;
+      scaleY = displayH / 480;
+    }
+    resize();
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    const streamSegs = STREAM_DEFS.map(s => parseCubicBeziers(s.path));
+
+    const particles = STREAM_DEFS.flatMap((s, si) =>
+      Array.from({ length: s.particles }, (_, i) => ({
+        si,
+        t: i / Math.max(s.particles, 1),
+        speed: 1 / s.dur,
+        isLead: i === 0,
+      }))
+    );
+
+    function evalPath(segs, t) {
+      const n = segs.length;
+      const idx = Math.min(Math.floor(t * n), n - 1);
+      return evalCubic(t * n - idx, segs[idx]);
+    }
+
+    function draw(now) {
+      if (!lastTime) lastTime = now;
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      ctx.clearRect(0, 0, displayW, displayH);
+
+      for (const p of particles) {
+        p.t = (p.t + dt * p.speed) % 1;
+        const s = STREAM_DEFS[p.si];
+        const rgb = STREAM_RGB[p.si];
+        const pos = evalPath(streamSegs[p.si], p.t);
+        const px = pos.x * scaleX;
+        const py = pos.y * scaleY;
+        const fade = p.t < 0.08 ? p.t / 0.08 : p.t > 0.92 ? (1 - p.t) / 0.08 : 1;
+        const r = Math.max((p.isLead ? 3.2 : 2.2) * Math.min(scaleX, scaleY), 1.5);
+
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fillStyle = p.isLead
+          ? `rgba(255,255,255,${(fade * 0.92).toFixed(2)})`
+          : `rgba(${rgb.r},${rgb.g},${rgb.b},${(fade * 0.82).toFixed(2)})`;
+        ctx.fill();
+      }
+
+      animFrame = requestAnimationFrame(draw);
+    }
+
+    animFrame = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(animFrame);
+      ro.disconnect();
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 6,
+        willChange: 'transform',
+        transform: 'translateZ(0)',
+      }}
+    />
+  );
+});
+
 // ─── FlowOverlay ───────────────────────────────────────────────────────────────
-// Two-SVG system: back layer (glow+lines) behind panels, front layer (particles) above orb.
-// Particles use CSS @keyframes transform — pre-computed bezier waypoints, compositor-threaded.
+// Back SVG: static glow washes + CSS dash-flow lines.
+// Particles are drawn on a Canvas compositor layer (ParticleCanvas) — no SVG circles.
 
 const FlowOverlay = memo(function FlowOverlay() {
   const svgStyle = {
@@ -314,39 +402,8 @@ const FlowOverlay = memo(function FlowOverlay() {
         ))}
       </svg>
 
-      {/* FRONT SVG — CSS @keyframes transform particles, guaranteed compositor-threaded */}
-      <svg
-        viewBox="0 0 1080 480"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-        className="ps-streams-front"
-        style={svgStyle}
-      >
-        {STREAM_DEFS.flatMap(s =>
-          Array.from({ length: s.particles }, (_, i) => {
-            const delay = `${(-(i / Math.max(s.particles, 1)) * s.dur).toFixed(2)}s`;
-            return (
-              <circle
-                key={`p-${s.id}-${i}`}
-                cx={0}
-                cy={0}
-                r={i === 0 ? 3.2 : 2.2}
-                fill={i === 0 ? '#FFFFFF' : s.lighter}
-                style={{
-                  transformBox: 'view-box',
-                  animationName: `ps-mv-${s.id}, ps-pfade`,
-                  animationDuration: `${s.dur}s, ${s.dur}s`,
-                  animationTimingFunction: 'linear, ease-in-out',
-                  animationIterationCount: 'infinite, infinite',
-                  animationDelay: `${delay}, ${delay}`,
-                  animationPlayState: 'running, running',
-                  willChange: 'transform, opacity',
-                }}
-              />
-            );
-          })
-        )}
-      </svg>
+      {/* Canvas layer — particles on GPU texture, never freezes on scroll */}
+      <ParticleCanvas />
     </>
   );
 });
@@ -637,12 +694,11 @@ const PS_STYLES = `
   height: 260px;
   pointer-events: none;
   background:
-    radial-gradient(closest-side at 20% 50%, rgba(22,163,74,0.18), transparent),
-    radial-gradient(closest-side at 48% 42%, rgba(37,99,235,0.15), transparent),
-    radial-gradient(closest-side at 72% 54%, rgba(217,119,6,0.12), transparent),
-    radial-gradient(closest-side at 90% 48%, rgba(147,51,234,0.12), transparent);
-  filter: blur(18px);
-  opacity: 0.48;
+    radial-gradient(closest-side at 20% 50%, rgba(22,163,74,0.14), transparent),
+    radial-gradient(closest-side at 48% 42%, rgba(37,99,235,0.11), transparent),
+    radial-gradient(closest-side at 72% 54%, rgba(217,119,6,0.09), transparent),
+    radial-gradient(closest-side at 90% 48%, rgba(147,51,234,0.09), transparent);
+  opacity: 0.55;
 }
 .ps-root > *:not(.ps-root__glow) { position: relative; z-index: 1; }
 
@@ -706,26 +762,16 @@ const PS_STYLES = `
   z-index: 2;
   pointer-events: none;
 }
-.ps-streams-front {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  pointer-events: none;
-  will-change: transform;
-  transform: translateZ(0);
-}
-/* CSS-driven dash animations — run on compositor thread, never pause during scroll */
+/* stroke-dashoffset is NOT compositor-threaded — no will-change hint */
 .ps-flow__sharp {
   stroke-dasharray: 64 230;
   animation: ps-dash-flow var(--flow-dur, 4s) linear infinite;
   animation-play-state: running !important;
-  will-change: stroke-dashoffset;
 }
 .ps-flow__highlight {
   stroke-dasharray: 28 160;
   animation: ps-dash-hl var(--flow-dur, 3s) linear infinite;
   animation-play-state: running !important;
-  will-change: stroke-dashoffset;
 }
 @keyframes ps-dash-flow {
   from { stroke-dashoffset: 0; }
@@ -892,15 +938,12 @@ const PS_STYLES = `
     repeating-radial-gradient(circle, rgba(148,163,184,0.12) 0 1px, transparent 1px 28px),
     radial-gradient(circle, rgba(255,255,255,0.26), transparent 68%);
   opacity: 0.34;
-  mask-image: radial-gradient(circle, #000 0%, transparent 70%);
 }
 
-/* ── ps-flow overlay sharp paths ── */
+/* ── ps-flow overlay sharp paths (override stroke-dasharray) ── */
 .ps-flow__sharp {
   stroke-dasharray: 54 200;
   opacity: 0.68;
-  will-change: stroke-dashoffset;
-  transform: translateZ(0);
 }
 
 /* ── ps-orb ── */
