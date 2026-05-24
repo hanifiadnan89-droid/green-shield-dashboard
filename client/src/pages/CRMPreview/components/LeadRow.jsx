@@ -68,15 +68,15 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
       className="lead-row flex items-center gap-3 px-4 py-3 cursor-pointer"
       style={{
         borderLeft: `3px solid ${borderColor}`,
-        borderBottom: '1px solid rgba(0,0,0,0.05)',
-        background: isSelected ? 'rgba(22,163,74,0.06)' : undefined,
+        borderBottom: '1px solid rgba(15,42,20,0.06)',
+        background: isSelected ? 'rgba(22,163,74,0.08)' : 'rgba(255,255,255,0.30)',
       }}
       onClick={() => onSelect(lead)}
     >
       {/* Avatar */}
       <div
         className="flex items-center justify-center rounded-full shrink-0 font-heading font-bold text-xs"
-        style={{ width: '36px', height: '36px', background: avatar.bg, color: avatar.text }}
+        style={{ width: '36px', height: '36px', background: avatar.bg, color: avatar.text, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.72), 4px 5px 10px rgba(15,42,20,0.08)' }}
       >
         {initials}
       </div>

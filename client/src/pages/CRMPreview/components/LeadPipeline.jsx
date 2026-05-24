@@ -69,7 +69,7 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
 
   return (
     <>
-    <div className="p-card section-enter flex flex-col" style={{ minHeight: '400px' }}>
+    <div className="p-card p-card-lift section-enter flex flex-col" style={{ minHeight: '400px' }}>
       {/* Header */}
       <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
         <div className="flex items-center justify-between mb-3">
@@ -94,11 +94,12 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
             placeholder="Search by name, phone, email..."
             className="w-full text-sm text-[#0F172A] placeholder-[#94A3B8] rounded-xl"
             style={{
-              background: '#f8fafc',
-              border: '1px solid rgba(0,0,0,0.08)',
+              background: 'rgba(255,255,255,0.72)',
+              border: '1px solid rgba(15,42,20,0.10)',
               padding: '8px 12px 8px 32px',
               outline: 'none',
-              transition: 'border-color 0.15s',
+              transition: 'border-color 0.15s, box-shadow 0.15s',
+              boxShadow: 'inset 3px 3px 7px rgba(15,42,20,0.08), inset -3px -3px 8px rgba(255,255,255,0.90)',
             }}
             onFocus={e => { e.target.style.borderColor = 'rgba(22,163,74,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)'; }}
             onBlur={e => { e.target.style.borderColor = 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }}
@@ -117,9 +118,9 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
                   onClick={() => setActiveFilter(key)}
                   className="filter-chip text-xs font-semibold px-3 py-1.5 rounded-full border"
                   style={{
-                    background: isActive ? '#16A34A' : '#ffffff',
+                    background: isActive ? 'linear-gradient(180deg, #22c55e, #16A34A)' : 'rgba(255,255,255,0.74)',
                     color: isActive ? '#ffffff' : '#64748B',
-                    borderColor: isActive ? '#16A34A' : 'rgba(0,0,0,0.12)',
+                    borderColor: isActive ? '#16A34A' : 'rgba(15,42,20,0.10)',
                   }}
                 >
                   {label}
@@ -138,9 +139,9 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
                   onClick={() => setActiveFilter(key)}
                   className="filter-chip text-xs font-semibold px-2.5 py-1.5 rounded-full border"
                   style={{
-                    background: isActive ? '#3B82F6' : '#ffffff',
+                    background: isActive ? 'linear-gradient(180deg, #60A5FA, #3B82F6)' : 'rgba(255,255,255,0.74)',
                     color: isActive ? '#ffffff' : '#64748B',
-                    borderColor: isActive ? '#3B82F6' : 'rgba(0,0,0,0.12)',
+                    borderColor: isActive ? '#3B82F6' : 'rgba(15,42,20,0.10)',
                   }}
                 >
                   {label}

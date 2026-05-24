@@ -207,8 +207,9 @@ function angularDiff(a, b) {
 
 function fmtTime12h(min) {
   if (min == null) return null;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
+  const totalMin = Math.round(min);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
   const period = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 || 12;
   return `${h12}:${String(m).padStart(2, '0')} ${period}`;
@@ -222,9 +223,17 @@ function parseTimeStr(str) {
 }
 
 function parseWindowHalf(str) {
-  const num = parseFloat(str);
-  const h = Math.floor(num);
-  const m = Math.round((num % 1) * 100);
+  const raw = String(str).trim();
+  const mParts = raw.match(/^(\d{1,2})(?:\.(\d{1,2}))?$/);
+  if (!mParts) return DAY_START_MIN;
+
+  const h = Number(mParts[1]);
+  let m = 0;
+  if (mParts[2] != null) {
+    const minuteText = mParts[2].padEnd(2, '0');
+    m = Number(minuteText);
+  }
+  if (!Number.isFinite(h) || !Number.isFinite(m) || m >= 60) return DAY_START_MIN;
   const totalMin = h * 60 + m;
   return h >= 1 && h < 8 ? totalMin + 12 * 60 : totalMin;
 }
@@ -842,12 +851,10 @@ function measureHomeProximity(tech, leadLat, leadLng) {
 //           + β·max(0, arrival_i − w_b) + β2·max(0, w_a − arrival_i)
 //           + γ·Σ lateness_k for timed anchors k > i
 //           + δ·routeDirectionPenalty(i)
-//           + ε·clusterDisruption(i)
-//           + ζ·max(0, projectedEnd_i − tech.dayEndMin)
+//           - ε·localClusterBenefit(i)
 //
 // Hard constraints (cost = +Infinity):
 //   - Any timed anchor projected past window_b + timedToleranceMin
-//   - projectedEnd > dayEndMin + dayEndHardSlackMin
 //   - durationMin > remainingHours * 60 (handled upstream via isOverCapacity)
 // ---------------------------------------------------------------------------
 
@@ -858,7 +865,6 @@ function vrptwInsertion(
   if (stops.length === 0) return null;
 
   const v = cfg.vrptw;
-  const dayEndHard = cfg.workday.dayEndMin + v.dayEndHardSlackMin;
   const hasStart = startLoc?.lat != null && startLoc?.lng != null;
   const hasEnd   = endLoc?.lat   != null && endLoc?.lng   != null;
 
@@ -902,9 +908,6 @@ function vrptwInsertion(
       ? travelMin(haversine(lastArr.stop.lat, lastArr.stop.lng, endLoc.lat, endLoc.lng))
       : 0;
     const projectedEnd = (lastArr?.arrivalMin ?? DAY_START_MIN) + (lastArr?.stop?.durationMinutes ?? 0) + endTravel;
-
-    // Hard fail: projected end too late
-    if (projectedEnd > dayEndHard) return null;
 
     // Timed violations among existing stops
     const timedViolations = [];
@@ -962,18 +965,23 @@ function vrptwInsertion(
       directionCost = v.deltaDirection * bt.severity;
     }
 
-    // Cluster disruption cost
-    const clusterCost = v.epsilonCluster * Math.max(0, clusterData.count - 0);
+    const adjacentClusterQuality = [afterStop, beforeStop]
+      .filter(s => s?.lat && s?.lng && haversine(leadLat, leadLng, s.lat, s.lng) <= cfg.thresholds.clusterRadiusMiles)
+      .reduce((sum, s) => {
+        const miles = haversine(leadLat, leadLng, s.lat, s.lng);
+        return sum + Math.max(0, cfg.thresholds.clusterRadiusMiles - miles);
+      }, 0);
+    const clusterBenefit = v.epsilonCluster * adjacentClusterQuality;
 
-    // EOD overshoot cost
-    const eodCost = v.zetaOvershoot * Math.max(0, projectedEnd - cfg.workday.dayEndMin);
+    const newDepartMin = arrivalMin + durationMin;
+    const nextTimed = arrivals.find(e => !e.isNew && isTimedStop(e.stop) && e.arrivalMin >= arrivalMin);
+    const minTimingBuffer = nextTimed ? Math.round(nextTimed.arrivalMin - newDepartMin) : null;
 
     const totalCost = v.alphaDetour * detourMiles
       + windowCostLate + windowCostEarly
       + timedAnchorCost
       + directionCost
-      + clusterCost
-      + eodCost;
+      - clusterBenefit;
 
     // Re-use legacy backtracking output for ResultCard fields
     const bt = (afterStop?.lat && beforeStop?.lat)
@@ -1005,8 +1013,8 @@ function vrptwInsertion(
         windowEnd:        v.windowEnd,
         lateness:         v.lateness,
       })),
-      timedRisk:            timedLatenessSum > 30 ? 'high' : timedLatenessSum > 0 ? 'medium' : 'none',
-      minTimingBuffer:      null,
+      timedRisk:            timedLatenessSum > 30 ? 'high' : timedLatenessSum > 0 ? 'medium' : minTimingBuffer != null && minTimingBuffer < 30 ? 'low' : 'none',
+      minTimingBuffer,
       addedDriveMinutes,
       projectedRouteEnd:    projectedEnd,
       eodSafe:              projectedEnd <= cfg.workday.dayEndMin,

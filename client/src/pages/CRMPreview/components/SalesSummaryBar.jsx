@@ -51,7 +51,7 @@ export default function SalesSummaryBar({ leads = [], loading = false }) {
   const stats = loading ? null : deriveSalesStats(leads);
 
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {CARDS.map(({ key, label, sub, icon: Icon, iconBg, iconColor, accent, href }, i) => {
         const count = stats ? (stats[key] ?? 0) : 0;
         const hasActivity = count > 0;
@@ -65,17 +65,22 @@ export default function SalesSummaryBar({ leads = [], loading = false }) {
             onClick={() => navigate(href)}
             onKeyDown={e => e.key === 'Enter' && navigate(href)}
             style={{
-              borderBottom: hasActivity ? `3px solid ${accent}` : '3px solid transparent',
+              borderBottom: hasActivity ? `3px solid ${accent}` : '3px solid rgba(255,255,255,0.4)',
               animationDelay: `${i * 65}ms`,
+              background: hasActivity
+                ? `linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.74)), linear-gradient(135deg, ${accent}14, rgba(255,255,255,0))`
+                : undefined,
             }}
           >
             <div
               style={{
-                background: iconBg,
+                background: `linear-gradient(180deg, rgba(255,255,255,0.92), ${iconBg})`,
                 borderRadius: '12px',
                 padding: '10px',
                 display: 'inline-flex',
                 flexShrink: 0,
+                border: `1px solid ${accent}20`,
+                boxShadow: '4px 5px 12px rgba(15,42,20,0.08), inset 0 1px 0 rgba(255,255,255,0.78)',
               }}
             >
               <Icon size={18} style={{ color: iconColor }} />

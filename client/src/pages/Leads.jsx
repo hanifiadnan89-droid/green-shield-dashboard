@@ -62,8 +62,8 @@ function EditModal({ lead, onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gs-card border border-gs-border rounded-xl w-full max-w-lg shadow-2xl">
+    <div className="fixed inset-0 bg-black/55 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="glass-panel rounded-xl w-full max-w-lg shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gs-border">
           <h3 className="font-semibold text-gs-text">Edit Lead — {lead.name}</h3>
           <button onClick={onClose} className="text-gs-muted hover:text-gs-text cursor-pointer"><X size={16} /></button>
@@ -208,7 +208,7 @@ export default function Leads() {
         </div>
       )}
 
-      <div className="px-6 py-4 border-b border-gs-border flex items-center justify-between gap-4 flex-wrap">
+      <div className="px-6 py-4 border-b border-gs-border/80 flex items-center justify-between gap-4 flex-wrap bg-white/45 backdrop-blur-md">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="relative flex-1 max-w-sm">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted" />

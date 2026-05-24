@@ -50,15 +50,15 @@ export default function LeadDetailPanel({ lead, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex" onClick={onClose}>
       {/* Backdrop */}
-      <div className="flex-1 bg-black/50 backdrop-blur-sm" />
+      <div className="flex-1 bg-black/45 backdrop-blur-md" />
 
       {/* Panel */}
       <div
-        className="w-[420px] bg-gs-card border-l border-gs-border flex flex-col h-full shadow-2xl animate-slide-in-right overflow-hidden"
+        className="w-[420px] border-l border-white/60 flex flex-col h-full shadow-2xl animate-slide-in-right overflow-hidden glass-panel"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gs-border flex items-start justify-between gap-3 bg-gs-surface/50 shrink-0">
+        <div className="px-5 py-4 border-b border-gs-border/70 flex items-start justify-between gap-3 bg-white/45 shrink-0">
           <div>
             <h2 className="font-bold text-gs-text text-base">{lead.name || 'Unknown Lead'}</h2>
             <div className="flex items-center gap-2 mt-1">
@@ -70,7 +70,7 @@ export default function LeadDetailPanel({ lead, onClose }) {
           </div>
           <button
             onClick={onClose}
-            className="text-gs-muted hover:text-gs-text p-1.5 rounded-lg hover:bg-gs-border/60 transition-colors cursor-pointer shrink-0"
+            className="icon-button text-gs-muted hover:text-gs-text p-1.5 shrink-0"
           >
             <X size={15} />
           </button>
@@ -177,7 +177,7 @@ export default function LeadDetailPanel({ lead, onClose }) {
         </div>
 
         {/* Footer actions */}
-        <div className="px-5 py-4 border-t border-gs-border bg-gs-surface/30 shrink-0 flex gap-2">
+        <div className="px-5 py-4 border-t border-gs-border/70 bg-white/40 shrink-0 flex gap-2">
           <button
             onClick={() => { onClose(); navigate('/send', { state: { lead } }); }}
             className="btn-primary text-xs flex-1 justify-center cursor-pointer"

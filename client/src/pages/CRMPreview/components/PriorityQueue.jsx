@@ -35,13 +35,20 @@ function LeadMiniCard({ lead, onOpen }) {
     <div
       className="lead-row flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer group"
       style={{
-        background: '#f8fafc',
-        border: '1px solid rgba(0,0,0,0.06)',
-        transition: 'background 0.12s ease, border-color 0.12s ease',
+        background: 'rgba(255,255,255,0.66)',
+        border: '1px solid rgba(15,42,20,0.08)',
+        boxShadow: '4px 5px 12px rgba(15,42,20,0.06), -4px -4px 12px rgba(255,255,255,0.72)',
+        transition: 'background 0.12s ease, border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease',
       }}
       onClick={() => onOpen(lead)}
-      onMouseEnter={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = 'rgba(22,163,74,0.2)'; }}
-      onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = 'rgba(0,0,0,0.06)'; }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = 'rgba(240,253,244,0.84)';
+        e.currentTarget.style.borderColor = 'rgba(22,163,74,0.22)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.66)';
+        e.currentTarget.style.borderColor = 'rgba(15,42,20,0.08)';
+      }}
     >
       <div
         className="flex items-center justify-center rounded-full shrink-0 font-heading font-bold"
@@ -123,7 +130,7 @@ export default function PriorityQueue({ leads = [], loading = false }) {
 
   return (
     <>
-      <div className="p-card section-enter flex flex-col h-full">
+      <div className="p-card p-card-lift section-enter flex flex-col h-full">
         <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <h3 className="font-heading font-semibold text-[#0F172A] text-sm">Priority Work Queue</h3>
           <p className="text-[11px] text-[#94A3B8] mt-0.5">Who needs your attention right now</p>

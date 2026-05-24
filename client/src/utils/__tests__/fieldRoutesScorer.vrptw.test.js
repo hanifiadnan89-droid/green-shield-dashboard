@@ -83,6 +83,57 @@ describe('VRPTW engine — timed anchor constraints', () => {
     // The route has timed anchors but a valid insertion window should exist
     expect(result.topMatches.length).toBeGreaterThanOrEqual(0);
   });
+
+  it('parses FieldRoutes decimal windows as clock minutes', () => {
+    const result = vrptwScore(
+      generalHappyPath.technicians,
+      { ...generalHappyPath.lead, timeWindowPreference: '8.3-6' }
+    );
+
+    expect(result.prefWindow.startTime).toBe('8:30 AM');
+    expect(result.prefWindow.endTime).toBe('6:00 PM');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Route-end estimate is informational only, not a 6 PM hard gate
+// ---------------------------------------------------------------------------
+describe('VRPTW engine — no 6 PM rejection', () => {
+  it('keeps scoring routes even when projected finish goes past 6 PM', () => {
+    const technicians = [{
+      techId: 9001,
+      techName: 'Late Route',
+      routeId: 'late-route',
+      routeDurationCapacityRaw: '8 / 12',
+      startLocation: { lat: 43.1, lng: -70.7 },
+      endLocation: { lat: 43.7, lng: -70.1 },
+      stops: Array.from({ length: 9 }, (_, i) => ({
+        appointmentId: 900100 + i,
+        customerName: `Late Stop ${i + 1}`,
+        address: `${i + 1} Long Day Rd`,
+        lat: 43.1 + i * 0.075,
+        lng: -70.7 + i * 0.075,
+        spotStartMinutes: 480 + i * 60,
+        durationMinutes: 60,
+        startTime: null,
+        endTime: null,
+        routeOrder: i,
+      })),
+    }];
+    const lead = {
+      lat: 43.35,
+      lng: -70.45,
+      serviceType: 'Initial Service',
+      timeWindowPreference: 'PM',
+      routeArea: 'general',
+      date: '2026-05-19',
+    };
+
+    const result = vrptwScore(technicians, lead);
+    expect(result.topMatches.length).toBe(1);
+    expect(result.topMatches[0].bestInsertion.projectedRouteEndMin).toBeGreaterThan(1080);
+    expect(typeof result.topMatches[0].bestInsertion.eodLabel).toBe('string');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -52,11 +52,10 @@ export default function PremiumSidebar({ stats, testMode, activeFilter, onFilter
 
   return (
     <aside
-      className="flex flex-col shrink-0 overflow-hidden"
+      className="premium-sidebar flex flex-col shrink-0 overflow-hidden"
       style={{
         width: '256px',
-        background: 'linear-gradient(180deg, #0d1f0f 0%, #0a1a0c 100%)',
-        borderRight: '1px solid rgba(255,255,255,0.05)',
+        borderRight: '1px solid rgba(255,255,255,0.08)',
       }}
     >
       {/* Logo */}
@@ -64,7 +63,7 @@ export default function PremiumSidebar({ stats, testMode, activeFilter, onFilter
         className="px-5 py-5 flex items-center gap-3"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
-        <div style={{ background: 'rgba(22,163,74,0.14)', border: '1px solid rgba(22,163,74,0.28)', borderRadius: '10px', padding: '8px', display: 'inline-flex' }}>
+        <div style={{ background: 'linear-gradient(180deg, rgba(74,222,128,0.18), rgba(22,163,74,0.10))', border: '1px solid rgba(134,239,172,0.30)', borderRadius: '10px', padding: '8px', display: 'inline-flex', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.16), 0 10px 24px rgba(0,0,0,0.16)' }}>
           <Shield size={18} style={{ color: '#4ade80' }} />
         </div>
         <div>
@@ -86,8 +85,9 @@ export default function PremiumSidebar({ stats, testMode, activeFilter, onFilter
               const count = badge ? getBadgeCount(badge) : 0;
 
               const sharedStyle = {
-                background: isActive ? 'rgba(22,163,74,0.12)' : 'transparent',
-                borderLeft: isActive ? '2px solid #16A34A' : '2px solid transparent',
+                background: isActive ? 'linear-gradient(90deg, rgba(22,163,74,0.18), rgba(255,255,255,0.04))' : 'transparent',
+                borderLeft: isActive ? '2px solid #4ade80' : '2px solid transparent',
+                boxShadow: isActive ? 'inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 24px rgba(0,0,0,0.10)' : 'none',
               };
 
               const content = (

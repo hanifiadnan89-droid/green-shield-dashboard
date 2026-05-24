@@ -5,12 +5,9 @@ export default function PreviewHeader({ onRefresh, loading }) {
 
   return (
     <header
-      className="flex items-center gap-4 px-6 shrink-0"
+      className="premium-header flex items-center gap-4 px-6 shrink-0"
       style={{
         height: '64px',
-        background: 'rgba(255,255,255,0.92)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(0,0,0,0.07)',
         position: 'sticky',
         top: 0,
         zIndex: 10,
@@ -27,11 +24,8 @@ export default function PreviewHeader({ onRefresh, loading }) {
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="flex items-center gap-1.5 text-xs font-medium text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer disabled:opacity-50"
+          className="icon-button flex items-center gap-1.5 text-xs font-semibold text-[#64748B] hover:text-[#0F172A] disabled:opacity-50"
           style={{
-            background: 'transparent',
-            border: '1px solid rgba(0,0,0,0.09)',
-            borderRadius: '8px',
             padding: '6px 10px',
           }}
         >

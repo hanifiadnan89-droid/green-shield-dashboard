@@ -4,7 +4,6 @@ import { deriveStats } from './mockData.js';
 import PremiumSidebar from './components/PremiumSidebar.jsx';
 import PreviewHeader from './components/PreviewHeader.jsx';
 import SalesSummaryBar from './components/SalesSummaryBar.jsx';
-import PriorityQueue from './components/PriorityQueue.jsx';
 import PipelineSummary from './components/PipelineSummary.jsx';
 import LeadPipeline from './components/LeadPipeline.jsx';
 import RouteFinderWidget from './components/RouteFinderWidget.jsx';
@@ -140,7 +139,6 @@ export default function CRMPreview({ testMode }) {
   return (
     <div
       className="crm-preview flex h-screen overflow-hidden"
-      style={{ background: '#f0f4f0' }}
     >
       <PremiumSidebar
         stats={stats}
@@ -158,24 +156,21 @@ export default function CRMPreview({ testMode }) {
           ) : loading ? (
             <LoadingSkeleton />
           ) : (
-            <div className="p-6 space-y-5 max-w-[1600px]">
+            <div className="bento-shell p-6 space-y-5 max-w-[1600px]">
 
               {/* Sales summary bar */}
               <SalesSummaryBar leads={leads ?? []} loading={false} />
 
-              {/* Pipeline Summary + Route Finder */}
-              <div className="grid grid-cols-12 gap-5">
-                <div className="col-span-8">
+              {/* Pipeline Summary */}
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+                <div className="xl:col-span-12">
                   <PipelineSummary stats={stats ?? {}} />
-                </div>
-                <div className="col-span-4 h-full">
-                  <RouteFinderWidget />
                 </div>
               </div>
 
-              {/* Lead Pipeline + Priority Work Queue */}
-              <div ref={pipelineRef} className="grid grid-cols-12 gap-5 pb-6">
-                <div className="col-span-8">
+              {/* Lead Pipeline + Route Finder */}
+              <div ref={pipelineRef} className="grid grid-cols-1 xl:grid-cols-12 gap-5 pb-6">
+                <div className="xl:col-span-8">
                   <LeadPipeline
                     leads={leads ?? []}
                     activeFilter={activeFilter}
@@ -186,8 +181,8 @@ export default function CRMPreview({ testMode }) {
                     onDelete={handleLeadDeleted}
                   />
                 </div>
-                <div className="col-span-4 h-full">
-                  <PriorityQueue leads={leads ?? []} loading={false} />
+                <div className="xl:col-span-4 h-full">
+                  <RouteFinderWidget />
                 </div>
               </div>
             </div>

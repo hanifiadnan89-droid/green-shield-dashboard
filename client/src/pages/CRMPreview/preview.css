@@ -1,5 +1,19 @@
 /* All rules scoped to .crm-preview — zero bleed into the main dashboard */
 
+.crm-preview {
+  color: #0f172a;
+  background:
+    linear-gradient(135deg, #f7faf4 0%, #eef6ea 38%, #f4f7f2 100%),
+    repeating-linear-gradient(90deg, rgba(15,42,20,0.026) 0 1px, transparent 1px 32px);
+  perspective: 1400px;
+}
+
+.crm-preview main {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0.02) 34%),
+    linear-gradient(135deg, rgba(22,163,74,0.06), rgba(37,99,235,0.035) 44%, rgba(217,119,6,0.035) 100%);
+}
+
 @keyframes cp-shimmer {
   0%   { background-position: -500px 0; }
   100% { background-position: 500px 0; }
@@ -17,7 +31,7 @@
 
 /* ── Skeleton shimmer ── */
 .crm-preview .skeleton {
-  background: linear-gradient(90deg, #ebebeb 0%, #e0e0e0 25%, #ebebeb 50%, #ebebeb 100%);
+  background: linear-gradient(90deg, rgba(236,244,233,0.9) 0%, rgba(255,255,255,0.86) 25%, rgba(226,236,224,0.88) 50%, rgba(236,244,233,0.9) 100%);
   background-size: 500px 100%;
   animation: cp-shimmer 1.5s ease-in-out infinite;
   border-radius: 8px;
@@ -25,10 +39,24 @@
 
 /* ── Premium card base ── */
 .crm-preview .p-card {
-  background: #ffffff;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.76)),
+    linear-gradient(135deg, rgba(22,163,74,0.06), rgba(37,99,235,0.035));
   border-radius: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.025);
+  border: 1px solid rgba(255,255,255,0.78);
+  box-shadow:
+    0 18px 42px rgba(15, 42, 20, 0.10),
+    0 1px 0 rgba(255,255,255,0.85) inset,
+    0 0 0 1px rgba(15,42,20,0.045);
+  backdrop-filter: blur(18px) saturate(1.15);
+  transform-style: preserve-3d;
+}
+
+.crm-preview .p-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .crm-preview .p-card-lift {
@@ -38,8 +66,8 @@
 }
 
 .crm-preview .p-card-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.09), 0 0 0 1px rgba(22, 163, 74, 0.14);
+  transform: translateY(-3px) rotateX(0.4deg);
+  box-shadow: 0 24px 58px rgba(15, 42, 20, 0.14), 0 0 0 1px rgba(22, 163, 74, 0.16);
   border-color: rgba(22, 163, 74, 0.20);
 }
 
@@ -47,15 +75,19 @@
 .crm-preview .stat-card-float {
   cursor: pointer;
   will-change: transform, box-shadow;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.3s ease-out;
+  transform-style: preserve-3d;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.3s ease-out,
+              border-color 0.2s ease;
 }
 
 .crm-preview .stat-card-float:hover {
-  transform: translateY(-6px) scale(1.018);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.11),
-              0 6px 14px rgba(0, 0, 0, 0.06),
-              0 1px 4px rgba(0, 0, 0, 0.04);
+  transform: translateY(-6px) rotateX(1.3deg) rotateY(-0.8deg) scale(1.012);
+  box-shadow:
+    0 26px 58px rgba(15, 42, 20, 0.14),
+    0 8px 18px rgba(15, 42, 20, 0.08),
+    inset 0 1px 0 rgba(255,255,255,0.92);
+  border-color: rgba(22, 163, 74, 0.20);
 }
 
 /* ── Bento staggered entrance ── */
@@ -98,21 +130,30 @@
 
 /* ── Lead rows ── */
 .crm-preview .lead-row {
-  transition: background-color 0.12s ease;
+  transition: background-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 .crm-preview .lead-row:hover {
   background-color: rgba(240, 253, 244, 0.75);
+  transform: translateX(2px);
+  box-shadow: inset 3px 0 0 rgba(22,163,74,0.42);
 }
 
 /* ── Filter chips ── */
 .crm-preview .filter-chip {
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   cursor: pointer;
+  box-shadow: 4px 4px 10px rgba(15,42,20,0.08), -4px -4px 10px rgba(255,255,255,0.86);
+}
+.crm-preview .filter-chip:hover {
+  transform: translateY(-1px);
 }
 
 /* ── Sidebar items ── */
 .crm-preview .sidebar-item {
-  transition: background-color 0.14s ease, color 0.14s ease;
+  transition: background-color 0.14s ease, color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
+}
+.crm-preview .sidebar-item:hover {
+  transform: translateX(2px);
 }
 
 /* ── Quick action cards ── */
@@ -122,9 +163,56 @@
               border-color 0.2s ease-out;
 }
 .crm-preview .action-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(22, 163, 74, 0.12);
+  transform: translateY(-3px) rotateX(0.8deg);
+  box-shadow: 0 20px 45px rgba(15, 42, 20, 0.14), 0 0 0 1px rgba(22, 163, 74, 0.12);
   border-color: rgba(22, 163, 74, 0.22);
+}
+
+.crm-preview .bento-shell {
+  position: relative;
+}
+
+.crm-preview .bento-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0 18px auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.92), transparent);
+  pointer-events: none;
+}
+
+.crm-preview .premium-header {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,255,255,0.64)),
+    linear-gradient(90deg, rgba(22,163,74,0.08), rgba(37,99,235,0.04));
+  backdrop-filter: blur(18px) saturate(1.15);
+  border-bottom: 1px solid rgba(15,42,20,0.08);
+  box-shadow: 0 12px 30px rgba(15,42,20,0.06);
+}
+
+.crm-preview .premium-sidebar {
+  background:
+    linear-gradient(180deg, rgba(12,34,17,0.98) 0%, rgba(7,23,10,0.98) 100%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 18px);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.06), 16px 0 40px rgba(7,23,10,0.16);
+}
+
+.crm-preview .route-finder-card {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.72)),
+    linear-gradient(135deg, rgba(22,163,74,0.08), rgba(37,99,235,0.04));
+}
+
+.crm-preview .result-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 7px 9px 20px rgba(15,42,20,0.08), -5px -5px 14px rgba(255,255,255,0.76);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.crm-preview .result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 38px rgba(15,42,20,0.13), inset 0 1px 0 rgba(255,255,255,0.86);
 }
 
 /* ── prefers-reduced-motion ── */
@@ -135,6 +223,7 @@
   .crm-preview .progress-fill,
   .crm-preview .p-card-lift,
   .crm-preview .action-card,
+  .crm-preview .result-card,
   .crm-preview .skeleton {
     animation: none !important;
     transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
