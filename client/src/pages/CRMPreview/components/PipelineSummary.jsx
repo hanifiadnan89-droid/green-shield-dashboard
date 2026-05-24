@@ -190,22 +190,12 @@ const FlowOverlay = memo(function FlowOverlay() {
         className="ps-streams-back"
         style={svgStyle}
       >
-        <defs>
-          <filter id="ps-glow-soft"   x="-25%" y="-100%" width="150%" height="300%">
-            <feGaussianBlur stdDeviation="5.5" />
-          </filter>
-          <filter id="ps-glow-strong" x="-35%" y="-120%" width="170%" height="340%">
-            <feGaussianBlur stdDeviation="9" />
-          </filter>
-        </defs>
-
-        {/* Layer 1 — Wide soft glow wash */}
+        {/* Layer 1 — Wide soft glow wash (no SVG filter — wide stroke + opacity only, GPU-safe) */}
         {STREAM_DEFS.map(s => (
           <path key={`glow-${s.id}`} d={s.path}
             fill="none" stroke={s.glow}
             strokeWidth={s.glowW} strokeLinecap="round"
-            opacity={0.13}
-            filter={s.glowW >= 20 ? 'url(#ps-glow-strong)' : 'url(#ps-glow-soft)'}
+            opacity={0.10}
           />
         ))}
 
@@ -252,7 +242,6 @@ const FlowOverlay = memo(function FlowOverlay() {
                 key={`p-${s.id}-${i}`}
                 r={i === 0 ? 3.2 : 2.2}
                 fill={i === 0 ? '#FFFFFF' : s.lighter}
-                style={{ filter: `drop-shadow(0 0 ${i === 0 ? 5 : 3}px ${s.color})` }}
               >
                 <animateMotion
                   dur={`${s.dur}s`}
@@ -1071,7 +1060,6 @@ const PS_STYLES = `
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.78;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--mc) 28%, transparent));
 }
 
 /* ── ps-timeline ── */
