@@ -75,9 +75,9 @@ const STREAM_DEFS = [
   { id: 'out-r',  color: '#34D399', lighter: '#6EE7B7', glow: '#10B981', glowW: 16, mainW: 2.5, hlW: 1.2, particles: 2, dur: 5.1,
     path: 'M 612 260 C 652 226, 716 218, 800 215' },
   { id: 'out-e',  color: '#F87171', lighter: '#FECACA', glow: '#EF4444', glowW: 16, mainW: 2.8, hlW: 1.2, particles: 2, dur: 5.5,
-    path: 'M 608 272 C 648 264, 712 286, 800 297' },
+    path: 'M 608 272 C 648 264, 712 283, 800 292' },
   { id: 'out-p',  color: '#C084FC', lighter: '#E9D5FF', glow: '#9333EA', glowW: 18, mainW: 2.8, hlW: 1.3, particles: 3, dur: 6.1,
-    path: 'M 604 282 C 638 300, 694 350, 800 379' },
+    path: 'M 604 282 C 638 298, 694 344, 800 370' },
 ];
 
 const SPARKLINES = {
