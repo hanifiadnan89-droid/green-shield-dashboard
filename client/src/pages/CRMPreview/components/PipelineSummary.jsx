@@ -171,7 +171,7 @@ const RingCard = memo(function RingCard({ def, pct }) {
 
 // ─── FlowOverlay ───────────────────────────────────────────────────────────────
 // Two-SVG system: back layer (glow+lines) behind panels, front layer (particles) above orb.
-// Particles use CSS offset-path — runs on the compositor thread, never pauses during scroll.
+// Particles use SMIL animateMotion — browser-native SVG engine, never pauses during scroll.
 
 const FlowOverlay = memo(function FlowOverlay() {
   const svgStyle = {
@@ -236,7 +236,7 @@ const FlowOverlay = memo(function FlowOverlay() {
         ))}
       </svg>
 
-      {/* FRONT SVG — CSS offset-path particles, fully compositor-threaded */}
+      {/* FRONT SVG — SMIL animateMotion particles, browser-native SVG engine, never pauses */}
       <svg
         viewBox="0 0 1080 480"
         preserveAspectRatio="none"
@@ -245,22 +245,32 @@ const FlowOverlay = memo(function FlowOverlay() {
         style={svgStyle}
       >
         {STREAM_DEFS.flatMap(s =>
-          Array.from({ length: s.particles }, (_, i) => (
-            <circle
-              key={`p-${s.id}-${i}`}
-              cx={0}
-              cy={0}
-              r={i === 0 ? 3.2 : 2.2}
-              fill={i === 0 ? '#FFFFFF' : s.lighter}
-              className="ps-particle"
-              style={{
-                offsetPath: `path('${s.path}')`,
-                animationDuration: `${s.dur}s`,
-                animationDelay: `${(-(i / Math.max(s.particles, 1)) * s.dur).toFixed(2)}s`,
-                filter: `drop-shadow(0 0 ${i === 0 ? 5 : 3}px ${s.color})`,
-              }}
-            />
-          ))
+          Array.from({ length: s.particles }, (_, i) => {
+            const begin = `${(-(i / Math.max(s.particles, 1)) * s.dur).toFixed(2)}s`;
+            return (
+              <circle
+                key={`p-${s.id}-${i}`}
+                r={i === 0 ? 3.2 : 2.2}
+                fill={i === 0 ? '#FFFFFF' : s.lighter}
+                style={{ filter: `drop-shadow(0 0 ${i === 0 ? 5 : 3}px ${s.color})` }}
+              >
+                <animateMotion
+                  dur={`${s.dur}s`}
+                  repeatCount="indefinite"
+                  begin={begin}
+                  path={s.path}
+                />
+                <animate
+                  attributeName="opacity"
+                  values="0;1;1;0"
+                  keyTimes="0;0.08;0.92;1"
+                  dur={`${s.dur}s`}
+                  repeatCount="indefinite"
+                  begin={begin}
+                />
+              </circle>
+            );
+          })
         )}
       </svg>
     </>
@@ -1140,23 +1150,6 @@ const PS_STYLES = `
   border-radius: 14px;
   color: #94A3B8;
   background: #F8FAFC;
-}
-
-/* ── CSS offset-path particles — compositor thread, never pauses during scroll ── */
-.ps-particle {
-  offset-distance: 0%;
-  animation-name: ps-particle-move;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  animation-play-state: running !important;
-  will-change: offset-distance, opacity;
-  transform: translateZ(0);
-}
-@keyframes ps-particle-move {
-  0%   { offset-distance: 0%;   opacity: 0;    }
-  8%   { opacity: 1;                            }
-  92%  { opacity: 1;                            }
-  100% { offset-distance: 100%; opacity: 0;    }
 }
 
 /* Force all CSS animations to keep running during scroll */
