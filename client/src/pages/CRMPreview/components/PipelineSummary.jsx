@@ -14,13 +14,8 @@ import {
   BarChart3,
 } from 'lucide-react';
 import gsap from 'gsap';
-import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
-import { useGSAP } from '@gsap/react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import './PipelineSummaryLivingFlow.css';
-
-gsap.registerPlugin(MotionPathPlugin, useGSAP);
-gsap.ticker.lagSmoothing(0); // keep animations running during scroll without jumps
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -176,49 +171,9 @@ const RingCard = memo(function RingCard({ def, pct }) {
 
 // ─── FlowOverlay ───────────────────────────────────────────────────────────────
 // Two-SVG system: back layer (glow+lines) behind panels, front layer (particles) above orb.
+// Particles use CSS offset-path — runs on the compositor thread, never pauses during scroll.
 
 const FlowOverlay = memo(function FlowOverlay() {
-  const backRef  = useRef(null);
-  const frontRef = useRef(null);
-
-  // strokeDashoffset is driven by CSS animation (compositor thread — never pauses during scroll).
-  // GSAP is used only for motionPath particles.
-  useGSAP(() => {
-    const back  = backRef.current;
-    const front = frontRef.current;
-    if (!back || !front) return;
-
-    STREAM_DEFS.forEach(stream => {
-      const sharp = back.querySelector(`#ps-sharp-${stream.id}`);
-
-      if (sharp) {
-        const particles = Array.from(front.querySelectorAll(`[data-stream="${stream.id}"]`));
-        particles.forEach((p, i) => {
-          const tween = gsap.to(p, {
-            duration: stream.dur,
-            repeat: -1,
-            ease: 'none',
-            force3D: true,
-            motionPath: { path: sharp, align: sharp, alignOrigin: [0.5, 0.5] },
-          });
-          tween.progress((i + 0.5) / Math.max(particles.length, 1));
-
-          gsap.fromTo(p,
-            { opacity: 0 },
-            {
-              opacity: i === 0 ? 0.92 : 0.68,
-              duration: stream.dur * 0.28,
-              repeat: -1,
-              yoyo: true,
-              ease: 'sine.inOut',
-              delay: i * 0.38,
-            },
-          );
-        });
-      }
-    });
-  }, { dependencies: [], revertOnUpdate: false });
-
   const svgStyle = {
     position: 'absolute', inset: 0,
     width: '100%', height: '100%',
@@ -229,7 +184,6 @@ const FlowOverlay = memo(function FlowOverlay() {
     <>
       {/* BACK SVG — glow washes + main lines + thin highlights */}
       <svg
-        ref={backRef}
         viewBox="0 0 1080 480"
         preserveAspectRatio="none"
         aria-hidden="true"
@@ -282,9 +236,8 @@ const FlowOverlay = memo(function FlowOverlay() {
         ))}
       </svg>
 
-      {/* FRONT SVG — particles only, renders above orb HTML */}
+      {/* FRONT SVG — CSS offset-path particles, fully compositor-threaded */}
       <svg
-        ref={frontRef}
         viewBox="0 0 1080 480"
         preserveAspectRatio="none"
         aria-hidden="true"
@@ -295,11 +248,17 @@ const FlowOverlay = memo(function FlowOverlay() {
           Array.from({ length: s.particles }, (_, i) => (
             <circle
               key={`p-${s.id}-${i}`}
+              cx={0}
+              cy={0}
               r={i === 0 ? 3.2 : 2.2}
               fill={i === 0 ? '#FFFFFF' : s.lighter}
-              opacity={0}
-              data-stream={s.id}
-              style={{ filter: `drop-shadow(0 0 ${i === 0 ? 5 : 3}px ${s.color})` }}
+              className="ps-particle"
+              style={{
+                offsetPath: `path('${s.path}')`,
+                animationDuration: `${s.dur}s`,
+                animationDelay: `${(-(i / Math.max(s.particles, 1)) * s.dur).toFixed(2)}s`,
+                filter: `drop-shadow(0 0 ${i === 0 ? 5 : 3}px ${s.color})`,
+              }}
             />
           ))
         )}
@@ -1183,6 +1142,22 @@ const PS_STYLES = `
   border-radius: 14px;
   color: #94A3B8;
   background: #F8FAFC;
+}
+
+/* ── CSS offset-path particles — compositor thread, never pauses during scroll ── */
+.ps-particle {
+  offset-distance: 0%;
+  animation-name: ps-particle-move;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-play-state: running !important;
+  will-change: offset-distance, opacity;
+}
+@keyframes ps-particle-move {
+  0%   { offset-distance: 0%;   opacity: 0;    }
+  8%   { opacity: 1;                            }
+  92%  { opacity: 1;                            }
+  100% { offset-distance: 100%; opacity: 0;    }
 }
 
 /* Force all CSS animations to keep running during scroll */
