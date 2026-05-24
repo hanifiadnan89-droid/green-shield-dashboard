@@ -556,7 +556,6 @@ const PS_STYLES = `
   --ps-ink: #0F172A;
   --ps-muted: #64748B;
   position: relative;
-  isolation: isolate;
   overflow: hidden;
   width: 100%;
   padding: 32px 34px 36px;
@@ -637,7 +636,6 @@ const PS_STYLES = `
 /* ── ps-main grid ── */
 .ps-main {
   position: relative;
-  isolation: isolate;
   display: grid;
   grid-template-columns: minmax(230px, 0.88fr) minmax(320px, 1.44fr) minmax(230px, 1fr);
   gap: 18px;
@@ -656,6 +654,8 @@ const PS_STYLES = `
   inset: 0;
   z-index: 6;
   pointer-events: none;
+  will-change: transform;
+  transform: translateZ(0);
 }
 /* CSS-driven dash animations — run on compositor thread, never pause during scroll */
 .ps-flow__sharp {
@@ -1150,6 +1150,7 @@ const PS_STYLES = `
   animation-iteration-count: infinite;
   animation-play-state: running !important;
   will-change: offset-distance, opacity;
+  transform: translateZ(0);
 }
 @keyframes ps-particle-move {
   0%   { offset-distance: 0%;   opacity: 0;    }
