@@ -9,6 +9,7 @@ import Followups from './pages/Followups.jsx';
 import ActivityLog from './pages/ActivityLog.jsx';
 import ComponentPreview from './pages/ComponentPreview.jsx';
 import CRMPreview from './pages/CRMPreview/index.jsx';
+import Replies from './pages/Replies.jsx';
 import { api } from './api/client.js';
 
 function AppShell({ testMode, credsMissing }) {
@@ -47,6 +48,7 @@ export default function App() {
       <Route element={<AppShell testMode={testMode} credsMissing={credsMissing} />}>
         <Route path="/leads" element={<Leads />} />
         <Route path="/send" element={<SendTemplate testMode={testMode} />} />
+        <Route path="/replies" element={<Replies />} />
         <Route path="/workflows" element={<Workflows />} />
         <Route path="/followups" element={<Followups />} />
         <Route path="/activity" element={<ActivityLog />} />

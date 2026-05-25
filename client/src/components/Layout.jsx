@@ -1,19 +1,51 @@
+import { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Send, Workflow, Clock, Activity,
-  Shield
+  Shield, MessageCircle
 } from 'lucide-react';
+import { api } from '../api/client.js';
 
 const NAV = [
   { to: '/',          icon: LayoutDashboard, label: 'Dashboard',    iconAnim: 'dashboard' },
   { to: '/leads',     icon: Users,           label: 'Leads',        iconAnim: 'leads'     },
   { to: '/send',      icon: Send,            label: 'Send Template', iconAnim: 'send'     },
+  { to: '/replies',   icon: MessageCircle,   label: 'Replies',      iconAnim: 'replies', hasBadge: true },
   { to: '/workflows', icon: Workflow,        label: 'Workflows',    iconAnim: 'workflows' },
   { to: '/followups', icon: Clock,           label: 'Follow-ups',   iconAnim: 'followups' },
   { to: '/activity',  icon: Activity,        label: 'Activity Log', iconAnim: 'activity'  },
 ];
 
 export default function Layout({ children, testMode }) {
+  const [replyBadge, setReplyBadge] = useState(0);
+  const viewedRef = useRef(
+    new Set(JSON.parse(localStorage.getItem('gs_viewed_replies') || '[]'))
+  );
+
+  useEffect(() => {
+    const compute = async () => {
+      try {
+        const { leads } = await api.leads.list();
+        const replyLeads = (leads || []).filter(l => l.sms_reply && l.sms_reply.trim());
+        const unviewed = replyLeads.filter(l => !viewedRef.current.has(String(l.row_number)));
+        setReplyBadge(unviewed.length);
+      } catch {}
+    };
+    compute();
+    const id = setInterval(compute, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      (e.detail || []).forEach(rn => viewedRef.current.add(String(rn)));
+      localStorage.setItem('gs_viewed_replies', JSON.stringify([...viewedRef.current]));
+      setReplyBadge(0);
+    };
+    window.addEventListener('replies-viewed', handler);
+    return () => window.removeEventListener('replies-viewed', handler);
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-gs-bg">
       <aside className="w-56 border-r border-white/10 flex flex-col shrink-0"
@@ -37,7 +69,7 @@ export default function Layout({ children, testMode }) {
 
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-          {NAV.map(({ to, icon: Icon, label, iconAnim }) => (
+          {NAV.map(({ to, icon: Icon, label, iconAnim, hasBadge }) => (
             <NavLink
               key={to}
               to={to}
@@ -55,8 +87,21 @@ export default function Layout({ children, testMode }) {
             >
               {({ isActive }) => (
                 <>
-                  <span className={`nav-icon nav-icon-${iconAnim}${isActive ? ' nav-icon-active' : ''}`}>
-                    <Icon size={16} />
+                  <span className="relative inline-flex shrink-0">
+                    <span className={`nav-icon nav-icon-${iconAnim}${isActive ? ' nav-icon-active' : ''}`}>
+                      <Icon size={16} />
+                    </span>
+                    {hasBadge && replyBadge > 0 && (
+                      <span
+                        className="absolute -top-1.5 -right-1.5 h-[14px] min-w-[14px] rounded-full text-white text-[9px] font-bold flex items-center justify-center px-[3px] leading-none"
+                        style={{
+                          background: '#dc2626',
+                          boxShadow: '0 0 0 1.5px #0d2411',
+                        }}
+                      >
+                        {replyBadge > 9 ? '9+' : replyBadge}
+                      </span>
+                    )}
                   </span>
                   {label}
                 </>
