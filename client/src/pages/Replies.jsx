@@ -65,7 +65,16 @@ export default function Replies() {
     setLoading(true);
     try {
       const { leads: all } = await api.leads.list();
+
+      // DEBUG: log all leads with their sms_reply values
+      console.log('[Replies] Total leads from API:', all?.length);
+      (all || []).forEach(l => {
+        console.log(`[Replies] lead row=${l.row_number} name="${l.name}" phone="${l.phone}" sms_reply="${l.sms_reply}" trimmed="${(l.sms_reply || '').trim()}"`);
+      });
+
       const replyLeads = (all || []).filter(l => l.sms_reply && l.sms_reply.trim());
+      console.log('[Replies] Leads passing sms_reply filter:', replyLeads.length, replyLeads.map(l => l.name));
+
       replyLeads.sort((a, b) => {
         const da = a.sent && a.sent !== 'imported' ? new Date(a.sent).getTime() : 0;
         const db = b.sent && b.sent !== 'imported' ? new Date(b.sent).getTime() : 0;
