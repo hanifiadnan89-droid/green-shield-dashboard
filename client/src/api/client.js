@@ -27,6 +27,13 @@ export const api = {
     body: JSON.stringify({ lead, template, channel })
   }),
 
+  sms: {
+    send: (phone, message, row_number, name) => request('/send-sms', {
+      method: 'POST',
+      body: JSON.stringify({ phone, message, row_number, name })
+    })
+  },
+
   workflows: {
     list: () => request('/workflows')
   },
