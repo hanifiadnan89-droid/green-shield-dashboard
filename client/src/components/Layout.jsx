@@ -6,6 +6,12 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client.js';
 
+const isRealReply = l => {
+  const t = (l.sms_reply || '').trim();
+  return t.length > 0 && t !== '.';
+};
+const replyKey = l => `${l.row_number}:${l.sms_reply}`;
+
 const NAV = [
   { to: '/',          icon: LayoutDashboard, label: 'Dashboard',    iconAnim: 'dashboard' },
   { to: '/leads',     icon: Users,           label: 'Leads',        iconAnim: 'leads'     },
@@ -26,8 +32,8 @@ export default function Layout({ children, testMode }) {
     const compute = async () => {
       try {
         const { leads } = await api.leads.list();
-        const replyLeads = (leads || []).filter(l => l.sms_reply && l.sms_reply.trim());
-        const unviewed = replyLeads.filter(l => !viewedRef.current.has(String(l.row_number)));
+        const replyLeads = (leads || []).filter(isRealReply);
+        const unviewed = replyLeads.filter(l => !viewedRef.current.has(replyKey(l)));
         setReplyBadge(unviewed.length);
       } catch {}
     };
@@ -38,7 +44,7 @@ export default function Layout({ children, testMode }) {
 
   useEffect(() => {
     const handler = (e) => {
-      (e.detail || []).forEach(rn => viewedRef.current.add(String(rn)));
+      (e.detail || []).forEach(key => viewedRef.current.add(key));
       localStorage.setItem('gs_viewed_replies', JSON.stringify([...viewedRef.current]));
       setReplyBadge(0);
     };

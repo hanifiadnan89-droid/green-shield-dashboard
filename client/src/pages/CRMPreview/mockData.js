@@ -4,16 +4,10 @@ export function deriveStats(leads = []) {
     total:        leads.length,
     stopped:      leads.filter(l => l.stop === 'yes').length,
     errors:       leads.filter(l => (l.error && l.error.trim()) || l.status === 'error' || l.status === 'email_failed').length,
-    smsReplies:   leads.filter(l => l.sms_reply === 'yes').length,
-    emailReplies: leads.filter(l => l.email_reply === 'yes').length,
-    replied:      leads.filter(l => l.sms_reply === 'yes' || l.email_reply === 'yes' || l.status === 'replied').length,
-    inProgress:   leads.filter(l => {
-      if (l.stop === 'yes') return false;
-      if (l.status === 'replied') return false;
-      if (l.sms_reply === 'yes' || l.email_reply === 'yes') return false;
-      if ((l.error && l.error.trim()) || l.status === 'error' || l.status === 'email_failed') return false;
-      return !!(l.sent && l.sent !== 'imported');
-    }).length,
+    smsReplies:   leads.filter(l => _hasRealReply(l.sms_reply)).length,
+    emailReplies: leads.filter(l => _hasRealReply(l.email_reply)).length,
+    replied:      leads.filter(_isReplied).length,
+    inProgress:   leads.filter(l => !_isStopped(l) && !_isReplied(l) && !_isError(l) && _hasSent(l)).length,
     sentToday:    leads.filter(l => {
       if (!l.sent || l.sent === 'imported') return false;
       return new Date(l.sent).toDateString() === today;
@@ -64,7 +58,7 @@ export function getInitials(name = '') {
 export function getRowBorderColor(lead) {
   if ((lead.error && lead.error.trim()) || lead.status === 'error' || lead.status === 'email_failed') return '#DC2626';
   if (lead.stop === 'yes' || lead.status === 'stopped') return '#94A3B8';
-  if (lead.sms_reply === 'yes' || lead.email_reply === 'yes' || lead.status === 'replied') return '#16A34A';
+  if (_isReplied(lead)) return '#16A34A';
   if ((lead.notes || '').toLowerCase() === 'na') return '#D97706';
   if (lead.sent && lead.sent !== 'imported') return '#2563EB';
   return '#E2E8F0';
@@ -89,7 +83,8 @@ export function daysSince(ts) {
   return Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
 }
 const _daysSince = daysSince;
-const _isReplied = l => l.sms_reply === 'yes' || l.email_reply === 'yes' || l.status === 'replied';
+const _hasRealReply = (v) => { const t = (v || '').trim(); return t.length > 0 && t !== '.'; };
+const _isReplied = l => _hasRealReply(l.sms_reply) || _hasRealReply(l.email_reply) || l.status === 'replied';
 const _isError   = l => !!(l.error && l.error.trim()) || l.status === 'error' || l.status === 'email_failed';
 const _isStopped = l => l.stop === 'yes' || l.status === 'stopped';
 const _hasSent   = l => !!(l.sent && l.sent !== 'imported');

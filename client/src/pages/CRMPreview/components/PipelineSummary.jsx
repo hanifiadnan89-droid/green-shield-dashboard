@@ -12,6 +12,7 @@ import {
   Shield,
   TrendingUp,
   BarChart3,
+  PhoneOff,
 } from 'lucide-react';
 import './PipelineSummaryLivingFlow.css';
 
@@ -28,7 +29,7 @@ const TONE = {
 
 const RING_DEFS = [
   { key: 'reply',      label: 'Reply Rate',  color: '#16A34A', rateKey: 'reply',      Icon: MessageCircle },
-  { key: 'active',     label: 'In Progress', color: '#2563EB', rateKey: 'active',     Icon: Clock },
+  { key: 'noAnswer',   label: 'No Answer',   color: '#2563EB', rateKey: 'noAnswer',  Icon: PhoneOff },
   { key: 'agreements', label: 'Agreements',  color: '#D97706', rateKey: 'agreements', Icon: Shield },
 ];
 
@@ -623,10 +624,10 @@ function PipelineSummaryFlow({ stats }) {
 
   const rates = useMemo(() => ({
     reply:      total > 0 ? (replied / total) * 100 : 0,
-    active:     total > 0 ? (inProgress / total) * 100 : 0,
+    noAnswer:   total > 0 ? ((byTemplate.na ?? 0) / total) * 100 : 0,
     agreements: total > 0 ? ((byTemplate.ag ?? 0) / total) * 100 : 0,
     sold:       total > 0 ? (sold / total) * 100 : 0,
-  }), [total, replied, inProgress, byTemplate, sold]);
+  }), [total, replied, byTemplate, sold]);
 
   const metrics = useMemo(() => ({
     total,

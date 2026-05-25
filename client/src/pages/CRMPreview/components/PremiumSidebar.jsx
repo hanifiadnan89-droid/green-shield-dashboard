@@ -15,7 +15,7 @@ const NAV = [
     group: 'LEADS',
     items: [
       { type: 'filter', filterKey: 'all',        icon: Users,         label: 'All Leads' },
-      { type: 'filter', filterKey: 'replied',    icon: MessageSquare, label: 'Replies',     badge: 'replied' },
+      { type: 'link',   to: '/replies',            icon: MessageSquare, label: 'Replies',     badge: 'replied' },
       { type: 'filter', filterKey: 'errors',     icon: AlertCircle,   label: 'Errors',      badge: 'errors', urgent: true },
       { type: 'filter', filterKey: 'stopped',    icon: StopCircle,    label: 'Stopped',     badge: 'stopped' },
       { type: 'filter', filterKey: 'inprogress', icon: Clock,         label: 'In Progress', badge: 'inProgress' },
@@ -38,10 +38,11 @@ function itemIsActive(item, activeFilter) {
   return false;
 }
 
-export default function PremiumSidebar({ stats, testMode, activeFilter, onFilterChange }) {
+export default function PremiumSidebar({ stats, testMode, activeFilter, onFilterChange, unreadReplies = 0 }) {
   function getBadgeCount(key) {
-    if (!stats || !key) return 0;
-    if (key === 'replied') return (stats.smsReplies ?? 0) + (stats.emailReplies ?? 0);
+    if (!key) return 0;
+    if (key === 'replied') return unreadReplies;
+    if (!stats) return 0;
     return stats[key] ?? 0;
   }
 

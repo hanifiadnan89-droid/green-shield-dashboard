@@ -3,7 +3,7 @@ import fs from 'fs';
 
 const SHEET_ID = process.env.SHEET_ID || '1hneyXzxNqHDM-AfNs5-c1Qp7jqBeHfpKKsYbf_62obk';
 const SHEET_NAME = process.env.SHEET_NAME || 'Lead Responses';
-const COLUMNS = ['name', 'email', 'notes', 'status', 'sent', 'error', 'stop', 'phone', 'sms_reply', 'email_reply', 'sold', 'deleted'];
+const COLUMNS = ['name', 'reason', 'email', 'notes', 'status', 'sent', 'error', 'stop', 'phone', 'phone_formatted', 'sms_reply', 'email_reply'];
 
 function getAuth() {
   let credentials;
@@ -39,20 +39,8 @@ export async function getLeads() {
   const rows = res.data.values || [];
   if (rows.length < 2) return [];
 
-  // DEBUG: log the actual header row to verify column positions match COLUMNS
-  console.log('[DEBUG getLeads] header row:', JSON.stringify(rows[0]));
-  console.log('[DEBUG getLeads] COLUMNS expected:', JSON.stringify(COLUMNS));
-
   const leads = rows.slice(1).map((row, i) => rowToLead(row, i))
     .filter(lead => lead.deleted !== 'yes');
-
-  // DEBUG: log every lead's sms_reply value
-  leads.forEach(l => {
-    console.log(`[DEBUG sms_reply] row=${l.row_number} name="${l.name}" phone="${l.phone}" sms_reply="${l.sms_reply}" (len=${l.sms_reply?.length})`);
-  });
-
-  const withReply = leads.filter(l => l.sms_reply && l.sms_reply.trim());
-  console.log(`[DEBUG getLeads] total=${leads.length} withReply=${withReply.length}`);
 
   return leads;
 }

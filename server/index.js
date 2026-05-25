@@ -1,5 +1,12 @@
 import 'dotenv/config';
 import express from 'express';
+import twilio from 'twilio';
+
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
 import cors from 'cors';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -96,6 +103,44 @@ checkAuthHealth()
   .then(s => console.log(`[auth] Startup check: FieldRoutes auth is ${s}`))
   .catch(err => console.warn('[auth] Startup check failed:', err.message));
 startAuthKeepalive();
+
+app.post('/api/send-sms', async (req, res) => {
+  try {
+    const { phone, message, row_number, name } = req.body;
+
+    if (!phone || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number and message are required'
+      });
+    }
+
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const toNumber = cleanPhone.startsWith('1') ? `+${cleanPhone}` : `+1${cleanPhone}`;
+
+    const sentMessage = await twilioClient.messages.create({
+      body: message,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: toNumber
+    });
+
+    res.json({
+      success: true,
+      sid: sentMessage.sid,
+      phone: toNumber,
+      message,
+      row_number,
+      name
+    });
+  } catch (error) {
+    console.error('SMS send error:', error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});    
 
 app.listen(PORT, () => {
   const mode = process.env.TEST_MODE === 'true' ? '🔒 TEST MODE' : '🔴 LIVE MODE';

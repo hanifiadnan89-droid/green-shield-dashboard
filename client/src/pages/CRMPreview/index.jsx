@@ -67,6 +67,9 @@ function ErrorState({ onRetry, message }) {
   );
 }
 
+const isRealReply = l => { const t = (l.sms_reply || '').trim(); return t.length > 0 && t !== '.'; };
+const replyKey    = l => `${l.row_number}:${l.sms_reply}`;
+
 export default function CRMPreview({ testMode }) {
   const [leads, setLeads]       = useState(null);
   const [activity, setActivity] = useState(null); // eslint-disable-line no-unused-vars
@@ -74,6 +77,10 @@ export default function CRMPreview({ testMode }) {
   const [error, setError]       = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const loadingRef              = useRef(false);
+  const viewedRepliesRef        = useRef(
+    new Set(JSON.parse(localStorage.getItem('gs_viewed_replies') || '[]'))
+  );
+  const [unreadReplies, setUnreadReplies] = useState(0);
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [search, setSearch]             = useState('');
@@ -115,6 +122,24 @@ export default function CRMPreview({ testMode }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Recompute unread badge whenever leads refresh
+  useEffect(() => {
+    if (!leads) return;
+    const unviewed = leads.filter(isRealReply).filter(l => !viewedRepliesRef.current.has(replyKey(l)));
+    setUnreadReplies(unviewed.length);
+  }, [leads]);
+
+  // Keep badge in sync when the Replies page marks replies as viewed
+  useEffect(() => {
+    const handler = (e) => {
+      (e.detail || []).forEach(key => viewedRepliesRef.current.add(key));
+      localStorage.setItem('gs_viewed_replies', JSON.stringify([...viewedRepliesRef.current]));
+      setUnreadReplies(0);
+    };
+    window.addEventListener('replies-viewed', handler);
+    return () => window.removeEventListener('replies-viewed', handler);
+  }, []);
+
   const showToast = useCallback((msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3200);
@@ -150,6 +175,7 @@ export default function CRMPreview({ testMode }) {
         testMode={testMode}
         activeFilter={activeFilter}
         onFilterChange={handleFilterChange}
+        unreadReplies={unreadReplies}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
