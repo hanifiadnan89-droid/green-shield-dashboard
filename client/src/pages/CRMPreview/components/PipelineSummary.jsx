@@ -74,13 +74,34 @@ const STREAM_DEFS = [
     path: 'M 604 282 C 638 298, 694 344, 800 370' },
 ];
 
+// Generates a 2× wide seamlessly-looping sine wave path.
+// cycles must be an even integer so the wave at x=0 and x=totalW/2 are identical,
+// enabling a perfect translateX(-totalW/2) CSS/SVG loop with zero discontinuity.
+function genSparkPath(totalW, h, cycles, amp, phase) {
+  const midY = h / 2;
+  const steps = 96;
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const x = (i / steps) * totalW;
+    const t = (i / steps) * cycles * 2 * Math.PI + phase;
+    // slight second harmonic for organic feel; 2×cycles is also even → still seamless
+    const y = midY - amp * Math.sin(t) - amp * 0.2 * Math.sin(2 * t + 0.5);
+    pts.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+
+// Each path spans 0→192 (2× the 96-wide viewBox). The SVG clips to 96 wide,
+// and <animateTransform> scrolls from 0 to -96 SVG units, then loops instantly.
 const SPARKLINES = {
-  total:   'M2 22 C14 18 22 10 34 11 C46 12 52 20 62 21 C72 22 80 8 94 5',
-  sent:    'M2 22 C14 18 20 16 30 19 C42 23 46 11 58 14 C70 17 76 7 94 12',
-  replies: 'M2 22 C14 9 24 13 34 22 C44 32 52 12 62 18 C72 25 80 16 94 6',
-  errors:  'M2 20 C14 10 24 28 36 20 C48 11 54 30 66 20 C76 10 84 6 94 6',
-  sold:    'M2 19 C14 21 22 22 32 17 C44 12 50 26 62 18 C74 11 80 24 94 6',
+  total:   genSparkPath(192, 36, 2, 6.5, 0),
+  sent:    genSparkPath(192, 36, 2, 4.0, Math.PI * 0.7),
+  replies: genSparkPath(192, 36, 2, 7.0, Math.PI * 1.3),
+  errors:  genSparkPath(192, 36, 2, 8.0, Math.PI * 0.4),
+  sold:    genSparkPath(192, 36, 2, 5.5, Math.PI * 0.9),
 };
+
+const SPARK_DURATIONS = { total: 5.5, sent: 7, replies: 4, errors: 5, sold: 6.5 };
 
 const TIMELINE_STEPS = [
   { time: '0:00', title: 'Idle State',     desc: 'Soft breathing orb and gentle stream flow' },
@@ -523,7 +544,16 @@ const MetricCard = memo(function MetricCard({ metric, value, rate }) {
         </span>
       </span>
       <svg className="ps-metric-card__spark" viewBox="0 0 96 36" aria-hidden="true">
-        <path d={SPARKLINES[metric.key]} className="ps-metric-card__spark-path" />
+        <path d={SPARKLINES[metric.key]} className="ps-metric-card__spark-path">
+          <animateTransform
+            attributeName="transform"
+            type="translate"
+            from="0 0"
+            to="-96 0"
+            dur={`${SPARK_DURATIONS[metric.key]}s`}
+            repeatCount="indefinite"
+          />
+        </path>
       </svg>
     </button>
   );
@@ -1180,7 +1210,7 @@ const PS_STYLES = `
   justify-self: end;
   width: 80px;
   height: 30px;
-  overflow: visible;
+  overflow: hidden;
 }
 .ps-metric-card__spark-path {
   fill: none;
