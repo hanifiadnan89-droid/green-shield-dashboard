@@ -178,30 +178,26 @@ export default function CRMPreview({ testMode }) {
         unreadReplies={unreadReplies}
       />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <PreviewHeader onRefresh={refresh} loading={loading} />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto w-full">
           {error ? (
             <ErrorState onRetry={refresh} message={errorMessage} />
           ) : loading ? (
             <LoadingSkeleton />
           ) : (
-            <div className="bento-shell p-6 space-y-5 max-w-[1600px]">
+            <div className="bento-shell p-6 space-y-6 w-full">
 
               {/* Sales summary bar */}
               <SalesSummaryBar leads={leads ?? []} loading={false} />
 
-              {/* Pipeline Summary */}
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-                <div className="xl:col-span-12">
-                  <PipelineSummary stats={stats ?? {}} />
-                </div>
-              </div>
+              {/* Pipeline Summary — full width */}
+              <PipelineSummary stats={stats ?? {}} />
 
               {/* Lead Pipeline + Route Finder */}
-              <div ref={pipelineRef} className="grid grid-cols-1 xl:grid-cols-12 gap-5 pb-6">
-                <div className="xl:col-span-8">
+              <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-6">
+                <div className="lg:col-span-8">
                   <LeadPipeline
                     leads={leads ?? []}
                     activeFilter={activeFilter}
@@ -212,7 +208,7 @@ export default function CRMPreview({ testMode }) {
                     onDelete={handleLeadDeleted}
                   />
                 </div>
-                <div className="xl:col-span-4 h-full">
+                <div className="lg:col-span-4">
                   <RouteFinderWidget />
                 </div>
               </div>

@@ -51,7 +51,7 @@ export default function SalesSummaryBar({ leads = [], loading = false }) {
   const stats = loading ? null : deriveSalesStats(leads);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {CARDS.map(({ key, label, sub, icon: Icon, iconBg, iconColor, accent, href }, i) => {
         const count = stats ? (stats[key] ?? 0) : 0;
         const hasActivity = count > 0;
