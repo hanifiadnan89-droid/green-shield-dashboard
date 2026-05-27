@@ -729,7 +729,7 @@ const PS_STYLES = `
   position: relative;
   overflow: hidden;
   width: 100%;
-  padding: 32px 34px 36px;
+  padding: 32px 34px 20px;
   color: var(--ps-ink);
   background:
     radial-gradient(circle at 9% -8%, rgba(22,163,74,0.12), transparent 34%),
@@ -737,7 +737,7 @@ const PS_STYLES = `
     radial-gradient(circle at 90% 0%, rgba(147,51,234,0.10), transparent 32%),
     linear-gradient(135deg, rgba(255,255,255,1.00), rgba(249,252,255,0.97) 48%, rgba(246,252,248,0.95));
   border: 1px solid rgba(226,232,240,0.84);
-  border-radius: 22px;
+  border-radius: 16px;
   box-shadow: 0 20px 50px rgba(15,42,20,0.10), 0 1px 0 rgba(255,255,255,0.70) inset;
   transform: translateZ(0);
   contain: layout paint style;
@@ -845,11 +845,12 @@ const PS_STYLES = `
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 19px;
+  border-radius: 10px 10px 0 0;
   background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.82));
-  border: 1px solid rgba(226,232,240,0.66);
+  border: 1px solid rgba(226,232,240,0.55);
+  border-bottom: none;
   box-shadow: 0 10px 24px rgba(15,42,20,0.05), 0 1px 0 rgba(255,255,255,0.88) inset;
-  padding: 22px 24px 26px;
+  padding: 22px 24px 28px;
 }
 .ps-panel::before {
   content: '';
@@ -1358,7 +1359,7 @@ const PS_STYLES = `
   .ps-main { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
-  .ps-root { padding: 18px; border-radius: 18px; }
+  .ps-root { padding: 18px; border-radius: 16px; }
   .ps-root__header { flex-direction: column; align-items: stretch; }
   .ps-root__view-btn { width: 100%; justify-content: center; }
   .ps-metric-card { grid-template-columns: 40px minmax(0,1fr); }
@@ -1366,12 +1367,15 @@ const PS_STYLES = `
 }
 `;
 
-// Inject styles once
-if (typeof document !== 'undefined' && !document.getElementById('ps-styles')) {
-  const style = document.createElement('style');
-  style.id = 'ps-styles';
+// Inject styles — always update content so HMR picks up changes
+if (typeof document !== 'undefined') {
+  let style = document.getElementById('ps-styles');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'ps-styles';
+    document.head.appendChild(style);
+  }
   style.textContent = PS_STYLES;
-  document.head.appendChild(style);
 }
 
 // ─── Export ────────────────────────────────────────────────────────────────────
