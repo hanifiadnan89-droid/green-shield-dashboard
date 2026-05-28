@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import {
   MessageCircle, RefreshCw, Search, Send, CheckCircle2,
   AlertCircle, Zap, X, Archive, RotateCcw, Clock,
+  Bot, AlertTriangle,
 } from 'lucide-react';
 import { api } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
@@ -269,7 +270,10 @@ export default function Replies() {
   // ── Card state ─────────────────────────────────────────────────────────────
 
   function getCard(rowNumber) {
-    return cardState[rowNumber] || { message: '', sending: false, sent: false, error: null, sentAt: null };
+    return cardState[rowNumber] || {
+      message: '', sending: false, sent: false, error: null, sentAt: null,
+      drafting: false, draftError: null, reviewRequired: false, reviewReason: null,
+    };
   }
 
   function updateCard(rowNumber, patch) {
@@ -301,6 +305,75 @@ export default function Replies() {
   function applyQuickReply(rowNumber, text) {
     updateCard(rowNumber, { message: text, sent: false, error: null });
     document.getElementById(`reply-ta-${rowNumber}`)?.focus();
+  }
+
+  async function handleAIDraft(lead) {
+    const h = historyRef.current[lead.row_number] || {};
+    const outboundCount = (h.outbound || []).length;
+
+    // Infer follow-up step from outbound history and lead state
+    let followUpStep = 'initial_outreach';
+    if (outboundCount === 1) followUpStep = 'follow_up_1';
+    else if (outboundCount === 2) followUpStep = 'follow_up_2';
+    else if (outboundCount >= 3) followUpStep = 'final_follow_up';
+
+    // If they replied, we're responding to them regardless of outbound count
+    const hasReply = !!(lead.sms_reply && lead.sms_reply.trim());
+    if (hasReply && followUpStep === 'initial_outreach') followUpStep = 'follow_up_1';
+
+    // Detect agreement context from notes
+    const notesLower = (lead.notes || '').toLowerCase();
+    if (notesLower.includes('ag') || notesLower.includes('agreement')) {
+      followUpStep = 'agreement_follow_up';
+    }
+
+    const leadContext = {
+      name:                   lead.name || null,
+      phone:                  lead.phone || null,
+      email:                  lead.email || null,
+      town:                   null,
+      address:                null,
+      reason:                 lead.reason || null,
+      pest_type:              null,
+      lead_source:            null,
+      lead_stage:             lead.status || 'customer_replied',
+      status:                 lead.status || null,
+      notes:                  lead.notes || null,
+      sms_reply:              hasReply,
+      email_reply:            !!(lead.email_reply && lead.email_reply.trim()),
+      last_customer_message:  lead.sms_reply || null,
+      prior_chat_history:     h.outbound || [],
+      last_contacted_at:      lead.sent || null,
+      follow_up_step:         followUpStep,
+      agreement_sent:         false,
+      quote_sent:             false,
+      scheduled_date:         null,
+      scheduled_window:       null,
+      preferred_contact_method: 'sms',
+      stop:                   !!(lead.stop && String(lead.stop).trim()),
+      reply_archived:         archived.has(archKey(lead)),
+      route_availability_context: null,
+      human_review_required:  false,
+    };
+
+    updateCard(lead.row_number, {
+      drafting: true, draftError: null, reviewRequired: false, reviewReason: null,
+    });
+
+    try {
+      const result = await api.ai.draftReply(leadContext);
+      updateCard(lead.row_number, {
+        drafting: false,
+        message: result.draft || '',
+        sent: false,
+        error: null,
+        reviewRequired: result.human_review_required || false,
+        reviewReason:   result.review_reason || null,
+      });
+      document.getElementById(`reply-ta-${lead.row_number}`)?.focus();
+    } catch (err) {
+      updateCard(lead.row_number, { drafting: false, draftError: err.message });
+    }
   }
 
   // ── Archive ────────────────────────────────────────────────────────────────
@@ -580,9 +653,31 @@ export default function Replies() {
 
                       {/* Your reply textarea */}
                       <div>
-                        <div className="section-label mb-2">
-                          <span className="section-label-bar bg-gs-accent" />
-                          Your Reply
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                          <div className="section-label" style={{ marginBottom: 0 }}>
+                            <span className="section-label-bar bg-gs-accent" />
+                            Your Reply
+                          </div>
+                          <button
+                            onClick={() => handleAIDraft(lead)}
+                            disabled={cs.drafting}
+                            title="Generate AI draft reply"
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '5px',
+                              fontSize: '11px', fontWeight: 600,
+                              color: cs.drafting ? '#94a3b8' : '#7C3AED',
+                              background: cs.drafting ? 'rgba(124,58,237,0.04)' : 'rgba(124,58,237,0.08)',
+                              border: '1px solid rgba(124,58,237,0.22)',
+                              borderRadius: '8px', padding: '3px 9px',
+                              cursor: cs.drafting ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={e => { if (!cs.drafting) { e.currentTarget.style.background = 'rgba(124,58,237,0.14)'; e.currentTarget.style.color = '#6D28D9'; }}}
+                            onMouseLeave={e => { if (!cs.drafting) { e.currentTarget.style.background = 'rgba(124,58,237,0.08)'; e.currentTarget.style.color = '#7C3AED'; }}}
+                          >
+                            {cs.drafting ? <Spinner size={10} /> : <Bot size={11} />}
+                            {cs.drafting ? 'Drafting…' : 'AI Draft'}
+                          </button>
                         </div>
                         <textarea
                           id={`reply-ta-${lead.row_number}`}
@@ -625,6 +720,42 @@ export default function Replies() {
                           </button>
                         ))}
                       </div>
+
+                      {/* Draft error */}
+                      {cs.draftError && (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          padding: '8px 12px', borderRadius: '10px',
+                          background: 'rgba(220,38,38,0.07)',
+                          border: '1px solid rgba(220,38,38,0.22)',
+                          fontSize: '12px', color: '#DC2626',
+                        }}>
+                          <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                          AI draft failed: {cs.draftError}
+                        </div>
+                      )}
+
+                      {/* Human review warning */}
+                      {cs.reviewRequired && (
+                        <div style={{
+                          display: 'flex', alignItems: 'flex-start', gap: '8px',
+                          padding: '10px 14px', borderRadius: '10px',
+                          background: 'rgba(217,119,6,0.08)',
+                          border: '1px solid rgba(217,119,6,0.28)',
+                        }}>
+                          <AlertTriangle size={14} style={{ color: '#D97706', marginTop: '1px', flexShrink: 0 }} />
+                          <div>
+                            <p style={{ fontSize: '12px', fontWeight: 600, color: '#B45309', margin: 0, marginBottom: '2px' }}>
+                              Human review recommended before sending
+                            </p>
+                            {cs.reviewReason && (
+                              <p style={{ fontSize: '11px', color: '#92400E', margin: 0, lineHeight: 1.45 }}>
+                                {cs.reviewReason}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Footer */}
                       <div className="flex items-center justify-between gap-3">

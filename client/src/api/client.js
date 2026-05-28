@@ -57,6 +57,13 @@ export const api = {
     loginRefresh: () => request('/routes/login-refresh', { method: 'POST' }),
   },
 
+  ai: {
+    draftReply: (lead_context) => request('/ai/draft-reply', {
+      method: 'POST',
+      body: JSON.stringify({ lead_context }),
+    }),
+  },
+
   documents: {
     quotes:      () => request('/documents/quotes'),
     prepGuides:  () => request('/documents/prep-guides'),

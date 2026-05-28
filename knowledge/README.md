@@ -1,0 +1,1 @@
+Green Shield knowledge files for AI sales assistant. Copy the knowledge folder into /Users/adnanhanifi/green-shield-dashboard/.
