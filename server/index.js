@@ -18,6 +18,7 @@ import activityRouter from './routes/activity.js';
 import driveRouter from './routes/drive.js';
 import documentsRouter from './routes/documents.js';
 import routesRouter from './routes/routes.js';
+import aiRouter from './routes/ai.js';
 import { startCron } from './services/fieldRoutesCron.js';
 import { loadAuthStatus, checkAuthHealth, startAuthKeepalive } from './services/fieldRoutesAuth.js';
 
@@ -81,6 +82,7 @@ app.use('/api/activity', activityRouter);
 app.use('/api/drive', driveRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/routes', routesRouter);
+app.use('/api/ai', aiRouter);
 
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));

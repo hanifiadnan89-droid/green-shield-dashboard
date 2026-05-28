@@ -8,6 +8,7 @@
     "playwright:install": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.2",
