@@ -20,18 +20,18 @@ function getClient() {
 const ESCALATION_PATTERNS = [
   /\brefund\b/i,
   /\bcancel\b/i,
-  /\banger|angry|furious|upset|pissed\b/i,
+  /\b(angry|furious|upset|pissed off|anger)\b/i,
   /\bbad review\b/i,
   /\byelp\b/i,
   /\bgoogle review\b/i,
-  /\blawyer|attorney|legal|sue\b/i,
-  /\bsick|ill|hospital|doctor|allerg|chemical|reaction|poison|toxic\b/i,
-  /\bpregnant|pregnancy|baby|infant\b/i,
+  /\b(lawyer|attorney|legal action|sue|lawsuit)\b/i,
+  /\b(sick|ill|hospital|doctor|allergic|allergy|chemical reaction|poisoned|toxic)\b/i,
+  /\b(pregnant|pregnancy|newborn|infant)\b/i,
   /\bdiscount\b/i,
-  /\bcompetitor|cheaper|other company\b/i,
+  /\b(competitor|cheaper|other company|beat that price)\b/i,
   /\bcomplaint\b/i,
-  /\btechnician|tech did|tech didn't\b/i,
-  /\blandlord|tenant|renter\b/i,
+  /\b(technician complaint|tech was|tech didn't|your guy)\b/i,
+  /\b(landlord|tenant|renter|my landlord|my tenant)\b/i,
 ];
 
 function detectEscalation(context) {
