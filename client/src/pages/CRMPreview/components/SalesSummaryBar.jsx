@@ -59,7 +59,7 @@ export default function SalesSummaryBar({ leads = [], loading = false }) {
         return (
           <div
             key={key}
-            className="bento-card p-card p-card-lift flex items-center gap-4 p-5 cursor-pointer"
+            className="bento-card card-kpi p-card-lift flex items-center gap-4 p-5 cursor-pointer"
             role="button"
             tabIndex={0}
             onClick={() => navigate(href)}
