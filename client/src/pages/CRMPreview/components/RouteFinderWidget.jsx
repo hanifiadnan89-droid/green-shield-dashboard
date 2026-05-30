@@ -563,33 +563,31 @@ export default function RouteFinderWidget() {
         </div>
 
         {/* ── Address input ── */}
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 5 }}>
+        <div className="mb-3">
+          <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-[5px]">
             Customer Address
           </label>
 
           {geocodeStatus === 'success' && !isEditing ? (
-            <div style={{
-              borderRadius: 10, border: '1px solid rgba(22,163,74,0.3)', background: 'rgba(22,163,74,0.04)',
-              padding: '8px 10px', display: 'flex', alignItems: 'flex-start', gap: 7,
-            }}>
-              <CheckCircle size={13} style={{ color: '#16A34A', marginTop: 1, flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', margin: 0, lineHeight: 1.3 }}>{geocode.display}</p>
-                <p style={{ fontSize: 10, color: '#94A3B8', margin: '2px 0 0', fontFamily: 'monospace' }}>
+            <div className="rounded-[10px] border border-gs-accent/30 bg-gs-accent/[0.04] px-2.5 py-2 flex items-start gap-[7px]">
+              <CheckCircle size={13} className="text-gs-accent mt-px shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-gs-text m-0 leading-[1.3]">{geocode.display}</p>
+                <p className="type-mono text-slate-400 mt-0.5 mb-0">
                   {geocode.lat.toFixed(5)}, {geocode.lng.toFixed(5)}
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsEditing(true)}
-                style={{ fontSize: 10, color: '#16A34A', background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', fontWeight: 600, flexShrink: 0 }}
+                className="type-label-sm text-gs-accent bg-transparent border-0 cursor-pointer py-px px-1 font-semibold shrink-0 tracking-normal"
               >
                 Edit
               </button>
             </div>
           ) : (
-            <div style={{ position: 'relative' }}>
-              <MapPin size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', zIndex: 1 }} />
+            <div className="relative">
+              <MapPin size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 z-[1]" />
               <input
                 autoFocus={isEditing}
                 value={addressInput}
@@ -607,11 +605,9 @@ export default function RouteFinderWidget() {
                 }}
                 onKeyDown={handleAddressKey}
                 placeholder="Start typing an address…"
+                className="w-full box-border py-2 pl-7 pr-9 rounded-[10px] text-xs text-gs-text bg-slate-50 outline-none"
                 style={{
-                  width: '100%', boxSizing: 'border-box',
-                  padding: '8px 36px 8px 28px', borderRadius: 10,
                   border: `1px solid ${geocodeStatus === 'error' ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.1)'}`,
-                  fontSize: 12, color: '#0F172A', background: '#f8fafc', outline: 'none',
                 }}
                 onFocus={e => {
                   e.target.style.borderColor = 'rgba(22,163,74,0.4)';
@@ -627,11 +623,12 @@ export default function RouteFinderWidget() {
                 }}
               />
               {geocodeStatus === 'loading' ? (
-                <Loader2 size={12} className="animate-spin" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                <Loader2 size={12} className="animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               ) : (
                 <button
+                  type="button"
                   onClick={() => doGeocode(addressInput)}
-                  style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 3, color: '#94A3B8', display: 'flex' }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer p-[3px] text-slate-400 flex"
                 >
                   <Search size={12} />
                 </button>
@@ -639,34 +636,30 @@ export default function RouteFinderWidget() {
 
               {/* Autocomplete dropdown */}
               {showSuggestions && suggestions.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-                  background: '#fff', borderRadius: 10, marginTop: 4,
-                  border: '1px solid rgba(0,0,0,0.1)',
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
-                  overflow: 'hidden',
-                }}>
+                <div className="absolute top-full left-0 right-0 z-[200] bg-white rounded-[10px] mt-1 border border-black/10 shadow-[0_6px_20px_rgba(0,0,0,0.1)] overflow-hidden">
                   {suggestions.map((s, i) => (
                     <div
                       key={i}
                       onMouseDown={() => { suppressBlurRef.current = true; selectSuggestion(s); }}
                       onMouseEnter={() => setActiveSuggestion(i)}
+                      className={`py-[7px] px-[11px] cursor-pointer flex items-start gap-2 transition-colors duration-100 ${
+                        i < suggestions.length - 1 ? 'border-b border-black/[0.05]' : ''
+                      }`}
                       style={{
-                        padding: '7px 11px',
-                        cursor: 'pointer',
                         background: i === activeSuggestion ? 'rgba(22,163,74,0.06)' : '#fff',
-                        borderBottom: i < suggestions.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
-                        display: 'flex', alignItems: 'flex-start', gap: 8,
-                        transition: 'background 0.1s',
                       }}
                     >
-                      <MapPin size={11} style={{ color: i === activeSuggestion ? '#16A34A' : '#94A3B8', marginTop: 2, flexShrink: 0 }} />
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', margin: 0, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <MapPin
+                        size={11}
+                        className="mt-0.5 shrink-0"
+                        style={{ color: i === activeSuggestion ? '#16A34A' : '#94A3B8' }}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-gs-text m-0 leading-[1.3] truncate">
                           {s.primary}
                         </p>
                         {s.secondary && (
-                          <p style={{ fontSize: 10, color: '#64748B', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <p className="type-label-sm text-gs-muted mt-px mb-0 truncate font-normal tracking-normal">
                             {s.secondary}
                           </p>
                         )}
@@ -679,11 +672,13 @@ export default function RouteFinderWidget() {
           )}
 
           {geocodeStatus === 'error' && (
-            <p style={{ fontSize: 10, color: '#DC2626', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <p className="type-label-sm text-gs-danger mt-1 flex items-center gap-1 font-normal tracking-normal">
               <AlertCircle size={10} /> {geocodeError} — try a more complete address
             </p>
           )}
-          <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>Type to see suggestions · press Enter or ↑↓ to navigate</p>
+          <p className="type-label-sm text-slate-400 mt-1 font-normal tracking-normal">
+            Type to see suggestions · press Enter or ↑↓ to navigate
+          </p>
         </div>
 
         {/* ── Other windows toggle ── */}
