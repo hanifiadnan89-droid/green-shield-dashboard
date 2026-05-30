@@ -51,3 +51,13 @@ Explain benefits of staying: no new upfront cost, no price increase, no contract
 
 ## Downgrade
 Offer a maintenance plan if appropriate. Minimums: IQ $39/month or $195/service. RIT/BIT $49/month or $225/service.
+
+## One-Time Service — No Guarantee
+If a customer asks for a guarantee on a one-time service, be direct:
+"I want to be upfront — one-time services don't come with a guarantee the way our annual plans do. The reason is that products don't penetrate pest eggs, so without follow-up visits we can't be sure the issue stays resolved long-term. That's why we usually recommend the annual plan."
+
+## Wildlife — Refer Out
+If a customer asks about wildlife (raccoons, squirrels, skunks, bats, birds, etc.):
+"We don't handle wildlife removal, but Baton Services can help with that. Their number is 207-813-2376. You can ask them for wildlife removal services."
+
+Do not try to sell pest control for wildlife issues. Refer and move on.

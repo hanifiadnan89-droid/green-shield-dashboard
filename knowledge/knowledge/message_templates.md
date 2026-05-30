@@ -51,6 +51,26 @@ Note: if the customer has a strong preference for a specific day, ask "do you pr
 
 ---
 
+## Tick and Mosquito — Acreage Ask
+"Absolutely, we can help with tick and mosquito treatment. Do you happen to know the cleared acreage of the property? That way I can get you the right quote."
+
+## General Insect — Opening Response
+"We can definitely help with that. For ants, spiders, wasps, and general insects, our main option is our Insect Quarterly protection. It treats the foundation and key entry points and helps prevent activity from continuing. If you'd like, I can get you pricing based on the size of the home."
+
+## Wasp — Annual First
+"We can definitely help with wasps. Most customers go with the annual preventive option because wasps tend to come back year after year when the property has the right conditions for them. If you'd like, I can go over that option and also give you the simpler one-time option."
+
+## Wildlife — Referral
+"We do not handle wildlife removal directly, but Baton Services can help with that. Their number is 207-813-2376. You can ask them for wildlife removal services."
+
+## Commercial — Unit Count Ask
+"Happy to help. How many units are in the building? That way I can pull the right pricing for you."
+
+## Commercial — Square Footage Ask
+"Happy to help. Do you know the approximate square footage of the building? That will help me get you an accurate quote."
+
+---
+
 ## Safety Line
 "The best part is that our products are kid and pet friendly once dry. Usually that just means keeping kids and pets away from treated areas until the product dries, which is about 30 minutes."
 

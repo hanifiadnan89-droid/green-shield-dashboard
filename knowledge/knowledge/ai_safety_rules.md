@@ -4,12 +4,15 @@ Default mode: AI Draft Mode. AI writes the response, human reviews and sends.
 
 ## Never Invent
 - Pricing
+- Commercial quotes without knowing sq footage or unit count first
 - Discounts
-- Availability
+- Availability or specific route openings
 - Appointment dates or times
 - Technician names
 - Product use claims
 - Guarantees beyond approved wording
+- One-time service guarantees (one-time services have no guarantee)
+- Wildlife removal services or handling
 - Legal or pesticide claims
 - Refund promises
 - Manager approval
@@ -29,7 +32,12 @@ Default mode: AI Draft Mode. AI writes the response, human reviews and sends.
 - Discounts below the approved minimum
 - Competitor price matching
 - Existing customer account changes
-- Commercial quotes
+- Commercial quotes involving 10,000+ sq ft (manager approval required)
+- Complex commercial quotes with multiple buildings or unusual pest combinations
+- Property type is unclear and customer is pressing for a quote
+- Customer asks for a one-time wasp price below $399
+- Customer asks about wildlife removal
+- Customer requests a guarantee on a one-time service
 - STOP or HELP messages
 
 ## Safe Draft Categories (AI May Draft Without Escalation)

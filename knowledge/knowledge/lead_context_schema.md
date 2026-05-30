@@ -12,7 +12,7 @@ This file defines what structured data must be injected into the AI when generat
 | `town` | string | Town or city |
 | `address` | string | Street address if available |
 | `reason` | string | Why the customer reached out (e.g., "ants in kitchen", "mice in basement") |
-| `pest_type` | string | Primary pest reported (e.g., ants, rodents, ticks, bed bugs, wasps) |
+| `pest_type` | string | Primary pest reported (e.g., ants, rodents, ticks, bed bugs, wasps, wildlife) |
 | `lead_source` | string | Where the lead came from — Angi, GMB, LSA, SAS, CI, MSG, Baton, Yelp, website, other |
 | `lead_stage` | string | Current stage in the sales pipeline — see Lead Stage Options below |
 | `status` | string | CRM status label if different from stage (e.g., open, closed, won, lost) |
@@ -32,6 +32,17 @@ This file defines what structured data must be injected into the AI when generat
 | `reply_archived` | boolean | Whether this reply thread has been archived |
 | `route_availability_context` | string | Output from Route Finder tool if available — route days, tech zone, open windows |
 | `human_review_required` | boolean | Whether this draft must be reviewed by a human before sending |
+| `property_type` | string | Type of property: single_family, duplex, multi_unit, apartment, business, restaurant, office, warehouse, other |
+| `is_commercial` | boolean | Whether the account is commercial (any non-single-family property) |
+| `square_feet` | number | Approximate square footage of the property — used for IQ/RIT/BIT residential pricing and business commercial pricing |
+| `cleared_acreage` | number | Cleared acreage of the property — used for TMM tick and mosquito pricing |
+| `unit_count` | number | Number of units in a multi-unit building — used for commercial multi-unit pricing |
+| `commercial_type` | string | Sub-type for commercial accounts: multi_unit, business, restaurant, warehouse, other |
+| `service_type_requested` | string | What service the customer is asking about: IQ, RIT, TMM, BIT, OTS, SPE, commercial, unknown |
+| `reply_count` | number | Total number of back-and-forth exchanges in this conversation so far |
+| `buying_signal` | string | Strength of buying intent: strong, moderate, unclear, resistant, not_interested |
+| `needs_human_review` | boolean | Alias for human_review_required — flag if AI detects a sensitive scenario |
+| `pricing_context` | string | Free-text summary of what pricing has already been discussed with the customer |
 
 ## Lead Stage Options
 
@@ -79,10 +90,24 @@ This file defines what structured data must be injected into the AI when generat
 | website | Green Shield website contact form |
 | other | Any source not listed above |
 
+## AI Pricing Context Rules
+
+Use these fields to determine which pricing table to apply:
+
+| Scenario | Required Field | Pricing Table |
+|---|---|---|
+| TMM (tick/mosquito) | `cleared_acreage` | TMM acreage table in services_and_pricing.md |
+| Residential IQ/RIT/BIT | `square_feet` | Residential sq ft table in services_and_pricing.md |
+| Multi-unit commercial | `unit_count` | Table 1 in commercial_pricing_rules.md |
+| Business commercial | `square_feet` + `commercial_type` | Table 2 in commercial_pricing_rules.md |
+| Exterior rodent baiting | `unit_count` or station estimate | Exterior baiting section in commercial_pricing_rules.md |
+
+If the required field is null or unknown, ask for it before quoting. One question at a time.
+
 ## AI Behavior Rules Based on Context
 
 - If `stop` is true: do not generate a sales reply. Flag for human review immediately.
-- If `human_review_required` is true: generate draft but label it clearly as requiring human approval before sending.
+- If `human_review_required` or `needs_human_review` is true: generate draft but label it clearly as requiring human approval before sending.
 - If `lead_stage` is `escalation_required`: do not draft. Output: "This lead requires human review — do not send automated reply."
 - If `lead_stage` is `already_serviced`: use the already-serviced template. Do not pitch.
 - If `lead_stage` is `scheduled`: confirm appointment details. Do not re-pitch from scratch.
@@ -90,3 +115,8 @@ This file defines what structured data must be injected into the AI when generat
 - If `route_availability_context` is empty or null: do not reference specific dates or windows. Use general availability language only.
 - If `last_customer_message` is empty and step is not `initial_outreach`: check `prior_chat_history` before drafting.
 - If `preferred_contact_method` is email: follow email style rules. If SMS or unknown: follow SMS style rules.
+- If `is_commercial` is true: use commercial_pricing_rules.md for any pricing. Do not quote residential rates.
+- If `pest_type` is wildlife: do not pitch pest control. Refer to Baton Services (207-813-2376).
+- If `reply_count` is available and above 15: the AI may continue if `buying_signal` is strong or moderate. Do not force the close.
+- If `service_type_requested` is TMM and `cleared_acreage` is null: ask for acreage before quoting.
+- If `service_type_requested` is IQ/RIT/BIT and `square_feet` is null: ask for home size before quoting precisely.

@@ -1,5 +1,20 @@
 # Account Management Rules
 
+## Commercial Account Definition
+
+Any property that is not a single-family home is a commercial account. Use a commercial contract and commercial pricing for all of the following:
+- Duplex or multi-unit home
+- Apartment building
+- Rental property with multiple units
+- Business, restaurant, office, warehouse
+- Condo association
+- Church, group home
+- Airbnb or landlord-managed rental with multiple units
+
+Even a single-family home structure with multiple separate units is commercial. When in doubt, treat it as commercial and use the commercial pricing rules.
+
+---
+
 ## Notes
 After every interaction, add clear notes. Yellow note example:
 “SALES: 1/15/2026 - No answer, left voicemail and texted - SRC”
