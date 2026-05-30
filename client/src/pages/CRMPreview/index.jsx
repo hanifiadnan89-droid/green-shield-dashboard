@@ -14,6 +14,7 @@ function PreviewToast({ message, onClose }) {
   if (!message) return null;
   return (
     <div
+      className="type-body-sm"
       style={{
         position: 'fixed',
         bottom: '24px',
@@ -24,8 +25,6 @@ function PreviewToast({ message, onClose }) {
         color: '#e2e8f0',
         borderRadius: '12px',
         padding: '12px 20px',
-        fontSize: '13px',
-        fontWeight: 500,
         boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
         display: 'flex',
         alignItems: 'center',
@@ -33,7 +32,10 @@ function PreviewToast({ message, onClose }) {
         maxWidth: 'min(420px, calc(100vw - 48px))',
       }}
     >
-      <span style={{ color: '#4ade80', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
+      <span
+        className="type-label-md uppercase"
+        style={{ color: '#4ade80', flexShrink: 0 }}
+      >
         Info
       </span>
       {message}

@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import { RefreshCw } from 'lucide-react';
 
-export default function PreviewHeader({ onRefresh, loading }) {
+function PreviewHeader({ onRefresh, loading }) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
@@ -15,8 +16,8 @@ export default function PreviewHeader({ onRefresh, loading }) {
     >
       {/* Left: title + date */}
       <div>
-        <p className="font-display font-bold text-[#0F172A] text-sm leading-tight">Dashboard</p>
-        <p className="type-label-md text-[#94A3B8]">{today}</p>
+        <p className="font-display font-bold text-gs-text text-sm leading-tight">Dashboard</p>
+        <p className="type-label-md text-gs-muted">{today}</p>
       </div>
 
       {/* Right: refresh */}
@@ -24,7 +25,7 @@ export default function PreviewHeader({ onRefresh, loading }) {
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="icon-button flex items-center gap-1.5 text-xs font-semibold text-[#64748B] hover:text-[#0F172A] disabled:opacity-50"
+          className="icon-button flex items-center gap-1.5 text-xs font-semibold text-gs-muted hover:text-gs-text disabled:opacity-50"
           style={{
             padding: '6px 10px',
           }}
@@ -36,3 +37,5 @@ export default function PreviewHeader({ onRefresh, loading }) {
     </header>
   );
 }
+
+export default memo(PreviewHeader);

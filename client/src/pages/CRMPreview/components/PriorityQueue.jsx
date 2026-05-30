@@ -58,14 +58,14 @@ function LeadMiniCard({ lead, onOpen }) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <p className="text-xs font-semibold text-[#0F172A] truncate">{lead.name || '—'}</p>
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="text-xs font-semibold text-gs-text truncate">{lead.name || '—'}</p>
           <TemplateBadge notes={lead.notes} />
         </div>
-        <p className="text-[10px] text-[#94A3B8] truncate">{lead._reason}</p>
+        <p className="text-[10px] text-gs-muted truncate">{lead._reason}</p>
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         {lead._days !== null && (
           <span className="type-label-sm text-[#B4BFCC] tabular-nums">{lead._days}d</span>
         )}
@@ -112,7 +112,7 @@ function PriorityGroup({ groupKey, leads, total, onOpen }) {
           {total}
         </span>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {leads.map(lead => (
           <LeadMiniCard key={lead.row_number} lead={lead} onOpen={onOpen} />
         ))}
@@ -132,8 +132,8 @@ export default function PriorityQueue({ leads = [], loading = false }) {
     <>
       <div className="p-card p-card-lift section-enter flex flex-col h-full">
         <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-          <h3 className="font-display font-semibold text-[#0F172A] text-sm">Priority Work Queue</h3>
-          <p className="type-label-md text-[#94A3B8] mt-0.5">Who needs your attention right now</p>
+          <h3 className="font-display font-semibold text-gs-text text-sm">Priority Work Queue</h3>
+          <p className="type-label-md text-gs-muted mt-0.5">Who needs your attention right now</p>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -148,8 +148,8 @@ export default function PriorityQueue({ leads = [], loading = false }) {
               <div style={{ background: '#f0fdf4', borderRadius: '12px', padding: '12px', display: 'inline-flex', marginBottom: '10px' }}>
                 <CheckCircle2 size={20} style={{ color: '#16A34A' }} />
               </div>
-              <p className="text-sm font-semibold text-[#0F172A]">All leads are on track</p>
-              <p className="type-label-md text-[#94A3B8] mt-1">No action needed right now</p>
+              <p className="text-sm font-semibold text-gs-text">All leads are on track</p>
+              <p className="type-label-md text-gs-muted mt-1">No action needed right now</p>
             </div>
           ) : (
             <>

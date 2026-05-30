@@ -19,36 +19,36 @@ function TemplateBadge({ notes }) {
 function StatusPill({ lead }) {
   if ((lead.error && lead.error.trim()) || lead.status === 'error' || lead.status === 'email_failed') {
     return (
-      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-danger/10 text-gs-danger border border-gs-danger/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-gs-danger animate-pulse" />
         Error
       </span>
     );
   }
   if (lead.stop === 'yes') {
     return (
-      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-muted/10 text-gs-muted border border-gs-muted/20">
         Stopped
       </span>
     );
   }
   if (lead.sms_reply === 'yes' || lead.email_reply === 'yes' || lead.status === 'replied') {
     return (
-      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-accent/10 text-gs-accent-dim border border-gs-accent/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-gs-accent" />
         Replied
       </span>
     );
   }
   if (lead.sent && lead.sent !== 'imported') {
     return (
-      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-info/10 text-gs-info border border-gs-info/20">
         In Progress
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200">
+    <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-muted/10 text-gs-muted border border-gs-muted/20">
       New
     </span>
   );

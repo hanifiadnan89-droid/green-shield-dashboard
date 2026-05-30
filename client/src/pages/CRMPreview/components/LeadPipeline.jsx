@@ -74,12 +74,12 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
       <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="font-display font-semibold text-[#0F172A] text-sm">Lead Pipeline</h3>
-            <p className="type-label-md text-[#94A3B8] mt-0.5">{filtered.length} of {leads.length} leads</p>
+            <h3 className="font-display font-semibold text-gs-text text-sm">Lead Pipeline</h3>
+            <p className="type-label-md text-gs-muted mt-0.5">{filtered.length} of {leads.length} leads</p>
           </div>
           <Link
             to="/leads"
-            className="text-xs font-medium text-[#16A34A] hover:text-[#15803d] transition-colors cursor-pointer"
+            className="text-xs font-medium text-gs-accent hover:text-gs-accent-dim transition-colors cursor-pointer"
           >
             Full view →
           </Link>
@@ -92,7 +92,7 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, phone, email..."
-            className="w-full text-sm text-[#0F172A] placeholder-[#94A3B8] rounded-xl"
+            className="w-full text-sm text-gs-text placeholder-gs-muted rounded-xl"
             style={{
               background: 'rgba(255,255,255,0.72)',
               border: '1px solid rgba(15,42,20,0.10)',
