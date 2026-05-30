@@ -683,8 +683,9 @@ export default function RouteFinderWidget() {
 
         {/* ── Other windows toggle ── */}
         {geocodeStatus === 'success' && (
-          <div style={{ marginBottom: showOther ? 0 : 10, display: 'flex', alignItems: 'center' }}>
+          <div className={`flex items-center ${showOther ? 'mb-0' : 'mb-2.5'}`}>
             <button
+              type="button"
               onClick={() => {
                 const closing = showOther;
                 setShowOther(o => !o);
@@ -694,11 +695,7 @@ export default function RouteFinderWidget() {
                   if (geocode && activeTechnicians?.length) runScore(activeTechnicians, geocode, 'AT');
                 }
               }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                fontSize: 11, color: '#3B82F6', fontWeight: 600,
-                display: 'flex', alignItems: 'center', gap: 3,
-              }}
+              className="bg-transparent border-0 cursor-pointer p-0 text-[11px] text-blue-500 font-semibold flex items-center gap-0.5"
             >
               {showOther ? '▴' : '▾'} Other windows
             </button>
@@ -707,24 +704,23 @@ export default function RouteFinderWidget() {
 
         {/* ── Other: timing preference picker ── */}
         {geocodeStatus === 'success' && showOther && (
-          <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(59,130,246,0.04)', borderRadius: 10, border: '1px solid rgba(59,130,246,0.15)' }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: timePref === 'specific' ? 10 : 0 }}>
+          <div className="mb-3 px-3 py-2.5 bg-blue-500/[0.04] rounded-[10px] border border-blue-500/15">
+            <div className={`flex gap-1.5 ${timePref === 'specific' ? 'mb-2.5' : 'mb-0'}`}>
               {TIME_PREFS.map(({ key, label, sub }) => {
                 const active = timePref === key;
                 return (
                   <button
                     key={key}
+                    type="button"
                     onClick={() => handleTimePrefSelect(key)}
+                    className="flex-1 py-[7px] px-1 rounded-[9px] cursor-pointer text-center transition-all duration-150"
                     style={{
-                      flex: 1, padding: '7px 4px', borderRadius: 9,
                       border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
                       background: active ? '#3B82F6' : '#fff',
-                      cursor: 'pointer', textAlign: 'center',
-                      transition: 'all 0.15s',
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 700, color: active ? '#fff' : '#374151', lineHeight: 1 }}>{label}</div>
-                    <div style={{ fontSize: 9, color: active ? 'rgba(255,255,255,0.75)' : '#94A3B8', marginTop: 2 }}>{sub}</div>
+                    <div className="text-xs font-bold leading-none" style={{ color: active ? '#fff' : '#374151' }}>{label}</div>
+                    <div className="text-[9px] mt-0.5" style={{ color: active ? 'rgba(255,255,255,0.75)' : '#94A3B8' }}>{sub}</div>
                   </button>
                 );
               })}
@@ -732,19 +728,20 @@ export default function RouteFinderWidget() {
 
             {timePref === 'specific' && (
               <div>
-                <p style={{ fontSize: 10, fontWeight: 600, color: '#64748B', marginBottom: 5 }}>4-hour slots</p>
-                <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
+                <p className="type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal">4-hour slots</p>
+                <div className="flex gap-[5px] mb-2">
                   {FOUR_HOUR_SLOTS.map(({ key, label }) => {
                     const active = specificSlot === key;
                     return (
                       <button
                         key={key}
+                        type="button"
                         onClick={() => handleSpecificSlotSelect(key)}
+                        className="flex-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all duration-150"
                         style={{
-                          flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, fontWeight: 600,
                           border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
-                          background: active ? '#3B82F6' : '#fff', color: active ? '#fff' : '#374151',
-                          cursor: 'pointer', transition: 'all 0.15s',
+                          background: active ? '#3B82F6' : '#fff',
+                          color: active ? '#fff' : '#374151',
                         }}
                       >
                         {label}
@@ -752,19 +749,20 @@ export default function RouteFinderWidget() {
                     );
                   })}
                 </div>
-                <p style={{ fontSize: 10, fontWeight: 600, color: '#64748B', marginBottom: 5 }}>2-hour slots</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                <p className="type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal">2-hour slots</p>
+                <div className="flex flex-wrap gap-[5px]">
                   {TWO_HOUR_SLOTS.map(({ key, label }) => {
                     const active = specificSlot === key;
                     return (
                       <button
                         key={key}
+                        type="button"
                         onClick={() => handleSpecificSlotSelect(key)}
+                        className="py-[5px] px-2 rounded-[7px] type-label-sm font-semibold cursor-pointer transition-all duration-150 tracking-normal"
                         style={{
-                          padding: '5px 8px', borderRadius: 7, fontSize: 10, fontWeight: 600,
                           border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
-                          background: active ? '#3B82F6' : '#fff', color: active ? '#fff' : '#374151',
-                          cursor: 'pointer', transition: 'all 0.15s',
+                          background: active ? '#3B82F6' : '#fff',
+                          color: active ? '#fff' : '#374151',
                         }}
                       >
                         {label}
@@ -779,36 +777,19 @@ export default function RouteFinderWidget() {
 
         {/* ── Special notes ── */}
         {geocodeStatus === 'success' && (
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 5 }}>
-              Special Notes <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span>
+          <div className="mb-3">
+            <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-[5px]">
+              Special Notes <span className="font-normal normal-case">(optional)</span>
             </label>
             <textarea
               value={specialNotes}
               onChange={e => setSpecialNotes(e.target.value)}
               placeholder="e.g. call ahead, gate code, commercial account..."
               rows={2}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                padding: '7px 10px', borderRadius: 9, resize: 'none',
-                border: '1px solid rgba(0,0,0,0.1)', fontSize: 11, color: '#374151',
-                background: '#f8fafc', outline: 'none', lineHeight: 1.4,
-              }}
+              className="w-full box-border py-[7px] px-2.5 rounded-[9px] resize-none border border-black/10 text-[11px] text-gray-700 bg-slate-50 outline-none leading-[1.4]"
               onFocus={e => { e.target.style.borderColor = 'rgba(22,163,74,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)'; }}
               onBlur={e => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }}
             />
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {[
-                { name: 'Start Dashboard',           cmd: 'cd ~/green-shield-dashboard && bash start.sh' },
-                { name: 'Login Script',               cmd: 'cd ~/green-shield-dashboard && node scripts/fieldRoutesLogin.mjs' },
-                { name: 'Restart Server',            cmd: 'cd ~/green-shield-dashboard/server && npm start' },
-              ].map(({ name, cmd }) => (
-                <div key={name} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', whiteSpace: 'nowrap', flexShrink: 0 }}>{name}</span>
-                  <code style={{ fontSize: 9, color: '#475569', background: 'rgba(0,0,0,0.04)', borderRadius: 4, padding: '1px 5px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{cmd}</code>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -875,7 +856,7 @@ export default function RouteFinderWidget() {
                 {results.topMatches.map(match => (
                   <ResultCard key={match.routeId} match={match} rank={match.rank} routeArea={results.routeArea} />
                 ))}
-                <p style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 4 }}>
+                <p className="type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal">
                   {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
                 </p>
               </>
