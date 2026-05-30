@@ -2,6 +2,9 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw } from 'lucide-react';
 import { api } from '../../../api/client.js';
 import { scoreRoutes, detectRouteArea } from '../../../utils/fieldRoutesScorer.js';
+import StatusBadge from './RouteStatusBadge.jsx';
+import ResultCard from './RouteResultCard.jsx';
+import AuthStatusBanner from './RouteAuthBanner.jsx';
 
 // ---------------------------------------------------------------------------
 // Time slot configuration
@@ -24,9 +27,6 @@ const TWO_HOUR_SLOTS = [
   { key: '2-4',   label: '2 – 4pm' },
   { key: '4-6',   label: '4 – 6pm' },
 ];
-
-const LOGIN_CONFIRM_INTERVAL_MS = 5000;
-const LOGIN_CONFIRM_MAX_ATTEMPTS = 72; // 6 minutes, matching the login script window plus a little slack
 
 // ---------------------------------------------------------------------------
 // Date utilities
@@ -59,49 +59,6 @@ function buildDateMetas() {
 }
 
 // ---------------------------------------------------------------------------
-// Status badge for each date pill
-// ---------------------------------------------------------------------------
-const STATUS_CFG = {
-  cached:         { label: 'Cached',  color: '#16A34A' },
-  refreshing:     { label: 'Loading', color: '#3B82F6', spinning: true },
-  failed:         { label: 'Failed',  color: '#DC2626', showRefresh: true },
-  needs_login:    { label: 'Login',   color: '#F59E0B', showRefresh: true },
-  missing:        { label: '—',       color: '#94A3B8', showRefresh: true },
-  not_configured: { label: '—',       color: '#CBD5E1' },
-};
-
-function fmtAgo(isoStr) {
-  if (!isoStr) return null;
-  const ageMin = Math.round((Date.now() - new Date(isoStr).getTime()) / 60000);
-  if (ageMin < 1)    return 'just now';
-  if (ageMin < 60)   return `${ageMin}m ago`;
-  if (ageMin < 1440) return `${Math.floor(ageMin / 60)}h ago`;
-  return `${Math.floor(ageMin / 1440)}d ago`;
-}
-
-function StatusBadge({ status, meta, date, onRefresh }) {
-  const cfg = STATUS_CFG[status] || STATUS_CFG.missing;
-  const ago = status === 'cached' ? fmtAgo(meta?.timestamp) : null;
-  return (
-    <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 14 }}>
-      {cfg.spinning
-        ? <Loader2 size={9} className="animate-spin" style={{ color: cfg.color }} />
-        : <span style={{ fontSize: 9, color: cfg.color, fontWeight: 600 }}>{cfg.label}{ago ? ` · ${ago}` : ''}</span>
-      }
-      {cfg.showRefresh && onRefresh && (
-        <button
-          onClick={() => onRefresh(date)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: '#94A3B8', lineHeight: 1 }}
-          title="Refresh"
-        >
-          <RefreshCw size={9} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Nominatim geocoder
 // ---------------------------------------------------------------------------
 async function nominatimGeocode(address) {
@@ -117,431 +74,7 @@ async function nominatimGeocode(address) {
 }
 
 // ---------------------------------------------------------------------------
-// Score bar
-// ---------------------------------------------------------------------------
-function ScoreBar({ score, max = 100 }) {
-  const pct = Math.min(100, Math.max(0, (score / max) * 100));
-  const color = score >= 70 ? '#16A34A' : score >= 45 ? '#F59E0B' : '#94A3B8';
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{ flex: 1, height: 4, borderRadius: 4, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: color, transition: 'width 0.4s ease' }} />
-      </div>
-      <span style={{ fontSize: 11, fontWeight: 700, color, minWidth: 24, textAlign: 'right' }}>{score}</span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Result card
-// ---------------------------------------------------------------------------
-const ROUTE_AREA_LABELS = {
-  new_hampshire: 'New Hampshire Route',
-  maine:         'Maine Route',
-};
-
-const TIMED_RISK_CFG = {
-  none:   { label: '✓ timed safe',    color: '#16A34A' },
-  low:    { label: '⚡ low risk',      color: '#F59E0B' },
-  medium: { label: '⚠ timed risk',    color: '#F59E0B' },
-  high:   { label: '✗ timed conflict', color: '#DC2626' },
-};
-
-const SMOOTHNESS_CFG = {
-  'Smooth fit':       { color: '#16A34A', icon: '✓' },
-  'Minor adjustment': { color: '#F59E0B', icon: '~' },
-  'Tight gap':        { color: '#F59E0B', icon: '⚡' },
-  'Some disruption':  { color: '#F59E0B', icon: '⚠' },
-  'Difficult fit':    { color: '#DC2626', icon: '✗' },
-};
-
-const BT_RISK_CFG = {
-  'None':     { color: '#16A34A', icon: '✓' },
-  'Low':      { color: '#F59E0B', icon: '~' },
-  'Moderate': { color: '#F59E0B', icon: '⚠' },
-  'High':     { color: '#DC2626', icon: '✗' },
-  'Severe':   { color: '#DC2626', icon: '✗' },
-};
-
-const CONF_CFG = {
-  'High':   { color: '#16A34A' },
-  'Medium': { color: '#F59E0B' },
-  'Low':    { color: '#94A3B8' },
-};
-
-function ResultCard({ match, rank, routeArea }) {
-  const rankColors = ['#16A34A', '#3B82F6', '#8B5CF6'];
-  const color = rankColors[rank - 1] || '#94A3B8';
-  const ins = match.bestInsertion;
-  const timedCfg = TIMED_RISK_CFG[ins?.timedRisk] ?? TIMED_RISK_CFG.none;
-  const areaLabel = ROUTE_AREA_LABELS[routeArea];
-  const smoothCfg = SMOOTHNESS_CFG[match.routeSmoothness] ?? null;
-  const timedSafetyColor = ins?.timedRisk === 'high' ? '#DC2626'
-    : ins?.timedRisk === 'medium' || ins?.timedRisk === 'low' ? '#F59E0B'
-    : '#16A34A';
-  const btCfg   = BT_RISK_CFG[ins?.backtrackingRisk] ?? BT_RISK_CFG['None'];
-  const confCfg = CONF_CFG[ins?.optimizationConfidence] ?? CONF_CFG['Low'];
-  const clusterLabel = match.clusterDetail?.label || match.clusterLabel;
-
-  return (
-    <div style={{
-      borderRadius: 10,
-      border: `1px solid ${rank === 1 ? 'rgba(22,163,74,0.25)' : 'rgba(0,0,0,0.07)'}`,
-      background: rank === 1 ? 'rgba(22,163,74,0.04)' : '#fff',
-      padding: '10px 12px',
-      marginBottom: 8,
-    }}>
-      {/* Route area badge */}
-      {areaLabel && (
-        <div style={{ marginBottom: 6 }}>
-          <span style={{
-            fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-            color: routeArea === 'new_hampshire' ? '#3B82F6' : '#8B5CF6',
-            background: routeArea === 'new_hampshire' ? 'rgba(59,130,246,0.08)' : 'rgba(139,92,246,0.08)',
-            borderRadius: 4, padding: '1px 5px',
-          }}>
-            Route Area: {areaLabel}
-          </span>
-        </div>
-      )}
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-        <span style={{
-          width: 20, height: 20, borderRadius: '50%', background: color,
-          color: '#fff', fontSize: 10, fontWeight: 800,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          {rank}
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {match.techName}
-            </p>
-            {match.wasOptimized && (
-              <span style={{ fontSize: 8, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.08)', borderRadius: 3, padding: '1px 4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                optimized
-              </span>
-            )}
-            {ins?.optimizationConfidence && (
-              <span style={{ fontSize: 8, fontWeight: 600, color: confCfg.color, flexShrink: 0 }}
-                    title={`Optimization confidence: ${ins.optimizationConfidence}`}>
-                {ins.optimizationConfidence} conf
-              </span>
-            )}
-          </div>
-          <p style={{ fontSize: 10, color: '#64748B', margin: 0 }}>
-            Route {match.routeId} · {match.stopCount} stops · {match.nearestStopMiles} mi away
-            {match.clusterDensity > 0 && (
-              <span style={{ color: '#16A34A', fontWeight: 600, marginLeft: 4 }}>
-                · {match.clusterDensity} nearby
-              </span>
-            )}
-          </p>
-        </div>
-        {smoothCfg && (
-          <span style={{ fontSize: 9, fontWeight: 700, color: smoothCfg.color, flexShrink: 0, whiteSpace: 'nowrap' }}>
-            {smoothCfg.icon} {match.routeSmoothness}
-          </span>
-        )}
-      </div>
-
-      {/* Suggested window */}
-      {ins?.suggestedWindow && (
-        <div style={{ marginBottom: 6 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: rank === 1 ? '#16A34A' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {rank === 1 ? 'Recommended: ' : 'Suggested: '}
-          </span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#0F172A' }}>
-            {ins.suggestedWindow}
-          </span>
-          <span style={{ fontSize: 10, color: '#94A3B8', marginLeft: 5 }}>
-            (arrives {ins.estimatedArrivalTime})
-          </span>
-        </div>
-      )}
-
-      <ScoreBar score={match.scores.total} />
-
-      {/* Insertion path */}
-      {ins && (ins.prevStop || ins.nextStop) && (
-        <div style={{ marginTop: 6, fontSize: 10, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-          {ins.prevStop && (
-            <span title={ins.insertAfterLabel || ins.prevStop.scheduledArrival}>{ins.prevStop.customerName}</span>
-          )}
-          {ins.prevStop && <span style={{ color: '#CBD5E1' }}>→</span>}
-          <span style={{ color: '#16A34A', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>NEW</span>
-          {ins.nextStop && <span style={{ color: '#CBD5E1' }}>→</span>}
-          {ins.nextStop && (
-            <span title={ins.insertBeforeLabel || (ins.nextStop.isTimed ? `Timed: ${ins.nextStop.windowLabel}` : ins.nextStop.scheduledArrival)}>
-              {ins.nextStop.customerName}
-              {ins.nextStop.isTimed && <span style={{ color: '#F59E0B', marginLeft: 2 }}>⏱</span>}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Geo context: insertion position + closest stop + cluster */}
-      {ins && (
-        <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {ins.insertionPositionLabel && (
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>
-              <span style={{ fontWeight: 600, color: '#64748B' }}>Position</span> {ins.insertionPositionLabel}
-            </span>
-          )}
-          {match.closestStop && (
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>
-              <span style={{ fontWeight: 600, color: '#64748B' }}>Closest stop</span>{' '}
-              {match.closestStop.customerName ?? match.closestStop.address} · {match.closestStop.distanceMiles} mi
-              {match.closestStop.scheduledTime ? ` · ${match.closestStop.scheduledTime}` : ''}
-              {' '}(stop {match.closestStop.stopIndex})
-            </span>
-          )}
-          {clusterLabel && (
-            <span style={{ fontSize: 9, fontWeight: 600, color: match.clusterDensity >= 3 ? '#16A34A' : match.clusterDensity >= 1 ? '#F59E0B' : '#94A3B8' }}>
-              {match.clusterDensity >= 3 ? '✓ ' : match.clusterDensity >= 1 ? '~ ' : ''}{clusterLabel}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Stats row */}
-      {ins && (
-        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>+Drive</span> {ins.addedDriveTime}
-          </span>
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>+Miles</span> {ins.detourMiles} mi
-          </span>
-          {ins.serviceDuration && (
-            <span style={{ fontSize: 10, color: '#475569' }}>
-              <span style={{ fontWeight: 600 }}>Service</span> {ins.serviceDuration}
-            </span>
-          )}
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>Cap</span> {match.capacity.remainingHours}h left
-          </span>
-          {!ins.viable && (
-            <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>⚠ tight gap</span>
-          )}
-        </div>
-      )}
-
-      {/* Backtracking risk */}
-      {ins?.backtrackingRisk && ins.backtrackingRisk !== 'None' && (
-        <div style={{ marginTop: 4 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: btCfg.color }}>
-            {btCfg.icon} Backtracking:
-          </span>{' '}
-          <span style={{ fontSize: 10, color: btCfg.color }}>
-            {ins.backtrackingRisk}
-            {ins.backtrackingDetail ? ` — ${ins.backtrackingDetail}` : ''}
-          </span>
-        </div>
-      )}
-      {ins?.backtrackingRisk === 'None' && (
-        <div style={{ marginTop: 4 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#16A34A' }}>✓ Backtracking:</span>{' '}
-          <span style={{ fontSize: 10, color: '#16A34A' }}>None</span>
-        </div>
-      )}
-
-      {/* Timed appointment safety */}
-      {ins?.timedSafetyLabel && (
-        <div style={{ marginTop: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: timedSafetyColor }}>
-            {ins.timedRisk === 'none' ? '✓' : ins.timedRisk === 'high' ? '✗' : '⚠'} Timed appts:
-          </span>{' '}
-          <span style={{ fontSize: 10, color: timedSafetyColor }}>{ins.timedSafetyLabel}</span>
-        </div>
-      )}
-
-      {/* Estimated end of day — informational */}
-      {ins?.eodLabel && (
-        <div style={{ marginTop: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#64748B' }}>◷ Est. end:</span>{' '}
-          <span style={{ fontSize: 10, color: '#475569' }}>{ins.eodLabel}</span>
-        </div>
-      )}
-
-      {/* Start/end location fit */}
-      {ins?.startEndLocationFit && !ins.startEndLocationFit.startsWith('Neutral') && (
-        <div style={{ marginTop: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#3B82F6' }}>◎ Location fit:</span>{' '}
-          <span style={{ fontSize: 10, color: '#475569' }}>{ins.startEndLocationFit}</span>
-        </div>
-      )}
-
-      {/* Reason */}
-      {match.reason && (
-        <p style={{ fontSize: 10, color: '#64748B', margin: '5px 0 0', lineHeight: 1.4 }}>
-          {match.reason}
-        </p>
-      )}
-
-      {/* Score breakdown */}
-      <div style={{ display: 'flex', gap: 6, marginTop: 6, paddingTop: 5, borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-        {['geographic', 'travelEfficiency', 'timeWindow', 'capacity', 'insertionProximity'].map(k => {
-          const labels = { geographic: 'Geo', travelEfficiency: 'Drive', timeWindow: 'Win', capacity: 'Cap', insertionProximity: 'Ins' };
-          const v = match.scores[k] ?? 0;
-          return (
-            <div key={k} style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: v >= 70 ? '#16A34A' : v >= 45 ? '#F59E0B' : '#CBD5E1' }}>{v}</div>
-              <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 1 }}>{labels[k]}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Auth status banner — always mounted, never conditional
-// ---------------------------------------------------------------------------
-function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
-  const [refreshState, setRefreshState] = useState('idle'); // idle | loading | waiting | checking | done | error
-  const loginPollRef = useRef(null);
-  const isLocalDashboard = typeof window !== 'undefined'
-    && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-
-  useEffect(() => () => {
-    if (loginPollRef.current) clearInterval(loginPollRef.current);
-  }, []);
-
-  const isChecking = authInfo.status === 'checking';
-  const isOk       = authInfo.status === 'ok';
-  const isLogin    = authInfo.status === 'needs_login';
-  const isFailed   = authInfo.status === 'failed';
-
-  const dotColor  = isChecking ? '#94A3B8' : isOk ? '#16A34A' : isFailed ? '#DC2626' : '#F59E0B';
-  const textColor = isChecking ? '#64748B' : isOk ? '#16A34A' : isFailed ? '#DC2626' : '#B45309';
-  const bg        = isChecking ? 'rgba(148,163,184,0.06)' : isOk ? 'rgba(22,163,74,0.05)' : isFailed ? 'rgba(220,38,38,0.05)' : 'rgba(245,158,11,0.07)';
-  const border    = isChecking ? 'rgba(148,163,184,0.2)' : isOk ? 'rgba(22,163,74,0.18)' : isFailed ? 'rgba(220,38,38,0.18)' : 'rgba(245,158,11,0.28)';
-  const label     = isChecking ? 'Checking…' : isOk ? 'Connected' : isLogin ? 'Needs Login' : isFailed ? 'Failed' : 'Unknown';
-
-  async function confirmLoginNow() {
-    setRefreshState('checking');
-    try {
-      const statusData = await onLoginRefreshStarted?.({ checkAuth: true });
-      if (statusData?._auth?.status === 'ok') {
-        if (loginPollRef.current) {
-          clearInterval(loginPollRef.current);
-          loginPollRef.current = null;
-        }
-        setRefreshState('done');
-        setTimeout(() => setRefreshState('idle'), 4000);
-      } else {
-        setRefreshState('waiting');
-      }
-    } catch {
-      setRefreshState('error');
-      setTimeout(() => setRefreshState('waiting'), 4000);
-    }
-  }
-
-  async function handleLoginRefresh() {
-    if (loginPollRef.current) {
-      clearInterval(loginPollRef.current);
-      loginPollRef.current = null;
-    }
-    setRefreshState('loading');
-    try {
-      await api.routes.loginRefresh();
-      setRefreshState('waiting');
-      onLoginRefreshStarted?.({ checkAuth: false });
-
-      let attempts = 0;
-      loginPollRef.current = setInterval(async () => {
-        attempts += 1;
-        try {
-          const statusData = await onLoginRefreshStarted?.({ checkAuth: true });
-          if (statusData?._auth?.status === 'ok') {
-            clearInterval(loginPollRef.current);
-            loginPollRef.current = null;
-            setRefreshState('done');
-            setTimeout(() => setRefreshState('idle'), 4000);
-          }
-        } catch { /* keep polling until timeout */ }
-
-        if (attempts >= LOGIN_CONFIRM_MAX_ATTEMPTS && loginPollRef.current) {
-          clearInterval(loginPollRef.current);
-          loginPollRef.current = null;
-          setRefreshState('error');
-          setTimeout(() => setRefreshState('idle'), 6000);
-        }
-      }, LOGIN_CONFIRM_INTERVAL_MS);
-    } catch {
-      setRefreshState('error');
-      setTimeout(() => setRefreshState('idle'), 4000);
-    }
-  }
-
-  const btnLabel = refreshState === 'loading' ? 'Opening…'
-    : refreshState === 'checking' ? 'Checking…'
-    : refreshState === 'waiting' && isLocalDashboard ? 'Check Login'
-    : refreshState === 'done'    ? 'Auth confirmed ✓'
-    : refreshState === 'error'   ? 'Not confirmed — retry'
-    : isLocalDashboard ? 'Refresh Login'
-    : 'Check Auth';
-
-  const btnColor = refreshState === 'done' ? '#16A34A'
-    : refreshState === 'error' ? '#DC2626'
-    : '#B45309';
-
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ padding: '5px 9px', borderRadius: 8, background: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: textColor }}>
-            FieldRoutes: {label}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {authInfo.lastCheckFormatted && (
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>checked {authInfo.lastCheckFormatted}</span>
-          )}
-          {authInfo.lastRefreshFormatted && (
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>refreshed {authInfo.lastRefreshFormatted}</span>
-          )}
-          {(isLogin || isFailed) && (
-            <button
-              onClick={!isLocalDashboard || refreshState === 'waiting' ? confirmLoginNow : handleLoginRefresh}
-              disabled={refreshState === 'loading' || refreshState === 'checking'}
-              style={{
-                fontSize: 9, fontWeight: 700, color: '#fff',
-                background: btnColor,
-                border: 'none', borderRadius: 5, padding: '2px 7px',
-                cursor: refreshState === 'loading' || refreshState === 'checking' ? 'default' : 'pointer',
-                opacity: refreshState === 'loading' || refreshState === 'checking' ? 0.7 : 1,
-                transition: 'opacity 0.15s',
-              }}
-            >
-              {btnLabel}
-            </button>
-          )}
-        </div>
-      </div>
-      {isFailed && authInfo.message && (
-        <div style={{ marginTop: 5, padding: '5px 9px', borderRadius: 7, background: 'rgba(220,38,38,0.04)', border: '1px solid rgba(220,38,38,0.18)' }}>
-          <span style={{ fontSize: 9, color: '#DC2626' }}>{authInfo.message}</span>
-        </div>
-      )}
-      {isLogin && !isLocalDashboard && (
-        <div style={{ marginTop: 5, padding: '5px 9px', borderRadius: 7, background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.18)' }}>
-          <span style={{ fontSize: 9, color: '#B45309' }}>
-            Update FIELDROUTES_AUTH_STATE_JSON in Render, redeploy, then click Check Auth.
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main widget
+// Main widget — sub-components in RouteStatusBadge, RouteResultCard, RouteAuthBanner
 // ---------------------------------------------------------------------------
 export default function RouteFinderWidget() {
   // Date selection
@@ -940,28 +473,32 @@ export default function RouteFinderWidget() {
   return (
     <div className="p-card section-enter flex flex-col h-full">
       {/* Header */}
-      <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(22,163,74,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Navigation size={14} style={{ color: '#16A34A' }} />
+      <div className="px-5 pt-4 pb-3 border-b border-black/[0.05] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gs-accent/10 flex items-center justify-center">
+            <Navigation size={14} className="text-gs-accent" />
           </div>
           <div>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1 }}>Route Finder</h3>
-            <p style={{ fontSize: 10, color: '#94A3B8', margin: 0, marginTop: 2 }}>Find best technician for a new stop</p>
+            <h3 className="text-[13px] font-bold text-gs-text m-0 leading-none">Route Finder</h3>
+            <p className="type-label-sm text-slate-400 m-0 mt-0.5 font-normal tracking-normal">
+              Find best technician for a new stop
+            </p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={handleRefreshAll}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
+            className="bg-transparent border-0 cursor-pointer text-slate-400 p-1 rounded-md flex items-center"
             title="Refresh all dates"
           >
             <RefreshCw size={13} />
           </button>
           {(geocode || results) && (
             <button
+              type="button"
               onClick={handleReset}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
+              className="bg-transparent border-0 cursor-pointer text-slate-400 p-1 rounded-md flex items-center"
               title="Reset"
             >
               <RotateCcw size={13} />
@@ -976,11 +513,11 @@ export default function RouteFinderWidget() {
         <AuthStatusBanner authInfo={authInfo} onLoginRefreshStarted={handleLoginRefreshStarted} />
 
         {/* ── Date picker ── */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>
+        <div className="mb-3.5">
+          <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5">
             Route Date
           </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div className="route-date-pill-grid">
             {DATE_METAS.map(({ key, label }) => {
               const s = dateStatus[key] || { status: 'missing' };
               const isCached = s.status === 'cached';
@@ -988,25 +525,22 @@ export default function RouteFinderWidget() {
               const isLoading = dateLoadStatus === 'loading' && isActive;
 
               return (
-                <div key={key} style={{ flex: '1 1 calc(33.33% - 4px)', textAlign: 'center' }}>
+                <div key={key} className="route-date-pill-cell">
                   <button
+                    type="button"
                     onClick={() => isCached && handleDateSelect(key)}
+                    className="w-full py-1.5 px-1 rounded-[9px] transition-all duration-150 flex items-center justify-center gap-1"
                     style={{
-                      width: '100%',
-                      padding: '6px 4px',
-                      borderRadius: 9,
                       border: `1.5px solid ${isActive ? '#16A34A' : isCached ? 'rgba(22,163,74,0.3)' : 'rgba(0,0,0,0.08)'}`,
                       background: isActive ? '#16A34A' : isCached ? 'rgba(22,163,74,0.04)' : '#f8fafc',
                       cursor: isCached ? 'pointer' : 'default',
-                      transition: 'all 0.15s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 4,
                     }}
                   >
                     {isLoading && <Loader2 size={9} className="animate-spin" style={{ color: isActive ? '#fff' : '#16A34A' }} />}
-                    <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? '#fff' : isCached ? '#0F172A' : '#94A3B8', lineHeight: 1 }}>
+                    <span
+                      className="text-[11px] font-bold leading-none"
+                      style={{ color: isActive ? '#fff' : isCached ? '#0F172A' : '#94A3B8' }}
+                    >
                       {label}
                     </span>
                   </button>
@@ -1017,45 +551,43 @@ export default function RouteFinderWidget() {
           </div>
 
           {activeDate && activeTechnicians !== null && activeTechnicians.length === 0 && dateLoadStatus !== 'loading' && (
-            <p style={{ fontSize: 10, color: '#F59E0B', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <p className="type-label-sm text-amber-500 mt-1.5 flex items-center gap-1 font-normal tracking-normal">
               <AlertCircle size={10} /> No routes with stops found for this date
             </p>
           )}
           {activeDate && dateLoadStatus === 'error' && (
-            <p style={{ fontSize: 10, color: '#DC2626', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <p className="type-label-sm text-gs-danger mt-1.5 flex items-center gap-1 font-normal tracking-normal">
               <AlertCircle size={10} /> Failed to load route data
             </p>
           )}
         </div>
 
         {/* ── Address input ── */}
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 5 }}>
+        <div className="mb-3">
+          <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-[5px]">
             Customer Address
           </label>
 
           {geocodeStatus === 'success' && !isEditing ? (
-            <div style={{
-              borderRadius: 10, border: '1px solid rgba(22,163,74,0.3)', background: 'rgba(22,163,74,0.04)',
-              padding: '8px 10px', display: 'flex', alignItems: 'flex-start', gap: 7,
-            }}>
-              <CheckCircle size={13} style={{ color: '#16A34A', marginTop: 1, flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', margin: 0, lineHeight: 1.3 }}>{geocode.display}</p>
-                <p style={{ fontSize: 10, color: '#94A3B8', margin: '2px 0 0', fontFamily: 'monospace' }}>
+            <div className="rounded-[10px] border border-gs-accent/30 bg-gs-accent/[0.04] px-2.5 py-2 flex items-start gap-[7px]">
+              <CheckCircle size={13} className="text-gs-accent mt-px shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-gs-text m-0 leading-[1.3]">{geocode.display}</p>
+                <p className="type-mono text-slate-400 mt-0.5 mb-0">
                   {geocode.lat.toFixed(5)}, {geocode.lng.toFixed(5)}
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsEditing(true)}
-                style={{ fontSize: 10, color: '#16A34A', background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px', fontWeight: 600, flexShrink: 0 }}
+                className="type-label-sm text-gs-accent bg-transparent border-0 cursor-pointer py-px px-1 font-semibold shrink-0 tracking-normal"
               >
                 Edit
               </button>
             </div>
           ) : (
-            <div style={{ position: 'relative' }}>
-              <MapPin size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', zIndex: 1 }} />
+            <div className="relative">
+              <MapPin size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 z-[1]" />
               <input
                 autoFocus={isEditing}
                 value={addressInput}
@@ -1073,11 +605,9 @@ export default function RouteFinderWidget() {
                 }}
                 onKeyDown={handleAddressKey}
                 placeholder="Start typing an address…"
+                className="w-full box-border py-2 pl-7 pr-9 rounded-[10px] text-xs text-gs-text bg-slate-50 outline-none"
                 style={{
-                  width: '100%', boxSizing: 'border-box',
-                  padding: '8px 36px 8px 28px', borderRadius: 10,
                   border: `1px solid ${geocodeStatus === 'error' ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.1)'}`,
-                  fontSize: 12, color: '#0F172A', background: '#f8fafc', outline: 'none',
                 }}
                 onFocus={e => {
                   e.target.style.borderColor = 'rgba(22,163,74,0.4)';
@@ -1093,11 +623,12 @@ export default function RouteFinderWidget() {
                 }}
               />
               {geocodeStatus === 'loading' ? (
-                <Loader2 size={12} className="animate-spin" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                <Loader2 size={12} className="animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               ) : (
                 <button
+                  type="button"
                   onClick={() => doGeocode(addressInput)}
-                  style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 3, color: '#94A3B8', display: 'flex' }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer p-[3px] text-slate-400 flex"
                 >
                   <Search size={12} />
                 </button>
@@ -1105,34 +636,30 @@ export default function RouteFinderWidget() {
 
               {/* Autocomplete dropdown */}
               {showSuggestions && suggestions.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-                  background: '#fff', borderRadius: 10, marginTop: 4,
-                  border: '1px solid rgba(0,0,0,0.1)',
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
-                  overflow: 'hidden',
-                }}>
+                <div className="absolute top-full left-0 right-0 z-[200] bg-white rounded-[10px] mt-1 border border-black/10 shadow-[0_6px_20px_rgba(0,0,0,0.1)] overflow-hidden">
                   {suggestions.map((s, i) => (
                     <div
                       key={i}
                       onMouseDown={() => { suppressBlurRef.current = true; selectSuggestion(s); }}
                       onMouseEnter={() => setActiveSuggestion(i)}
+                      className={`py-[7px] px-[11px] cursor-pointer flex items-start gap-2 transition-colors duration-100 ${
+                        i < suggestions.length - 1 ? 'border-b border-black/[0.05]' : ''
+                      }`}
                       style={{
-                        padding: '7px 11px',
-                        cursor: 'pointer',
                         background: i === activeSuggestion ? 'rgba(22,163,74,0.06)' : '#fff',
-                        borderBottom: i < suggestions.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
-                        display: 'flex', alignItems: 'flex-start', gap: 8,
-                        transition: 'background 0.1s',
                       }}
                     >
-                      <MapPin size={11} style={{ color: i === activeSuggestion ? '#16A34A' : '#94A3B8', marginTop: 2, flexShrink: 0 }} />
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', margin: 0, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <MapPin
+                        size={11}
+                        className="mt-0.5 shrink-0"
+                        style={{ color: i === activeSuggestion ? '#16A34A' : '#94A3B8' }}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-gs-text m-0 leading-[1.3] truncate">
                           {s.primary}
                         </p>
                         {s.secondary && (
-                          <p style={{ fontSize: 10, color: '#64748B', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <p className="type-label-sm text-gs-muted mt-px mb-0 truncate font-normal tracking-normal">
                             {s.secondary}
                           </p>
                         )}
@@ -1145,17 +672,20 @@ export default function RouteFinderWidget() {
           )}
 
           {geocodeStatus === 'error' && (
-            <p style={{ fontSize: 10, color: '#DC2626', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <p className="type-label-sm text-gs-danger mt-1 flex items-center gap-1 font-normal tracking-normal">
               <AlertCircle size={10} /> {geocodeError} — try a more complete address
             </p>
           )}
-          <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>Type to see suggestions · press Enter or ↑↓ to navigate</p>
+          <p className="type-label-sm text-slate-400 mt-1 font-normal tracking-normal">
+            Type to see suggestions · press Enter or ↑↓ to navigate
+          </p>
         </div>
 
         {/* ── Other windows toggle ── */}
         {geocodeStatus === 'success' && (
-          <div style={{ marginBottom: showOther ? 0 : 10, display: 'flex', alignItems: 'center' }}>
+          <div className={`flex items-center ${showOther ? 'mb-0' : 'mb-2.5'}`}>
             <button
+              type="button"
               onClick={() => {
                 const closing = showOther;
                 setShowOther(o => !o);
@@ -1165,11 +695,7 @@ export default function RouteFinderWidget() {
                   if (geocode && activeTechnicians?.length) runScore(activeTechnicians, geocode, 'AT');
                 }
               }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                fontSize: 11, color: '#3B82F6', fontWeight: 600,
-                display: 'flex', alignItems: 'center', gap: 3,
-              }}
+              className="bg-transparent border-0 cursor-pointer p-0 text-[11px] text-blue-500 font-semibold flex items-center gap-0.5"
             >
               {showOther ? '▴' : '▾'} Other windows
             </button>
@@ -1178,24 +704,23 @@ export default function RouteFinderWidget() {
 
         {/* ── Other: timing preference picker ── */}
         {geocodeStatus === 'success' && showOther && (
-          <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(59,130,246,0.04)', borderRadius: 10, border: '1px solid rgba(59,130,246,0.15)' }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: timePref === 'specific' ? 10 : 0 }}>
+          <div className="mb-3 px-3 py-2.5 bg-blue-500/[0.04] rounded-[10px] border border-blue-500/15">
+            <div className={`flex gap-1.5 ${timePref === 'specific' ? 'mb-2.5' : 'mb-0'}`}>
               {TIME_PREFS.map(({ key, label, sub }) => {
                 const active = timePref === key;
                 return (
                   <button
                     key={key}
+                    type="button"
                     onClick={() => handleTimePrefSelect(key)}
+                    className="flex-1 py-[7px] px-1 rounded-[9px] cursor-pointer text-center transition-all duration-150"
                     style={{
-                      flex: 1, padding: '7px 4px', borderRadius: 9,
                       border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
                       background: active ? '#3B82F6' : '#fff',
-                      cursor: 'pointer', textAlign: 'center',
-                      transition: 'all 0.15s',
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 700, color: active ? '#fff' : '#374151', lineHeight: 1 }}>{label}</div>
-                    <div style={{ fontSize: 9, color: active ? 'rgba(255,255,255,0.75)' : '#94A3B8', marginTop: 2 }}>{sub}</div>
+                    <div className="text-xs font-bold leading-none" style={{ color: active ? '#fff' : '#374151' }}>{label}</div>
+                    <div className="text-[9px] mt-0.5" style={{ color: active ? 'rgba(255,255,255,0.75)' : '#94A3B8' }}>{sub}</div>
                   </button>
                 );
               })}
@@ -1203,19 +728,20 @@ export default function RouteFinderWidget() {
 
             {timePref === 'specific' && (
               <div>
-                <p style={{ fontSize: 10, fontWeight: 600, color: '#64748B', marginBottom: 5 }}>4-hour slots</p>
-                <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
+                <p className="type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal">4-hour slots</p>
+                <div className="flex gap-[5px] mb-2">
                   {FOUR_HOUR_SLOTS.map(({ key, label }) => {
                     const active = specificSlot === key;
                     return (
                       <button
                         key={key}
+                        type="button"
                         onClick={() => handleSpecificSlotSelect(key)}
+                        className="flex-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all duration-150"
                         style={{
-                          flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, fontWeight: 600,
                           border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
-                          background: active ? '#3B82F6' : '#fff', color: active ? '#fff' : '#374151',
-                          cursor: 'pointer', transition: 'all 0.15s',
+                          background: active ? '#3B82F6' : '#fff',
+                          color: active ? '#fff' : '#374151',
                         }}
                       >
                         {label}
@@ -1223,19 +749,20 @@ export default function RouteFinderWidget() {
                     );
                   })}
                 </div>
-                <p style={{ fontSize: 10, fontWeight: 600, color: '#64748B', marginBottom: 5 }}>2-hour slots</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                <p className="type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal">2-hour slots</p>
+                <div className="flex flex-wrap gap-[5px]">
                   {TWO_HOUR_SLOTS.map(({ key, label }) => {
                     const active = specificSlot === key;
                     return (
                       <button
                         key={key}
+                        type="button"
                         onClick={() => handleSpecificSlotSelect(key)}
+                        className="py-[5px] px-2 rounded-[7px] type-label-sm font-semibold cursor-pointer transition-all duration-150 tracking-normal"
                         style={{
-                          padding: '5px 8px', borderRadius: 7, fontSize: 10, fontWeight: 600,
                           border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
-                          background: active ? '#3B82F6' : '#fff', color: active ? '#fff' : '#374151',
-                          cursor: 'pointer', transition: 'all 0.15s',
+                          background: active ? '#3B82F6' : '#fff',
+                          color: active ? '#fff' : '#374151',
                         }}
                       >
                         {label}
@@ -1250,36 +777,19 @@ export default function RouteFinderWidget() {
 
         {/* ── Special notes ── */}
         {geocodeStatus === 'success' && (
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 5 }}>
-              Special Notes <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span>
+          <div className="mb-3">
+            <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-[5px]">
+              Special Notes <span className="font-normal normal-case">(optional)</span>
             </label>
             <textarea
               value={specialNotes}
               onChange={e => setSpecialNotes(e.target.value)}
               placeholder="e.g. call ahead, gate code, commercial account..."
               rows={2}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                padding: '7px 10px', borderRadius: 9, resize: 'none',
-                border: '1px solid rgba(0,0,0,0.1)', fontSize: 11, color: '#374151',
-                background: '#f8fafc', outline: 'none', lineHeight: 1.4,
-              }}
+              className="w-full box-border py-[7px] px-2.5 rounded-[9px] resize-none border border-black/10 text-[11px] text-gray-700 bg-slate-50 outline-none leading-[1.4]"
               onFocus={e => { e.target.style.borderColor = 'rgba(22,163,74,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)'; }}
               onBlur={e => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }}
             />
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {[
-                { name: 'Start Dashboard',           cmd: 'cd ~/green-shield-dashboard && bash start.sh' },
-                { name: 'Login Script',               cmd: 'cd ~/green-shield-dashboard && node scripts/fieldRoutesLogin.mjs' },
-                { name: 'Restart Server',            cmd: 'cd ~/green-shield-dashboard/server && npm start' },
-              ].map(({ name, cmd }) => (
-                <div key={name} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span style={{ fontSize: 9, fontWeight: 600, color: '#94A3B8', whiteSpace: 'nowrap', flexShrink: 0 }}>{name}</span>
-                  <code style={{ fontSize: 9, color: '#475569', background: 'rgba(0,0,0,0.04)', borderRadius: 4, padding: '1px 5px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{cmd}</code>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -1346,7 +856,7 @@ export default function RouteFinderWidget() {
                 {results.topMatches.map(match => (
                   <ResultCard key={match.routeId} match={match} rank={match.rank} routeArea={results.routeArea} />
                 ))}
-                <p style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 4 }}>
+                <p className="type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal">
                   {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
                 </p>
               </>
