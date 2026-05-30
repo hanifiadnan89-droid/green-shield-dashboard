@@ -146,12 +146,51 @@
   transform: translateY(-1px);
 }
 
+/* ── Sidebar group labels ── */
+.crm-preview .sidebar-group-label {
+  color: rgba(255,255,255,0.22);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 0 12px;
+  margin-bottom: 4px;
+  user-select: none;
+}
+
 /* ── Sidebar items ── */
 .crm-preview .sidebar-item {
-  transition: background-color 0.14s ease, color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
+  border: none;
+  border-left: 2px solid transparent;
+  transition: background 150ms ease, border-color 150ms ease, transform 120ms ease;
 }
-.crm-preview .sidebar-item:hover {
-  transform: translateX(2px);
+.crm-preview .sidebar-item:hover:not(.is-active) {
+  background: rgba(255,255,255,0.04);
+  transform: translateX(1px);
+}
+.crm-preview .sidebar-item.is-active {
+  background: rgba(74,222,128,0.10);
+  border-left-color: #4ade80;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* ── Sidebar badge pill ── */
+.crm-preview .sidebar-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+.crm-preview .sidebar-item.is-active .sidebar-badge,
+.crm-preview .sidebar-item:hover .sidebar-badge {
+  transform: scale(1.05);
 }
 
 /* ── Quick action cards ── */
@@ -190,10 +229,9 @@
 }
 
 .crm-preview .premium-sidebar {
-  background:
-    linear-gradient(180deg, rgba(12,34,17,0.98) 0%, rgba(7,23,10,0.98) 100%),
-    repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 18px);
-  box-shadow: inset -1px 0 0 rgba(255,255,255,0.06), 16px 0 40px rgba(7,23,10,0.16);
+  background-color: #080F0A;
+  background-image: radial-gradient(ellipse at 0 0, rgba(22,163,74,0.07) 0%, transparent 60%);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.06), 16px 0 40px rgba(4,12,6,0.20);
 }
 
 .crm-preview .route-finder-card {
@@ -229,11 +267,8 @@
   min-width: 0;
 }
 
-/* ── Tablet (≤ 1024px): slightly tighter sidebar and padding ── */
+/* ── Tablet (≤ 1024px): tighter content padding ── */
 @media (max-width: 1024px) {
-  .crm-preview .premium-sidebar {
-    width: 200px !important;
-  }
   .crm-preview .bento-shell {
     padding: 16px;
   }
@@ -244,6 +279,24 @@
   .crm-preview .bento-shell {
     padding: 10px;
     gap: 12px;
+  }
+}
+
+/* ── Mobile (≤ 639px): prevent horizontal overflow across all dashboard cards ── */
+@media (max-width: 639px) {
+  .crm-preview main {
+    overflow-x: hidden;
+  }
+  .crm-preview .p-card,
+  .crm-preview .bento-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .crm-preview .route-finder-card {
+    overflow-x: hidden;
+  }
+  .crm-preview .lead-row {
+    min-width: 0;
   }
 }
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { X, Phone, Mail, User, Calendar, Clock, AlertCircle, CheckCircle, XCircle, MessageSquare, Send, Hash } from 'lucide-react';
 import { api } from '../api/client.js';
 import StatusBadge from './StatusBadge.jsx';
+import { hasRealReply } from '../pages/CRMPreview/mockData.js';
 
 const KNOWN_KEYS = new Set(['name','email','phone','notes','status','sent','stop','sms_reply','email_reply','error','row_number']);
 
@@ -104,11 +105,11 @@ export default function LeadDetailPanel({ lead, onClose }) {
 
           {/* Engagement */}
           <Section title="Engagement">
-            <Field label="SMS Reply" value={lead.sms_reply === 'yes'
+            <Field label="SMS Reply" value={hasRealReply(lead.sms_reply)
               ? <span className="text-gs-accent text-xs font-semibold flex items-center gap-1"><CheckCircle size={11} /> Replied</span>
               : <span className="text-gs-muted text-xs">None</span>
             } />
-            <Field label="Email Reply" value={lead.email_reply === 'yes'
+            <Field label="Email Reply" value={hasRealReply(lead.email_reply)
               ? <span className="text-gs-accent text-xs font-semibold flex items-center gap-1"><CheckCircle size={11} /> Replied</span>
               : <span className="text-gs-muted text-xs">None</span>
             } />

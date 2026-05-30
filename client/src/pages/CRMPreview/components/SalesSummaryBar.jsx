@@ -9,9 +9,9 @@ const CARDS = [
     label: 'Needs Action',
     sub: 'Replies + errors awaiting',
     icon: AlertTriangle,
-    iconBg: '#fef2f2',
     iconColor: '#DC2626',
-    accent: '#DC2626',
+    iconBg: 'rgba(220,38,38,0.10)',
+    activeBorder: 'rgba(220,38,38,0.18)',
     href: '/leads',
   },
   {
@@ -19,9 +19,9 @@ const CARDS = [
     label: 'Hot Replies',
     sub: 'Customers responded',
     icon: MessageSquare,
-    iconBg: '#f0fdf4',
     iconColor: '#16A34A',
-    accent: '#16A34A',
+    iconBg: 'rgba(22,163,74,0.10)',
+    activeBorder: 'rgba(22,163,74,0.18)',
     href: '/leads',
   },
   {
@@ -29,9 +29,9 @@ const CARDS = [
     label: 'Agreements Pending',
     sub: 'AG leads awaiting reply',
     icon: FileCheck,
-    iconBg: '#eff6ff',
     iconColor: '#2563EB',
-    accent: '#2563EB',
+    iconBg: 'rgba(37,99,235,0.10)',
+    activeBorder: 'rgba(37,99,235,0.18)',
     href: '/leads?notes=ag',
   },
   {
@@ -39,9 +39,9 @@ const CARDS = [
     label: 'Follow-up Queue',
     sub: 'Active leads in sequence',
     icon: Clock,
-    iconBg: '#fffbeb',
     iconColor: '#D97706',
-    accent: '#D97706',
+    iconBg: 'rgba(217,119,6,0.10)',
+    activeBorder: 'rgba(217,119,6,0.18)',
     href: '/leads',
   },
 ];
@@ -52,58 +52,58 @@ export default function SalesSummaryBar({ leads = [], loading = false }) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {CARDS.map(({ key, label, sub, icon: Icon, iconBg, iconColor, accent, href }, i) => {
+      {CARDS.map(({ key, label, sub, icon: Icon, iconColor, iconBg, activeBorder, href }, i) => {
         const count = stats ? (stats[key] ?? 0) : 0;
         const hasActivity = count > 0;
 
         return (
           <div
             key={key}
-            className="bento-card p-card stat-card-float flex items-center gap-4 p-5"
+            className="bento-card p-card p-card-lift flex items-center gap-4 p-5 cursor-pointer"
             role="button"
             tabIndex={0}
             onClick={() => navigate(href)}
             onKeyDown={e => e.key === 'Enter' && navigate(href)}
             style={{
-              borderBottom: hasActivity ? `3px solid ${accent}` : '3px solid rgba(255,255,255,0.4)',
               animationDelay: `${i * 65}ms`,
-              background: hasActivity
-                ? `linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.74)), linear-gradient(135deg, ${accent}14, rgba(255,255,255,0))`
-                : undefined,
+              borderColor: hasActivity ? activeBorder : undefined,
             }}
           >
+            {/* Icon container */}
             <div
               style={{
-                background: `linear-gradient(180deg, rgba(255,255,255,0.92), ${iconBg})`,
-                borderRadius: '12px',
-                padding: '10px',
-                display: 'inline-flex',
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: iconBg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 flexShrink: 0,
-                border: `1px solid ${accent}20`,
-                boxShadow: '4px 5px 12px rgba(15,42,20,0.08), inset 0 1px 0 rgba(255,255,255,0.78)',
               }}
             >
-              <Icon size={18} style={{ color: iconColor }} />
+              <Icon size={16} style={{ color: iconColor }} />
             </div>
 
+            {/* Text */}
             <div className="min-w-0 flex-1">
               {loading ? (
                 <>
-                  <div className="skeleton mb-1.5 rounded" style={{ height: '28px', width: '40px' }} />
+                  <div className="skeleton mb-1.5 rounded" style={{ height: '30px', width: '40px' }} />
                   <div className="skeleton h-2.5 w-20 rounded" />
                 </>
               ) : (
                 <>
                   <p
-                    className="font-heading font-bold text-[#0F172A] leading-none mb-1"
-                    style={{ fontSize: '28px' }}
+                    className="font-display font-bold text-gs-text leading-none mb-1"
+                    style={{ fontSize: '30px' }}
                   >
                     <AnimatedNumber value={count} />
                   </p>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-[#94A3B8] leading-tight">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gs-muted leading-tight">
                     {label}
                   </p>
-                  <p className="text-[10px] text-[#B4BFCC] mt-0.5 leading-tight">{sub}</p>
+                  <p className="text-[10px] text-gs-muted/60 mt-0.5 leading-tight">{sub}</p>
                 </>
               )}
             </div>

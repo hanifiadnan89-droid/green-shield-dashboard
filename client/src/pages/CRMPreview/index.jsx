@@ -30,8 +30,7 @@ function PreviewToast({ message, onClose }) {
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
-        maxWidth: '420px',
-        whiteSpace: 'nowrap',
+        maxWidth: 'min(420px, calc(100vw - 48px))',
       }}
     >
       <span style={{ color: '#4ade80', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
@@ -49,7 +48,7 @@ function ErrorState({ onRetry, message }) {
         <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#DC2626" strokeWidth="1.5"/><path d="M12 8v4m0 4h.01" stroke="#DC2626" strokeWidth="1.5" strokeLinecap="round"/></svg>
       </div>
       <div>
-        <p className="font-heading font-semibold text-[#0F172A] text-base">Could not load data</p>
+        <p className="font-display font-semibold text-[#0F172A] text-base">Could not load data</p>
         <p className="text-sm text-[#64748B] mt-1 max-w-xl">
           {message || 'The hosted API is reachable, but the dashboard could not load leads or activity data. Check Render logs for the exact API error.'}
         </p>
@@ -187,7 +186,7 @@ export default function CRMPreview({ testMode }) {
           ) : loading ? (
             <LoadingSkeleton />
           ) : (
-            <div className="bento-shell p-6 space-y-6 w-full">
+            <div className="bento-shell p-4 lg:p-6 space-y-4 lg:space-y-6 w-full">
 
               {/* Sales summary bar */}
               <SalesSummaryBar leads={leads ?? []} loading={false} />
@@ -196,7 +195,7 @@ export default function CRMPreview({ testMode }) {
               <PipelineSummary stats={stats ?? {}} />
 
               {/* Lead Pipeline + Route Finder */}
-              <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-6">
+              <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 pb-4 lg:pb-6">
                 <div className="lg:col-span-8">
                   <LeadPipeline
                     leads={leads ?? []}

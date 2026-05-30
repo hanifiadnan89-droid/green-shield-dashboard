@@ -1365,6 +1365,15 @@ const PS_STYLES = `
   .ps-metric-card { grid-template-columns: 40px minmax(0,1fr); }
   .ps-metric-card__spark { display: none; }
 }
+@media (max-width: 639px) {
+  .ps-root { padding: 14px 14px 16px; }
+  .ps-root__header { padding-bottom: 14px; }
+  .ps-main { min-height: unset; gap: 10px; }
+  .ps-panel { padding: 14px 14px 18px; }
+  .ps-center-stage { min-height: 260px; }
+  .ps-orb { width: clamp(140px, 50%, 180px); }
+  .ps-metric-card__label { font-size: 10px; }
+}
 `;
 
 // Inject styles — always update content so HMR picks up changes

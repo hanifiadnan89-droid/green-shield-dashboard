@@ -74,7 +74,7 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
       <div className="px-5 pt-5 pb-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="font-heading font-semibold text-[#0F172A] text-sm">Lead Pipeline</h3>
+            <h3 className="font-display font-semibold text-[#0F172A] text-sm">Lead Pipeline</h3>
             <p className="text-[11px] text-[#94A3B8] mt-0.5">{filtered.length} of {leads.length} leads</p>
           </div>
           <Link
@@ -107,7 +107,7 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
         </div>
 
         {/* Filter chips */}
-        <div className="flex items-center gap-1.5 mt-3">
+        <div className="flex flex-wrap items-center gap-1.5 mt-3">
           {/* Status filters — left group */}
           <div className="flex gap-1.5 flex-wrap flex-1">
             {FILTERS.map(({ key, label }) => {
