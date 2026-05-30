@@ -75,16 +75,8 @@ function SalesSummaryBar({ leads = [], loading = false }) {
           >
             {/* Icon container */}
             <div
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
-                background: iconBg,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
+              className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0"
+              style={{ background: iconBg }}
             >
               <Icon size={16} style={{ color: iconColor }} />
             </div>

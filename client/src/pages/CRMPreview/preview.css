@@ -5,7 +5,6 @@
   background:
     linear-gradient(135deg, #f7faf4 0%, #eef6ea 38%, #f4f7f2 100%),
     repeating-linear-gradient(90deg, rgba(15,42,20,0.026) 0 1px, transparent 1px 32px);
-  perspective: 1400px;
 }
 
 .crm-preview main {
@@ -52,11 +51,6 @@
   display: none;
 }
 
-.crm-preview .p-card > * {
-  position: relative;
-  z-index: 1;
-}
-
 /* ── Tier 2: KPI card ── */
 .crm-preview .card-kpi {
   position: relative;
@@ -70,11 +64,6 @@
 /* Suppress the global glass reflection overlay from index.css */
 .crm-preview .card-kpi::before {
   display: none;
-}
-
-.crm-preview .card-kpi > * {
-  position: relative;
-  z-index: 1;
 }
 
 /* ── Shared lift hover (applies to both p-card and card-kpi) ── */

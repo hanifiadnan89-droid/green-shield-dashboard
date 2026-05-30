@@ -28,12 +28,12 @@ export default function ActivityFeed({ activity = [] }) {
     <div className="p-card section-enter flex flex-col" style={{ minHeight: '400px' }}>
       <div className="flex items-center justify-between px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
         <div>
-          <h3 className="font-display font-semibold text-[#0F172A] text-sm">Activity Feed</h3>
-          <p className="type-label-md text-[#94A3B8] mt-0.5">Recent CRM events</p>
+          <h3 className="font-display font-semibold text-gs-text text-sm">Activity Feed</h3>
+          <p className="type-label-md text-gs-muted mt-0.5">Recent CRM events</p>
         </div>
         <Link
           to="/activity"
-          className="flex items-center gap-1 text-xs font-medium text-[#16A34A] hover:text-[#15803d] transition-colors cursor-pointer"
+          className="flex items-center gap-1 text-xs font-medium text-gs-accent hover:text-gs-accent-dim transition-colors cursor-pointer"
         >
           View all <ArrowRight size={11} />
         </Link>
@@ -74,20 +74,20 @@ export default function ActivityFeed({ activity = [] }) {
                 <div className={`flex-1 ${isLast ? 'pb-2' : 'pb-4'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-[#0F172A] leading-tight">
+                      <p className="text-xs font-semibold text-gs-text leading-tight">
                         {meta.label}
                         {entry.testMode && (
-                          <span className="ml-1.5 type-label-sm text-[#D97706] bg-amber-50 border border-amber-200 px-1 py-0.5 rounded-full">TEST</span>
+                          <span className="ml-1.5 type-label-sm text-gs-warn bg-gs-warn/8 border border-gs-warn/20 px-1 py-0.5 rounded-full">TEST</span>
                         )}
                       </p>
-                      <p className="type-label-md text-[#94A3B8] mt-0.5 truncate">
+                      <p className="type-label-md text-gs-muted mt-0.5 truncate">
                         {entry.leadName || '—'}
                         {entry.template && (
                           <span className="ml-1 uppercase font-semibold" style={{ color: meta.color }}>· {entry.template}</span>
                         )}
                       </p>
                     </div>
-                    <p className="type-label-sm text-[#94A3B8] shrink-0 mt-0.5">
+                    <p className="type-label-sm text-gs-muted shrink-0 mt-0.5">
                       {entry.timestamp ? timeAgo(entry.timestamp) : '—'}
                     </p>
                   </div>

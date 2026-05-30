@@ -14,8 +14,6 @@ import {
   BarChart3,
   PhoneOff,
 } from 'lucide-react';
-import './PipelineSummaryLivingFlow.css';
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TONE = {
@@ -718,7 +716,7 @@ function PipelineSummaryFlow({ stats }) {
 }
 
 // ─── CSS (scoped inline styles for ps- classes) ────────────────────────────────
-// These styles supplement PipelineSummaryLivingFlow.css with the new ps- class system.
+// Scoped ps- class system for PipelineSummary.
 // Injected once via a style tag to keep the JSX self-contained.
 
 const PS_STYLES = `
