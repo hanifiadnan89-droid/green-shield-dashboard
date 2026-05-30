@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { AlertTriangle, MessageSquare, FileCheck, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { deriveSalesStats } from '../mockData.js';
@@ -46,9 +47,12 @@ const CARDS = [
   },
 ];
 
-export default function SalesSummaryBar({ leads = [], loading = false }) {
+function SalesSummaryBar({ leads = [], loading = false }) {
   const navigate = useNavigate();
-  const stats = loading ? null : deriveSalesStats(leads);
+  const stats = useMemo(
+    () => loading ? null : deriveSalesStats(leads),
+    [leads, loading],
+  );
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -110,3 +114,5 @@ export default function SalesSummaryBar({ leads = [], loading = false }) {
     </div>
   );
 }
+
+export default memo(SalesSummaryBar);

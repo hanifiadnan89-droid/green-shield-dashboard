@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import { RefreshCw } from 'lucide-react';
 
-export default function PreviewHeader({ onRefresh, loading }) {
+function PreviewHeader({ onRefresh, loading }) {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
@@ -36,3 +37,5 @@ export default function PreviewHeader({ onRefresh, loading }) {
     </header>
   );
 }
+
+export default memo(PreviewHeader);

@@ -1,16 +1,19 @@
 import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import Layout from './components/Layout.jsx';
 import TestModeBanner from './components/TestModeBanner.jsx';
-import Leads from './pages/Leads.jsx';
-import SendTemplate from './pages/SendTemplate.jsx';
-import Workflows from './pages/Workflows.jsx';
-import Followups from './pages/Followups.jsx';
-import ActivityLog from './pages/ActivityLog.jsx';
-import ComponentPreview from './pages/ComponentPreview.jsx';
 import CRMPreview from './pages/CRMPreview/index.jsx';
-import Replies from './pages/Replies.jsx';
 import { api } from './api/client.js';
+
+// Non-root pages are lazy-loaded — only fetched when the user navigates to them.
+// CRMPreview at "/" is kept as an eager import (primary route, should be instant).
+const Leads            = lazy(() => import('./pages/Leads.jsx'));
+const SendTemplate     = lazy(() => import('./pages/SendTemplate.jsx'));
+const Replies          = lazy(() => import('./pages/Replies.jsx'));
+const Workflows        = lazy(() => import('./pages/Workflows.jsx'));
+const Followups        = lazy(() => import('./pages/Followups.jsx'));
+const ActivityLog      = lazy(() => import('./pages/ActivityLog.jsx'));
+const ComponentPreview = lazy(() => import('./pages/ComponentPreview.jsx'));
 
 function AppShell({ testMode, credsMissing }) {
   return (
@@ -23,7 +26,10 @@ function AppShell({ testMode, credsMissing }) {
           Lead data will not load until credentials are set.
         </div>
       )}
-      <Outlet />
+      {/* Suspense boundary: Layout renders immediately; page chunk loads on demand */}
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
     </Layout>
   );
 }

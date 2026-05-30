@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Shield, LayoutDashboard, Users, Send, Workflow, Clock, Activity,
@@ -40,7 +40,7 @@ function itemIsActive(item, activeFilter, pathname) {
   return false;
 }
 
-export default function PremiumSidebar({ stats, testMode, activeFilter, onFilterChange, unreadReplies = 0 }) {
+function PremiumSidebar({ stats, testMode, activeFilter, onFilterChange, unreadReplies = 0 }) {
   const [isMobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
 
@@ -257,3 +257,5 @@ export default function PremiumSidebar({ stats, testMode, activeFilter, onFilter
     </>
   );
 }
+
+export default memo(PremiumSidebar);
