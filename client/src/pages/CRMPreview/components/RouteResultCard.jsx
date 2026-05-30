@@ -52,63 +52,69 @@ function ResultCard({ match, rank, routeArea }) {
   const clusterLabel = match.clusterDetail?.label || match.clusterLabel;
 
   return (
-    <div style={{
-      borderRadius: 10,
-      border: `1px solid ${rank === 1 ? 'rgba(22,163,74,0.25)' : 'rgba(0,0,0,0.07)'}`,
-      background: rank === 1 ? 'rgba(22,163,74,0.04)' : '#fff',
-      padding: '10px 12px',
-      marginBottom: 8,
-    }}>
+    <div
+      className="rounded-[10px] px-3 py-2.5 mb-2"
+      style={{
+        border: `1px solid ${rank === 1 ? 'rgba(22,163,74,0.25)' : 'rgba(0,0,0,0.07)'}`,
+        background: rank === 1 ? 'rgba(22,163,74,0.04)' : '#fff',
+      }}
+    >
       {/* Route area badge */}
       {areaLabel && (
-        <div style={{ marginBottom: 6 }}>
-          <span style={{
-            fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-            color: routeArea === 'new_hampshire' ? '#3B82F6' : '#8B5CF6',
-            background: routeArea === 'new_hampshire' ? 'rgba(59,130,246,0.08)' : 'rgba(139,92,246,0.08)',
-            borderRadius: 4, padding: '1px 5px',
-          }}>
+        <div className="mb-1.5">
+          <span
+            className="text-[9px] font-bold uppercase tracking-[0.04em] rounded px-[5px] py-px"
+            style={{
+              color: routeArea === 'new_hampshire' ? '#3B82F6' : '#8B5CF6',
+              background: routeArea === 'new_hampshire' ? 'rgba(59,130,246,0.08)' : 'rgba(139,92,246,0.08)',
+            }}
+          >
             Route Area: {areaLabel}
           </span>
         </div>
       )}
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-        <span style={{
-          width: 20, height: 20, borderRadius: '50%', background: color,
-          color: '#fff', fontSize: 10, fontWeight: 800,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
+      <div className="flex items-center gap-2 mb-[5px]">
+        <span
+          className="w-5 h-5 rounded-full text-white text-[10px] font-extrabold flex items-center justify-center shrink-0"
+          style={{ background: color }}
+        >
           {rank}
         </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-[5px] mb-px">
+            <p className="text-xs font-bold text-gs-text m-0 leading-[1.2] truncate">
               {match.techName}
             </p>
             {match.wasOptimized && (
-              <span style={{ fontSize: 8, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.08)', borderRadius: 3, padding: '1px 4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <span className="text-[8px] font-bold text-blue-500 bg-blue-500/[0.08] rounded-[3px] px-1 py-px whitespace-nowrap shrink-0">
                 optimized
               </span>
             )}
             {ins?.optimizationConfidence && (
-              <span style={{ fontSize: 8, fontWeight: 600, color: confCfg.color, flexShrink: 0 }}
-                    title={`Optimization confidence: ${ins.optimizationConfidence}`}>
+              <span
+                className="text-[8px] font-semibold shrink-0"
+                style={{ color: confCfg.color }}
+                title={`Optimization confidence: ${ins.optimizationConfidence}`}
+              >
                 {ins.optimizationConfidence} conf
               </span>
             )}
           </div>
-          <p style={{ fontSize: 10, color: '#64748B', margin: 0 }}>
+          <p className="type-label-sm text-gs-muted m-0 font-normal tracking-normal">
             Route {match.routeId} · {match.stopCount} stops · {match.nearestStopMiles} mi away
             {match.clusterDensity > 0 && (
-              <span style={{ color: '#16A34A', fontWeight: 600, marginLeft: 4 }}>
+              <span className="font-semibold ml-1" style={{ color: '#16A34A' }}>
                 · {match.clusterDensity} nearby
               </span>
             )}
           </p>
         </div>
         {smoothCfg && (
-          <span style={{ fontSize: 9, fontWeight: 700, color: smoothCfg.color, flexShrink: 0, whiteSpace: 'nowrap' }}>
+          <span
+            className="text-[9px] font-bold shrink-0 whitespace-nowrap"
+            style={{ color: smoothCfg.color }}
+          >
             {smoothCfg.icon} {match.routeSmoothness}
           </span>
         )}
@@ -116,14 +122,17 @@ function ResultCard({ match, rank, routeArea }) {
 
       {/* Suggested window */}
       {ins?.suggestedWindow && (
-        <div style={{ marginBottom: 6 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: rank === 1 ? '#16A34A' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div className="mb-1.5">
+          <span
+            className="type-label-sm uppercase tracking-[0.05em] font-bold"
+            style={{ color: rank === 1 ? '#16A34A' : '#64748B' }}
+          >
             {rank === 1 ? 'Recommended: ' : 'Suggested: '}
           </span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#0F172A' }}>
+          <span className="text-[11px] font-bold text-gs-text">
             {ins.suggestedWindow}
           </span>
-          <span style={{ fontSize: 10, color: '#94A3B8', marginLeft: 5 }}>
+          <span className="type-label-sm text-slate-400 ml-[5px] font-normal tracking-normal">
             (arrives {ins.estimatedArrivalTime})
           </span>
         </div>
@@ -133,17 +142,17 @@ function ResultCard({ match, rank, routeArea }) {
 
       {/* Insertion path */}
       {ins && (ins.prevStop || ins.nextStop) && (
-        <div style={{ marginTop: 6, fontSize: 10, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+        <div className="mt-1.5 type-label-sm text-gs-muted font-normal tracking-normal flex items-center gap-1 flex-wrap">
           {ins.prevStop && (
             <span title={ins.insertAfterLabel || ins.prevStop.scheduledArrival}>{ins.prevStop.customerName}</span>
           )}
-          {ins.prevStop && <span style={{ color: '#CBD5E1' }}>→</span>}
-          <span style={{ color: '#16A34A', fontWeight: 700, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>NEW</span>
-          {ins.nextStop && <span style={{ color: '#CBD5E1' }}>→</span>}
+          {ins.prevStop && <span className="text-slate-300">→</span>}
+          <span className="text-gs-accent font-bold text-[9px] uppercase tracking-[0.05em]">NEW</span>
+          {ins.nextStop && <span className="text-slate-300">→</span>}
           {ins.nextStop && (
             <span title={ins.insertBeforeLabel || (ins.nextStop.isTimed ? `Timed: ${ins.nextStop.windowLabel}` : ins.nextStop.scheduledArrival)}>
               {ins.nextStop.customerName}
-              {ins.nextStop.isTimed && <span style={{ color: '#F59E0B', marginLeft: 2 }}>⏱</span>}
+              {ins.nextStop.isTimed && <span className="text-amber-500 ml-0.5">⏱</span>}
             </span>
           )}
         </div>
@@ -151,22 +160,25 @@ function ResultCard({ match, rank, routeArea }) {
 
       {/* Geo context: insertion position + closest stop + cluster */}
       {ins && (
-        <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div className="mt-[5px] flex flex-col gap-0.5">
           {ins.insertionPositionLabel && (
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>
-              <span style={{ fontWeight: 600, color: '#64748B' }}>Position</span> {ins.insertionPositionLabel}
+            <span className="text-[9px] text-slate-400">
+              <span className="font-semibold text-gs-muted">Position</span> {ins.insertionPositionLabel}
             </span>
           )}
           {match.closestStop && (
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>
-              <span style={{ fontWeight: 600, color: '#64748B' }}>Closest stop</span>{' '}
+            <span className="text-[9px] text-slate-400">
+              <span className="font-semibold text-gs-muted">Closest stop</span>{' '}
               {match.closestStop.customerName ?? match.closestStop.address} · {match.closestStop.distanceMiles} mi
               {match.closestStop.scheduledTime ? ` · ${match.closestStop.scheduledTime}` : ''}
               {' '}(stop {match.closestStop.stopIndex})
             </span>
           )}
           {clusterLabel && (
-            <span style={{ fontSize: 9, fontWeight: 600, color: match.clusterDensity >= 3 ? '#16A34A' : match.clusterDensity >= 1 ? '#F59E0B' : '#94A3B8' }}>
+            <span
+              className="text-[9px] font-semibold"
+              style={{ color: match.clusterDensity >= 3 ? '#16A34A' : match.clusterDensity >= 1 ? '#F59E0B' : '#94A3B8' }}
+            >
               {match.clusterDensity >= 3 ? '✓ ' : match.clusterDensity >= 1 ? '~ ' : ''}{clusterLabel}
             </span>
           )}
@@ -175,88 +187,93 @@ function ResultCard({ match, rank, routeArea }) {
 
       {/* Stats row */}
       {ins && (
-        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>+Drive</span> {ins.addedDriveTime}
+        <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1">
+          <span className="type-label-sm text-slate-600 font-normal tracking-normal">
+            <span className="font-semibold">+Drive</span> {ins.addedDriveTime}
           </span>
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>+Miles</span> {ins.detourMiles} mi
+          <span className="type-label-sm text-slate-600 font-normal tracking-normal">
+            <span className="font-semibold">+Miles</span> {ins.detourMiles} mi
           </span>
           {ins.serviceDuration && (
-            <span style={{ fontSize: 10, color: '#475569' }}>
-              <span style={{ fontWeight: 600 }}>Service</span> {ins.serviceDuration}
+            <span className="type-label-sm text-slate-600 font-normal tracking-normal">
+              <span className="font-semibold">Service</span> {ins.serviceDuration}
             </span>
           )}
-          <span style={{ fontSize: 10, color: '#475569' }}>
-            <span style={{ fontWeight: 600 }}>Cap</span> {match.capacity.remainingHours}h left
+          <span className="type-label-sm text-slate-600 font-normal tracking-normal">
+            <span className="font-semibold">Cap</span> {match.capacity.remainingHours}h left
           </span>
           {!ins.viable && (
-            <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>⚠ tight gap</span>
+            <span className="type-label-sm text-amber-500 font-semibold tracking-normal">⚠ tight gap</span>
           )}
         </div>
       )}
 
       {/* Backtracking risk */}
       {ins?.backtrackingRisk && ins.backtrackingRisk !== 'None' && (
-        <div style={{ marginTop: 4 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: btCfg.color }}>
+        <div className="mt-1">
+          <span className="type-label-sm font-semibold tracking-normal" style={{ color: btCfg.color }}>
             {btCfg.icon} Backtracking:
           </span>{' '}
-          <span style={{ fontSize: 10, color: btCfg.color }}>
+          <span className="type-label-sm tracking-normal" style={{ color: btCfg.color }}>
             {ins.backtrackingRisk}
             {ins.backtrackingDetail ? ` — ${ins.backtrackingDetail}` : ''}
           </span>
         </div>
       )}
       {ins?.backtrackingRisk === 'None' && (
-        <div style={{ marginTop: 4 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#16A34A' }}>✓ Backtracking:</span>{' '}
-          <span style={{ fontSize: 10, color: '#16A34A' }}>None</span>
+        <div className="mt-1">
+          <span className="type-label-sm font-semibold text-gs-accent tracking-normal">✓ Backtracking:</span>{' '}
+          <span className="type-label-sm text-gs-accent tracking-normal">None</span>
         </div>
       )}
 
       {/* Timed appointment safety */}
       {ins?.timedSafetyLabel && (
-        <div style={{ marginTop: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: timedSafetyColor }}>
+        <div className="mt-0.5">
+          <span className="type-label-sm font-semibold tracking-normal" style={{ color: timedSafetyColor }}>
             {ins.timedRisk === 'none' ? '✓' : ins.timedRisk === 'high' ? '✗' : '⚠'} Timed appts:
           </span>{' '}
-          <span style={{ fontSize: 10, color: timedSafetyColor }}>{ins.timedSafetyLabel}</span>
+          <span className="type-label-sm tracking-normal" style={{ color: timedSafetyColor }}>{ins.timedSafetyLabel}</span>
         </div>
       )}
 
       {/* Estimated end of day — informational */}
       {ins?.eodLabel && (
-        <div style={{ marginTop: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#64748B' }}>◷ Est. end:</span>{' '}
-          <span style={{ fontSize: 10, color: '#475569' }}>{ins.eodLabel}</span>
+        <div className="mt-0.5">
+          <span className="type-label-sm font-semibold text-gs-muted tracking-normal">◷ Est. end:</span>{' '}
+          <span className="type-label-sm text-slate-600 tracking-normal">{ins.eodLabel}</span>
         </div>
       )}
 
       {/* Start/end location fit */}
       {ins?.startEndLocationFit && !ins.startEndLocationFit.startsWith('Neutral') && (
-        <div style={{ marginTop: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#3B82F6' }}>◎ Location fit:</span>{' '}
-          <span style={{ fontSize: 10, color: '#475569' }}>{ins.startEndLocationFit}</span>
+        <div className="mt-0.5">
+          <span className="type-label-sm font-semibold text-blue-500 tracking-normal">◎ Location fit:</span>{' '}
+          <span className="type-label-sm text-slate-600 tracking-normal">{ins.startEndLocationFit}</span>
         </div>
       )}
 
       {/* Reason */}
       {match.reason && (
-        <p style={{ fontSize: 10, color: '#64748B', margin: '5px 0 0', lineHeight: 1.4 }}>
+        <p className="type-label-sm text-gs-muted font-normal tracking-normal mt-[5px] mb-0 leading-[1.4]">
           {match.reason}
         </p>
       )}
 
       {/* Score breakdown */}
-      <div style={{ display: 'flex', gap: 6, marginTop: 6, paddingTop: 5, borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+      <div className="flex gap-1.5 mt-1.5 pt-[5px] border-t border-black/[0.04]">
         {['geographic', 'travelEfficiency', 'timeWindow', 'capacity', 'insertionProximity'].map(k => {
           const labels = { geographic: 'Geo', travelEfficiency: 'Drive', timeWindow: 'Win', capacity: 'Cap', insertionProximity: 'Ins' };
           const v = match.scores[k] ?? 0;
           return (
-            <div key={k} style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: v >= 70 ? '#16A34A' : v >= 45 ? '#F59E0B' : '#CBD5E1' }}>{v}</div>
-              <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 1 }}>{labels[k]}</div>
+            <div key={k} className="text-center flex-1">
+              <div
+                className="type-label-sm font-bold tracking-normal"
+                style={{ color: v >= 70 ? '#16A34A' : v >= 45 ? '#F59E0B' : '#CBD5E1' }}
+              >
+                {v}
+              </div>
+              <div className="text-[9px] text-slate-400 mt-px">{labels[k]}</div>
             </div>
           );
         })}
