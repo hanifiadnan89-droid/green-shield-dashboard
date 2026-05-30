@@ -1,11 +1,11 @@
 export default function LoadingSkeleton() {
   return (
-    <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
+    <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
 
       {/* KPI bar — matches SalesSummaryBar: 1 col → 2 col → 4 col */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[0, 1, 2, 3].map(i => (
-          <div key={i} className="p-card rounded-2xl p-5 flex items-center gap-4">
+          <div key={i} className="card-kpi p-5 flex items-center gap-4">
             <div className="skeleton h-10 w-10 rounded-xl shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="skeleton h-8 w-14 mb-2" />
@@ -16,7 +16,7 @@ export default function LoadingSkeleton() {
       </div>
 
       {/* Pipeline summary — always full width */}
-      <div className="p-card rounded-2xl p-5 lg:p-8">
+      <div className="p-card p-5 lg:p-8">
         <div className="skeleton h-4 w-40 mb-6" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {[0, 1, 2].map(i => (
@@ -29,7 +29,7 @@ export default function LoadingSkeleton() {
         </div>
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[0, 1, 2, 3, 4].map(i => (
-            <div key={i} className="p-card rounded-xl p-3">
+            <div key={i} className="p-card p-3">
               <div className="skeleton h-6 w-10 mb-1.5" />
               <div className="skeleton h-2.5 w-14" />
             </div>
@@ -38,10 +38,10 @@ export default function LoadingSkeleton() {
       </div>
 
       {/* Lead list + Route Finder — matches lg:grid-cols-12 split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5">
 
         {/* Lead pipeline — lg:col-span-8 */}
-        <div className="lg:col-span-8 p-card rounded-2xl p-5">
+        <div className="lg:col-span-8 p-card p-5">
           <div className="skeleton h-4 w-32 mb-4" />
           <div className="skeleton h-9 w-full rounded-xl mb-3" />
           {/* Filter chips — wrapping row */}
@@ -64,7 +64,7 @@ export default function LoadingSkeleton() {
         </div>
 
         {/* Route Finder — lg:col-span-4 */}
-        <div className="lg:col-span-4 p-card rounded-2xl p-5">
+        <div className="lg:col-span-4 p-card p-5">
           <div className="skeleton h-4 w-28 mb-4" />
           <div className="flex flex-wrap gap-2 mb-4">
             {[0, 1, 2].map(i => (
@@ -78,7 +78,7 @@ export default function LoadingSkeleton() {
             ))}
           </div>
           {[0, 1, 2].map(i => (
-            <div key={i} className="p-card rounded-xl p-3 mb-3">
+            <div key={i} className="p-card p-3 mb-3">
               <div className="flex items-center gap-2 mb-2">
                 <div className="skeleton h-8 w-8 rounded-full shrink-0" />
                 <div className="flex-1">

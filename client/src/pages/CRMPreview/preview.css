@@ -37,19 +37,19 @@
   border-radius: 8px;
 }
 
-/* ── Premium card base ── */
+/* ── Tier 1: Content card ── */
 .crm-preview .p-card {
   position: relative;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.76)),
-    linear-gradient(135deg, rgba(22,163,74,0.06), rgba(37,99,235,0.035));
-  border-radius: 16px;
-  border: 1px solid rgba(226,232,240,0.84);
-  box-shadow:
-    0 18px 42px rgba(15, 42, 20, 0.10),
-    0 1px 0 rgba(255,255,255,0.85) inset;
-  transform-style: preserve-3d;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+/* Suppress the global glass reflection overlay from index.css */
+.crm-preview .p-card::before {
+  display: none;
 }
 
 .crm-preview .p-card > * {
@@ -57,35 +57,37 @@
   z-index: 1;
 }
 
+/* ── Tier 2: KPI card ── */
+.crm-preview .card-kpi {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fff9 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(22,163,74,0.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 0 0 1px rgba(22,163,74,0.04);
+}
+
+/* Suppress the global glass reflection overlay from index.css */
+.crm-preview .card-kpi::before {
+  display: none;
+}
+
+.crm-preview .card-kpi > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Shared lift hover (applies to both p-card and card-kpi) ── */
 .crm-preview .p-card-lift {
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.22s ease-out,
-              border-color 0.22s ease-out;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.2s ease-out,
+              border-color 0.2s ease-out;
 }
 
 .crm-preview .p-card-lift:hover {
-  transform: translateY(-3px) rotateX(0.4deg);
-  box-shadow: 0 24px 58px rgba(15, 42, 20, 0.14), 0 0 0 1px rgba(22, 163, 74, 0.16);
-  border-color: rgba(22, 163, 74, 0.20);
-}
-
-/* ── Stat card floating hover ── */
-.crm-preview .stat-card-float {
-  cursor: pointer;
-  will-change: transform, box-shadow;
-  transform-style: preserve-3d;
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.3s ease-out,
-              border-color 0.2s ease;
-}
-
-.crm-preview .stat-card-float:hover {
-  transform: translateY(-6px) rotateX(1.3deg) rotateY(-0.8deg) scale(1.012);
-  box-shadow:
-    0 26px 58px rgba(15, 42, 20, 0.14),
-    0 8px 18px rgba(15, 42, 20, 0.08),
-    inset 0 1px 0 rgba(255,255,255,0.92);
-  border-color: rgba(22, 163, 74, 0.20);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+  border-color: rgba(22,163,74,0.18);
 }
 
 /* ── Bento staggered entrance ── */
@@ -193,17 +195,6 @@
   transform: scale(1.05);
 }
 
-/* ── Quick action cards ── */
-.crm-preview .action-card {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.2s ease-out,
-              border-color 0.2s ease-out;
-}
-.crm-preview .action-card:hover {
-  transform: translateY(-3px) rotateX(0.8deg);
-  box-shadow: 0 20px 45px rgba(15, 42, 20, 0.14), 0 0 0 1px rgba(22, 163, 74, 0.12);
-  border-color: rgba(22, 163, 74, 0.22);
-}
 
 .crm-preview .bento-shell {
   position: relative;
@@ -267,20 +258,8 @@
   min-width: 0;
 }
 
-/* ── Tablet (≤ 1024px): tighter content padding ── */
-@media (max-width: 1024px) {
-  .crm-preview .bento-shell {
-    padding: 16px;
-  }
-}
-
-/* ── Small tablet (≤ 768px): compact padding ── */
-@media (max-width: 768px) {
-  .crm-preview .bento-shell {
-    padding: 10px;
-    gap: 12px;
-  }
-}
+/* Bento-shell padding is handled by Tailwind p-4 lg:p-6 on the element.
+   No CSS overrides needed — those were removed to avoid conflicts. */
 
 /* ── Mobile (≤ 639px): prevent horizontal overflow across all dashboard cards ── */
 @media (max-width: 639px) {
@@ -288,6 +267,7 @@
     overflow-x: hidden;
   }
   .crm-preview .p-card,
+  .crm-preview .card-kpi,
   .crm-preview .bento-card {
     min-width: 0;
     max-width: 100%;
@@ -307,7 +287,7 @@
   .crm-preview .feed-item,
   .crm-preview .progress-fill,
   .crm-preview .p-card-lift,
-  .crm-preview .action-card,
+  .crm-preview .card-kpi,
   .crm-preview .result-card,
   .crm-preview .skeleton {
     animation: none !important;

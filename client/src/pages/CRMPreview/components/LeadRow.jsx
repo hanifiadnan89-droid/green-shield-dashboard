@@ -8,7 +8,7 @@ function TemplateBadge({ notes }) {
   if (!meta) return null;
   return (
     <span
-      className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
+      className="inline-flex items-center type-label-sm uppercase px-2 py-0.5 rounded-full"
       style={{ background: meta.bg, color: meta.textColor }}
     >
       {meta.label}
@@ -19,7 +19,7 @@ function TemplateBadge({ notes }) {
 function StatusPill({ lead }) {
   if ((lead.error && lead.error.trim()) || lead.status === 'error' || lead.status === 'email_failed') {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
+      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
         Error
       </span>
@@ -27,14 +27,14 @@ function StatusPill({ lead }) {
   }
   if (lead.stop === 'yes') {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
         Stopped
       </span>
     );
   }
   if (lead.sms_reply === 'yes' || lead.email_reply === 'yes' || lead.status === 'replied') {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
         <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
         Replied
       </span>
@@ -42,13 +42,13 @@ function StatusPill({ lead }) {
   }
   if (lead.sent && lead.sent !== 'imported') {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
         In Progress
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200">
+    <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200">
       New
     </span>
   );
@@ -84,7 +84,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
       {/* Name + contact */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-[#0F172A] truncate leading-tight">{lead.name || '—'}</p>
-        <p className="text-[11px] text-[#94A3B8] font-mono truncate mt-0.5">{lead.phone || lead.email || '—'}</p>
+        <p className="type-mono text-[#94A3B8] truncate mt-0.5">{lead.phone || lead.email || '—'}</p>
       </div>
 
       {/* Template badge */}
@@ -99,7 +99,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
 
       {/* Sent date — hidden on mobile to prevent overflow */}
       <div className="hidden sm:block shrink-0 w-14 text-right">
-        <p className="text-[11px] text-[#94A3B8]">{sentDate || '—'}</p>
+        <p className="type-label-md text-[#94A3B8]">{sentDate || '—'}</p>
       </div>
 
       {/* Quick actions — Edit + Delete hidden on mobile */}

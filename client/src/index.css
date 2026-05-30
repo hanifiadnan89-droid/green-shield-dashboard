@@ -150,6 +150,71 @@
   }
 }
 
+/* ── Type scale ──────────────────────────────────────────────────────────── */
+/* display-* uses font-display (Poppins). All others use font-sans (Inter).  */
+/* These classes define size/weight/leading/tracking only — never color.     */
+
+.type-display-2xl {
+  font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.type-display-xl {
+  font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+.type-display-lg {
+  font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.type-heading-lg {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.type-heading-sm {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.type-body-md {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.type-body-sm {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.type-label-md {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  /* uppercase is NOT included — apply via Tailwind 'uppercase' where needed */
+}
+.type-label-sm {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+.type-mono {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
 /* Table row hover — inset left accent bar */
 .table-row:hover {
   background: rgba(240, 253, 244, 0.68);
