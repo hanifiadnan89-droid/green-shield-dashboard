@@ -18,7 +18,7 @@ function TemplateBadge({ notes }) {
   if (!meta) return null;
   return (
     <span
-      className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0"
+      className="inline-flex items-center type-label-sm uppercase px-1.5 py-0.5 rounded shrink-0"
       style={{ background: meta.bg, color: meta.textColor }}
     >
       {meta.label}
@@ -67,7 +67,7 @@ function LeadMiniCard({ lead, onOpen }) {
 
       <div className="flex items-center gap-1.5 shrink-0">
         {lead._days !== null && (
-          <span className="text-[10px] text-[#B4BFCC] tabular-nums">{lead._days}d</span>
+          <span className="type-label-sm text-[#B4BFCC] tabular-nums">{lead._days}d</span>
         )}
         <button
           className="p-1.5 rounded-lg cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
@@ -102,11 +102,11 @@ function PriorityGroup({ groupKey, leads, total, onOpen }) {
         <div style={{ background: meta.bg, borderRadius: '6px', padding: '4px', display: 'inline-flex' }}>
           <GroupIcon size={11} style={{ color: meta.color }} />
         </div>
-        <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: meta.color }}>
+        <span className="type-label-md uppercase" style={{ color: meta.color }}>
           {meta.label}
         </span>
         <span
-          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+          className="type-label-sm px-1.5 py-0.5 rounded-full"
           style={{ background: meta.bg, color: meta.color }}
         >
           {total}
@@ -133,7 +133,7 @@ export default function PriorityQueue({ leads = [], loading = false }) {
       <div className="p-card p-card-lift section-enter flex flex-col h-full">
         <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <h3 className="font-display font-semibold text-[#0F172A] text-sm">Priority Work Queue</h3>
-          <p className="text-[11px] text-[#94A3B8] mt-0.5">Who needs your attention right now</p>
+          <p className="type-label-md text-[#94A3B8] mt-0.5">Who needs your attention right now</p>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -149,7 +149,7 @@ export default function PriorityQueue({ leads = [], loading = false }) {
                 <CheckCircle2 size={20} style={{ color: '#16A34A' }} />
               </div>
               <p className="text-sm font-semibold text-[#0F172A]">All leads are on track</p>
-              <p className="text-[11px] text-[#94A3B8] mt-1">No action needed right now</p>
+              <p className="type-label-md text-[#94A3B8] mt-1">No action needed right now</p>
             </div>
           ) : (
             <>

@@ -94,16 +94,13 @@ export default function SalesSummaryBar({ leads = [], loading = false }) {
                 </>
               ) : (
                 <>
-                  <p
-                    className="font-display font-bold text-gs-text leading-none mb-1"
-                    style={{ fontSize: '30px' }}
-                  >
+                  <p className="type-display-xl text-gs-text leading-none mb-1">
                     <AnimatedNumber value={count} />
                   </p>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gs-muted leading-tight">
+                  <p className="type-label-md uppercase text-gs-muted leading-tight">
                     {label}
                   </p>
-                  <p className="text-[10px] text-gs-muted/60 mt-0.5 leading-tight">{sub}</p>
+                  <p className="type-label-sm text-gs-muted/60 mt-0.5 leading-tight">{sub}</p>
                 </>
               )}
             </div>

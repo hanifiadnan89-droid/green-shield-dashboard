@@ -29,7 +29,7 @@ export default function ActivityFeed({ activity = [] }) {
       <div className="flex items-center justify-between px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
         <div>
           <h3 className="font-display font-semibold text-[#0F172A] text-sm">Activity Feed</h3>
-          <p className="text-[11px] text-[#94A3B8] mt-0.5">Recent CRM events</p>
+          <p className="type-label-md text-[#94A3B8] mt-0.5">Recent CRM events</p>
         </div>
         <Link
           to="/activity"
@@ -77,17 +77,17 @@ export default function ActivityFeed({ activity = [] }) {
                       <p className="text-xs font-semibold text-[#0F172A] leading-tight">
                         {meta.label}
                         {entry.testMode && (
-                          <span className="ml-1.5 text-[10px] font-medium text-[#D97706] bg-amber-50 border border-amber-200 px-1 py-0.5 rounded-full">TEST</span>
+                          <span className="ml-1.5 type-label-sm text-[#D97706] bg-amber-50 border border-amber-200 px-1 py-0.5 rounded-full">TEST</span>
                         )}
                       </p>
-                      <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">
+                      <p className="type-label-md text-[#94A3B8] mt-0.5 truncate">
                         {entry.leadName || '—'}
                         {entry.template && (
                           <span className="ml-1 uppercase font-semibold" style={{ color: meta.color }}>· {entry.template}</span>
                         )}
                       </p>
                     </div>
-                    <p className="text-[10px] text-[#94A3B8] shrink-0 mt-0.5">
+                    <p className="type-label-sm text-[#94A3B8] shrink-0 mt-0.5">
                       {entry.timestamp ? timeAgo(entry.timestamp) : '—'}
                     </p>
                   </div>
