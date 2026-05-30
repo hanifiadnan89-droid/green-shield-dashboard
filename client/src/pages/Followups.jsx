@@ -1,40 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, RefreshCw, Send, StopCircle, Info } from 'lucide-react';
+import { Clock, RefreshCw, Info } from 'lucide-react';
 import { api } from '../api/client.js';
-import StatusBadge from '../components/StatusBadge.jsx';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
-
-function daysSince(dateStr) {
-  if (!dateStr || dateStr === 'imported') return null;
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
-  return Math.floor((Date.now() - d.getTime()) / 86400000);
-}
-
-function DaysBadge({ days }) {
-  if (days === null) return <span className="text-gs-muted">—</span>;
-  if (days >= 7) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gs-danger/12 border border-gs-danger/30 text-gs-danger">
-        {days}d ago
-      </span>
-    );
-  }
-  if (days >= 3) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gs-warn/12 border border-gs-warn/30 text-gs-warn">
-        {days}d ago
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gs-accent/12 border border-gs-accent/30 text-gs-accent">
-      {days}d ago
-    </span>
-  );
-}
+import { DataTable } from '../components/DataTable/index.js';
+import { createFollowupsColumns } from './followupsColumns.jsx';
 
 export default function Followups() {
   const navigate = useNavigate();
@@ -82,6 +53,15 @@ export default function Followups() {
     }
   }
 
+  const columns = useMemo(
+    () => createFollowupsColumns({
+      navigate,
+      onStop: handleStop,
+      stopLoading,
+    }),
+    [navigate, stopLoading, handleStop]
+  );
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="px-6 py-5 bg-gs-bg border-b border-gs-border flex items-center justify-between">
@@ -125,56 +105,12 @@ export default function Followups() {
           />
         ) : (
           <div className="bg-gs-card rounded-xl border border-gs-border overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gs-border">
-                  <th className="th">Name</th>
-                  <th className="th">Phone</th>
-                  <th className="th">Template</th>
-                  <th className="th">Sent</th>
-                  <th className="th">Days Since</th>
-                  <th className="th">Status</th>
-                  <th className="th">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.map(lead => {
-                  const days = daysSince(lead.sent);
-                  return (
-                    <tr key={lead.row_number} className="table-row">
-                      <td className="td font-semibold text-gs-text">{lead.name || '—'}</td>
-                      <td className="td font-mono text-xs text-gs-muted">{lead.phone || '—'}</td>
-                      <td className="td"><StatusBadge value={lead.notes} /></td>
-                      <td className="td text-xs text-gs-muted">
-                        {lead.sent && lead.sent !== 'imported' ? new Date(lead.sent).toLocaleDateString() : '—'}
-                      </td>
-                      <td className="td">
-                        <DaysBadge days={days} />
-                      </td>
-                      <td className="td"><StatusBadge value={lead.status} /></td>
-                      <td className="td">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => navigate('/send', { state: { lead } })}
-                            className="btn-info text-xs py-1 px-2.5"
-                          >
-                            <Send size={11} /> Send Again
-                          </button>
-                          <button
-                            onClick={() => handleStop(lead)}
-                            disabled={stopLoading[lead.row_number]}
-                            className="btn-danger text-xs py-1 px-2.5"
-                          >
-                            {stopLoading[lead.row_number] ? <Spinner size={11} /> : <StopCircle size={11} />}
-                            Stop
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <DataTable
+              columns={columns}
+              data={leads}
+              getRowId={row => String(row.row_number)}
+              stickyHeader={false}
+            />
           </div>
         )}
       </div>
