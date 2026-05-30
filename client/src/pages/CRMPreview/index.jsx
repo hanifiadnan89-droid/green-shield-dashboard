@@ -49,7 +49,7 @@ function ErrorState({ onRetry, message }) {
         <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#DC2626" strokeWidth="1.5"/><path d="M12 8v4m0 4h.01" stroke="#DC2626" strokeWidth="1.5" strokeLinecap="round"/></svg>
       </div>
       <div>
-        <p className="font-heading font-semibold text-[#0F172A] text-base">Could not load data</p>
+        <p className="font-display font-semibold text-[#0F172A] text-base">Could not load data</p>
         <p className="text-sm text-[#64748B] mt-1 max-w-xl">
           {message || 'The hosted API is reachable, but the dashboard could not load leads or activity data. Check Render logs for the exact API error.'}
         </p>

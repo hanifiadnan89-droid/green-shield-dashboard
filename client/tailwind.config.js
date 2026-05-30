@@ -5,7 +5,7 @@ export default {
     extend: {
       fontFamily: {
         sans:    ['Inter', 'system-ui', 'sans-serif'],
-        heading: ['Poppins', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['Poppins', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         gs: {

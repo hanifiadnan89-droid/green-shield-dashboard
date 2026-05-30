@@ -15,7 +15,7 @@ export default function PreviewHeader({ onRefresh, loading }) {
     >
       {/* Left: title + date */}
       <div>
-        <p className="font-heading font-bold text-[#0F172A] text-sm leading-tight">Dashboard</p>
+        <p className="font-display font-bold text-[#0F172A] text-sm leading-tight">Dashboard</p>
         <p className="text-[11px] text-[#94A3B8]">{today}</p>
       </div>
 

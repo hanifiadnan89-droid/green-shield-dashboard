@@ -75,7 +75,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
     >
       {/* Avatar */}
       <div
-        className="flex items-center justify-center rounded-full shrink-0 font-heading font-bold text-xs"
+        className="flex items-center justify-center rounded-full shrink-0 font-display font-bold text-xs"
         style={{ width: '36px', height: '36px', background: avatar.bg, color: avatar.text, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.72), 4px 5px 10px rgba(15,42,20,0.08)' }}
       >
         {initials}

@@ -28,7 +28,7 @@ export default function ActivityFeed({ activity = [] }) {
     <div className="p-card section-enter flex flex-col" style={{ minHeight: '400px' }}>
       <div className="flex items-center justify-between px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
         <div>
-          <h3 className="font-heading font-semibold text-[#0F172A] text-sm">Activity Feed</h3>
+          <h3 className="font-display font-semibold text-[#0F172A] text-sm">Activity Feed</h3>
           <p className="text-[11px] text-[#94A3B8] mt-0.5">Recent CRM events</p>
         </div>
         <Link
