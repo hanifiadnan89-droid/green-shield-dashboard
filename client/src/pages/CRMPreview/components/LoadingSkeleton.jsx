@@ -1,6 +1,6 @@
 export default function LoadingSkeleton() {
   return (
-    <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
+    <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
 
       {/* KPI bar — matches SalesSummaryBar: 1 col → 2 col → 4 col */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -38,7 +38,7 @@ export default function LoadingSkeleton() {
       </div>
 
       {/* Lead list + Route Finder — matches lg:grid-cols-12 split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5">
 
         {/* Lead pipeline — lg:col-span-8 */}
         <div className="lg:col-span-8 p-card p-5">

@@ -195,7 +195,7 @@ export default function CRMPreview({ testMode }) {
               <PipelineSummary stats={stats ?? {}} />
 
               {/* Lead Pipeline + Route Finder */}
-              <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 pb-4 lg:pb-6">
+              <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5 pb-4 xl:pb-5">
                 <div className="lg:col-span-8">
                   <LeadPipeline
                     leads={leads ?? []}

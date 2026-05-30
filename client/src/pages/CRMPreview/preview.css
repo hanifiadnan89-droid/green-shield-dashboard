@@ -258,20 +258,8 @@
   min-width: 0;
 }
 
-/* ── Tablet (≤ 1024px): tighter content padding ── */
-@media (max-width: 1024px) {
-  .crm-preview .bento-shell {
-    padding: 16px;
-  }
-}
-
-/* ── Small tablet (≤ 768px): compact padding ── */
-@media (max-width: 768px) {
-  .crm-preview .bento-shell {
-    padding: 10px;
-    gap: 12px;
-  }
-}
+/* Bento-shell padding is handled by Tailwind p-4 lg:p-6 on the element.
+   No CSS overrides needed — those were removed to avoid conflicts. */
 
 /* ── Mobile (≤ 639px): prevent horizontal overflow across all dashboard cards ── */
 @media (max-width: 639px) {
