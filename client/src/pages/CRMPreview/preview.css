@@ -117,6 +117,17 @@
   animation-delay: 480ms;
 }
 
+/* ── Route finder date pill grid ── */
+.crm-preview .route-date-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.crm-preview .route-date-pill-cell {
+  flex: 1 1 calc(33.33% - 4px);
+  text-align: center;
+}
+
 /* ── Lead rows ── */
 .crm-preview .lead-row {
   transition: background-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;

@@ -473,28 +473,32 @@ export default function RouteFinderWidget() {
   return (
     <div className="p-card section-enter flex flex-col h-full">
       {/* Header */}
-      <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(22,163,74,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Navigation size={14} style={{ color: '#16A34A' }} />
+      <div className="px-5 pt-4 pb-3 border-b border-black/[0.05] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gs-accent/10 flex items-center justify-center">
+            <Navigation size={14} className="text-gs-accent" />
           </div>
           <div>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1 }}>Route Finder</h3>
-            <p style={{ fontSize: 10, color: '#94A3B8', margin: 0, marginTop: 2 }}>Find best technician for a new stop</p>
+            <h3 className="text-[13px] font-bold text-gs-text m-0 leading-none">Route Finder</h3>
+            <p className="type-label-sm text-slate-400 m-0 mt-0.5 font-normal tracking-normal">
+              Find best technician for a new stop
+            </p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={handleRefreshAll}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
+            className="bg-transparent border-0 cursor-pointer text-slate-400 p-1 rounded-md flex items-center"
             title="Refresh all dates"
           >
             <RefreshCw size={13} />
           </button>
           {(geocode || results) && (
             <button
+              type="button"
               onClick={handleReset}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
+              className="bg-transparent border-0 cursor-pointer text-slate-400 p-1 rounded-md flex items-center"
               title="Reset"
             >
               <RotateCcw size={13} />
@@ -509,11 +513,11 @@ export default function RouteFinderWidget() {
         <AuthStatusBanner authInfo={authInfo} onLoginRefreshStarted={handleLoginRefreshStarted} />
 
         {/* ── Date picker ── */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>
+        <div className="mb-3.5">
+          <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5">
             Route Date
           </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div className="route-date-pill-grid">
             {DATE_METAS.map(({ key, label }) => {
               const s = dateStatus[key] || { status: 'missing' };
               const isCached = s.status === 'cached';
@@ -521,25 +525,22 @@ export default function RouteFinderWidget() {
               const isLoading = dateLoadStatus === 'loading' && isActive;
 
               return (
-                <div key={key} style={{ flex: '1 1 calc(33.33% - 4px)', textAlign: 'center' }}>
+                <div key={key} className="route-date-pill-cell">
                   <button
+                    type="button"
                     onClick={() => isCached && handleDateSelect(key)}
+                    className="w-full py-1.5 px-1 rounded-[9px] transition-all duration-150 flex items-center justify-center gap-1"
                     style={{
-                      width: '100%',
-                      padding: '6px 4px',
-                      borderRadius: 9,
                       border: `1.5px solid ${isActive ? '#16A34A' : isCached ? 'rgba(22,163,74,0.3)' : 'rgba(0,0,0,0.08)'}`,
                       background: isActive ? '#16A34A' : isCached ? 'rgba(22,163,74,0.04)' : '#f8fafc',
                       cursor: isCached ? 'pointer' : 'default',
-                      transition: 'all 0.15s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 4,
                     }}
                   >
                     {isLoading && <Loader2 size={9} className="animate-spin" style={{ color: isActive ? '#fff' : '#16A34A' }} />}
-                    <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? '#fff' : isCached ? '#0F172A' : '#94A3B8', lineHeight: 1 }}>
+                    <span
+                      className="text-[11px] font-bold leading-none"
+                      style={{ color: isActive ? '#fff' : isCached ? '#0F172A' : '#94A3B8' }}
+                    >
                       {label}
                     </span>
                   </button>
@@ -550,12 +551,12 @@ export default function RouteFinderWidget() {
           </div>
 
           {activeDate && activeTechnicians !== null && activeTechnicians.length === 0 && dateLoadStatus !== 'loading' && (
-            <p style={{ fontSize: 10, color: '#F59E0B', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <p className="type-label-sm text-amber-500 mt-1.5 flex items-center gap-1 font-normal tracking-normal">
               <AlertCircle size={10} /> No routes with stops found for this date
             </p>
           )}
           {activeDate && dateLoadStatus === 'error' && (
-            <p style={{ fontSize: 10, color: '#DC2626', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <p className="type-label-sm text-gs-danger mt-1.5 flex items-center gap-1 font-normal tracking-normal">
               <AlertCircle size={10} /> Failed to load route data
             </p>
           )}
