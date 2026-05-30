@@ -1,15 +1,15 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
-  Search, RefreshCw, Send, StopCircle, PlayCircle,
-  Filter, X, Edit3, User
+  Search, RefreshCw,
+  Filter, X, User
 } from 'lucide-react';
 import { api } from '../api/client.js';
-import StatusBadge from '../components/StatusBadge.jsx';
-import { hasRealReply } from './CRMPreview/mockData.js';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import LeadDetailPanel from '../components/LeadDetailPanel.jsx';
+import { DataTable } from '../components/DataTable/index.js';
+import { createLeadsColumns, LEADS_INITIAL_SORTING } from './leadsColumns.jsx';
 
 const STATUS_OPTIONS = ['', 'archived', 'active', 'replied', 'stopped'];
 const NOTE_OPTIONS   = ['', 'ag', 'na', 'rit', 't/m', 'iq'];
@@ -177,6 +177,17 @@ export default function Leads() {
 
   const activeFilters = Object.values(filters).filter(Boolean).length;
 
+  const columns = useMemo(
+    () => createLeadsColumns({
+      navigate,
+      onStop: handleStop,
+      onEdit: setEditLead,
+      actionLoading,
+    }),
+    // handleStop / setEditLead: stable enough for column defs; actionLoading drives button state
+    [navigate, actionLoading, handleStop]
+  );
+
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       {categoryMeta && (
@@ -287,78 +298,13 @@ export default function Leads() {
             desc={search ? 'Try a different search term' : categoryMeta ? 'No leads found for this category.' : 'No leads in the sheet yet'}
           />
         ) : (
-          <table className="w-full">
-            <thead className="sticky top-0 bg-gs-bg">
-              <tr className="border-b border-gs-border">
-                <th className="th">Name</th>
-                <th className="th">Phone</th>
-                <th className="th">Email</th>
-                <th className="th">Notes</th>
-                <th className="th">Status</th>
-                <th className="th">Sent</th>
-                <th className="th">Stop</th>
-                <th className="th">SMS</th>
-                <th className="th">Email</th>
-                <th className="th">Error</th>
-                <th className="th">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(lead => (
-                <tr
-                  key={lead.row_number}
-                  className="table-row cursor-pointer"
-                  onClick={() => setDetailLead(lead)}
-                >
-                  <td className="td font-medium">{lead.name || <span className="text-gs-muted">—</span>}</td>
-                  <td className="td font-mono text-xs">{lead.phone || '—'}</td>
-                  <td className="td text-xs text-gs-muted max-w-[140px] truncate">{lead.email || '—'}</td>
-                  <td className="td"><StatusBadge value={lead.notes} /></td>
-                  <td className="td"><StatusBadge value={lead.status} /></td>
-                  <td className="td text-xs text-gs-muted">
-                    {lead.sent === 'imported' ? <span className="text-gs-muted">imported</span> :
-                     lead.sent ? new Date(lead.sent).toLocaleDateString() : '—'}
-                  </td>
-                  <td className="td">{lead.stop === 'yes' && <StatusBadge value="yes" />}</td>
-                  <td className="td">{hasRealReply(lead.sms_reply) && <StatusBadge value="yes" />}</td>
-                  <td className="td">{hasRealReply(lead.email_reply) && <StatusBadge value="yes" />}</td>
-                  <td className="td max-w-[120px]">
-                    {lead.error && (
-                      <span className="text-gs-danger text-xs truncate block" title={lead.error}>⚠ {lead.error}</span>
-                    )}
-                  </td>
-                  <td className="td" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => navigate('/send', { state: { lead } })}
-                        className="p-1.5 rounded hover:bg-gs-accent/20 text-gs-accent cursor-pointer"
-                        title="Send template"
-                      >
-                        <Send size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleStop(lead)}
-                        disabled={actionLoading[`stop_${lead.row_number}`]}
-                        className={`p-1.5 rounded cursor-pointer ${lead.stop === 'yes' ? 'hover:bg-gs-accent/20 text-gs-accent' : 'hover:bg-gs-danger/20 text-gs-danger'}`}
-                        title={lead.stop === 'yes' ? 'Remove stop' : 'Set stop'}
-                      >
-                        {actionLoading[`stop_${lead.row_number}`]
-                          ? <Spinner size={13} />
-                          : lead.stop === 'yes' ? <PlayCircle size={13} /> : <StopCircle size={13} />}
-                      </button>
-                      <button
-                        onClick={() => setEditLead(lead)}
-                        className="p-1.5 rounded hover:bg-gs-border text-gs-muted cursor-pointer"
-                        title="Edit"
-                      >
-                        <Edit3 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            columns={columns}
+            data={filtered}
+            initialSorting={LEADS_INITIAL_SORTING}
+            getRowId={row => String(row.row_number)}
+            onRowClick={row => setDetailLead(row.original)}
+          />
         )}
       </div>
 
