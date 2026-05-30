@@ -33,7 +33,7 @@ const NAV = [
 ];
 
 function itemIsActive(item, activeFilter) {
-  if (item.type === 'home') return true;
+  if (item.type === 'home') return activeFilter === 'all';
   if (item.type === 'filter') return activeFilter === item.filterKey;
   return false;
 }

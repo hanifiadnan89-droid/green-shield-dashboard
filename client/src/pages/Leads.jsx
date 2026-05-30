@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client.js';
 import StatusBadge from '../components/StatusBadge.jsx';
+import { hasRealReply } from './CRMPreview/mockData.js';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import LeadDetailPanel from '../components/LeadDetailPanel.jsx';
@@ -319,8 +320,8 @@ export default function Leads() {
                      lead.sent ? new Date(lead.sent).toLocaleDateString() : '—'}
                   </td>
                   <td className="td">{lead.stop === 'yes' && <StatusBadge value="yes" />}</td>
-                  <td className="td">{lead.sms_reply === 'yes' && <StatusBadge value="yes" />}</td>
-                  <td className="td">{lead.email_reply === 'yes' && <StatusBadge value="yes" />}</td>
+                  <td className="td">{hasRealReply(lead.sms_reply) && <StatusBadge value="yes" />}</td>
+                  <td className="td">{hasRealReply(lead.email_reply) && <StatusBadge value="yes" />}</td>
                   <td className="td max-w-[120px]">
                     {lead.error && (
                       <span className="text-gs-danger text-xs truncate block" title={lead.error}>⚠ {lead.error}</span>

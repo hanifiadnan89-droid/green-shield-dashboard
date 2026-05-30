@@ -83,7 +83,8 @@ export function daysSince(ts) {
   return Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
 }
 const _daysSince = daysSince;
-const _hasRealReply = (v) => { const t = (v || '').trim(); return t.length > 0 && t !== '.'; };
+export const hasRealReply = (v) => { const t = (v || '').trim(); return t.length > 0 && t !== '.'; };
+const _hasRealReply = hasRealReply;
 const _isReplied = l => _hasRealReply(l.sms_reply) || _hasRealReply(l.email_reply) || l.status === 'replied';
 const _isError   = l => !!(l.error && l.error.trim()) || l.status === 'error' || l.status === 'email_failed';
 const _isStopped = l => l.stop === 'yes' || l.status === 'stopped';
