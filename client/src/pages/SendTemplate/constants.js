@@ -31,3 +31,9 @@ export const CHANNELS = [
   { code: 'sms',   label: 'SMS Only',    desc: 'Only send SMS via Twilio'             },
   { code: 'email', label: 'Email Only',  desc: 'Only send Gmail email'                }
 ];
+
+export const STEPS = [
+  { n: 1, label: 'Pick Lead' },
+  { n: 2, label: 'Choose Template' },
+  { n: 3, label: 'Preview & Send' },
+];

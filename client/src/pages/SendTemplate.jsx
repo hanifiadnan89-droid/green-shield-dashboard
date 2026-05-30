@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Search, Send, CheckCircle, XCircle, FileText, ExternalLink,
-  ChevronRight, Check
+  Send, FileText, ExternalLink,
+  ChevronRight
 } from 'lucide-react';
 import { api } from '../api/client.js';
-import StatusBadge from '../components/StatusBadge.jsx';
 import Spinner from '../components/Spinner.jsx';
 import { TEMPLATES, CHANNELS } from './SendTemplate/constants.js';
 import QuoteDocumentsSection from './SendTemplate/QuoteDocumentsSection.jsx';
 import PrepGuidesSection from './SendTemplate/PrepGuidesSection.jsx';
 import FutureSection from './SendTemplate/FutureSection.jsx';
+import SendStepIndicator from './SendTemplate/SendStepIndicator.jsx';
+import SendResultScreen from './SendTemplate/SendResultScreen.jsx';
+import StepPickLead from './SendTemplate/StepPickLead.jsx';
 
 /* ── Main Page ── */
 export default function SendTemplate({ testMode }) {
@@ -69,102 +71,30 @@ export default function SendTemplate({ testMode }) {
     setSearch('');
   }
 
-  const STEPS = [
-    { n: 1, label: 'Pick Lead' },
-    { n: 2, label: 'Choose Template' },
-    { n: 3, label: 'Preview & Send' }
-  ];
+  function handleSelectLead(lead) {
+    setSelectedLead(lead);
+    setStep(2);
+  }
 
   if (result) {
-    return (
-      <div className="flex-1 overflow-y-auto px-6 py-5 animate-fade-in-up">
-        <div className="max-w-lg mx-auto">
-          <div className={`card text-center py-10 ${result.success ? 'border-gs-accent/50' : 'border-gs-danger/50'}`}>
-            {result.success
-              ? <CheckCircle size={48} className="text-gs-accent mx-auto mb-4" />
-              : <XCircle size={48} className="text-gs-danger mx-auto mb-4" />}
-            <h2 className="text-xl font-bold text-gs-text mb-2">
-              {result.success ? (result.testMode ? 'Test Simulated' : 'Sent!') : 'Send Failed'}
-            </h2>
-            <p className="text-gs-muted mb-1">{result.message || result.error}</p>
-            {result.testMode && (
-              <p className="text-gs-warn text-xs mt-2">
-                This was a test. Set TEST_MODE=false in .env to send for real.
-              </p>
-            )}
-            <div className="flex gap-3 justify-center mt-6">
-              <button onClick={reset} className="btn-ghost">Send Another</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <SendResultScreen result={result} onReset={reset} />;
   }
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Page header with step indicator */}
-      <div className="px-6 py-5 border-b border-gs-border">
-        <h1 className="text-lg font-bold text-gs-text mb-4">Send Template</h1>
-        <div className="flex items-center gap-0">
-          {STEPS.map(({ n, label }) => (
-            <div key={n} className="flex items-center">
-              <div className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  step > n  ? 'bg-gs-accent text-black' :
-                  step === n ? 'bg-transparent border-2 border-gs-accent text-gs-accent' :
-                  'bg-gs-border text-gs-muted'
-                }`}>
-                  {step > n ? <Check size={13} /> : n}
-                </div>
-                <span className={`text-xs font-medium ${step === n ? 'text-gs-text' : step > n ? 'text-gs-accent' : 'text-gs-muted'}`}>
-                  {label}
-                </span>
-              </div>
-              {n < 3 && <div className={`w-8 h-px mx-2 ${step > n ? 'bg-gs-accent' : 'bg-gs-border'}`} />}
-            </div>
-          ))}
-        </div>
-      </div>
+      <SendStepIndicator step={step} />
 
       {/* Step content */}
       <div className="px-6 py-5 animate-fade-in-up">
 
-        {/* STEP 1 */}
         {step === 1 && (
-          <div className="max-w-3xl space-y-4">
-            <div>
-              <label className="label">Search Lead</label>
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted" />
-                <input className="input pl-8" placeholder="Name, phone, or email..." value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
-            </div>
-            {leadsLoading ? <div className="flex justify-center py-8"><Spinner /></div> : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredLeads.map(lead => (
-                  <button
-                    key={lead.row_number}
-                    onClick={() => { setSelectedLead(lead); setStep(2); }}
-                    className="w-full text-left card hover:border-gs-accent/50 transition-colors p-4 cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gs-text group-hover:text-gs-accent transition-colors">{lead.name || 'Unknown'}</p>
-                        <p className="text-gs-muted text-xs mt-0.5">{lead.phone} {lead.email ? `• ${lead.email}` : ''}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {lead.stop === 'yes' && <StatusBadge value="stopped" />}
-                        <StatusBadge value={lead.notes} />
-                        <ChevronRight size={14} className="text-gs-muted" />
-                      </div>
-                    </div>
-                  </button>
-                ))}
-                {filteredLeads.length === 0 && <p className="text-gs-muted text-sm text-center py-8">No leads match</p>}
-              </div>
-            )}
-          </div>
+          <StepPickLead
+            search={search}
+            onSearchChange={setSearch}
+            leadsLoading={leadsLoading}
+            filteredLeads={filteredLeads}
+            onSelectLead={handleSelectLead}
+          />
         )}
 
         {/* STEP 2 */}
