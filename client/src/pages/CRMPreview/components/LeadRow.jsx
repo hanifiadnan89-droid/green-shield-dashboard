@@ -97,12 +97,12 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
         <StatusPill lead={lead} />
       </div>
 
-      {/* Sent date */}
-      <div className="shrink-0 w-14 text-right">
+      {/* Sent date — hidden on mobile to prevent overflow */}
+      <div className="hidden sm:block shrink-0 w-14 text-right">
         <p className="text-[11px] text-[#94A3B8]">{sentDate || '—'}</p>
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — Edit + Delete hidden on mobile */}
       <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
         <Link
           to="/send"
@@ -123,7 +123,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
             : <StopCircle size={13} style={{ color: '#DC2626' }} />}
         </button>
         <button
-          className="p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+          className="hidden sm:flex p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer items-center"
           title="Edit (use main dashboard)"
           onClick={() => onPreviewAction('edit', lead)}
         >
@@ -131,7 +131,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
         </button>
         {onDelete && (
           <button
-            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+            className="hidden sm:flex p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer items-center"
             title="Delete lead"
             onClick={() => {
               if (window.confirm(`Delete ${lead.name || 'this lead'}? This cannot be undone.`)) {

@@ -107,7 +107,7 @@ export default function LeadPipeline({ leads = [], activeFilter, setActiveFilter
         </div>
 
         {/* Filter chips */}
-        <div className="flex items-center gap-1.5 mt-3">
+        <div className="flex flex-wrap items-center gap-1.5 mt-3">
           {/* Status filters — left group */}
           <div className="flex gap-1.5 flex-wrap flex-1">
             {FILTERS.map(({ key, label }) => {

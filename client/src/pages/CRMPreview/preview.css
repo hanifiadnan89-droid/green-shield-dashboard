@@ -282,6 +282,24 @@
   }
 }
 
+/* ── Mobile (≤ 639px): prevent horizontal overflow across all dashboard cards ── */
+@media (max-width: 639px) {
+  .crm-preview main {
+    overflow-x: hidden;
+  }
+  .crm-preview .p-card,
+  .crm-preview .bento-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .crm-preview .route-finder-card {
+    overflow-x: hidden;
+  }
+  .crm-preview .lead-row {
+    min-width: 0;
+  }
+}
+
 /* ── prefers-reduced-motion ── */
 @media (prefers-reduced-motion: reduce) {
   .crm-preview .bento-card,

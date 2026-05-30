@@ -5,7 +5,7 @@ export default function PreviewHeader({ onRefresh, loading }) {
 
   return (
     <header
-      className="premium-header flex items-center gap-4 px-6 shrink-0"
+      className="premium-header flex items-center gap-4 pl-14 pr-4 lg:px-6 shrink-0"
       style={{
         height: '64px',
         position: 'sticky',

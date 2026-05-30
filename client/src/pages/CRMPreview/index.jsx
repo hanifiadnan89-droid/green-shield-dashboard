@@ -30,8 +30,7 @@ function PreviewToast({ message, onClose }) {
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
-        maxWidth: '420px',
-        whiteSpace: 'nowrap',
+        maxWidth: 'min(420px, calc(100vw - 48px))',
       }}
     >
       <span style={{ color: '#4ade80', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
@@ -187,7 +186,7 @@ export default function CRMPreview({ testMode }) {
           ) : loading ? (
             <LoadingSkeleton />
           ) : (
-            <div className="bento-shell p-6 space-y-6 w-full">
+            <div className="bento-shell p-4 lg:p-6 space-y-4 lg:space-y-6 w-full">
 
               {/* Sales summary bar */}
               <SalesSummaryBar leads={leads ?? []} loading={false} />
@@ -196,7 +195,7 @@ export default function CRMPreview({ testMode }) {
               <PipelineSummary stats={stats ?? {}} />
 
               {/* Lead Pipeline + Route Finder */}
-              <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-6">
+              <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 pb-4 lg:pb-6">
                 <div className="lg:col-span-8">
                   <LeadPipeline
                     leads={leads ?? []}
