@@ -98,33 +98,40 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
     : refreshState === 'error' ? '#DC2626'
     : '#B45309';
 
+  const isBtnDisabled = refreshState === 'loading' || refreshState === 'checking';
+
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ padding: '5px 9px', borderRadius: 8, background: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: textColor }}>
+    <div className="mb-2.5">
+      <div
+        className="flex items-center justify-between rounded-lg px-[9px] py-[5px]"
+        style={{ background: bg, border: `1px solid ${border}` }}
+      >
+        <div className="flex items-center gap-[5px]">
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ background: dotColor }}
+          />
+          <span className="text-[10px] font-bold" style={{ color: textColor }}>
             FieldRoutes: {label}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="flex items-center gap-2">
           {authInfo.lastCheckFormatted && (
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>checked {authInfo.lastCheckFormatted}</span>
+            <span className="text-[9px] text-slate-400">checked {authInfo.lastCheckFormatted}</span>
           )}
           {authInfo.lastRefreshFormatted && (
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>refreshed {authInfo.lastRefreshFormatted}</span>
+            <span className="text-[9px] text-slate-400">refreshed {authInfo.lastRefreshFormatted}</span>
           )}
           {(isLogin || isFailed) && (
             <button
+              type="button"
               onClick={!isLocalDashboard || refreshState === 'waiting' ? confirmLoginNow : handleLoginRefresh}
-              disabled={refreshState === 'loading' || refreshState === 'checking'}
+              disabled={isBtnDisabled}
+              className="border-0 rounded-[5px] py-0.5 px-[7px] text-[9px] font-bold text-white transition-opacity duration-150"
               style={{
-                fontSize: 9, fontWeight: 700, color: '#fff',
                 background: btnColor,
-                border: 'none', borderRadius: 5, padding: '2px 7px',
-                cursor: refreshState === 'loading' || refreshState === 'checking' ? 'default' : 'pointer',
-                opacity: refreshState === 'loading' || refreshState === 'checking' ? 0.7 : 1,
-                transition: 'opacity 0.15s',
+                cursor: isBtnDisabled ? 'default' : 'pointer',
+                opacity: isBtnDisabled ? 0.7 : 1,
               }}
             >
               {btnLabel}
@@ -133,13 +140,13 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
         </div>
       </div>
       {isFailed && authInfo.message && (
-        <div style={{ marginTop: 5, padding: '5px 9px', borderRadius: 7, background: 'rgba(220,38,38,0.04)', border: '1px solid rgba(220,38,38,0.18)' }}>
-          <span style={{ fontSize: 9, color: '#DC2626' }}>{authInfo.message}</span>
+        <div className="mt-1.5 rounded-[7px] border border-gs-danger/20 bg-gs-danger/[0.04] px-[9px] py-[5px]">
+          <span className="text-[9px] text-gs-danger">{authInfo.message}</span>
         </div>
       )}
       {isLogin && !isLocalDashboard && (
-        <div style={{ marginTop: 5, padding: '5px 9px', borderRadius: 7, background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.18)' }}>
-          <span style={{ fontSize: 9, color: '#B45309' }}>
+        <div className="mt-1.5 rounded-[7px] border border-amber-500/20 bg-amber-500/5 px-[9px] py-[5px]">
+          <span className="text-[9px] text-amber-700">
             Update FIELDROUTES_AUTH_STATE_JSON in Render, redeploy, then click Check Auth.
           </span>
         </div>
