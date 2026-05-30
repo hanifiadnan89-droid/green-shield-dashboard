@@ -25,15 +25,16 @@ function StatusBadge({ status, meta, date, onRefresh }) {
   const cfg = STATUS_CFG[status] || STATUS_CFG.missing;
   const ago = status === 'cached' ? fmtAgo(meta?.timestamp) : null;
   return (
-    <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 14 }}>
+    <div className="mt-0.5 flex items-center justify-center gap-0.5 min-h-3.5">
       {cfg.spinning
         ? <Loader2 size={9} className="animate-spin" style={{ color: cfg.color }} />
-        : <span style={{ fontSize: 9, color: cfg.color, fontWeight: 600 }}>{cfg.label}{ago ? ` · ${ago}` : ''}</span>
+        : <span className="text-[9px] font-semibold" style={{ color: cfg.color }}>{cfg.label}{ago ? ` · ${ago}` : ''}</span>
       }
       {cfg.showRefresh && onRefresh && (
         <button
+          type="button"
           onClick={() => onRefresh(date)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: '#94A3B8', lineHeight: 1 }}
+          className="bg-transparent border-0 cursor-pointer p-0 flex text-slate-400 leading-none"
           title="Refresh"
         >
           <RefreshCw size={9} />
