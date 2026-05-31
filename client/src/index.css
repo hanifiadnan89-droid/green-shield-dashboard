@@ -215,6 +215,20 @@
   line-height: 1.4;
 }
 
+/* DataTable — spacing + header/body typography (Phase 7) */
+.data-table-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.data-table th.th {
+  @apply px-3 py-2.5 sm:px-4 sm:py-3 align-middle normal-case tracking-normal font-normal;
+}
+
+.data-table td.td {
+  @apply px-3 py-2.5 sm:px-4 sm:py-3 align-middle;
+}
+
 /* Table row hover — inset left accent bar */
 .table-row:hover {
   background: rgba(240, 253, 244, 0.68);
