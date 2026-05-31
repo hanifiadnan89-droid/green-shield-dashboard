@@ -1,22 +1,24 @@
 import { useEffect, useState, useRef } from 'react';
-import { MessageCircle, Search, CheckCircle2, AlertCircle, X, Archive } from 'lucide-react';
+import { MessageCircle, CheckCircle2, AlertCircle, Archive } from 'lucide-react';
 import { api } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import ReplyPageHeader from './Replies/ReplyPageHeader.jsx';
-import ReplyCard from './Replies/ReplyCard.jsx';
-import ArchivedReplyCard from './Replies/ArchivedReplyCard.jsx';
+import ReplyInbox from './Replies/ReplyInbox.jsx';
+import ReplyConversationView from './Replies/ReplyConversationView.jsx';
+import ReplyArchivedDetail from './Replies/ReplyArchivedDetail.jsx';
 import { useChatHistory } from './Replies/useChatHistory.js';
 import { useReplyArchive } from './Replies/useReplyArchive.js';
 import { useReplyCardState } from './Replies/useReplyCardState.js';
-import { buildThread, formatSent, archKey } from './Replies/threadUtils.js';
+import { useReplySelection } from './Replies/useReplySelection.js';
+import { buildThread, archKey } from './Replies/threadUtils.js';
 
 export default function Replies() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState(null);
-  const firstTextareaRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const { chatHistory, historyRef, recordReplyDetected, saveSentMessage } = useChatHistory();
   const {
@@ -25,11 +27,37 @@ export default function Replies() {
     setShowArchived,
     archiveConfirm,
     setArchiveConfirm,
-    archiveLead,
-    restoreLead,
+    archiveLead: archiveLeadBase,
+    restoreLead: restoreLeadBase,
     archivedCount,
   } = useReplyArchive();
   const { getCard, updateCard } = useReplyCardState();
+
+  const searched = leads.filter(l => {
+    if (!showArchived && archived.has(archKey(l))) return false;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (l.name || '').toLowerCase().includes(q) ||
+      (l.phone || '').includes(q) ||
+      (l.sms_reply || '').toLowerCase().includes(q)
+    );
+  });
+
+  const activeLeads = searched.filter(l => !archived.has(archKey(l)));
+  const archivedLeads = searched.filter(l => archived.has(archKey(l)));
+
+  const {
+    selectedRowNumber,
+    selectLead,
+    clearSelection,
+    selectAfterArchive,
+    isArchivedLead,
+    detailOpen,
+  } = useReplySelection({ activeLeads, archivedLeads, showArchived, loading });
+
+  const selectedLead = leads.find(l => l.row_number === selectedRowNumber) ?? null;
+  const selectedIsArchived = selectedLead ? isArchivedLead(selectedLead, archived) : false;
 
   function showToast(msg, type = 'success') {
     setToast({ msg, type });
@@ -69,11 +97,22 @@ export default function Replies() {
   }, [loading, leads]);
 
   useEffect(() => {
-    if (!loading && leads.length > 0) {
-      const t = setTimeout(() => firstTextareaRef.current?.focus(), 150);
+    if (!loading && selectedLead && !selectedIsArchived && textareaRef.current) {
+      const t = setTimeout(() => textareaRef.current?.focus(), 150);
       return () => clearTimeout(t);
     }
-  }, [loading, leads.length]);
+  }, [loading, selectedRowNumber, selectedIsArchived]);
+
+  function archiveLead(lead) {
+    const rowNumber = lead.row_number;
+    archiveLeadBase(lead);
+    selectAfterArchive(rowNumber);
+  }
+
+  function restoreLead(lead) {
+    restoreLeadBase(lead);
+    selectLead(lead.row_number);
+  }
 
   async function handleSend(lead) {
     const cs = getCard(lead.row_number);
@@ -171,94 +210,87 @@ export default function Replies() {
     }
   }
 
-  const searched = leads.filter(l => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (l.name || '').toLowerCase().includes(q) ||
-      (l.phone || '').includes(q) ||
-      (l.sms_reply || '').toLowerCase().includes(q)
-    );
-  });
-
-  const activeLeads = searched.filter(l => !archived.has(archKey(l)));
-  const archivedLeads = searched.filter(l => archived.has(archKey(l)));
+  const showInbox = !loading && leads.length > 0 && (activeLeads.length > 0 || (showArchived && archivedLeads.length > 0));
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <ReplyPageHeader
         loading={loading}
         leadsCount={leads.length}
         archivedCount={archivedCount}
         showArchived={showArchived}
-        onToggleArchived={() => setShowArchived(v => !v)}
+        onToggleArchived={() => {
+          setShowArchived(v => {
+            const next = !v;
+            if (v && !next && selectedLead && selectedIsArchived && typeof window !== 'undefined'
+              && !window.matchMedia('(min-width: 1024px)').matches) {
+              clearSelection();
+            }
+            return next;
+          });
+        }}
         onRefresh={loadLeads}
       />
 
-      <div className="px-6 py-5 animate-fade-in-up">
-        {toast && (
-          <div className={`mb-5 px-4 py-2.5 rounded-xl type-body-sm font-medium border flex items-center gap-2 ${
-            toast.type === 'error'
-              ? 'bg-gs-danger/10 text-gs-danger border-gs-danger/25'
-              : 'bg-gs-accent/10 text-gs-accent border-gs-accent/25'
-          }`}>
-            {toast.type === 'error'
-              ? <AlertCircle size={14} className="shrink-0" />
-              : <CheckCircle2 size={14} className="shrink-0" />}
-            {toast.msg}
-          </div>
-        )}
+      {toast && (
+        <div className={`mx-6 mt-3 px-4 py-2.5 rounded-xl type-body-sm font-medium border flex items-center gap-2 shrink-0 ${
+          toast.type === 'error'
+            ? 'bg-gs-danger/10 text-gs-danger border-gs-danger/25'
+            : 'bg-gs-accent/10 text-gs-accent border-gs-accent/25'
+        }`}>
+          {toast.type === 'error'
+            ? <AlertCircle size={14} className="shrink-0" />
+            : <CheckCircle2 size={14} className="shrink-0" />}
+          {toast.msg}
+        </div>
+      )}
 
-        {!loading && leads.length > 0 && (
-          <div className="relative mb-5">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted pointer-events-none" />
-            <input
-              className="input pl-9 pr-8 type-body-sm"
-              placeholder="Search by name, phone, or message…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gs-muted hover:text-gs-text transition-colors"
-                tabIndex={-1}
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-        )}
-
+      <div className="flex-1 min-h-0 flex flex-col animate-fade-in-up">
         {loading ? (
           <div className="flex justify-center py-20"><Spinner size={24} /></div>
         ) : leads.length === 0 ? (
-          <EmptyState
-            icon={MessageCircle}
-            title="No SMS replies yet"
-            desc="When customers reply to your texts, they'll appear here automatically"
-          />
+          <div className="px-6 py-5">
+            <EmptyState
+              icon={MessageCircle}
+              title="No SMS replies yet"
+              desc="When customers reply to your texts, they'll appear here automatically"
+            />
+          </div>
         ) : activeLeads.length === 0 && !showArchived ? (
-          <EmptyState
-            icon={Archive}
-            title="All chats archived"
-            desc="Toggle 'archived' in the header to view them"
-          />
+          <div className="px-6 py-5">
+            <EmptyState
+              icon={Archive}
+              title="All chats archived"
+              desc="Toggle 'archived' in the header to view them"
+            />
+          </div>
         ) : searched.length === 0 ? (
-          <EmptyState icon={Search} title="No matches" desc={`No replies match "${search}"`} />
-        ) : (
-          <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
-              {activeLeads.map((lead, idx) => (
-                <ReplyCard
-                  key={lead.row_number}
-                  lead={lead}
-                  cardState={getCard(lead.row_number)}
-                  thread={buildThread(lead, chatHistory)}
-                  sentDate={formatSent(lead.sent)}
-                  isConfirming={archiveConfirm === lead.row_number}
-                  textareaRef={idx === 0 ? firstTextareaRef : null}
+          <div className="px-6 py-5">
+            <EmptyState icon={MessageCircle} title="No matches" desc={`No replies match "${search}"`} />
+          </div>
+        ) : showInbox ? (
+          <ReplyInbox
+            search={search}
+            onSearchChange={setSearch}
+            showArchived={showArchived}
+            activeLeads={activeLeads}
+            archivedLeads={archivedLeads}
+            selectedRowNumber={selectedRowNumber}
+            detailOpen={detailOpen}
+            onClearSelection={clearSelection}
+            getCard={getCard}
+            onSelectLead={selectLead}
+          >
+            {selectedLead ? (
+              selectedIsArchived ? (
+                <ReplyArchivedDetail lead={selectedLead} onRestore={restoreLead} />
+              ) : (
+                <ReplyConversationView
+                  lead={selectedLead}
+                  cardState={getCard(selectedLead.row_number)}
+                  thread={buildThread(selectedLead, chatHistory)}
+                  isConfirming={archiveConfirm === selectedLead.row_number}
+                  textareaRef={textareaRef}
                   onToggleArchiveConfirm={rowNumber =>
                     setArchiveConfirm(prev => (prev === rowNumber ? null : rowNumber))
                   }
@@ -270,32 +302,14 @@ export default function Replies() {
                   onQuickReply={applyQuickReply}
                   onAIDraft={handleAIDraft}
                 />
-              ))}
-            </div>
-
-            {showArchived && archivedLeads.length > 0 && (
-              <div className="mt-8 sm:mt-10">
-                <div className="flex items-center gap-2 mb-4 sm:mb-5">
-                  <Archive size={14} className="text-violet-700 shrink-0" />
-                  <span className="type-label-sm uppercase tracking-widest text-violet-700">
-                    Archived ({archivedLeads.length})
-                  </span>
-                  <div className="h-px flex-1 bg-gs-border" />
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
-                  {archivedLeads.map(lead => (
-                    <ArchivedReplyCard
-                      key={lead.row_number}
-                      lead={lead}
-                      sentDate={formatSent(lead.sent)}
-                      onRestore={restoreLead}
-                    />
-                  ))}
-                </div>
-              </div>
+              )
+            ) : (
+              <p className="reply-inbox-empty-detail">
+                Select a conversation from the list
+              </p>
             )}
-          </>
-        )}
+          </ReplyInbox>
+        ) : null}
       </div>
     </div>
   );

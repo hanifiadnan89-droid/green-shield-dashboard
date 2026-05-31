@@ -302,6 +302,90 @@
   @apply bg-gs-bg/95 backdrop-blur-sm;
 }
 
+/* Replies inbox (Phase 9b) */
+.reply-inbox {
+  @apply flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden;
+}
+
+.reply-inbox-sidebar {
+  @apply w-full lg:w-[340px] shrink-0 flex flex-col border-gs-border bg-white/40 min-h-0;
+  @apply lg:border-r;
+}
+
+.reply-inbox--detail-open .reply-inbox-sidebar {
+  @apply hidden lg:flex;
+}
+
+.reply-inbox-search {
+  @apply p-3 border-b border-gs-border bg-gs-bg/95 backdrop-blur-sm sticky top-0 z-[1];
+}
+
+.reply-inbox-detail {
+  @apply flex-1 min-h-0 flex flex-col min-w-0 bg-gs-bg/50 overflow-hidden;
+  @apply hidden lg:flex;
+}
+
+.reply-inbox--detail-open .reply-inbox-detail {
+  @apply flex;
+}
+
+.reply-inbox-detail-toolbar {
+  @apply border-b border-gs-border bg-gs-bg/95 backdrop-blur-sm;
+  padding-top: max(0.25rem, env(safe-area-inset-top, 0px));
+}
+
+.reply-inbox-back {
+  @apply m-2 min-h-[44px] px-2 font-medium text-gs-text;
+}
+
+.reply-inbox-detail-inner {
+  @apply flex-1 min-h-0 overflow-hidden;
+}
+
+.reply-inbox-list {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.reply-inbox-list-empty,
+.reply-inbox-list-hint {
+  @apply leading-relaxed;
+}
+
+.reply-inbox-section-label {
+  @apply type-label-sm uppercase tracking-widest text-gs-muted px-3 py-2 sticky top-0 bg-gs-bg/95 backdrop-blur-sm border-b border-gs-border/80;
+}
+
+.reply-inbox-section-label--archived {
+  @apply text-violet-700;
+}
+
+.reply-list-item {
+  @apply w-full flex gap-3 p-3 border-b border-gs-border/60 transition-colors cursor-pointer text-left;
+  @apply hover:bg-gs-accent/5;
+}
+
+.reply-list-item--selected {
+  @apply bg-gs-accent/10 border-l-2 border-l-gs-accent pl-[10px];
+}
+
+.reply-conversation {
+  @apply flex flex-col flex-1 min-h-0 bg-gs-card overflow-hidden;
+  @apply lg:rounded-xl lg:border lg:border-gs-border lg:m-3 lg:shadow-card;
+}
+
+.reply-conversation-body {
+  @apply flex flex-col flex-1 min-h-0 gap-4 p-4 sm:p-5;
+}
+
+.reply-thread-detail {
+  @apply flex-1 min-h-0 overflow-y-auto px-3 py-2.5 rounded-lg bg-slate-50/80 border border-slate-200/70;
+}
+
+.reply-inbox-empty-detail {
+  @apply hidden lg:flex flex-1 items-center justify-center p-8 type-body-sm text-gs-muted text-center;
+}
+
 /* Table row hover — inset left accent bar */
 .table-row:hover {
   background: rgba(240, 253, 244, 0.68);
