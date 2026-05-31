@@ -197,7 +197,7 @@ export default function Replies() {
 
       <div className="px-6 py-5 animate-fade-in-up">
         {toast && (
-          <div className={`mb-5 px-4 py-2.5 rounded-xl text-sm font-medium border flex items-center gap-2 ${
+          <div className={`mb-5 px-4 py-2.5 rounded-xl type-body-sm font-medium border flex items-center gap-2 ${
             toast.type === 'error'
               ? 'bg-gs-danger/10 text-gs-danger border-gs-danger/25'
               : 'bg-gs-accent/10 text-gs-accent border-gs-accent/25'
@@ -213,7 +213,7 @@ export default function Replies() {
           <div className="relative mb-5">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted pointer-events-none" />
             <input
-              className="input pl-9 pr-8 text-sm"
+              className="input pl-9 pr-8 type-body-sm"
               placeholder="Search by name, phone, or message…"
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -249,7 +249,7 @@ export default function Replies() {
           <EmptyState icon={Search} title="No matches" desc={`No replies match "${search}"`} />
         ) : (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
               {activeLeads.map((lead, idx) => (
                 <ReplyCard
                   key={lead.row_number}
@@ -274,18 +274,15 @@ export default function Replies() {
             </div>
 
             {showArchived && archivedLeads.length > 0 && (
-              <div className="mt-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <Archive size={14} style={{ color: '#7C3AED' }} />
-                  <span style={{
-                    fontSize: '12px', fontWeight: 600, color: '#7C3AED',
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>
+              <div className="mt-8 sm:mt-10">
+                <div className="flex items-center gap-2 mb-4 sm:mb-5">
+                  <Archive size={14} className="text-violet-700 shrink-0" />
+                  <span className="type-label-sm uppercase tracking-widest text-violet-700">
                     Archived ({archivedLeads.length})
                   </span>
                   <div className="h-px flex-1 bg-gs-border" />
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
                   {archivedLeads.map(lead => (
                     <ArchivedReplyCard
                       key={lead.row_number}
