@@ -34,6 +34,7 @@ export default function Replies() {
   const { getCard, updateCard } = useReplyCardState();
 
   const searched = leads.filter(l => {
+    if (!showArchived && archived.has(archKey(l))) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -218,7 +219,16 @@ export default function Replies() {
         leadsCount={leads.length}
         archivedCount={archivedCount}
         showArchived={showArchived}
-        onToggleArchived={() => setShowArchived(v => !v)}
+        onToggleArchived={() => {
+          setShowArchived(v => {
+            const next = !v;
+            if (v && !next && selectedLead && selectedIsArchived && typeof window !== 'undefined'
+              && !window.matchMedia('(min-width: 1024px)').matches) {
+              clearSelection();
+            }
+            return next;
+          });
+        }}
         onRefresh={loadLeads}
       />
 
@@ -294,7 +304,7 @@ export default function Replies() {
                 />
               )
             ) : (
-              <p className="reply-inbox-empty-detail hidden lg:flex">
+              <p className="reply-inbox-empty-detail">
                 Select a conversation from the list
               </p>
             )}

@@ -304,7 +304,7 @@
 
 /* Replies inbox (Phase 9b) */
 .reply-inbox {
-  @apply flex flex-col lg:flex-row flex-1 min-h-0;
+  @apply flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden;
 }
 
 .reply-inbox-sidebar {
@@ -316,8 +316,12 @@
   @apply hidden lg:flex;
 }
 
+.reply-inbox-search {
+  @apply p-3 border-b border-gs-border bg-gs-bg/95 backdrop-blur-sm sticky top-0 z-[1];
+}
+
 .reply-inbox-detail {
-  @apply flex-1 min-h-0 flex flex-col min-w-0 bg-gs-bg/50;
+  @apply flex-1 min-h-0 flex flex-col min-w-0 bg-gs-bg/50 overflow-hidden;
   @apply hidden lg:flex;
 }
 
@@ -325,12 +329,27 @@
   @apply flex;
 }
 
+.reply-inbox-detail-toolbar {
+  @apply border-b border-gs-border bg-gs-bg/95 backdrop-blur-sm;
+  padding-top: max(0.25rem, env(safe-area-inset-top, 0px));
+}
+
+.reply-inbox-back {
+  @apply m-2 min-h-[44px] px-2 font-medium text-gs-text;
+}
+
 .reply-inbox-detail-inner {
-  @apply flex-1 min-h-0;
+  @apply flex-1 min-h-0 overflow-hidden;
 }
 
 .reply-inbox-list {
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.reply-inbox-list-empty,
+.reply-inbox-list-hint {
+  @apply leading-relaxed;
 }
 
 .reply-inbox-section-label {
@@ -351,7 +370,8 @@
 }
 
 .reply-conversation {
-  @apply bg-gs-card lg:rounded-xl lg:border lg:border-gs-border lg:m-3 lg:shadow-card overflow-hidden;
+  @apply flex flex-col flex-1 min-h-0 bg-gs-card overflow-hidden;
+  @apply lg:rounded-xl lg:border lg:border-gs-border lg:m-3 lg:shadow-card;
 }
 
 .reply-conversation-body {
@@ -363,7 +383,7 @@
 }
 
 .reply-inbox-empty-detail {
-  @apply flex flex-1 items-center justify-center p-8 type-body-sm text-gs-muted text-center;
+  @apply hidden lg:flex flex-1 items-center justify-center p-8 type-body-sm text-gs-muted text-center;
 }
 
 /* Table row hover — inset left accent bar */

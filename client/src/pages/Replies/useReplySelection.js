@@ -1,17 +1,32 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { archKey } from './threadUtils.js';
+
+const LG_BREAKPOINT = '(min-width: 1024px)';
+
+function isDesktopViewport() {
+  return typeof window !== 'undefined' && window.matchMedia(LG_BREAKPOINT).matches;
+}
 
 /**
  * Tracks the selected conversation in the inbox layout.
- * Auto-selects first active lead; re-syncs when lists change (archive, search, refresh).
+ * Desktop: auto-selects first visible lead when none or stale.
+ * Mobile: list-first until the user picks a thread; clears detail when filter/archive hides selection.
  */
 export function useReplySelection({ activeLeads, archivedLeads, showArchived, loading }) {
   const [selectedRowNumber, setSelectedRowNumber] = useState(null);
   const skipAutoSelectRef = useRef(false);
+  const initialMobileListRef = useRef(true);
 
   const allVisibleLeads = useMemo(
     () => (showArchived ? [...activeLeads, ...archivedLeads] : activeLeads),
     [activeLeads, archivedLeads, showArchived]
   );
+
+  function pickDefaultRowNumber() {
+    if (activeLeads.length > 0) return activeLeads[0].row_number;
+    if (showArchived && archivedLeads.length > 0) return archivedLeads[0].row_number;
+    return null;
+  }
 
   useEffect(() => {
     if (loading) return;
@@ -23,24 +38,33 @@ export function useReplySelection({ activeLeads, archivedLeads, showArchived, lo
 
     if (selectedRowNumber != null) {
       const stillVisible = allVisibleLeads.some(l => l.row_number === selectedRowNumber);
-      if (stillVisible) return;
+      if (stillVisible) {
+        initialMobileListRef.current = false;
+        return;
+      }
+      if (!isDesktopViewport()) {
+        skipAutoSelectRef.current = true;
+        setSelectedRowNumber(null);
+        initialMobileListRef.current = false;
+        return;
+      }
+    } else if (initialMobileListRef.current && !isDesktopViewport()) {
+      initialMobileListRef.current = false;
+      return;
     }
 
-    if (activeLeads.length > 0) {
-      setSelectedRowNumber(activeLeads[0].row_number);
-    } else if (showArchived && archivedLeads.length > 0) {
-      setSelectedRowNumber(archivedLeads[0].row_number);
-    } else {
-      setSelectedRowNumber(null);
-    }
+    initialMobileListRef.current = false;
+    setSelectedRowNumber(pickDefaultRowNumber());
   }, [activeLeads, archivedLeads, showArchived, loading, allVisibleLeads, selectedRowNumber]);
 
   function selectLead(rowNumber) {
+    initialMobileListRef.current = false;
     setSelectedRowNumber(rowNumber);
   }
 
   function clearSelection() {
     skipAutoSelectRef.current = true;
+    initialMobileListRef.current = false;
     setSelectedRowNumber(null);
   }
 
@@ -49,7 +73,14 @@ export function useReplySelection({ activeLeads, archivedLeads, showArchived, lo
     const remaining = activeLeads.filter(l => l.row_number !== archivedRowNumber);
     if (remaining.length > 0) {
       setSelectedRowNumber(remaining[0].row_number);
-    } else if (showArchived && archivedLeads.length > 0) {
+      return;
+    }
+    if (!isDesktopViewport()) {
+      skipAutoSelectRef.current = true;
+      setSelectedRowNumber(null);
+      return;
+    }
+    if (showArchived && archivedLeads.length > 0) {
       setSelectedRowNumber(archivedLeads[0].row_number);
     } else {
       setSelectedRowNumber(null);
