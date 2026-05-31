@@ -1,20 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Send, StopCircle, PlayCircle, Edit3, Trash2 } from 'lucide-react';
-import { getAvatarStyle, getInitials, getRowBorderColor, TEMPLATE_META } from '../mockData.js';
-
-function TemplateBadge({ notes }) {
-  const key = (notes || '').toLowerCase();
-  const meta = key === 't/m' ? TEMPLATE_META.tm : TEMPLATE_META[key];
-  if (!meta) return null;
-  return (
-    <span
-      className="inline-flex items-center type-label-sm uppercase px-2 py-0.5 rounded-full"
-      style={{ background: meta.bg, color: meta.textColor }}
-    >
-      {meta.label}
-    </span>
-  );
-}
+import { getAvatarStyle, getInitials, getRowBorderColor } from '../../mockData.js';
+import LeadTemplateBadge from './LeadTemplateBadge.jsx';
 
 function StatusPill({ lead }) {
   if ((lead.error && lead.error.trim()) || lead.status === 'error' || lead.status === 'email_failed') {
@@ -65,73 +52,68 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
 
   return (
     <div
-      className="lead-row flex items-center gap-3 px-4 py-3 cursor-pointer"
-      style={{
-        borderLeft: `3px solid ${borderColor}`,
-        borderBottom: '1px solid rgba(15,42,20,0.06)',
-        background: isSelected ? 'rgba(22,163,74,0.08)' : 'rgba(255,255,255,0.30)',
-      }}
+      className={`lead-row flex items-center gap-3 px-4 py-3 cursor-pointer${
+        isSelected ? ' lead-row--selected' : ''
+      }`}
+      style={{ borderLeftColor: borderColor }}
       onClick={() => onSelect(lead)}
     >
-      {/* Avatar */}
       <div
-        className="flex items-center justify-center rounded-full shrink-0 font-display font-bold text-xs"
-        style={{ width: '36px', height: '36px', background: avatar.bg, color: avatar.text, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.72), 4px 5px 10px rgba(15,42,20,0.08)' }}
+        className="lead-row__avatar flex items-center justify-center rounded-full shrink-0 font-display font-bold text-xs"
+        style={{ background: avatar.bg, color: avatar.text }}
       >
         {initials}
       </div>
 
-      {/* Name + contact */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-[#0F172A] truncate leading-tight">{lead.name || '—'}</p>
-        <p className="type-mono text-[#94A3B8] truncate mt-0.5">{lead.phone || lead.email || '—'}</p>
+        <p className="type-body-sm font-semibold text-gs-text truncate leading-tight">{lead.name || '—'}</p>
+        <p className="type-mono text-gs-muted truncate mt-0.5">{lead.phone || lead.email || '—'}</p>
       </div>
 
-      {/* Template badge */}
       <div className="shrink-0">
-        <TemplateBadge notes={lead.notes} />
+        <LeadTemplateBadge notes={lead.notes} />
       </div>
 
-      {/* Status */}
       <div className="shrink-0">
         <StatusPill lead={lead} />
       </div>
 
-      {/* Sent date — hidden on mobile to prevent overflow */}
       <div className="hidden sm:block shrink-0 w-14 text-right">
-        <p className="type-label-md text-[#94A3B8]">{sentDate || '—'}</p>
+        <p className="type-label-md text-gs-muted">{sentDate || '—'}</p>
       </div>
 
-      {/* Quick actions — Edit + Delete hidden on mobile */}
       <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
         <Link
           to="/send"
           state={{ lead }}
-          className="p-1.5 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
+          className="lead-row__action p-1.5 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
           title="Send template"
           onClick={e => e.stopPropagation()}
         >
-          <Send size={13} style={{ color: '#16A34A' }} />
+          <Send size={13} className="text-gs-accent" />
         </Link>
         <button
-          className="p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+          type="button"
+          className="lead-row__action p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
           title="Stop / Resume (use main dashboard)"
           onClick={() => onPreviewAction('stop', lead)}
         >
           {lead.stop === 'yes'
-            ? <PlayCircle size={13} style={{ color: '#16A34A' }} />
-            : <StopCircle size={13} style={{ color: '#DC2626' }} />}
+            ? <PlayCircle size={13} className="text-gs-accent" />
+            : <StopCircle size={13} className="text-gs-danger" />}
         </button>
         <button
-          className="hidden sm:flex p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer items-center"
+          type="button"
+          className="lead-row__action hidden sm:flex p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer items-center"
           title="Edit (use main dashboard)"
           onClick={() => onPreviewAction('edit', lead)}
         >
-          <Edit3 size={13} style={{ color: '#94A3B8' }} />
+          <Edit3 size={13} className="text-gs-muted" />
         </button>
         {onDelete && (
           <button
-            className="hidden sm:flex p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer items-center"
+            type="button"
+            className="lead-row__action hidden sm:flex p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer items-center"
             title="Delete lead"
             onClick={() => {
               if (window.confirm(`Delete ${lead.name || 'this lead'}? This cannot be undone.`)) {
@@ -139,7 +121,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
               }
             }}
           >
-            <Trash2 size={13} style={{ color: '#DC2626' }} />
+            <Trash2 size={13} className="text-gs-danger" />
           </button>
         )}
       </div>
