@@ -19,7 +19,20 @@
  * @property {'left'|'center'|'right'} [align='left'] - Horizontal alignment.
  * @property {boolean} [mono] - Apply `type-mono` on cell content.
  * @property {boolean} [truncate] - Truncate overflowing cell text.
+ * @property {string} [minWidth] - Tailwind min-width on header and body cells (e.g. `min-w-[8rem]`).
+ * @property {boolean} [bodySm=true] - Apply `type-body-sm` on body cells.
  */
+
+/** Shared header label typography (sortable and static). */
+export const DATA_TABLE_HEADER_LABEL_CLASS =
+  'type-label-sm uppercase tracking-widest text-gs-muted';
+
+/** Default horizontal scroll wrapper for mobile. */
+export const DATA_TABLE_SCROLL_CLASS =
+  'data-table-scroll w-full max-w-full overflow-x-auto overscroll-x-contain touch-pan-x';
+
+/** Default `<table>` classes. */
+export const DATA_TABLE_TABLE_CLASS = 'data-table w-full border-collapse';
 
 /**
  * @typedef {Object} DataTableProps
@@ -44,6 +57,8 @@ export const DATA_TABLE_COLUMN_META_KEYS = [
   'align',
   'mono',
   'truncate',
+  'minWidth',
+  'bodySm',
 ];
 
 export const COLUMN_ALIGN_CLASS = {
@@ -70,9 +85,11 @@ export function columnMeta(meta = {}) {
  */
 export function cellClassNames(meta) {
   const align = COLUMN_ALIGN_CLASS[meta?.align] || COLUMN_ALIGN_CLASS.left;
-  const parts = ['td', align];
+  const parts = ['td', 'text-gs-text', align];
+  if (meta?.bodySm !== false) parts.push('type-body-sm');
   if (meta?.mono) parts.push('type-mono');
-  if (meta?.truncate) parts.push('max-w-[200px] truncate');
+  if (meta?.truncate) parts.push('max-w-[12rem] truncate');
+  if (meta?.minWidth) parts.push(meta.minWidth);
   if (meta?.className) parts.push(meta.className);
   return parts.filter(Boolean).join(' ');
 }
@@ -86,6 +103,7 @@ export function cellClassNames(meta) {
 export function headerClassNames(meta) {
   const align = COLUMN_ALIGN_CLASS[meta?.align] || COLUMN_ALIGN_CLASS.left;
   const parts = ['th', align];
+  if (meta?.minWidth) parts.push(meta.minWidth);
   if (meta?.headerClassName) parts.push(meta.headerClassName);
   return parts.filter(Boolean).join(' ');
 }

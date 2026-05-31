@@ -21,20 +21,20 @@ export function DaysBadge({ days }) {
   if (days === null) return <span className="text-gs-muted">—</span>;
   if (days >= 7) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gs-danger/12 border border-gs-danger/30 text-gs-danger">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full type-label-sm uppercase bg-gs-danger/12 border border-gs-danger/30 text-gs-danger">
         {days}d ago
       </span>
     );
   }
   if (days >= 3) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gs-warn/12 border border-gs-warn/30 text-gs-warn">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full type-label-sm uppercase bg-gs-warn/12 border border-gs-warn/30 text-gs-warn">
         {days}d ago
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gs-accent/12 border border-gs-accent/30 text-gs-accent">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full type-label-sm uppercase bg-gs-accent/12 border border-gs-accent/30 text-gs-accent">
       {days}d ago
     </span>
   );
@@ -54,25 +54,33 @@ export function createFollowupsColumns({ navigate, onStop, stopLoading }) {
     col.accessor('name', {
       header: 'Name',
       enableSorting: true,
-      meta: columnMeta({ className: 'font-semibold text-gs-text' }),
+      meta: columnMeta({
+        className: 'font-semibold text-gs-text',
+        minWidth: 'min-w-[7rem]',
+      }),
       cell: ({ getValue }) => getValue() || '—',
     }),
     col.accessor('phone', {
       header: 'Phone',
       enableSorting: true,
-      meta: columnMeta({ mono: true, className: 'text-xs text-gs-muted' }),
+      meta: columnMeta({
+        mono: true,
+        className: 'text-gs-muted',
+        minWidth: 'min-w-[6rem]',
+      }),
       cell: ({ getValue }) => getValue() || '—',
     }),
     col.accessor('notes', {
       id: 'template',
       header: 'Template',
       enableSorting: true,
+      meta: columnMeta({ minWidth: 'min-w-[4.5rem]' }),
       cell: ({ getValue }) => <StatusBadge value={getValue()} />,
     }),
     col.accessor('sent', {
       header: 'Sent',
       enableSorting: true,
-      meta: columnMeta({ className: 'text-xs text-gs-muted' }),
+      meta: columnMeta({ className: 'text-gs-muted', minWidth: 'min-w-[5.5rem]' }),
       cell: ({ getValue }) => {
         const sent = getValue();
         return sent && sent !== 'imported' ? new Date(sent).toLocaleDateString() : '—';
@@ -82,21 +90,28 @@ export function createFollowupsColumns({ navigate, onStop, stopLoading }) {
       id: 'days_since',
       header: 'Days Since',
       enableSorting: true,
+      meta: columnMeta({ minWidth: 'min-w-[5.5rem]' }),
       cell: ({ getValue }) => <DaysBadge days={getValue()} />,
     }),
     col.accessor('status', {
       header: 'Status',
       enableSorting: true,
+      meta: columnMeta({ minWidth: 'min-w-[5rem]' }),
       cell: ({ getValue }) => <StatusBadge value={getValue()} />,
     }),
     col.display({
       id: 'actions',
       header: 'Actions',
       enableSorting: false,
+      meta: columnMeta({
+        align: 'right',
+        className: 'whitespace-nowrap',
+        minWidth: 'min-w-[11rem]',
+      }),
       cell: ({ row }) => {
         const lead = row.original;
         return (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-end gap-1.5">
             <button
               type="button"
               onClick={() => navigate('/send', { state: { lead } })}

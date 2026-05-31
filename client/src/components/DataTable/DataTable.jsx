@@ -6,7 +6,13 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
-import { cellClassNames, headerClassNames } from './contract.js';
+import {
+  cellClassNames,
+  headerClassNames,
+  DATA_TABLE_HEADER_LABEL_CLASS,
+  DATA_TABLE_SCROLL_CLASS,
+  DATA_TABLE_TABLE_CLASS,
+} from './contract.js';
 
 /**
  * Generic sortable data table shell for Leads / Followups (Phase 7).
@@ -25,7 +31,7 @@ export default function DataTable({
   getRowId,
   stickyHeader = true,
   className = '',
-  tableClassName = 'w-full',
+  tableClassName = DATA_TABLE_TABLE_CLASS,
 }) {
   const [sorting, setSorting] = useState(initialSorting);
 
@@ -42,11 +48,15 @@ export default function DataTable({
   const headerGroups = table.getHeaderGroups();
   const rows = table.getRowModel().rows;
   const columnCount = table.getAllLeafColumns().length;
+  const wrapperClass = [DATA_TABLE_SCROLL_CLASS, className].filter(Boolean).join(' ');
+  const theadClass = stickyHeader
+    ? 'sticky top-0 z-10 bg-gs-bg/95 backdrop-blur-sm shadow-[inset_0_-1px_0_0_rgb(15_42_20/0.08)]'
+    : undefined;
 
   return (
-    <div className={`overflow-x-auto ${className}`.trim()}>
+    <div className={wrapperClass} role="region" aria-label="Data table" tabIndex={0}>
       <table className={tableClassName}>
-        <thead className={stickyHeader ? 'sticky top-0 z-10 bg-gs-bg' : undefined}>
+        <thead className={theadClass}>
           {headerGroups.map(headerGroup => (
             <tr key={headerGroup.id} className="border-b border-gs-border">
               {headerGroup.headers.map(header => {
@@ -58,6 +68,7 @@ export default function DataTable({
                   <th
                     key={header.id}
                     colSpan={header.colSpan}
+                    scope="col"
                     className={headerClassNames(meta)}
                     aria-sort={
                       sorted === 'asc' ? 'ascending'
@@ -69,18 +80,18 @@ export default function DataTable({
                     {header.isPlaceholder ? null : canSort ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 type-label-sm uppercase tracking-widest text-gs-muted hover:text-gs-text transition-colors font-semibold"
+                        className={`inline-flex items-center gap-1 ${DATA_TABLE_HEADER_LABEL_CLASS} hover:text-gs-text transition-colors cursor-pointer`}
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
-                        <span className="text-gs-muted/80" aria-hidden>
+                        <span className="text-gs-muted/70 shrink-0" aria-hidden>
                           {sorted === 'asc' ? <ChevronUp size={12} />
                             : sorted === 'desc' ? <ChevronDown size={12} />
                             : <ChevronsUpDown size={12} />}
                         </span>
                       </button>
                     ) : (
-                      <span className="type-label-sm uppercase tracking-widest">
+                      <span className={DATA_TABLE_HEADER_LABEL_CLASS}>
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </span>
                     )}
@@ -93,13 +104,13 @@ export default function DataTable({
         <tbody>
           {isLoading ? (
             <tr>
-              <td colSpan={columnCount} className="td text-center py-16 text-gs-muted">
+              <td colSpan={columnCount} className="td type-body-sm text-center py-16 text-gs-muted">
                 {loadingContent ?? 'Loading…'}
               </td>
             </tr>
           ) : rows.length === 0 ? (
             <tr>
-              <td colSpan={columnCount} className="td text-center py-16 text-gs-muted">
+              <td colSpan={columnCount} className="td type-body-sm text-center py-16 text-gs-muted">
                 {emptyContent ?? 'No rows'}
               </td>
             </tr>

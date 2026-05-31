@@ -4,7 +4,7 @@ import { Clock, RefreshCw, Info } from 'lucide-react';
 import { api } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
-import { DataTable } from '../components/DataTable/index.js';
+import { DataTable, DATA_TABLE_TABLE_CLASS } from '../components/DataTable/index.js';
 import { createFollowupsColumns } from './followupsColumns.jsx';
 
 export default function Followups() {
@@ -109,7 +109,7 @@ export default function Followups() {
               columns={columns}
               data={leads}
               getRowId={row => String(row.row_number)}
-              stickyHeader={false}
+              tableClassName={`${DATA_TABLE_TABLE_CLASS} min-w-[36rem]`}
             />
           </div>
         )}

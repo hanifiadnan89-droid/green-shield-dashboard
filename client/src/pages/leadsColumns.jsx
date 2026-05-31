@@ -35,35 +35,41 @@ export function createLeadsColumns({ navigate, onStop, onEdit, actionLoading }) 
     col.accessor('name', {
       header: 'Name',
       enableSorting: true,
-      meta: columnMeta({ className: 'font-medium' }),
+      meta: columnMeta({ className: 'font-medium', minWidth: 'min-w-[7.5rem]' }),
       cell: ({ getValue }) => getValue() || <span className="text-gs-muted">—</span>,
     }),
     col.accessor('phone', {
       header: 'Phone',
       enableSorting: true,
-      meta: columnMeta({ mono: true, className: 'text-xs' }),
+      meta: columnMeta({ mono: true, minWidth: 'min-w-[6.5rem]' }),
       cell: ({ getValue }) => getValue() || '—',
     }),
     col.accessor('email', {
       header: 'Email',
       enableSorting: true,
-      meta: columnMeta({ className: 'text-xs text-gs-muted max-w-[140px]', truncate: true }),
+      meta: columnMeta({
+        className: 'text-gs-muted',
+        truncate: true,
+        minWidth: 'min-w-[8rem]',
+      }),
       cell: ({ getValue }) => getValue() || '—',
     }),
     col.accessor('notes', {
       header: 'Notes',
       enableSorting: true,
+      meta: columnMeta({ minWidth: 'min-w-[4.5rem]' }),
       cell: ({ getValue }) => <StatusBadge value={getValue()} />,
     }),
     col.accessor('status', {
       header: 'Status',
       enableSorting: true,
+      meta: columnMeta({ minWidth: 'min-w-[5rem]' }),
       cell: ({ getValue }) => <StatusBadge value={getValue()} />,
     }),
     col.accessor('sent', {
       header: 'Sent',
       enableSorting: true,
-      meta: columnMeta({ className: 'text-xs text-gs-muted' }),
+      meta: columnMeta({ className: 'text-gs-muted', minWidth: 'min-w-[5.5rem]' }),
       cell: ({ getValue }) => {
         const sent = getValue();
         if (sent === 'imported') return <span className="text-gs-muted">imported</span>;
@@ -74,27 +80,34 @@ export function createLeadsColumns({ navigate, onStop, onEdit, actionLoading }) 
     col.accessor('stop', {
       header: 'Stop',
       enableSorting: true,
+      meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
       cell: ({ getValue }) => (getValue() === 'yes' ? <StatusBadge value="yes" /> : null),
     }),
     col.accessor('sms_reply', {
       header: 'SMS',
       enableSorting: true,
+      meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
       cell: ({ getValue }) => (hasRealReply(getValue()) ? <StatusBadge value="yes" /> : null),
     }),
     col.accessor('email_reply', {
       header: 'Email',
       enableSorting: true,
+      meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
       cell: ({ getValue }) => (hasRealReply(getValue()) ? <StatusBadge value="yes" /> : null),
     }),
     col.accessor('error', {
       header: 'Error',
       enableSorting: true,
-      meta: columnMeta({ className: 'max-w-[120px]' }),
+      meta: columnMeta({
+        className: 'text-gs-danger',
+        truncate: true,
+        minWidth: 'min-w-[7rem]',
+      }),
       cell: ({ getValue }) => {
         const error = getValue();
         if (!error) return null;
         return (
-          <span className="text-gs-danger text-xs truncate block" title={error}>
+          <span className="truncate block" title={error}>
             ⚠ {error}
           </span>
         );
@@ -104,11 +117,16 @@ export function createLeadsColumns({ navigate, onStop, onEdit, actionLoading }) 
       id: 'actions',
       header: 'Actions',
       enableSorting: false,
+      meta: columnMeta({
+        align: 'right',
+        className: 'whitespace-nowrap',
+        minWidth: 'min-w-[6.5rem]',
+      }),
       cell: ({ row }) => {
         const lead = row.original;
         const stopKey = `stop_${lead.row_number}`;
         return (
-          <div className="flex items-center gap-1" onClick={e => e.stopPropagation()} role="presentation">
+          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()} role="presentation">
             <button
               type="button"
               onClick={() => navigate('/send', { state: { lead } })}

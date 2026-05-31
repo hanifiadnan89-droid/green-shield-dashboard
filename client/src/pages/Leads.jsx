@@ -8,7 +8,7 @@ import { api } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import LeadDetailPanel from '../components/LeadDetailPanel.jsx';
-import { DataTable } from '../components/DataTable/index.js';
+import { DataTable, DATA_TABLE_TABLE_CLASS } from '../components/DataTable/index.js';
 import { createLeadsColumns, LEADS_INITIAL_SORTING } from './leadsColumns.jsx';
 
 const STATUS_OPTIONS = ['', 'archived', 'active', 'replied', 'stopped'];
@@ -304,6 +304,7 @@ export default function Leads() {
             initialSorting={LEADS_INITIAL_SORTING}
             getRowId={row => String(row.row_number)}
             onRowClick={row => setDetailLead(row.original)}
+            tableClassName={`${DATA_TABLE_TABLE_CLASS} min-w-[52rem]`}
           />
         )}
       </div>
