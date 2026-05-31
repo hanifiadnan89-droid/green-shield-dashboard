@@ -229,6 +229,79 @@
   @apply px-3 py-2.5 sm:px-4 sm:py-3 align-middle;
 }
 
+/* Replies — chat thread + cards (Phase 9) */
+.reply-thread {
+  @apply max-h-[260px] overflow-y-auto px-3 py-2.5 rounded-lg bg-slate-50/80 border border-slate-200/70;
+}
+
+.chat-bubble-meta {
+  @apply type-label-sm text-gs-muted mb-0.5 shrink-0;
+}
+
+.chat-bubble-out {
+  @apply max-w-[82%] px-3 py-2 rounded-xl rounded-br-sm type-body-sm text-gs-text whitespace-pre-wrap break-words;
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.13), rgba(22, 163, 74, 0.06));
+  border: 1px solid rgba(22, 163, 74, 0.22);
+}
+
+.chat-bubble-in {
+  @apply max-w-[82%] px-3 py-2 rounded-xl rounded-bl-sm type-body-sm text-gs-text whitespace-pre-wrap break-words;
+  background: rgba(37, 99, 235, 0.07);
+  border: 1px solid rgba(37, 99, 235, 0.16);
+}
+
+.reply-card-body {
+  @apply flex flex-col gap-4 p-5 sm:p-6;
+}
+
+.reply-card-archived {
+  @apply card flex flex-col gap-4 p-5 sm:p-6 opacity-70;
+}
+
+.reply-avatar-active {
+  @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-gs-accent/20 border border-gs-accent/25;
+}
+
+.reply-avatar-archived {
+  @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-slate-500/10 border border-slate-500/20;
+}
+
+.reply-archive-confirm {
+  @apply flex items-center justify-between gap-2 px-4 py-2.5 sm:px-5 bg-gs-danger/10 border-b border-gs-danger/20;
+}
+
+.reply-status-pill {
+  @apply type-label-sm px-2 py-0.5 rounded-full capitalize bg-gs-accent/10 border border-gs-accent/25 text-green-800;
+}
+
+.reply-inbound-quote {
+  @apply rounded-xl px-4 py-3 bg-gs-info/10 border border-gs-info/20;
+}
+
+.quick-reply-pill {
+  @apply type-label-sm px-2.5 py-0.5 rounded-full font-medium border border-gs-border/80 text-gs-muted bg-white/70;
+  @apply hover:text-gs-accent hover:border-gs-accent/30 hover:bg-gs-accent/10 transition-colors cursor-pointer;
+}
+
+.btn-ai-draft {
+  @apply inline-flex items-center gap-1.5 type-label-sm font-semibold rounded-lg px-2.5 py-1 border transition-colors cursor-pointer;
+  @apply text-violet-700 bg-violet-500/10 border-violet-500/25 hover:bg-violet-500/20 hover:text-violet-800;
+  @apply disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-violet-500/10 disabled:hover:text-violet-700;
+}
+
+.reply-alert-error {
+  @apply flex items-center gap-2 px-3 py-2 rounded-lg type-body-sm text-gs-danger bg-gs-danger/10 border border-gs-danger/25;
+}
+
+.reply-alert-review {
+  @apply flex items-start gap-2 px-3.5 py-2.5 rounded-lg bg-gs-warn/10 border border-gs-warn/30;
+}
+
+.reply-page-header {
+  @apply px-6 py-5 border-b border-gs-border flex items-center justify-between sticky top-0 z-10;
+  @apply bg-gs-bg/95 backdrop-blur-sm;
+}
+
 /* Table row hover — inset left accent bar */
 .table-row:hover {
   background: rgba(240, 253, 244, 0.68);
