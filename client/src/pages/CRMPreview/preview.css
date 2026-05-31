@@ -315,13 +315,11 @@
 /* ── Pipeline Summary (Phase 6) — ps-* layout, orb, streams ── */
 /* ── ps-root ── */
 .crm-preview .ps-root{
-  --ps-ink: #0F172A;
-  --ps-muted: #64748B;
   position: relative;
   overflow: hidden;
   width: 100%;
   padding: 32px 34px 20px;
-  color: var(--ps-ink);
+  @apply text-gs-text;
   background:
     radial-gradient(circle at 9% -8%, rgba(22,163,74,0.12), transparent 34%),
     radial-gradient(circle at 46% -6%, rgba(37,99,235,0.10), transparent 36%),
@@ -359,16 +357,11 @@
 }
 .crm-preview .ps-root__header h3{
   margin: 0;
-  font-family: Poppins, Inter, sans-serif;
   font-size: 24px;
-  font-weight: 800;
-  color: #0F172A;
   line-height: 1.18;
 }
 .crm-preview .ps-root__header p{
   margin: 4px 0 0;
-  color: #475569;
-  font-size: 14px;
   font-weight: 550;
 }
 .crm-preview .ps-root__view-btn{
@@ -380,9 +373,7 @@
   border: 1px solid rgba(203,213,225,0.82);
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.78));
-  color: #0F172A;
-  font-size: 13px;
-  font-weight: 750;
+  @apply text-[13px] leading-normal font-semibold text-gs-text;
   box-shadow: 0 10px 24px rgba(15,23,42,0.10), 0 1px 0 rgba(255,255,255,0.90) inset;
   cursor: pointer;
   white-space: nowrap;
@@ -459,11 +450,9 @@
   align-items: center;
   gap: 7px;
   margin-bottom: 20px;
-  color: #334E71;
-  font-size: 11px;
+  @apply text-[11px] leading-none uppercase text-gs-muted;
   font-weight: 850;
   letter-spacing: 0.09em;
-  text-transform: uppercase;
 }
 .crm-preview .ps-panel--center{ padding: 22px 20px 20px; }
 
@@ -515,18 +504,14 @@
   min-width: 0;
 }
 .crm-preview .ps-ring-card__label{
-  font-size: 12px;
-  font-weight: 750;
-  color: #334E71;
-  letter-spacing: 0.03em;
+  @apply text-[13px] leading-normal font-semibold text-gs-text tracking-normal;
   white-space: nowrap;
 }
 .crm-preview .ps-ring-card__pct{
-  font-family: Poppins, Inter, sans-serif;
+  @apply font-display text-gs-text tabular-nums;
   font-size: 26px;
   font-weight: 850;
   line-height: 1;
-  font-variant-numeric: tabular-nums;
 }
 
 /* ── ps-rings-legend ── */
@@ -542,9 +527,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-  font-weight: 650;
-  color: #1E3558;
+  @apply text-[13px] leading-normal font-medium text-gs-text;
 }
 .crm-preview .ps-rings-legend__item i{
   display: inline-block;
@@ -686,23 +669,19 @@
 .crm-preview .ps-orb__value{
   position: relative;
   z-index: 6;
-  font-family: Poppins, Inter, sans-serif;
+  @apply font-display text-gs-text tabular-nums;
   font-size: clamp(46px, 4.5vw, 60px);
   font-weight: 850;
   line-height: 0.9;
-  color: #0F172A;
   letter-spacing: 0;
-  font-variant-numeric: tabular-nums;
 }
 .crm-preview .ps-orb__label{
   position: relative;
   z-index: 6;
   margin-top: 12px;
-  color: #1E3A5F;
-  font-size: 11px;
+  @apply text-[11px] leading-none uppercase text-gs-text;
   font-weight: 850;
   letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 /* ── ps-metrics-stack ── */
@@ -727,7 +706,7 @@
     radial-gradient(circle at 88% 42%, color-mix(in srgb, var(--mc) 10%, transparent), transparent 52%),
     linear-gradient(180deg, rgba(255,255,255,0.80), rgba(255,255,255,0.54));
   box-shadow: 0 6px 16px rgba(15,42,20,0.055), 0 1px 0 rgba(255,255,255,0.90) inset;
-  color: #0F172A;
+  @apply text-gs-text;
   text-align: left;
   cursor: pointer;
   transform: translateZ(0);
@@ -772,11 +751,9 @@
 }
 .crm-preview .ps-metric-card__label{
   display: block;
-  font-size: 11px;
+  @apply text-[11px] leading-none uppercase text-gs-text;
   font-weight: 850;
-  color: #1E3558;
   letter-spacing: 0.045em;
-  text-transform: uppercase;
   margin-bottom: 3px;
 }
 .crm-preview .ps-metric-card__row{
@@ -785,12 +762,7 @@
   gap: 6px;
 }
 .crm-preview .ps-metric-card__value{
-  font-family: Poppins, Inter, sans-serif;
-  font-size: 22px;
-  font-weight: 850;
-  line-height: 1;
-  color: #0F172A;
-  font-variant-numeric: tabular-nums;
+  @apply font-display text-[22px] font-extrabold leading-none text-gs-text tabular-nums;
 }
 .crm-preview .ps-metric-card__rate{
   font-size: 11px;
@@ -820,7 +792,7 @@
   margin-bottom: 12px;
   padding: 12px;
   border-radius: 14px;
-  color: #94A3B8;
+  @apply text-gs-muted;
   background: #F8FAFC;
 }
 

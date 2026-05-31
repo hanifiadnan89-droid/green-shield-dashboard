@@ -60,9 +60,9 @@ export default function PipelineSummaryFlow({ stats }) {
         <div className="ps-empty__icon">
           <TrendingUp size={20} />
         </div>
-        <p className="text-sm font-medium text-[#64748B]">No lead data yet</p>
-        <p className="text-xs text-[#94A3B8] mt-1">
-          <Link to="/send" className="text-[#16A34A] hover:underline">
+        <p className="type-body-sm font-medium text-gs-muted">No lead data yet</p>
+        <p className="type-label-sm text-gs-muted/70 mt-1 normal-case tracking-normal">
+          <Link to="/send" className="text-gs-accent hover:underline">
             Send your first template
           </Link>{' '}
           to see analytics
@@ -76,10 +76,10 @@ export default function PipelineSummaryFlow({ stats }) {
       <div className="ps-root__glow" />
       <header className="ps-root__header">
         <div>
-          <h3>Pipeline Summary</h3>
-          <p>
+          <h3 className="type-display-lg font-extrabold text-gs-text">Pipeline Summary</h3>
+          <p className="type-body-sm text-gs-muted">
             Lead analytics ·{' '}
-            <strong style={{ color: '#16A34A' }}>{total.toLocaleString()}</strong>{' '}
+            <strong className="text-gs-accent font-semibold">{total.toLocaleString()}</strong>{' '}
             total leads
           </p>
         </div>
