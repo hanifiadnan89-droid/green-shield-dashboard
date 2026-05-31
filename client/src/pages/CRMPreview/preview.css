@@ -289,9 +289,612 @@
   .crm-preview .p-card-lift,
   .crm-preview .card-kpi,
   .crm-preview .result-card,
+  .crm-preview .ps-flow__sharp,
+  .crm-preview .ps-flow__highlight,
+  .crm-preview .ps-orb__shell,
+  .crm-preview .ps-orb__shimmer,
+  .crm-preview .ps-orb__ring,
+  .crm-preview .ps-orb__energy,
+  .crm-preview .ps-orb__pulse--active,
+  .crm-preview .ps-ring-card__arc,
   .crm-preview .skeleton {
     animation: none !important;
     transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
     transform: none !important;
   }
+  .crm-preview .ps-metric-card__spark {
+    display: none;
+  }
+  .crm-preview .ps-metric-card,
+  .crm-preview .ps-root__view-btn {
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
+  }
+}
+
+
+/* ── Pipeline Summary (Phase 6) — ps-* layout, orb, streams ── */
+/* ── ps-root ── */
+.crm-preview .ps-root{
+  --ps-ink: #0F172A;
+  --ps-muted: #64748B;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 32px 34px 20px;
+  color: var(--ps-ink);
+  background:
+    radial-gradient(circle at 9% -8%, rgba(22,163,74,0.12), transparent 34%),
+    radial-gradient(circle at 46% -6%, rgba(37,99,235,0.10), transparent 36%),
+    radial-gradient(circle at 90% 0%, rgba(147,51,234,0.10), transparent 32%),
+    linear-gradient(135deg, rgba(255,255,255,1.00), rgba(249,252,255,0.97) 48%, rgba(246,252,248,0.95));
+  border: 1px solid rgba(226,232,240,0.84);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(15,42,20,0.10), 0 1px 0 rgba(255,255,255,0.70) inset;
+  transform: translateZ(0);
+  contain: layout paint style;
+  isolation: isolate;
+}
+.crm-preview .ps-root__glow{
+  position: absolute;
+  inset: -24% -8% auto;
+  z-index: 0;
+  height: 260px;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side at 20% 50%, rgba(22,163,74,0.14), transparent),
+    radial-gradient(closest-side at 48% 42%, rgba(37,99,235,0.11), transparent),
+    radial-gradient(closest-side at 72% 54%, rgba(217,119,6,0.09), transparent),
+    radial-gradient(closest-side at 90% 48%, rgba(147,51,234,0.09), transparent);
+  opacity: 0.55;
+}
+.crm-preview .ps-root > *:not(.ps-root__glow){ position: relative; z-index: 1; }
+
+/* ── ps-root__header ── */
+.crm-preview .ps-root__header{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.crm-preview .ps-root__header h3{
+  margin: 0;
+  font-family: Poppins, Inter, sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.18;
+}
+.crm-preview .ps-root__header p{
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 550;
+}
+.crm-preview .ps-root__view-btn{
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 18px;
+  border: 1px solid rgba(203,213,225,0.82);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.78));
+  color: #0F172A;
+  font-size: 13px;
+  font-weight: 750;
+  box-shadow: 0 10px 24px rgba(15,23,42,0.10), 0 1px 0 rgba(255,255,255,0.90) inset;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.crm-preview .ps-root__view-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15,23,42,0.13), 0 1px 0 rgba(255,255,255,0.96) inset;
+}
+
+/* ── ps-main grid ── */
+.crm-preview .ps-main{
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(230px, 0.88fr) minmax(320px, 1.44fr) minmax(230px, 1fr);
+  gap: 18px;
+  min-height: 500px;
+}
+
+/* ── flow stream SVG layers ── */
+.crm-preview .ps-streams-back{
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+/* stroke-dashoffset is NOT compositor-threaded — no will-change hint */
+.crm-preview .ps-flow__sharp{
+  stroke-dasharray: 64 230;
+  animation: ps-dash-flow var(--flow-dur, 4s) linear infinite;
+  animation-play-state: running !important;
+}
+.crm-preview .ps-flow__highlight{
+  stroke-dasharray: 28 160;
+  animation: ps-dash-hl var(--flow-dur, 3s) linear infinite;
+  animation-play-state: running !important;
+}
+@keyframes ps-dash-flow {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -320; }
+}
+@keyframes ps-dash-hl {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -180; }
+}
+
+/* ── ps-panel ── */
+.crm-preview .ps-panel{
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.82));
+  border: 1px solid rgba(226,232,240,0.55);
+  border-bottom: none;
+  box-shadow: 0 10px 24px rgba(15,42,20,0.05), 0 1px 0 rgba(255,255,255,0.88) inset;
+  padding: 22px 24px 28px;
+}
+.crm-preview .ps-panel::before{
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 48% 38%, rgba(255,255,255,0.52), transparent 48%),
+    linear-gradient(145deg, rgba(255,255,255,0.32), rgba(255,255,255,0.06));
+}
+.crm-preview .ps-panel__head{
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 20px;
+  color: #334E71;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.crm-preview .ps-panel--center{ padding: 22px 20px 20px; }
+
+/* ── ps-rings-stack ── */
+.crm-preview .ps-rings-stack{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+/* ── ps-ring-card ── */
+.crm-preview .ps-ring-card{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-radius: 13px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.68), rgba(255,255,255,0.38));
+  border: 1px solid rgba(226,232,240,0.54);
+  box-shadow: 0 6px 16px rgba(15,42,20,0.045), 0 1px 0 rgba(255,255,255,0.88) inset;
+}
+.crm-preview .ps-ring-card__dial{
+  position: relative;
+  flex-shrink: 0;
+  width: 96px;
+  height: 96px;
+}
+.crm-preview .ps-ring-card__svg{
+  display: block;
+  width: 96px;
+  height: 96px;
+}
+.crm-preview .ps-ring-card__arc{
+  transition: stroke-dasharray 0.6s ease;
+}
+.crm-preview .ps-ring-card__icon{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.crm-preview .ps-ring-card__info{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.crm-preview .ps-ring-card__label{
+  font-size: 12px;
+  font-weight: 750;
+  color: #334E71;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.crm-preview .ps-ring-card__pct{
+  font-family: Poppins, Inter, sans-serif;
+  font-size: 26px;
+  font-weight: 850;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── ps-rings-legend ── */
+.crm-preview .ps-rings-legend{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(203,213,225,0.44);
+}
+.crm-preview .ps-rings-legend__item{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  color: #1E3558;
+}
+.crm-preview .ps-rings-legend__item i{
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--lc, #16A34A);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--lc, #16A34A) 55%, transparent);
+  flex-shrink: 0;
+  font-style: normal;
+}
+
+/* ── ps-center-stage ── */
+.crm-preview .ps-center-stage{
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(255,255,255,0.46), rgba(255,255,255,0.14) 38%, transparent 58%),
+    radial-gradient(circle at 44% 46%, rgba(22,163,74,0.10), transparent 35%),
+    radial-gradient(circle at 62% 44%, rgba(37,99,235,0.10), transparent 36%),
+    linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06));
+}
+.crm-preview .ps-center-stage::before{
+  content: '';
+  position: absolute;
+  inset: 40px 60px 80px;
+  pointer-events: none;
+  border-radius: 999px;
+  background:
+    repeating-radial-gradient(circle, rgba(148,163,184,0.12) 0 1px, transparent 1px 28px),
+    radial-gradient(circle, rgba(255,255,255,0.26), transparent 68%);
+  opacity: 0.34;
+}
+
+/* ── ps-flow overlay sharp paths (override stroke-dasharray) ── */
+.crm-preview .ps-flow__sharp{
+  stroke-dasharray: 54 200;
+  opacity: 0.68;
+}
+
+/* ── ps-orb ── */
+.crm-preview .ps-orb{
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: clamp(200px, 40%, 248px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  transform: translateZ(0);
+}
+.crm-preview .ps-orb__pulse{
+  position: absolute;
+  inset: -10px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+}
+.crm-preview .ps-orb__pulse--reply{
+  border: 1px solid rgba(22,163,74,0.55);
+  box-shadow: 0 0 0 6px rgba(22,163,74,0.10);
+}
+.crm-preview .ps-orb__pulse--error{
+  border: 1px solid rgba(220,38,38,0.46);
+  box-shadow: 0 0 0 6px rgba(220,38,38,0.08);
+}
+.crm-preview .ps-orb__pulse--sold{
+  border: 1px solid rgba(147,51,234,0.50);
+  box-shadow: 0 0 0 5px rgba(147,51,234,0.10);
+}
+.crm-preview .ps-orb__pulse--active{
+  animation: ps-orb-pulse-out 0.92s ease-out forwards;
+}
+@keyframes ps-orb-pulse-out {
+  0%   { opacity: 0.50; transform: scale(1); }
+  100% { opacity: 0;    transform: scale(1.38); }
+}
+.crm-preview .ps-orb__shell{
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 26% 18%, rgba(255,255,255,0.95), rgba(255,255,255,0.42) 18%, transparent 30%),
+    radial-gradient(circle at 68% 30%, rgba(147,51,234,0.16), transparent 38%),
+    radial-gradient(circle at 30% 78%, rgba(22,163,74,0.22), transparent 42%),
+    linear-gradient(145deg, rgba(255,255,255,0.62), rgba(221,246,237,0.38));
+  border: 1px solid rgba(255,255,255,0.82);
+  box-shadow:
+    0 12px 30px rgba(14,165,233,0.12),
+    0 0 0 6px rgba(255,255,255,0.20),
+    inset 10px 12px 26px rgba(255,255,255,0.50),
+    inset -10px -10px 26px rgba(15,42,20,0.12);
+  animation: ps-orb-breathe 10s ease-in-out infinite;
+}
+.crm-preview .ps-orb__shimmer{
+  position: absolute;
+  inset: 12px;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at 28% 16%, rgba(255,255,255,0.88), transparent 25%),
+    linear-gradient(126deg, rgba(255,255,255,0.34), transparent 34%, rgba(255,255,255,0.16) 60%, transparent),
+    conic-gradient(from 38deg, rgba(22,163,74,0.12), rgba(37,99,235,0.14), rgba(147,51,234,0.12), rgba(217,119,6,0.10), rgba(22,163,74,0.12));
+  opacity: 0.70;
+  mix-blend-mode: screen;
+  animation: ps-orb-glass-drift 16s ease-in-out infinite;
+}
+.crm-preview .ps-orb__ring{
+  position: absolute;
+  inset: 18px;
+  border-radius: inherit;
+  border: 1px solid rgba(125,211,252,0.40);
+  box-shadow: 0 0 18px rgba(125,211,252,0.18), inset 0 0 20px rgba(22,163,74,0.10);
+  animation: ps-orb-ring-pulse 10s ease-in-out infinite;
+}
+.crm-preview .ps-orb__energy{
+  position: absolute;
+  inset: 26px;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, transparent 8%, rgba(255,255,255,0.36) 48%, transparent 72%),
+    radial-gradient(circle at 55% 42%, rgba(125,211,252,0.18), transparent 44%);
+  opacity: 0.34;
+  animation: ps-orb-energy-drift 14s ease-in-out infinite;
+}
+.crm-preview .ps-orb__glass{
+  position: absolute;
+  inset: 14px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 48%, rgba(244,250,255,0.9) 0%, rgba(232,245,252,0.7) 58%, rgba(216,237,250,0.16) 86%, transparent 100%);
+}
+.crm-preview .ps-orb__value{
+  position: relative;
+  z-index: 6;
+  font-family: Poppins, Inter, sans-serif;
+  font-size: clamp(46px, 4.5vw, 60px);
+  font-weight: 850;
+  line-height: 0.9;
+  color: #0F172A;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.crm-preview .ps-orb__label{
+  position: relative;
+  z-index: 6;
+  margin-top: 12px;
+  color: #1E3A5F;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+/* ── ps-metrics-stack ── */
+.crm-preview .ps-metrics-stack{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+/* ── ps-metric-card ── */
+.crm-preview .ps-metric-card{
+  --mc: #16A34A;
+  display: grid;
+  grid-template-columns: 44px minmax(0,1fr) 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(226,232,240,0.66);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 88% 42%, color-mix(in srgb, var(--mc) 10%, transparent), transparent 52%),
+    linear-gradient(180deg, rgba(255,255,255,0.80), rgba(255,255,255,0.54));
+  box-shadow: 0 6px 16px rgba(15,42,20,0.055), 0 1px 0 rgba(255,255,255,0.90) inset;
+  color: #0F172A;
+  text-align: left;
+  cursor: pointer;
+  transform: translateZ(0);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+/* Left-edge stream-arrival glow — color matches this card's incoming flow */
+.crm-preview .ps-metric-card::before{
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  width: 3px;
+  height: 70%;
+  border-radius: 0 2px 2px 0;
+  background: var(--mc);
+  opacity: 0.50;
+  filter: blur(5px);
+  box-shadow: 0 0 12px var(--mc);
+  pointer-events: none;
+}
+.crm-preview .ps-metric-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(15,42,20,0.09), 0 1px 0 rgba(255,255,255,0.96) inset;
+}
+.crm-preview .ps-metric-card__icon{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  color: var(--mc);
+  background:
+    radial-gradient(circle at 35% 22%, rgba(255,255,255,0.92), transparent 40%),
+    color-mix(in srgb, var(--mc) 13%, rgba(255,255,255,0.76));
+  border: 1px solid rgba(255,255,255,0.70);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--mc) 14%, transparent), 0 1px 0 rgba(255,255,255,0.88) inset;
+  flex-shrink: 0;
+}
+.crm-preview .ps-metric-card__body{
+  min-width: 0;
+}
+.crm-preview .ps-metric-card__label{
+  display: block;
+  font-size: 11px;
+  font-weight: 850;
+  color: #1E3558;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.crm-preview .ps-metric-card__row{
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.crm-preview .ps-metric-card__value{
+  font-family: Poppins, Inter, sans-serif;
+  font-size: 22px;
+  font-weight: 850;
+  line-height: 1;
+  color: #0F172A;
+  font-variant-numeric: tabular-nums;
+}
+.crm-preview .ps-metric-card__rate{
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--mc);
+  opacity: 0.82;
+}
+.crm-preview .ps-metric-card__spark{
+  justify-self: end;
+  width: 80px;
+  height: 30px;
+  overflow: hidden;
+}
+.crm-preview .ps-metric-card__spark-path{
+  fill: none;
+  stroke: var(--mc);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.78;
+}
+
+
+/* ── ps-empty ── */
+.crm-preview .ps-empty__icon{
+  display: inline-flex;
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  color: #94A3B8;
+  background: #F8FAFC;
+}
+
+/* ── Scroll-performance degradation ──────────────────────────────────────────
+   .crm-preview .ps-scrolling is set via direct DOM classList (no React re-render).
+   During scroll: pause stroke-dashoffset + orb animations to free main thread.
+   Glow fades to zero. Canvas blanks itself via isScrollingRef in JS.
+   Everything restores smoothly via CSS transition after 150ms idle. */
+
+.crm-preview .ps-root__glow{
+  transition: opacity 0.35s ease;
+}
+.crm-preview .ps-root.ps-scrolling .ps-root__glow{
+  opacity: 0 !important;
+  transition: opacity 0.08s ease;
+}
+
+.crm-preview .ps-root.ps-scrolling .ps-flow__sharp, 
+.crm-preview .ps-root.ps-scrolling .ps-flow__highlight{
+  animation-play-state: paused !important;
+}
+
+.crm-preview .ps-root.ps-scrolling .ps-orb__shell, 
+.crm-preview .ps-root.ps-scrolling .ps-orb__shimmer, 
+.crm-preview .ps-root.ps-scrolling .ps-orb__ring, 
+.crm-preview .ps-root.ps-scrolling .ps-orb__energy{
+  animation-play-state: paused !important;
+}
+
+/* At rest: ensure animations are running */
+.crm-preview .ps-orb__shell, 
+.crm-preview .ps-orb__shimmer, 
+.crm-preview .ps-orb__ring, 
+.crm-preview .ps-orb__energy, 
+.crm-preview .ps-flow__sharp, 
+.crm-preview .ps-flow__highlight{
+  animation-play-state: running;
+}
+
+/* ── orb keyframes ── */
+@keyframes ps-orb-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.98; }
+  50% { transform: scale(1.006); opacity: 1; }
+}
+@keyframes ps-orb-glass-drift {
+  0%, 100% { transform: translate3d(-1px,1px,0) scale(1); opacity: 0.66; }
+  50% { transform: translate3d(2px,-2px,0) scale(1.01); opacity: 0.78; }
+}
+@keyframes ps-orb-ring-pulse {
+  0%, 100% { opacity: 0.40; transform: scale(0.98); }
+  50% { opacity: 0.80; transform: scale(1.02); }
+}
+@keyframes ps-orb-energy-drift {
+  0%, 100% { transform: translate3d(-7%,2%,0); opacity: 0.25; }
+  50% { transform: translate3d(7%,-2%,0); opacity: 0.42; }
+}
+
+/* ── responsive ── */
+@media (max-width: 1180px) {
+  .crm-preview .ps-main{ grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .crm-preview .ps-root{ padding: 18px; border-radius: 16px; }
+  .crm-preview .ps-root__header{ flex-direction: column; align-items: stretch; }
+  .crm-preview .ps-root__view-btn{ width: 100%; justify-content: center; }
+  .crm-preview .ps-metric-card{ grid-template-columns: 40px minmax(0,1fr); }
+  .crm-preview .ps-metric-card__spark{ display: none; }
+}
+@media (max-width: 639px) {
+  .crm-preview .ps-root{ padding: 14px 14px 16px; }
+  .crm-preview .ps-root__header{ padding-bottom: 14px; }
+  .crm-preview .ps-main{ min-height: unset; gap: 10px; }
+  .crm-preview .ps-panel{ padding: 14px 14px 18px; }
+  .crm-preview .ps-center-stage{ min-height: 260px; }
+  .crm-preview .ps-orb{ width: clamp(140px, 50%, 180px); }
+  .crm-preview .ps-metric-card__label{ font-size: 10px; }
 }
