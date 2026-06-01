@@ -20,7 +20,12 @@ import documentsRouter from './routes/documents.js';
 import routesRouter from './routes/routes.js';
 import aiRouter from './routes/ai.js';
 import { startCron } from './services/fieldRoutesCron.js';
-import { loadAuthStatus, checkAuthHealth, startAuthKeepalive } from './services/fieldRoutesAuth.js';
+import {
+  loadAuthStatus,
+  checkAuthHealth,
+  startAuthKeepalive,
+  getAuthConfigDiagnostics,
+} from './services/fieldRoutesAuth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -100,8 +105,23 @@ startCron();
 
 // Startup: restore last known auth status from disk, then run an immediate
 // health check in the background and start the 45-minute keepalive.
-loadAuthStatus();
-checkAuthHealth()
+loadAuthStatus().then(() => {
+  const diag = getAuthConfigDiagnostics();
+  if (process.env.RENDER) {
+    const ev = diag.envVar;
+    console.log(
+      `[auth] Render startup — FIELDROUTES_AUTH_STATE_JSON: ${ev.configured ? 'set' : 'MISSING'}`
+      + (ev.configured ? ` (${ev.length} chars, parseOk=${ev.parseOk}, frCookies=${ev.fieldRoutesCookieCount})` : ''),
+    );
+    if (ev.configured && !ev.parseOk) {
+      console.error(`[auth] FIELDROUTES_AUTH_STATE_JSON parse error: ${ev.parseError}`);
+    }
+    if (diag.recommendation) {
+      console.log(`[auth] ${diag.recommendation}`);
+    }
+  }
+  return checkAuthHealth();
+})
   .then(s => console.log(`[auth] Startup check: FieldRoutes auth is ${s}`))
   .catch(err => console.warn('[auth] Startup check failed:', err.message));
 startAuthKeepalive();

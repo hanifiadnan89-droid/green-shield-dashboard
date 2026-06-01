@@ -9,7 +9,12 @@ import {
   getNormalizedForDate,
   preloadNextSixWorkingDays,
 } from '../services/fieldRoutesPreloader.js';
-import { getAuthStatus, checkAuthHealth } from '../services/fieldRoutesAuth.js';
+import {
+  getAuthStatus,
+  checkAuthHealth,
+  getAuthConfigDiagnostics,
+  getAuthDiagnosticsWithHealthCheck,
+} from '../services/fieldRoutesAuth.js';
 import { getPlaywrightChromiumDiagnostics } from '../services/playwrightRuntime.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,7 +52,7 @@ router.get('/login-capabilities', async (req, res) => {
 
   let reason = null;
   if (onRender) {
-    reason = 'Hosted on Render — run login on your Mac, then set FIELDROUTES_AUTH_STATE_JSON.';
+    reason = 'Render cannot open FieldRoutes login. On your Mac run: npm run fieldroutes:export-auth — paste into FIELDROUTES_AUTH_STATE_JSON in Render, redeploy, then Check Login.';
   } else if (!allowed) {
     reason = 'Open the dashboard on this computer at http://localhost:3001 or http://127.0.0.1:5173 (npm run dev).';
   } else if (!chromium.ok) {
@@ -60,8 +65,27 @@ router.get('/login-capabilities', async (req, res) => {
     chromiumReady: chromium.ok,
     chromiumError: chromium.error || null,
     reason,
-    manualCommand: 'node scripts/fieldRoutesLogin.mjs',
+    manualCommand: 'npm run fieldroutes:export-auth',
+    exportSteps: [
+      'On your Mac: node scripts/fieldRoutesLogin.mjs',
+      'npm run fieldroutes:export-auth',
+      'Render → Environment → FIELDROUTES_AUTH_STATE_JSON → paste one-line JSON',
+      'Save (triggers redeploy) → Route Finder → Check Login',
+    ],
   });
+});
+
+// GET /api/routes/auth-diagnostics — safe config/health info (no cookie values)
+router.get('/auth-diagnostics', async (req, res) => {
+  try {
+    const runCheck = req.query.check === 'true';
+    const diagnostics = runCheck
+      ? await getAuthDiagnosticsWithHealthCheck()
+      : getAuthConfigDiagnostics();
+    res.json(diagnostics);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/routes/status — cache status for next 6 working days + auth status

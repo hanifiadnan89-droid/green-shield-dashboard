@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Auth status banner — FieldRoutes session status + login / check actions
 // ---------------------------------------------------------------------------
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../../../api/client.js';
 
 const LOGIN_CONFIRM_INTERVAL_MS = 5000;
@@ -13,14 +13,32 @@ function feedbackTone(refreshState, authStatus) {
   return 'warn';
 }
 
+function diagFlag(ok) {
+  return ok ? 'route-auth-diagnostics__ok' : 'route-auth-diagnostics__bad';
+}
+
 function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
   const [refreshState, setRefreshState] = useState('idle');
   const [feedback, setFeedback] = useState('');
   const [loginCaps, setLoginCaps] = useState(null);
+  const [diag, setDiag] = useState(null);
+  const [diagLoading, setDiagLoading] = useState(false);
   const loginPollRef = useRef(null);
 
   const canOpenBrowser = loginCaps?.interactiveLoginAvailable === true;
   const isRenderHost = loginCaps?.isRender === true;
+
+  const loadDiagnostics = useCallback(async (runCheck = false) => {
+    setDiagLoading(true);
+    try {
+      const data = await api.routes.authDiagnostics(runCheck);
+      setDiag(data);
+    } catch {
+      setDiag(null);
+    } finally {
+      setDiagLoading(false);
+    }
+  }, []);
 
   useEffect(() => () => {
     if (loginPollRef.current) clearInterval(loginPollRef.current);
@@ -35,6 +53,12 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!isRenderHost || authInfo.status === 'ok') return undefined;
+    loadDiagnostics(false);
+    return undefined;
+  }, [isRenderHost, authInfo.status, loadDiagnostics]);
 
   useEffect(() => {
     if (refreshState !== 'idle' && refreshState !== 'done') return;
@@ -62,6 +86,13 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
   const border = isChecking ? 'rgba(148,163,184,0.2)' : isOk ? 'rgba(22,163,74,0.18)' : isFailed ? 'rgba(220,38,38,0.18)' : 'rgba(245,158,11,0.28)';
   const label = isChecking ? 'Checking…' : isOk ? 'Connected' : isLogin ? 'Needs Login' : isFailed ? 'Failed' : 'Unknown';
 
+  const exportSteps = loginCaps?.exportSteps ?? [
+    'On your Mac: node scripts/fieldRoutesLogin.mjs',
+    'npm run fieldroutes:export-auth',
+    'Render → Environment → FIELDROUTES_AUTH_STATE_JSON → paste one-line JSON',
+    'Save (redeploy) → click Check Login here',
+  ];
+
   function applyAuthResult(statusData) {
     const auth = statusData?._auth;
     if (auth?.status === 'ok') {
@@ -71,6 +102,7 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       }
       setRefreshState('done');
       setFeedback('FieldRoutes connected. Route dates are loading…');
+      if (isRenderHost) loadDiagnostics(true);
       setTimeout(() => {
         setRefreshState('idle');
         setFeedback('');
@@ -84,14 +116,16 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
         auth.message
           || (canOpenBrowser
             ? 'Still not logged in. Finish sign-in in Chromium, then click “Check Login”. Or click “Open Login” again.'
-            : 'Still needs login. On Render, update FIELDROUTES_AUTH_STATE_JSON after running the login script locally.'),
+            : 'Still needs login. On Render, update FIELDROUTES_AUTH_STATE_JSON after running npm run fieldroutes:export-auth on your Mac.'),
       );
+      if (isRenderHost) loadDiagnostics(true);
       return;
     }
 
     if (auth?.status === 'failed') {
       setRefreshState('error');
       setFeedback(auth.message || 'FieldRoutes auth check failed.');
+      if (isRenderHost) loadDiagnostics(true);
       return;
     }
 
@@ -108,6 +142,7 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
     } catch (err) {
       setRefreshState('error');
       setFeedback(err?.message || 'Auth check request failed.');
+      if (isRenderHost) loadDiagnostics(true);
       setTimeout(() => setRefreshState('idle'), 6000);
     }
   }
@@ -142,7 +177,7 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       setFeedback(
         loginCaps?.reason
           || (isRenderHost
-            ? 'Cannot open a browser on Render. Run node scripts/fieldRoutesLogin.mjs on your Mac, then set FIELDROUTES_AUTH_STATE_JSON.'
+            ? 'Render cannot open FieldRoutes login. Refresh login locally, update FIELDROUTES_AUTH_STATE_JSON in Render, then redeploy.'
             : 'Interactive login is only available on localhost. Use npm run dev or http://localhost:3001.'),
       );
       return;
@@ -179,6 +214,8 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
   const isBusy = refreshState === 'loading' || refreshState === 'checking';
   const showAuthAction = authInfo.status !== 'ok';
   const tone = feedbackTone(refreshState, authInfo.status);
+  const envDiag = diag?.envVar;
+  const healthDiag = diag?.healthCheck;
 
   return (
     <div className="mb-2.5">
@@ -245,6 +282,73 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
           aria-live="polite"
         >
           <span className="text-[9px] leading-snug">{feedback}</span>
+        </div>
+      )}
+
+      {showAuthAction && isRenderHost && (
+        <div className="route-auth-render-panel" role="region" aria-label="Render FieldRoutes login steps">
+          <div className="route-auth-render-panel__title">
+            Render cannot open FieldRoutes login. Refresh login locally, update{' '}
+            <code>FIELDROUTES_AUTH_STATE_JSON</code> in Render, then redeploy.
+          </div>
+          <ol className="route-auth-render-panel__steps">
+            {exportSteps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {showAuthAction && isRenderHost && (diag || diagLoading) && (
+        <div className="route-auth-diagnostics" aria-live="polite">
+          {diagLoading && !diag && (
+            <span>Loading server auth diagnostics…</span>
+          )}
+          {diag && (
+            <>
+              <div className="route-auth-diagnostics__row">
+                <span>Env var set</span>
+                <span className={diagFlag(envDiag?.configured)}>
+                  {envDiag?.configured ? `yes (${envDiag.length} chars)` : 'no'}
+                </span>
+              </div>
+              {envDiag?.configured && (
+                <>
+                  <div className="route-auth-diagnostics__row">
+                    <span>JSON parses</span>
+                    <span className={diagFlag(envDiag.parseOk)}>
+                      {envDiag.parseOk ? 'yes' : `no — ${envDiag.parseError}`}
+                    </span>
+                  </div>
+                  <div className="route-auth-diagnostics__row">
+                    <span>FieldRoutes cookies</span>
+                    <span className={diagFlag(envDiag.fieldRoutesCookieCount > 0)}>
+                      {envDiag.fieldRoutesCookieCount}
+                      {envDiag.cookieNames?.length > 0
+                        ? ` (${envDiag.cookieNames.join(', ')})`
+                        : ''}
+                    </span>
+                  </div>
+                </>
+              )}
+              <div className="route-auth-diagnostics__row">
+                <span>Auth source</span>
+                <span>{diag.authSource ?? '—'}</span>
+              </div>
+              {healthDiag && (
+                <div className="route-auth-diagnostics__row">
+                  <span>Last health check</span>
+                  <span className={diagFlag(healthDiag.status === 'ok')}>
+                    {healthDiag.status}
+                    {healthDiag.message ? ` — ${healthDiag.message}` : ''}
+                  </span>
+                </div>
+              )}
+              {diag.recommendation && (
+                <p className="mt-1 mb-0 text-[9px] text-slate-600">{diag.recommendation}</p>
+              )}
+            </>
+          )}
         </div>
       )}
 

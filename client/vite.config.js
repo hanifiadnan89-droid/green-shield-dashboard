@@ -19,7 +19,10 @@ build: {
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.js'],
+    include: [
+      'src/**/*.test.js',
+      '../server/services/__tests__/**/*.test.js',
+    ],
     globals: false,
   },
 });
