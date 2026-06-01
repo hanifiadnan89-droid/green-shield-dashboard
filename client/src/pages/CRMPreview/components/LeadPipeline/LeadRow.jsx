@@ -2,44 +2,7 @@ import { Link } from 'react-router-dom';
 import { Send, StopCircle, PlayCircle, Edit3, Trash2 } from 'lucide-react';
 import { getAvatarStyle, getInitials, getRowBorderColor } from '../../mockData.js';
 import LeadTemplateBadge from './LeadTemplateBadge.jsx';
-
-function StatusPill({ lead }) {
-  if ((lead.error && lead.error.trim()) || lead.status === 'error' || lead.status === 'email_failed') {
-    return (
-      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-danger/10 text-gs-danger border border-gs-danger/20">
-        <span className="w-1.5 h-1.5 rounded-full bg-gs-danger animate-pulse" />
-        Error
-      </span>
-    );
-  }
-  if (lead.stop === 'yes') {
-    return (
-      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-muted/10 text-gs-muted border border-gs-muted/20">
-        Stopped
-      </span>
-    );
-  }
-  if (lead.sms_reply === 'yes' || lead.email_reply === 'yes' || lead.status === 'replied') {
-    return (
-      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-accent/10 text-gs-accent-dim border border-gs-accent/20">
-        <span className="w-1.5 h-1.5 rounded-full bg-gs-accent" />
-        Replied
-      </span>
-    );
-  }
-  if (lead.sent && lead.sent !== 'imported') {
-    return (
-      <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-info/10 text-gs-info border border-gs-info/20">
-        In Progress
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 type-label-sm px-2 py-0.5 rounded-full bg-gs-muted/10 text-gs-muted border border-gs-muted/20">
-      New
-    </span>
-  );
-}
+import LeadPipelineStatusPill from './LeadPipelineStatusPill.jsx';
 
 export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isSelected }) {
   const avatar = getAvatarStyle(lead.name || '');
@@ -75,7 +38,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
       </div>
 
       <div className="shrink-0">
-        <StatusPill lead={lead} />
+        <LeadPipelineStatusPill lead={lead} />
       </div>
 
       <div className="hidden sm:block shrink-0 w-14 text-right">
@@ -86,7 +49,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
         <Link
           to="/send"
           state={{ lead }}
-          className="lead-row__action p-1.5 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
+          className="lead-row__action lead-row__action--send"
           title="Send template"
           onClick={e => e.stopPropagation()}
         >
@@ -94,7 +57,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
         </Link>
         <button
           type="button"
-          className="lead-row__action p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+          className="lead-row__action lead-row__action--neutral"
           title="Stop / Resume (use main dashboard)"
           onClick={() => onPreviewAction('stop', lead)}
         >
@@ -104,7 +67,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
         </button>
         <button
           type="button"
-          className="lead-row__action hidden sm:flex p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer items-center"
+          className="lead-row__action lead-row__action--neutral hidden sm:flex items-center"
           title="Edit (use main dashboard)"
           onClick={() => onPreviewAction('edit', lead)}
         >
@@ -113,7 +76,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
         {onDelete && (
           <button
             type="button"
-            className="lead-row__action hidden sm:flex p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer items-center"
+            className="lead-row__action lead-row__action--danger hidden sm:flex items-center"
             title="Delete lead"
             onClick={() => {
               if (window.confirm(`Delete ${lead.name || 'this lead'}? This cannot be undone.`)) {
