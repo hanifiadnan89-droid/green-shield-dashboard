@@ -4,6 +4,7 @@ import { deriveStats } from './mockData.js';
 import PremiumSidebar from './components/PremiumSidebar.jsx';
 import PreviewHeader from './components/PreviewHeader.jsx';
 import SalesSummaryBar from './components/SalesSummaryBar.jsx';
+import DashboardIntelligence from './components/DashboardIntelligence.jsx';
 import PipelineSummary from './components/PipelineSummary.jsx';
 import LeadPipeline from './components/LeadPipeline.jsx';
 import RouteFinderWidget from './components/RouteFinderWidget.jsx';
@@ -73,7 +74,7 @@ const replyKey    = l => `${l.row_number}:${l.sms_reply}`;
 
 export default function CRMPreview({ testMode }) {
   const [leads, setLeads]       = useState(null);
-  const [activity, setActivity] = useState(null); // eslint-disable-line no-unused-vars
+  const [, setActivity] = useState(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -167,6 +168,11 @@ export default function CRMPreview({ testMode }) {
 
   const stats = useMemo(() => leads ? deriveStats(leads) : null, [leads]);
 
+  const isUnreadReply = useCallback((lead) => {
+    if (!isRealReply(lead)) return false;
+    return !viewedRepliesRef.current.has(replyKey(lead));
+  }, []);
+
   return (
     <div
       className="crm-preview flex h-screen overflow-hidden"
@@ -192,6 +198,13 @@ export default function CRMPreview({ testMode }) {
 
               {/* Sales summary bar */}
               <SalesSummaryBar leads={leads ?? []} loading={false} />
+
+              <DashboardIntelligence
+                leads={leads ?? []}
+                loading={false}
+                isUnreadReply={isUnreadReply}
+                onFilterChange={handleFilterChange}
+              />
 
               {/* Pipeline Summary — full width */}
               <PipelineSummary stats={stats ?? {}} />
