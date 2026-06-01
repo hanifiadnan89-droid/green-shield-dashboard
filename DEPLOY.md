@@ -20,9 +20,13 @@ This project is ready to deploy as one Render Web Service.
 ```txt
 Runtime: Node
 Branch: main
-Build Command: npm run install:all && npm run build
+Build Command: npm run render:build
 Start Command: npm start
 ```
+
+`render:build` runs `install:all`, installs Playwright Chromium into `server/node_modules` (`PLAYWRIGHT_BROWSERS_PATH=0`, required on Render), then builds the client.
+
+After changing the build command, use **Clear build cache & deploy** once so Chromium is installed fresh.
 
 ## Environment variables
 
@@ -53,7 +57,10 @@ GMAIL_APP_PASSWORD=
 FIELDROUTES_USERNAME=
 FIELDROUTES_PASSWORD=
 FIELDROUTES_BASE_URL=
+FIELDROUTES_AUTH_STATE_JSON=
 ```
+
+For Route Finder on Render (no interactive login in the cloud), set `FIELDROUTES_AUTH_STATE_JSON` to the one-line JSON from `npm run fieldroutes:export-auth` on your Mac after `node scripts/fieldRoutesLogin.mjs`.
 
 Use the same values from your local `server/.env`, but do not commit that `.env` file to GitHub.
 

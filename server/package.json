@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node --watch index.js",
     "start": "node index.js",
-    "playwright:install": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium"
+    "playwright:install": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium",
+    "playwright:install:render": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.0",
