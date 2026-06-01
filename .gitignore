@@ -14,3 +14,7 @@ data/routes/
 data/*.json
 playwright/.auth/
 *.har
+.env
+.env.local
+server/.env
+client/.env
