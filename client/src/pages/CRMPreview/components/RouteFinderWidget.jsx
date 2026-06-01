@@ -86,7 +86,9 @@ export default function RouteFinderWidget() {
   const [authInfo, setAuthInfo]               = useState({ status: 'checking' });
   const [activeTechnicians, setActiveTechnicians] = useState(null);
   const [dateLoadStatus, setDateLoadStatus]   = useState('idle'); // idle|loading|error
+  const [dateLoadError, setDateLoadError]     = useState('');
   const [statusMountError, setStatusMountError] = useState(null);
+  const [refreshAllPending, setRefreshAllPending] = useState(false);
 
   // Address
   const [addressInput, setAddressInput]   = useState('');
@@ -252,16 +254,20 @@ export default function RouteFinderWidget() {
     setShowOther(false);
 
     setDateLoadStatus('loading');
+    setDateLoadError('');
     try {
       const data = await api.routes.payload(date);
       if (requestId !== payloadRequestRef.current) return;
       setActiveTechnicians(data.technicians || []);
       setDateLoadStatus('idle');
+      setDateLoadError('');
     } catch (err) {
       if (requestId !== payloadRequestRef.current) return;
       setDateLoadStatus('error');
       setActiveTechnicians(null);
-      console.warn('[RouteFinderWidget] payload load failed:', err.message);
+      const message = err?.message || 'Failed to load route data';
+      setDateLoadError(message);
+      console.warn('[RouteFinderWidget] payload load failed:', message);
     }
   }, []);
 
@@ -281,6 +287,7 @@ export default function RouteFinderWidget() {
   const handleRefreshAll = useCallback(async () => {
     try {
       await api.routes.preload(true); // force=true — always re-scrape, ignore cache age
+      setRefreshAllPending(true);
       setDateStatus(prev => {
         const next = { ...prev };
         DATE_KEYS.forEach(d => { next[d] = { ...(next[d] || {}), status: 'refreshing' }; });
@@ -289,6 +296,43 @@ export default function RouteFinderWidget() {
       startPolling();
     } catch { /* ignore */ }
   }, [DATE_KEYS, startPolling]);
+
+  const anyDateRefreshing = DATE_KEYS.some(d => dateStatus[d]?.status === 'refreshing');
+  const authNeedsLogin = authInfo.status === 'needs_login';
+  const hasCachedDate = DATE_KEYS.some(d => dateStatus[d]?.status === 'cached');
+
+  useEffect(() => {
+    if (!anyDateRefreshing) {
+      setRefreshAllPending(false);
+    }
+  }, [anyDateRefreshing]);
+
+  const routeDateHelperText = authNeedsLogin
+    ? 'Log in to FieldRoutes to load schedules. Use the banner above.'
+    : anyDateRefreshing
+      ? refreshAllPending
+        ? 'Re-scraping all route dates from FieldRoutes…'
+        : 'Syncing schedules from FieldRoutes…'
+      : !hasCachedDate
+        ? 'Dates appear when cache is ready — use ↻ on a date or Refresh all in the header.'
+        : null;
+
+  function getDatePillTitle(status, meta, label) {
+    switch (status) {
+      case 'cached':
+        return `Load routes for ${label}`;
+      case 'refreshing':
+        return 'Loading route data…';
+      case 'failed':
+        return meta?.error || 'Load failed — use ↻ to retry';
+      case 'needs_login':
+        return 'FieldRoutes login required';
+      case 'missing':
+        return 'Not loaded yet — use ↻ or Refresh all';
+      default:
+        return 'Not available';
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Address autocomplete
@@ -498,16 +542,18 @@ export default function RouteFinderWidget() {
           <button
             type="button"
             onClick={handleRefreshAll}
-            className="bg-transparent border-0 cursor-pointer text-slate-400 p-1 rounded-md flex items-center"
-            title="Refresh all dates"
+            disabled={anyDateRefreshing}
+            aria-busy={anyDateRefreshing}
+            className="route-finder-header-action bg-transparent border-0 cursor-pointer text-slate-400 rounded-md flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+            title={anyDateRefreshing ? 'Refreshing all dates…' : 'Refresh all dates from FieldRoutes'}
           >
-            <RefreshCw size={13} />
+            <RefreshCw size={13} className={anyDateRefreshing ? 'animate-spin' : ''} />
           </button>
           {(geocode || results) && (
             <button
               type="button"
               onClick={handleReset}
-              className="bg-transparent border-0 cursor-pointer text-slate-400 p-1 rounded-md flex items-center"
+              className="route-finder-header-action bg-transparent border-0 cursor-pointer text-slate-400 rounded-md flex items-center justify-center"
               title="Reset"
             >
               <RotateCcw size={13} />
@@ -545,19 +591,28 @@ export default function RouteFinderWidget() {
           <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5">
             Route Date
           </label>
+          {routeDateHelperText && (
+            <p className="route-finder-helper type-label-sm text-gs-muted mb-2 font-normal tracking-normal leading-snug m-0">
+              {routeDateHelperText}
+            </p>
+          )}
           <div className="route-date-pill-grid">
             {DATE_METAS.map(({ key, label }) => {
               const s = dateStatus[key] || { status: 'missing' };
               const isCached = s.status === 'cached';
               const isActive = activeDate === key;
               const isLoading = dateLoadStatus === 'loading' && isActive;
+              const pillTitle = getDatePillTitle(s.status, s, label);
 
               return (
                 <div key={key} className="route-date-pill-cell">
                   <button
                     type="button"
                     onClick={() => isCached && handleDateSelect(key)}
-                    className="w-full py-1.5 px-1 rounded-[9px] transition-all duration-150 flex items-center justify-center gap-1"
+                    disabled={!isCached}
+                    aria-disabled={!isCached}
+                    title={pillTitle}
+                    className="route-date-pill-button w-full py-1.5 px-1 rounded-[9px] transition-all duration-150 flex items-center justify-center gap-1"
                     style={{
                       border: `1.5px solid ${isActive ? '#16A34A' : isCached ? 'rgba(22,163,74,0.3)' : 'rgba(0,0,0,0.08)'}`,
                       background: isActive ? '#16A34A' : isCached ? 'rgba(22,163,74,0.04)' : '#f8fafc',
@@ -584,8 +639,9 @@ export default function RouteFinderWidget() {
             </p>
           )}
           {activeDate && dateLoadStatus === 'error' && (
-            <p className="type-label-sm text-gs-danger mt-1.5 flex items-center gap-1 font-normal tracking-normal">
-              <AlertCircle size={10} /> Failed to load route data
+            <p className="route-finder-inline-error" role="alert">
+              <AlertCircle size={10} className="shrink-0" />
+              <span>{dateLoadError || 'Failed to load route data'}</span>
             </p>
           )}
         </div>
@@ -700,8 +756,9 @@ export default function RouteFinderWidget() {
           )}
 
           {geocodeStatus === 'error' && (
-            <p className="type-label-sm text-gs-danger mt-1 flex items-center gap-1 font-normal tracking-normal">
-              <AlertCircle size={10} /> {geocodeError} — try a more complete address
+            <p className="route-finder-inline-error" role="alert">
+              <AlertCircle size={10} className="shrink-0" />
+              <span>{geocodeError} — try a more complete address</span>
             </p>
           )}
           <p className="type-label-sm text-slate-400 mt-1 font-normal tracking-normal">
@@ -823,22 +880,23 @@ export default function RouteFinderWidget() {
 
         {/* ── No date selected hint ── */}
         {!activeDate && geocodeStatus === 'success' && (
-          <p style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginBottom: 10 }}>
-            Select a date above to see recommendations
+          <p className="route-finder-hint type-label-sm text-gs-muted text-center mb-2.5 font-normal tracking-normal m-0">
+            Select a cached date above to see recommendations
           </p>
         )}
 
         {/* ── Auto-scoring loading indicator ── */}
         {scoringStatus === 'loading' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: '#64748B', fontSize: 11 }}>
-            <Loader2 size={12} className="animate-spin" style={{ color: '#16A34A' }} />
-            Finding best routes...
-          </div>
+          <p className="route-finder-loading" aria-live="polite">
+            <Loader2 size={12} className="animate-spin text-gs-accent shrink-0" />
+            <span>Finding best routes…</span>
+          </p>
         )}
 
         {scoringStatus === 'error' && (
-          <p style={{ fontSize: 11, color: '#DC2626', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <AlertCircle size={12} /> {scoringError}
+          <p className="route-finder-inline-error" role="alert">
+            <AlertCircle size={12} className="shrink-0" />
+            <span>{scoringError}</span>
           </p>
         )}
 
@@ -875,8 +933,11 @@ export default function RouteFinderWidget() {
                     Top {results.topMatches.length} Matches
                   </p>
                   <button
+                    type="button"
+                    disabled={scoringStatus === 'loading'}
                     onClick={() => runScore(activeTechnicians, geocode, timePref === 'specific' ? specificSlot : timePref ?? 'AT')}
-                    style={{ fontSize: 10, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}
+                    className="route-finder-rescore type-label-sm text-gs-muted bg-transparent border-0 cursor-pointer font-normal tracking-normal disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Run scoring again with current settings"
                   >
                     Re-score
                   </button>

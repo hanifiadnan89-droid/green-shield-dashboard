@@ -38,7 +38,8 @@ function StatusBadge({ status, meta, date, onRefresh }) {
             type="button"
             onClick={() => onRefresh(date)}
             className="bg-transparent border-0 cursor-pointer p-0 flex text-slate-400 leading-none"
-            title="Refresh this date"
+            title={`Refresh route data for ${date}`}
+            aria-label={`Refresh route data for ${date}`}
           >
             <RefreshCw size={9} />
           </button>
