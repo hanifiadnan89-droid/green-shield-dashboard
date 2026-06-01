@@ -199,15 +199,15 @@ export default function CRMPreview({ testMode }) {
               {/* Sales summary bar */}
               <SalesSummaryBar leads={leads ?? []} loading={false} />
 
+              {/* Pipeline Summary — full width */}
+              <PipelineSummary stats={stats ?? {}} />
+
               <DashboardIntelligence
                 leads={leads ?? []}
                 loading={false}
                 isUnreadReply={isUnreadReply}
                 onFilterChange={handleFilterChange}
               />
-
-              {/* Pipeline Summary — full width */}
-              <PipelineSummary stats={stats ?? {}} />
 
               {/* Lead Pipeline + Route Finder */}
               <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5 pb-4 xl:pb-5">
