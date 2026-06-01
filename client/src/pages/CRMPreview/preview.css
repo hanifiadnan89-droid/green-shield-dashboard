@@ -187,6 +187,44 @@
   font-size: 8px;
 }
 
+.crm-preview .route-auth-paste__label {
+  font-size: 9px;
+  color: #92400e;
+}
+
+.crm-preview .route-auth-paste__input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 8px;
+  font-family: ui-monospace, monospace;
+  border-radius: 5px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 5px 6px;
+  resize: vertical;
+  min-height: 48px;
+}
+
+.crm-preview .route-auth-paste__btn {
+  border: 0;
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #64748b;
+  color: #fff;
+}
+
+.crm-preview .route-auth-paste__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.crm-preview .route-auth-paste__btn--primary {
+  background: #b45309;
+}
+
 .crm-preview .route-auth-diagnostics {
   margin-top: 6px;
   padding: 7px 9px;

@@ -1,17 +1,30 @@
 import cron from 'node-cron';
 import { preloadNextSixWorkingDays } from './fieldRoutesPreloader.js';
 import { checkAuthHealth } from './fieldRoutesAuth.js';
+import {
+  hasFieldRoutesCredentials,
+  refreshFieldRoutesSessionWithCredentials,
+} from './fieldRoutesHeadlessLogin.js';
 
 export function startCron() {
   cron.schedule('0 21 * * *', async () => {
     console.log('[cron] Nightly route preload starting...');
 
     // Check auth before attempting any scraping
-    const authResult = await checkAuthHealth();
+    let authResult = await checkAuthHealth();
+    if (authResult !== 'ok' && hasFieldRoutesCredentials()) {
+      try {
+        console.log('[cron] Attempting headless FieldRoutes login...');
+        await refreshFieldRoutesSessionWithCredentials();
+        authResult = await checkAuthHealth();
+      } catch (err) {
+        console.warn('[cron] Headless login failed:', err.message);
+      }
+    }
     if (authResult !== 'ok') {
       console.warn(
         `[cron] Nightly preload skipped — FieldRoutes auth status: ${authResult}. ` +
-        'Run: node scripts/fieldRoutesLogin.mjs'
+        'Refresh session in Route Finder or set FIELDROUTES_USERNAME/PASSWORD.',
       );
       return;
     }

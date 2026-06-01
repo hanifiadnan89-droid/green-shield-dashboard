@@ -2,7 +2,7 @@ import { promises as fs, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { extractRoutePayload } from '../../client/src/utils/fieldRoutesExtractor.js';
-import { getAuthStatus, setAuthStatus } from './fieldRoutesAuth.js';
+import { getAuthStatus, setAuthStatus, getPlaywrightStorageState } from './fieldRoutesAuth.js';
 import { launchFieldRoutesChromium } from './playwrightRuntime.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -22,28 +22,15 @@ function fmtTime12h(isoStr) {
   return `${h12}:${String(m).padStart(2, '0')} ${period}`;
 }
 
-async function getStorageStateForPlaywright() {
-  const envRaw = (process.env.FIELDROUTES_AUTH_STATE_JSON || '').trim();
-  if (envRaw) {
-    try {
-      return JSON.parse(envRaw);
-    } catch (err) {
-      throw new Error(`needs_login: FIELDROUTES_AUTH_STATE_JSON is not valid JSON: ${err.message}`);
-    }
-  }
-
-  if (!existsSync(AUTH_STATE)) {
+async function fetchRawPayload(date) {
+  let storageState;
+  try {
+    storageState = await getPlaywrightStorageState();
+  } catch {
     throw new Error(
-      'needs_login: FieldRoutes auth state not found — ' +
-      'run: node scripts/fieldRoutesLogin.mjs'
+      'needs_login: FieldRoutes auth state not found — paste session in Route Finder or run fieldRoutesLogin.mjs',
     );
   }
-
-  return AUTH_STATE;
-}
-
-async function fetchRawPayload(date) {
-  const storageState = await getStorageStateForPlaywright();
 
   const browser = await launchFieldRoutesChromium();
 
@@ -82,7 +69,7 @@ async function fetchRawPayload(date) {
 
     const currentUrl = page.url();
     if (!currentUrl.includes('day.php')) {
-      throw new Error('needs_login: FieldRoutes session expired — update FIELDROUTES_AUTH_STATE_JSON in Render');
+      throw new Error('needs_login: FieldRoutes session expired — refresh session in Route Finder');
     }
 
     routePayload = await capturePromise;
@@ -200,7 +187,7 @@ export async function refreshDate(date) {
     await updateMeta(date, {
       status: 'needs_login',
       timestamp: new Date().toISOString(),
-      error: 'FieldRoutes session expired — update FIELDROUTES_AUTH_STATE_JSON in Render.',
+      error: 'FieldRoutes session expired — refresh session in Route Finder.',
     });
     throw new Error('needs_login: FieldRoutes session is not authenticated.');
   }
@@ -285,7 +272,7 @@ export async function preloadNextSixWorkingDays({ force = false } = {}) {
             ...(m[d] || {}),
             status: 'needs_login',
             timestamp: new Date().toISOString(),
-            error: 'FieldRoutes session expired — update FIELDROUTES_AUTH_STATE_JSON in Render.',
+            error: 'FieldRoutes session expired — refresh session in Route Finder.',
           };
         }
         await writeMeta(m);
