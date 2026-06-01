@@ -160,6 +160,60 @@
   color: #dc2626;
 }
 
+.crm-preview .route-auth-render-panel {
+  margin-top: 6px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.crm-preview .route-auth-render-panel__title {
+  font-size: 9px;
+  font-weight: 700;
+  color: #b45309;
+  margin-bottom: 4px;
+}
+
+.crm-preview .route-auth-render-panel__steps {
+  margin: 0;
+  padding-left: 14px;
+  font-size: 9px;
+  line-height: 1.45;
+  color: #92400e;
+}
+
+.crm-preview .route-auth-render-panel__steps code {
+  font-size: 8px;
+}
+
+.crm-preview .route-auth-diagnostics {
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(148, 163, 184, 0.06);
+  font-size: 9px;
+  line-height: 1.4;
+  color: #475569;
+}
+
+.crm-preview .route-auth-diagnostics__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.crm-preview .route-auth-diagnostics__ok {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.crm-preview .route-auth-diagnostics__bad {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 .crm-preview .route-finder-inline-error {
   display: flex;
   align-items: flex-start;

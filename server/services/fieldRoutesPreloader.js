@@ -22,9 +22,10 @@ function fmtTime12h(isoStr) {
 }
 
 async function getStorageStateForPlaywright() {
-  if (process.env.FIELDROUTES_AUTH_STATE_JSON) {
+  const envRaw = (process.env.FIELDROUTES_AUTH_STATE_JSON || '').trim();
+  if (envRaw) {
     try {
-      return JSON.parse(process.env.FIELDROUTES_AUTH_STATE_JSON);
+      return JSON.parse(envRaw);
     } catch (err) {
       throw new Error(`needs_login: FIELDROUTES_AUTH_STATE_JSON is not valid JSON: ${err.message}`);
     }

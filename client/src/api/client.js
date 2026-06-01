@@ -57,6 +57,8 @@ export const api = {
     authStatus: () => request('/routes/auth-status'),
     authCheck:  () => request('/routes/auth-check', { method: 'POST' }),
     loginCapabilities: () => request('/routes/login-capabilities'),
+    authDiagnostics: (runCheck = false) =>
+      request(`/routes/auth-diagnostics${runCheck ? '?check=true' : ''}`),
     refresh:      (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
     preload:      (force = false) => request(`/routes/preload${force ? '?force=true' : ''}`, { method: 'POST' }),
     loginRefresh: () => request('/routes/login-refresh', { method: 'POST' }),
