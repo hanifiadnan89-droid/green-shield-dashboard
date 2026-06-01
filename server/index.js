@@ -26,6 +26,7 @@ import {
   startAuthKeepalive,
   getAuthConfigDiagnostics,
 } from './services/fieldRoutesAuth.js';
+import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -102,6 +103,12 @@ if (fs.existsSync(clientDistPath)) {
 }
 
 startCron();
+
+if (process.env.RENDER) {
+  logPlaywrightChromiumDiagnostics().catch((err) => {
+    console.warn('[playwright] Startup diagnostics failed:', err.message);
+  });
+}
 
 // Startup: restore last known auth status from disk, then run an immediate
 // health check in the background and start the 45-minute keepalive.

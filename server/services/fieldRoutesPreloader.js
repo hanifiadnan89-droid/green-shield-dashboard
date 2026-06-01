@@ -3,6 +3,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { extractRoutePayload } from '../../client/src/utils/fieldRoutesExtractor.js';
 import { getAuthStatus, setAuthStatus } from './fieldRoutesAuth.js';
+import { launchFieldRoutesChromium } from './playwrightRuntime.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROUTES_DIR       = resolve(__dirname, '../../data/routes');
@@ -44,36 +45,7 @@ async function getStorageStateForPlaywright() {
 async function fetchRawPayload(date) {
   const storageState = await getStorageStateForPlaywright();
 
-  let playwrightMod;
-  try {
-    playwrightMod = await import('playwright');
-  } catch {
-    throw new Error(
-      'Playwright not installed — run: npm install playwright && cd server && npx playwright install chromium'
-    );
-  }
-
-  const chromium = playwrightMod.default?.chromium ?? playwrightMod.chromium;
-  let browser;
-
-  try {
-    browser = await chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-      ],
-    });
-  } catch (err) {
-    if (err.message?.includes('Executable') || err.message?.includes('executable')) {
-      throw new Error('Chromium not installed — update Render Build Command to: npm run render:build');
-    }
-    throw err;
-  }
+  const browser = await launchFieldRoutesChromium();
 
   const context = await browser.newContext({
     storageState,
