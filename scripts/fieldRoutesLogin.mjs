@@ -1,28 +1,50 @@
 /**
- * One-time interactive FieldRoutes login.
- * Saves browser auth state to playwright/.auth/fieldroutes-state.json
- * so the preloader can fetch routes without re-authenticating.
+ * Interactive FieldRoutes login — opens Chromium for manual sign-in.
+ * Saves auth state to playwright/.auth/fieldroutes-state.json
  *
- * Run once (or whenever the session expires):
- *   node scripts/fieldRoutesLogin.mjs
+ * Run: node scripts/fieldRoutesLogin.mjs
  */
 
-import playwrightPkg from '../server/node_modules/playwright/index.js';
-const { chromium } = playwrightPkg;
-import { mkdirSync } from 'fs';
+import { mkdirSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const AUTH_DIR   = resolve(__dirname, '../playwright/.auth');
+const PROJECT_ROOT = resolve(__dirname, '..');
+const AUTH_DIR = resolve(PROJECT_ROOT, 'playwright/.auth');
 const AUTH_STATE = resolve(AUTH_DIR, 'fieldroutes-state.json');
+const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
-const LOGIN_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+async function loadChromium() {
+  const playwrightEntry = pathToFileURL(
+    resolve(PROJECT_ROOT, 'server/node_modules/playwright/index.js'),
+  ).href;
+  const playwrightPkg = await import(playwrightEntry);
+  const chromium = playwrightPkg.chromium ?? playwrightPkg.default?.chromium;
+  if (!chromium) {
+    throw new Error('Playwright Chromium module not found. Run: cd server && npm install && npm run playwright:install');
+  }
+  const executablePath = chromium.executablePath();
+  if (!existsSync(executablePath)) {
+    throw new Error(
+      `Chromium is not installed (expected at ${executablePath}). Run: cd server && npm run playwright:install`,
+    );
+  }
+  return chromium;
+}
 
 mkdirSync(AUTH_DIR, { recursive: true });
 
-console.log('\n[FieldRoutes Login] Launching browser...');
-const browser = await chromium.launch({ headless: false, slowMo: 50 });
+let browser;
+try {
+  const chromium = await loadChromium();
+  console.log('\n[FieldRoutes Login] Launching browser...');
+  browser = await chromium.launch({ headless: false, slowMo: 50 });
+} catch (err) {
+  console.error(`\n[FieldRoutes Login] ✗ ${err.message}\n`);
+  process.exit(1);
+}
+
 const context = await browser.newContext();
 const page = await context.newPage();
 
@@ -33,11 +55,8 @@ console.log('[FieldRoutes Login] Log in to FieldRoutes normally (username + pass
 console.log('[FieldRoutes Login] Auth state will be saved automatically once you reach the dashboard.\n');
 console.log('[FieldRoutes Login] Waiting up to 5 minutes — just log in, nothing else needed.\n');
 
-// Give the login page a moment to fully render before we start watching
 await page.waitForTimeout(2500);
 
-// Detect login by DOM: wait until there is no password input on the page.
-// This works regardless of what URL FieldRoutes uses for its login screen.
 try {
   await page.waitForFunction(
     () => {
@@ -45,23 +64,19 @@ try {
       const pwd = document.querySelector('input[type="password"]');
       return !pwd;
     },
-    { timeout: LOGIN_TIMEOUT_MS, polling: 2000 }
+    { timeout: LOGIN_TIMEOUT_MS, polling: 2000 },
   );
 } catch {
-  console.error('\n[FieldRoutes Login] ✗ Timed out waiting for login. Please re-run the script and log in within 5 minutes.\n');
+  console.error('\n[FieldRoutes Login] ✗ Timed out waiting for login. Please re-run and log in within 5 minutes.\n');
   await browser.close();
   process.exit(1);
 }
 
-// Extra brief pause to let the dashboard finish loading cookies
 await page.waitForTimeout(1500);
 
 await context.storageState({ path: AUTH_STATE });
 console.log(`\n[FieldRoutes Login] ✓ Auth state saved to: ${AUTH_STATE}`);
-console.log('[FieldRoutes Login]   The server can now fetch FieldRoutes route data.\n');
-console.log('   Next steps:');
-console.log('   1. Return to the dashboard.');
-console.log('   2. Route Finder will re-check the session and preload routes automatically.\n');
+console.log('[FieldRoutes Login]   Return to the dashboard and click “Check Login”.\n');
 
 await browser.close();
 process.exit(0);

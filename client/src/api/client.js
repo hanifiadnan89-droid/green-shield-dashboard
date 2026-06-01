@@ -6,7 +6,11 @@ async function request(path, options = {}) {
     ...options
   });
   const data = await res.json().catch(() => ({ error: res.statusText }));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data.error || `HTTP ${res.status}`);
+    if (data.hint) err.hint = data.hint;
+    throw err;
+  }
   return data;
 }
 
@@ -52,6 +56,7 @@ export const api = {
     status:     () => request('/routes/status'),
     authStatus: () => request('/routes/auth-status'),
     authCheck:  () => request('/routes/auth-check', { method: 'POST' }),
+    loginCapabilities: () => request('/routes/login-capabilities'),
     refresh:      (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
     preload:      (force = false) => request(`/routes/preload${force ? '?force=true' : ''}`, { method: 'POST' }),
     loginRefresh: () => request('/routes/login-refresh', { method: 'POST' }),

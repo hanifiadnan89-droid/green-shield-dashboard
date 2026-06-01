@@ -7,11 +7,6 @@ import { api } from '../../../api/client.js';
 const LOGIN_CONFIRM_INTERVAL_MS = 5000;
 const LOGIN_CONFIRM_MAX_ATTEMPTS = 72;
 
-function isLocalHostname() {
-  if (typeof window === 'undefined') return false;
-  return ['localhost', '127.0.0.1'].includes(window.location.hostname);
-}
-
 function feedbackTone(refreshState, authStatus) {
   if (refreshState === 'done' || authStatus === 'ok') return 'success';
   if (refreshState === 'error' || authStatus === 'failed') return 'error';
@@ -21,11 +16,24 @@ function feedbackTone(refreshState, authStatus) {
 function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
   const [refreshState, setRefreshState] = useState('idle');
   const [feedback, setFeedback] = useState('');
+  const [loginCaps, setLoginCaps] = useState(null);
   const loginPollRef = useRef(null);
-  const isLocalDashboard = isLocalHostname();
+
+  const canOpenBrowser = loginCaps?.interactiveLoginAvailable === true;
+  const isRenderHost = loginCaps?.isRender === true;
 
   useEffect(() => () => {
     if (loginPollRef.current) clearInterval(loginPollRef.current);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.routes.loginCapabilities()
+      .then((caps) => { if (!cancelled) setLoginCaps(caps); })
+      .catch(() => {
+        if (!cancelled) setLoginCaps({ interactiveLoginAvailable: false, reason: 'Could not reach login API.' });
+      });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -34,14 +42,14 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       setFeedback('');
       return;
     }
-    if (authInfo.status === 'needs_login' && !feedback) {
-      setFeedback(
-        isLocalDashboard
-          ? 'FieldRoutes session expired. Click “Open Login” to sign in via Chromium on this computer.'
-          : 'FieldRoutes session expired on the server. Update FIELDROUTES_AUTH_STATE_JSON in Render, redeploy, then click Check Auth.',
-      );
+    if (authInfo.status === 'needs_login' && !feedback && loginCaps) {
+      if (canOpenBrowser) {
+        setFeedback('FieldRoutes session expired. Click “Open Login” to sign in via Chromium on this computer.');
+      } else if (loginCaps.reason) {
+        setFeedback(loginCaps.reason);
+      }
     }
-  }, [authInfo.status, authInfo.message, isLocalDashboard, refreshState, feedback]);
+  }, [authInfo.status, canOpenBrowser, loginCaps, refreshState, feedback]);
 
   const isChecking = authInfo.status === 'checking';
   const isOk = authInfo.status === 'ok';
@@ -71,12 +79,12 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
     }
 
     if (auth?.status === 'needs_login') {
-      setRefreshState(isLocalDashboard ? 'waiting' : 'idle');
+      setRefreshState(canOpenBrowser ? 'waiting' : 'idle');
       setFeedback(
         auth.message
-          || (isLocalDashboard
-            ? 'Still not logged in. Complete sign-in in the Chromium window, then click “Check Login”.'
-            : 'Still needs login. Update FIELDROUTES_AUTH_STATE_JSON in Render, redeploy, then click Check Auth again.'),
+          || (canOpenBrowser
+            ? 'Still not logged in. Finish sign-in in Chromium, then click “Check Login”. Or click “Open Login” again.'
+            : 'Still needs login. On Render, update FIELDROUTES_AUTH_STATE_JSON after running the login script locally.'),
       );
       return;
     }
@@ -123,12 +131,23 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
         loginPollRef.current = null;
         setRefreshState('error');
         setFeedback('Login not detected after 6 minutes. Click “Open Login” to try again.');
-        setTimeout(() => setRefreshState('waiting'), 6000);
+        setTimeout(() => setRefreshState(canOpenBrowser ? 'waiting' : 'idle'), 6000);
       }
     }, LOGIN_CONFIRM_INTERVAL_MS);
   }
 
   async function handleLoginRefresh() {
+    if (!canOpenBrowser) {
+      setRefreshState('error');
+      setFeedback(
+        loginCaps?.reason
+          || (isRenderHost
+            ? 'Cannot open a browser on Render. Run node scripts/fieldRoutesLogin.mjs on your Mac, then set FIELDROUTES_AUTH_STATE_JSON.'
+            : 'Interactive login is only available on localhost. Use npm run dev or http://localhost:3001.'),
+      );
+      return;
+    }
+
     if (loginPollRef.current) {
       clearInterval(loginPollRef.current);
       loginPollRef.current = null;
@@ -140,41 +159,24 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       setRefreshState('waiting');
       setFeedback(
         result?.message
-          || 'Chromium should open — log in to FieldRoutes there. This dashboard will detect when you are connected.',
+          || 'Chromium should open — log in to FieldRoutes there, then click “Check Login”.',
       );
+      if (result?.hint) {
+        setFeedback(prev => `${prev} (${result.hint})`);
+      }
       onLoginRefreshStarted?.({ checkAuth: false });
       startLoginPoll();
     } catch (err) {
       setRefreshState('error');
+      const hint = err?.hint ? ` ${err.hint}` : '';
       setFeedback(
-        err?.message
-          || 'Could not start login browser. Run: node scripts/fieldRoutesLogin.mjs',
+        `${err?.message || 'Could not start login browser.'}${hint} Or run: node scripts/fieldRoutesLogin.mjs`,
       );
-      setTimeout(() => setRefreshState('idle'), 8000);
+      setTimeout(() => setRefreshState('idle'), 10000);
     }
   }
 
-  function handleAuthButtonClick() {
-    if (isLocalDashboard && refreshState !== 'waiting') {
-      handleLoginRefresh();
-    } else {
-      confirmLoginNow();
-    }
-  }
-
-  const btnLabel = refreshState === 'loading' ? 'Opening…'
-    : refreshState === 'checking' ? 'Checking…'
-    : refreshState === 'waiting' && isLocalDashboard ? 'Check Login'
-    : refreshState === 'done' ? 'Connected ✓'
-    : refreshState === 'error' ? 'Retry'
-    : isLocalDashboard ? 'Open Login'
-    : 'Check Auth';
-
-  const btnColor = refreshState === 'done' ? '#16A34A'
-    : refreshState === 'error' ? '#DC2626'
-    : '#B45309';
-
-  const isBtnDisabled = refreshState === 'loading' || refreshState === 'checking';
+  const isBusy = refreshState === 'loading' || refreshState === 'checking';
   const showAuthAction = authInfo.status !== 'ok';
   const tone = feedbackTone(refreshState, authInfo.status);
 
@@ -193,26 +195,44 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
             FieldRoutes: {label}
           </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
           {authInfo.lastCheckFormatted && (
             <span className="text-[9px] text-slate-400 hidden sm:inline">
               checked {authInfo.lastCheckFormatted}
             </span>
           )}
+          {showAuthAction && canOpenBrowser && (
+            <button
+              type="button"
+              onClick={handleLoginRefresh}
+              disabled={isBusy}
+              aria-busy={refreshState === 'loading'}
+              className="border-0 rounded-[5px] py-0.5 px-[7px] text-[9px] font-bold text-white transition-opacity duration-150"
+              style={{
+                background: refreshState === 'error' ? '#DC2626' : '#B45309',
+                cursor: isBusy ? 'default' : 'pointer',
+                opacity: isBusy ? 0.7 : 1,
+              }}
+            >
+              {refreshState === 'loading' ? 'Opening…' : 'Open Login'}
+            </button>
+          )}
           {showAuthAction && (
             <button
               type="button"
-              onClick={handleAuthButtonClick}
-              disabled={isBtnDisabled}
-              aria-busy={isBtnDisabled}
+              onClick={confirmLoginNow}
+              disabled={isBusy}
+              aria-busy={refreshState === 'checking'}
               className="border-0 rounded-[5px] py-0.5 px-[7px] text-[9px] font-bold text-white transition-opacity duration-150"
               style={{
-                background: btnColor,
-                cursor: isBtnDisabled ? 'default' : 'pointer',
-                opacity: isBtnDisabled ? 0.7 : 1,
+                background: refreshState === 'done' ? '#16A34A' : '#64748B',
+                cursor: isBusy ? 'default' : 'pointer',
+                opacity: isBusy ? 0.7 : 1,
               }}
             >
-              {btnLabel}
+              {refreshState === 'checking' ? 'Checking…'
+                : refreshState === 'done' ? 'Connected ✓'
+                : 'Check Login'}
             </button>
           )}
         </div>
@@ -225,6 +245,15 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
           aria-live="polite"
         >
           <span className="text-[9px] leading-snug">{feedback}</span>
+        </div>
+      )}
+
+      {showAuthAction && !canOpenBrowser && loginCaps && !isRenderHost && loginCaps.chromiumError && (
+        <div className="route-auth-feedback route-auth-feedback--error mt-1.5 rounded-[7px] px-[9px] py-[5px]">
+          <span className="text-[9px] leading-snug">
+            Chromium missing: cd server && npm run playwright:install — or run{' '}
+            <code className="text-[8px]">node scripts/fieldRoutesLogin.mjs</code>
+          </span>
         </div>
       )}
 
