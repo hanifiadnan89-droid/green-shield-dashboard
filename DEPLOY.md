@@ -60,7 +60,11 @@ FIELDROUTES_BASE_URL=
 FIELDROUTES_AUTH_STATE_JSON=
 ```
 
-For Route Finder on Render (no interactive login in the cloud), set `FIELDROUTES_AUTH_STATE_JSON` to the one-line JSON from `npm run fieldroutes:export-auth` on your Mac after `node scripts/fieldRoutesLogin.mjs`.
+For Route Finder on Render:
+
+- **Recommended:** set `FIELDROUTES_USERNAME` and `FIELDROUTES_PASSWORD` once, then use **Refresh on server** in Route Finder when the session expires (no redeploy).
+- **Or:** on your Mac run `node scripts/fieldRoutesLogin.mjs` and `npm run fieldroutes:export-auth`, then **paste the JSON in Route Finder → Apply Session** (no redeploy).
+- **Optional bootstrap:** `FIELDROUTES_AUTH_STATE_JSON` in Render env (only needed if you prefer env over dashboard paste).
 
 Use the same values from your local `server/.env`, but do not commit that `.env` file to GitHub.
 

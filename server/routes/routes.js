@@ -14,8 +14,32 @@ import {
   checkAuthHealth,
   getAuthConfigDiagnostics,
   getAuthDiagnosticsWithHealthCheck,
+  savePersistedAuthState,
 } from '../services/fieldRoutesAuth.js';
+import {
+  hasFieldRoutesCredentials,
+  refreshFieldRoutesSessionWithCredentials,
+} from '../services/fieldRoutesHeadlessLogin.js';
 import { getPlaywrightChromiumDiagnostics } from '../services/playwrightRuntime.js';
+
+function parseIncomingAuthBody(body) {
+  if (!body) {
+    throw new Error('Request body is required.');
+  }
+  if (typeof body === 'string') {
+    return JSON.parse(body.trim());
+  }
+  if (typeof body.raw === 'string') {
+    return JSON.parse(body.raw.trim());
+  }
+  if (body.storageState && typeof body.storageState === 'object') {
+    return body.storageState;
+  }
+  if (Array.isArray(body.cookies)) {
+    return body;
+  }
+  throw new Error('Paste Playwright storageState JSON (object with cookies array).');
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -52,7 +76,9 @@ router.get('/login-capabilities', async (req, res) => {
 
   let reason = null;
   if (onRender) {
-    reason = 'Render cannot open FieldRoutes login. On your Mac run: npm run fieldroutes:export-auth — paste into FIELDROUTES_AUTH_STATE_JSON in Render, redeploy, then Check Login.';
+    reason = hasFieldRoutesCredentials()
+      ? 'Session expired? Click “Refresh on server” or paste exported JSON below — no redeploy needed.'
+      : 'Session expired? On your Mac: npm run fieldroutes:export-auth — paste JSON below (no redeploy). Optional: set FIELDROUTES_USERNAME/PASSWORD for one-click refresh.';
   } else if (!allowed) {
     reason = 'Open the dashboard on this computer at http://localhost:3001 or http://127.0.0.1:5173 (npm run dev).';
   } else if (!chromium.ok) {
@@ -62,17 +88,69 @@ router.get('/login-capabilities', async (req, res) => {
   res.json({
     interactiveLoginAvailable: allowed && chromium.ok,
     isRender: onRender,
+    pasteAuthAvailable: onRender,
+    serverCredentialRefreshAvailable: hasFieldRoutesCredentials(),
     chromiumReady: chromium.ok,
     chromiumError: chromium.error || null,
     reason,
     manualCommand: 'npm run fieldroutes:export-auth',
     exportSteps: [
-      'On your Mac: node scripts/fieldRoutesLogin.mjs',
-      'npm run fieldroutes:export-auth',
-      'Render → Environment → FIELDROUTES_AUTH_STATE_JSON → paste one-line JSON',
-      'Save (triggers redeploy) → Route Finder → Check Login',
+      'Only when FieldRoutes session expires (not every deploy)',
+      'Mac: node scripts/fieldRoutesLogin.mjs → npm run fieldroutes:export-auth',
+      'Paste the one-line JSON in Route Finder → Apply Session (no Render redeploy)',
+      'Or set FIELDROUTES_USERNAME + FIELDROUTES_PASSWORD once → Refresh on server',
     ],
   });
+});
+
+// POST /api/routes/auth-state — save session on server (dashboard paste; no redeploy)
+router.post('/auth-state', async (req, res) => {
+  try {
+    const state = parseIncomingAuthBody(req.body);
+    await savePersistedAuthState(state);
+    const result = await checkAuthHealth();
+    const auth = getAuthStatus();
+    res.json({
+      ok: true,
+      result,
+      status: auth.status,
+      message: auth.message,
+      _auth: {
+        status: auth.status,
+        lastCheck: auth.lastCheck,
+        message: auth.message,
+      },
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/routes/auth-refresh-server — headless login with env credentials (Render)
+router.post('/auth-refresh-server', async (req, res) => {
+  try {
+    if (!hasFieldRoutesCredentials()) {
+      return res.status(400).json({
+        error: 'Set FIELDROUTES_USERNAME and FIELDROUTES_PASSWORD in Render environment for automatic refresh.',
+      });
+    }
+    await refreshFieldRoutesSessionWithCredentials();
+    const result = await checkAuthHealth();
+    const auth = getAuthStatus();
+    res.json({
+      ok: true,
+      result,
+      status: auth.status,
+      message: auth.message,
+      _auth: {
+        status: auth.status,
+        lastCheck: auth.lastCheck,
+        message: auth.message,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/routes/auth-diagnostics — safe config/health info (no cookie values)
@@ -154,7 +232,7 @@ router.post('/refresh', (req, res) => {
 router.post('/login-refresh', async (req, res) => {
   if (process.env.RENDER) {
     return res.status(400).json({
-      error: 'Interactive FieldRoutes login is only available on your local machine, not on Render. Run: node scripts/fieldRoutesLogin.mjs — then add FIELDROUTES_AUTH_STATE_JSON in Render.',
+      error: 'Interactive login is only on localhost. On Render: paste exported JSON in Route Finder or use Refresh on server.',
     });
   }
 

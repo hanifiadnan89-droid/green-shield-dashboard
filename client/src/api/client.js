@@ -59,6 +59,20 @@ export const api = {
     loginCapabilities: () => request('/routes/login-capabilities'),
     authDiagnostics: (runCheck = false) =>
       request(`/routes/auth-diagnostics${runCheck ? '?check=true' : ''}`),
+    applyAuthState: (payload) => {
+      let body;
+      if (typeof payload === 'string') {
+        body = { raw: payload.trim() };
+      } else if (typeof payload?.raw === 'string') {
+        body = { raw: payload.raw.trim() };
+      } else if (Array.isArray(payload?.cookies)) {
+        body = payload;
+      } else {
+        body = { storageState: payload };
+      }
+      return request('/routes/auth-state', { method: 'POST', body: JSON.stringify(body) });
+    },
+    refreshServerAuth: () => request('/routes/auth-refresh-server', { method: 'POST' }),
     refresh:      (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
     preload:      (force = false) => request(`/routes/preload${force ? '?force=true' : ''}`, { method: 'POST' }),
     loginRefresh: () => request('/routes/login-refresh', { method: 'POST' }),

@@ -47,10 +47,10 @@ describe('fieldRoutesAuth diagnostics', () => {
     expect(JSON.stringify(diag)).not.toContain('not json');
   });
 
-  it('recommends export on Render when env missing', () => {
+  it('recommends paste on Render when env missing', () => {
     process.env.RENDER = 'true';
     const diag = getAuthConfigDiagnostics();
     expect(diag.deployTarget).toBe('render');
-    expect(diag.recommendation).toMatch(/fieldroutes:export-auth/);
+    expect(diag.recommendation).toMatch(/paste|credentials/i);
   });
 });

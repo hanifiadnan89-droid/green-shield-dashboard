@@ -8,9 +8,10 @@
  * shows the last known state immediately on page load, even before the first
  * network check completes.
  *
- * Auth state sources:
- * 1. FIELDROUTES_AUTH_STATE_JSON environment variable, for hosted Render deploys
- * 2. playwright/.auth/fieldroutes-state.json local file, for Mac/local development
+ * Auth state sources (first match wins):
+ * 1. data/fieldroutes-storage-state.json — pasted via dashboard or headless login (no redeploy)
+ * 2. FIELDROUTES_AUTH_STATE_JSON environment variable (optional bootstrap on Render)
+ * 3. playwright/.auth/fieldroutes-state.json — local Mac development
  *
  * Status file: data/fieldroutes-auth-status.json
  */
@@ -21,9 +22,14 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const AUTH_STATE       = resolve(__dirname, '../../playwright/.auth/fieldroutes-state.json');
-const STATUS_PATH      = resolve(__dirname, '../../data/fieldroutes-auth-status.json');
-const FIELDROUTES_BASE = 'https://greenshieldpestsolutions.fieldroutes.com';
+const AUTH_STATE         = resolve(__dirname, '../../playwright/.auth/fieldroutes-state.json');
+const PERSISTED_STATE    = resolve(__dirname, '../../data/fieldroutes-storage-state.json');
+const STATUS_PATH        = resolve(__dirname, '../../data/fieldroutes-auth-status.json');
+const DEFAULT_FIELDROUTES_BASE = 'https://greenshieldpestsolutions.fieldroutes.com';
+
+export function getFieldRoutesBaseUrl() {
+  return (process.env.FIELDROUTES_BASE_URL || DEFAULT_FIELDROUTES_BASE).replace(/\/$/, '');
+}
 
 let _authStatus = {
   status:     'unknown',
@@ -80,10 +86,38 @@ export function setAuthStatus(status, message = null) {
 }
 
 export function getAuthStateSource() {
+  if (existsSync(PERSISTED_STATE)) return 'persisted';
   const envRaw = (process.env.FIELDROUTES_AUTH_STATE_JSON || '').trim();
   if (envRaw) return 'env';
   if (existsSync(AUTH_STATE)) return 'file';
   return 'none';
+}
+
+function validateAuthStateShape(state) {
+  if (!state || typeof state !== 'object') {
+    throw new Error('Auth state must be a JSON object with cookies.');
+  }
+  const summary = summarizeAuthState(state);
+  if (summary.fieldRoutesCookieCount === 0) {
+    throw new Error('No FieldRoutes cookies in auth state — log in again before exporting.');
+  }
+  return state;
+}
+
+export async function savePersistedAuthState(state) {
+  validateAuthStateShape(state);
+  await fs.mkdir(resolve(__dirname, '../../data'), { recursive: true });
+  await fs.writeFile(PERSISTED_STATE, JSON.stringify(state));
+  console.log(`[auth] Saved session to ${PERSISTED_STATE} (${summarizeAuthState(state).fieldRoutesCookieCount} FieldRoutes cookies)`);
+  return state;
+}
+
+export async function getPlaywrightStorageState() {
+  const state = await readAuthState();
+  if (!state) {
+    throw new Error('needs_login: FieldRoutes auth state not found');
+  }
+  return state;
 }
 
 function summarizeAuthState(state) {
@@ -133,17 +167,30 @@ export function getAuthConfigDiagnostics() {
   const persisted = getAuthStatus();
 
   let recommendation = null;
+  const persistedExists = existsSync(PERSISTED_STATE);
+  let persistedSummary = summarizeAuthState(null);
+  if (persistedExists) {
+    try {
+      persistedSummary = summarizeAuthState(JSON.parse(readFileSync(PERSISTED_STATE, 'utf8')));
+    } catch { /* ignore */ }
+  }
+
+  const credentialsConfigured = !!(
+    (process.env.FIELDROUTES_USERNAME || '').trim()
+    && (process.env.FIELDROUTES_PASSWORD || '').trim()
+  );
+
   if (process.env.RENDER) {
-    if (!env.raw) {
-      recommendation = 'Set FIELDROUTES_AUTH_STATE_JSON in Render. On your Mac run: npm run fieldroutes:export-auth';
-    } else if (!env.parseOk) {
-      recommendation = 'FIELDROUTES_AUTH_STATE_JSON is not valid JSON. Re-export with npm run fieldroutes:export-auth and paste the single line only.';
-    } else if (env.parseOk && summarizeAuthState(env.parsed).fieldRoutesCookieCount === 0) {
-      recommendation = 'JSON parses but has no FieldRoutes cookies. Re-run fieldRoutesLogin.mjs and export again.';
-    } else if (persisted.status === 'needs_login') {
-      recommendation = 'Env looks configured but session may be expired. Re-login locally, export fresh JSON, update Render, redeploy, then click Check Login.';
-    } else if (persisted.status === 'ok') {
+    if (persisted.status === 'ok') {
       recommendation = 'Auth is healthy on this server.';
+    } else if (credentialsConfigured) {
+      recommendation = 'Session expired. Click “Refresh on server” (uses FIELDROUTES_USERNAME/PASSWORD) or paste exported JSON below — no Render redeploy needed.';
+    } else if (!persistedExists && !env.raw) {
+      recommendation = 'One-time setup: paste exported JSON below, OR set FIELDROUTES_USERNAME/PASSWORD for server refresh. Redeploy is not required after paste.';
+    } else if (persisted.status === 'needs_login') {
+      recommendation = 'Session expired. Paste fresh JSON from npm run fieldroutes:export-auth below, or use server credential refresh — no redeploy needed.';
+    } else if (!env.parseOk && env.raw) {
+      recommendation = 'FIELDROUTES_AUTH_STATE_JSON is invalid. Paste corrected JSON in the dashboard instead.';
     }
   } else if (source === 'none') {
     recommendation = 'Run: node scripts/fieldRoutesLogin.mjs (local) or set FIELDROUTES_AUTH_STATE_JSON (Render).';
@@ -166,6 +213,12 @@ export function getAuthConfigDiagnostics() {
       parseError: fileParseError,
       ...fileSummary,
     },
+    serverPersisted: {
+      path: 'data/fieldroutes-storage-state.json',
+      exists: persistedExists,
+      ...persistedSummary,
+    },
+    credentialsConfigured,
     persistedStatus: {
       status: persisted.status,
       lastCheck: persisted.lastCheck,
@@ -191,7 +244,12 @@ export async function getAuthDiagnosticsWithHealthCheck() {
   };
 }
 
-async function readAuthState() {
+export async function readAuthState() {
+  if (existsSync(PERSISTED_STATE)) {
+    const raw = await fs.readFile(PERSISTED_STATE, 'utf8');
+    return JSON.parse(raw);
+  }
+
   const envRaw = (process.env.FIELDROUTES_AUTH_STATE_JSON || '').trim();
   if (envRaw) {
     try {
@@ -223,8 +281,8 @@ export async function checkAuthHealth() {
 
   if (!state) {
     const msg = process.env.RENDER
-      ? 'FIELDROUTES_AUTH_STATE_JSON is not set on Render. Run npm run fieldroutes:export-auth on your Mac, paste into Render env, redeploy.'
-      : 'Auth state not found — run node scripts/fieldRoutesLogin.mjs locally or set FIELDROUTES_AUTH_STATE_JSON on Render.';
+      ? 'No FieldRoutes session on server. Paste exported JSON in Route Finder, set credentials for server refresh, or set FIELDROUTES_AUTH_STATE_JSON once.'
+      : 'Auth state not found — run node scripts/fieldRoutesLogin.mjs locally.';
     console.warn(`[auth] Health check: no auth state (source=${source}, render=${!!process.env.RENDER})`);
     setAuthStatus('needs_login', msg);
     return 'needs_login';
@@ -246,7 +304,7 @@ export async function checkAuthHealth() {
   }
 
   try {
-    const resp = await fetch(`${FIELDROUTES_BASE}/day.php`, {
+    const resp = await fetch(`${getFieldRoutesBaseUrl()}/day.php`, {
       method: 'GET',
       headers: {
         Cookie:            cookieHeader,
@@ -262,11 +320,11 @@ export async function checkAuthHealth() {
       const loc = resp.headers.get('location') || '';
       const isLoginRedirect =
         loc === '/' ||
-        loc === FIELDROUTES_BASE + '/' ||
+        loc === getFieldRoutesBaseUrl() + '/' ||
         loc.includes('index.php') ||
         loc.includes('login');
       if (isLoginRedirect) {
-        const msg = 'FieldRoutes redirected to login — session expired. Re-export auth from your Mac and update FIELDROUTES_AUTH_STATE_JSON on Render.';
+        const msg = 'FieldRoutes session expired. Paste fresh JSON in Route Finder or use Refresh on server — no redeploy needed.';
         console.warn(`[auth] Health check: login redirect (source=${source})`);
         setAuthStatus('needs_login', msg);
         return 'needs_login';
@@ -295,7 +353,7 @@ export async function checkAuthHealth() {
         snippet.includes('id="loginForm"');
 
       if (isLoginPage) {
-        const msg = 'FieldRoutes returned the login page — session expired. Re-export auth and update Render env.';
+        const msg = 'FieldRoutes session expired. Paste fresh JSON in Route Finder or use Refresh on server.';
         console.warn(`[auth] Health check: login page HTML (source=${source})`);
         setAuthStatus('needs_login', msg);
         return 'needs_login';

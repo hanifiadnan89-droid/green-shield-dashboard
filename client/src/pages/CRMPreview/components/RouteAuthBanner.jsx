@@ -23,10 +23,12 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
   const [loginCaps, setLoginCaps] = useState(null);
   const [diag, setDiag] = useState(null);
   const [diagLoading, setDiagLoading] = useState(false);
+  const [pasteJson, setPasteJson] = useState('');
   const loginPollRef = useRef(null);
 
   const canOpenBrowser = loginCaps?.interactiveLoginAvailable === true;
   const isRenderHost = loginCaps?.isRender === true;
+  const canServerRefresh = loginCaps?.serverCredentialRefreshAvailable === true;
 
   const loadDiagnostics = useCallback(async (runCheck = false) => {
     setDiagLoading(true);
@@ -87,11 +89,45 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
   const label = isChecking ? 'Checking…' : isOk ? 'Connected' : isLogin ? 'Needs Login' : isFailed ? 'Failed' : 'Unknown';
 
   const exportSteps = loginCaps?.exportSteps ?? [
-    'On your Mac: node scripts/fieldRoutesLogin.mjs',
-    'npm run fieldroutes:export-auth',
-    'Render → Environment → FIELDROUTES_AUTH_STATE_JSON → paste one-line JSON',
-    'Save (redeploy) → click Check Login here',
+    'Only when the FieldRoutes session expires (not every deploy)',
+    'Mac: node scripts/fieldRoutesLogin.mjs → npm run fieldroutes:export-auth',
+    'Paste JSON below → Apply Session (no Render redeploy)',
   ];
+
+  async function handleApplyPastedAuth() {
+    const raw = pasteJson.trim();
+    if (!raw) {
+      setRefreshState('error');
+      setFeedback('Paste the one-line JSON from npm run fieldroutes:export-auth first.');
+      return;
+    }
+    setRefreshState('checking');
+    setFeedback('Saving session on server…');
+    try {
+      const statusData = await api.routes.applyAuthState({ raw });
+      applyAuthResult(statusData);
+      if (statusData?._auth?.status === 'ok') setPasteJson('');
+      onLoginRefreshStarted?.({ checkAuth: false });
+    } catch (err) {
+      setRefreshState('error');
+      setFeedback(err?.message || 'Could not apply session JSON.');
+      setTimeout(() => setRefreshState('idle'), 8000);
+    }
+  }
+
+  async function handleServerCredentialRefresh() {
+    setRefreshState('checking');
+    setFeedback('Logging in to FieldRoutes on the server (headless)…');
+    try {
+      const statusData = await api.routes.refreshServerAuth();
+      applyAuthResult(statusData);
+      onLoginRefreshStarted?.({ checkAuth: false });
+    } catch (err) {
+      setRefreshState('error');
+      setFeedback(err?.message || 'Server login failed.');
+      setTimeout(() => setRefreshState('idle'), 10000);
+    }
+  }
 
   function applyAuthResult(statusData) {
     const auth = statusData?._auth;
@@ -116,7 +152,7 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
         auth.message
           || (canOpenBrowser
             ? 'Still not logged in. Finish sign-in in Chromium, then click “Check Login”. Or click “Open Login” again.'
-            : 'Still needs login. On Render, update FIELDROUTES_AUTH_STATE_JSON after running npm run fieldroutes:export-auth on your Mac.'),
+            : 'Still needs login. Paste exported JSON below or use Refresh on server.'),
       );
       if (isRenderHost) loadDiagnostics(true);
       return;
@@ -177,7 +213,7 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       setFeedback(
         loginCaps?.reason
           || (isRenderHost
-            ? 'Render cannot open FieldRoutes login. Refresh login locally, update FIELDROUTES_AUTH_STATE_JSON in Render, then redeploy.'
+            ? 'Paste exported JSON below or use Refresh on server — no Render redeploy needed.'
             : 'Interactive login is only available on localhost. Use npm run dev or http://localhost:3001.'),
       );
       return;
@@ -286,16 +322,44 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       )}
 
       {showAuthAction && isRenderHost && (
-        <div className="route-auth-render-panel" role="region" aria-label="Render FieldRoutes login steps">
+        <div className="route-auth-render-panel" role="region" aria-label="Render FieldRoutes session refresh">
           <div className="route-auth-render-panel__title">
-            Render cannot open FieldRoutes login. Refresh login locally, update{' '}
-            <code>FIELDROUTES_AUTH_STATE_JSON</code> in Render, then redeploy.
+            You do not need to redeploy every time. Refresh only when FieldRoutes logs you out.
           </div>
           <ol className="route-auth-render-panel__steps">
             {exportSteps.map((step) => (
               <li key={step}>{step}</li>
             ))}
           </ol>
+          {canServerRefresh && (
+            <button
+              type="button"
+              onClick={handleServerCredentialRefresh}
+              disabled={isBusy}
+              className="route-auth-paste__btn route-auth-paste__btn--primary mt-1.5"
+            >
+              {refreshState === 'checking' ? 'Refreshing…' : 'Refresh on server'}
+            </button>
+          )}
+          <label className="route-auth-paste__label mt-2 block">
+            Or paste one-line JSON from <code>npm run fieldroutes:export-auth</code>
+            <textarea
+              className="route-auth-paste__input mt-1"
+              rows={3}
+              value={pasteJson}
+              onChange={(e) => setPasteJson(e.target.value)}
+              placeholder='{"cookies":[...]}'
+              spellCheck={false}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleApplyPastedAuth}
+            disabled={isBusy || !pasteJson.trim()}
+            className="route-auth-paste__btn mt-1"
+          >
+            Apply Session
+          </button>
         </div>
       )}
 
