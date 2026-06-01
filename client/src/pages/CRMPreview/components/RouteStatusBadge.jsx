@@ -24,21 +24,33 @@ function fmtAgo(isoStr) {
 function StatusBadge({ status, meta, date, onRefresh }) {
   const cfg = STATUS_CFG[status] || STATUS_CFG.missing;
   const ago = status === 'cached' ? fmtAgo(meta?.timestamp) : null;
+  const errorMessage = status === 'failed' ? meta?.error : null;
+
   return (
-    <div className="mt-0.5 flex items-center justify-center gap-0.5 min-h-3.5">
-      {cfg.spinning
-        ? <Loader2 size={9} className="animate-spin" style={{ color: cfg.color }} />
-        : <span className="text-[9px] font-semibold" style={{ color: cfg.color }}>{cfg.label}{ago ? ` · ${ago}` : ''}</span>
-      }
-      {cfg.showRefresh && onRefresh && (
-        <button
-          type="button"
-          onClick={() => onRefresh(date)}
-          className="bg-transparent border-0 cursor-pointer p-0 flex text-slate-400 leading-none"
-          title="Refresh"
+    <div className="mt-0.5 flex flex-col items-center gap-0.5 min-h-3.5 w-full min-w-0">
+      <div className="flex items-center justify-center gap-0.5">
+        {cfg.spinning
+          ? <Loader2 size={9} className="animate-spin" style={{ color: cfg.color }} />
+          : <span className="text-[9px] font-semibold" style={{ color: cfg.color }}>{cfg.label}{ago ? ` · ${ago}` : ''}</span>
+        }
+        {cfg.showRefresh && onRefresh && (
+          <button
+            type="button"
+            onClick={() => onRefresh(date)}
+            className="bg-transparent border-0 cursor-pointer p-0 flex text-slate-400 leading-none"
+            title="Refresh this date"
+          >
+            <RefreshCw size={9} />
+          </button>
+        )}
+      </div>
+      {errorMessage && (
+        <span
+          className="text-[8px] leading-tight text-gs-danger font-medium max-w-full truncate px-0.5 text-center"
+          title={errorMessage}
         >
-          <RefreshCw size={9} />
-        </button>
+          {errorMessage}
+        </span>
       )}
     </div>
   );
