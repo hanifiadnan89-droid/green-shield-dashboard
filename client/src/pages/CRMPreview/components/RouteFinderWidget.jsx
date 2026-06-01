@@ -5,61 +5,13 @@ import { scoreRoutes, detectRouteArea } from '../../../utils/fieldRoutesScorer.j
 import StatusBadge from './RouteStatusBadge.jsx';
 import ResultCard from './RouteResultCard.jsx';
 import AuthStatusBanner from './RouteAuthBanner.jsx';
+import { buildDateMetas } from './RouteFinder/routeFinderDates.js';
+import { TIME_PREFS, FOUR_HOUR_SLOTS, TWO_HOUR_SLOTS } from './RouteFinder/routeFinderConstants.js';
+import { getDatePillTitle } from './RouteFinder/getDatePillTitle.js';
+import { buildRouteDateHelperText } from './RouteFinder/buildRouteDateHelperText.js';
 
 // ---------------------------------------------------------------------------
-// Time slot configuration
-// ---------------------------------------------------------------------------
-const TIME_PREFS = [
-  { key: 'AM', label: 'AM', sub: '8am – 12pm' },
-  { key: 'PM', label: 'PM', sub: '12pm – 6pm' },
-  { key: 'specific', label: 'Specific', sub: 'choose slot' },
-];
-
-const FOUR_HOUR_SLOTS = [
-  { key: '8-12',  label: '8am – 12pm' },
-  { key: '12-4',  label: '12pm – 4pm' },
-];
-
-const TWO_HOUR_SLOTS = [
-  { key: '8-10',  label: '8 – 10am' },
-  { key: '10-12', label: '10am – 12pm' },
-  { key: '12-2',  label: '12 – 2pm' },
-  { key: '2-4',   label: '2 – 4pm' },
-  { key: '4-6',   label: '4 – 6pm' },
-];
-
-// ---------------------------------------------------------------------------
-// Date utilities
-// ---------------------------------------------------------------------------
-function getLocalDateStr(offsetDays = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  const y = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${mo}-${day}`;
-}
-
-function buildDateMetas() {
-  const metas = [];
-  let offset = 0;
-  while (metas.length < 6) {
-    const d = new Date();
-    d.setDate(d.getDate() + offset);
-    if (d.getDay() !== 0) { // skip Sunday
-      const key = getLocalDateStr(offset);
-      const label = offset === 0 ? 'Today'
-        : offset === 1 ? 'Tomorrow'
-        : d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
-      metas.push({ key, label });
-    }
-    offset++;
-  }
-  return metas;
-}
-
-// ---------------------------------------------------------------------------
-// Nominatim geocoder
+// Nominatim geocoder (Phase 3b: extract to nominatim.js)
 // ---------------------------------------------------------------------------
 async function nominatimGeocode(address) {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=us`;
@@ -307,32 +259,12 @@ export default function RouteFinderWidget() {
     }
   }, [anyDateRefreshing]);
 
-  const routeDateHelperText = authNeedsLogin
-    ? 'Log in to FieldRoutes to load schedules. Use the banner above.'
-    : anyDateRefreshing
-      ? refreshAllPending
-        ? 'Re-scraping all route dates from FieldRoutes…'
-        : 'Syncing schedules from FieldRoutes…'
-      : !hasCachedDate
-        ? 'Dates appear when cache is ready — use ↻ on a date or Refresh all in the header.'
-        : null;
-
-  function getDatePillTitle(status, meta, label) {
-    switch (status) {
-      case 'cached':
-        return `Load routes for ${label}`;
-      case 'refreshing':
-        return 'Loading route data…';
-      case 'failed':
-        return meta?.error || 'Load failed — use ↻ to retry';
-      case 'needs_login':
-        return 'FieldRoutes login required';
-      case 'missing':
-        return 'Not loaded yet — use ↻ or Refresh all';
-      default:
-        return 'Not available';
-    }
-  }
+  const routeDateHelperText = buildRouteDateHelperText({
+    authNeedsLogin,
+    anyDateRefreshing,
+    refreshAllPending,
+    hasCachedDate,
+  });
 
   // ---------------------------------------------------------------------------
   // Address autocomplete
@@ -562,7 +494,7 @@ export default function RouteFinderWidget() {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
+      <div className="route-finder-body">
 
         {/* ── FieldRoutes auth status ── */}
         <AuthStatusBanner authInfo={authInfo} onLoginRefreshStarted={handleLoginRefreshStarted} />
@@ -612,17 +544,25 @@ export default function RouteFinderWidget() {
                     disabled={!isCached}
                     aria-disabled={!isCached}
                     title={pillTitle}
-                    className="route-date-pill-button w-full py-1.5 px-1 rounded-[9px] transition-all duration-150 flex items-center justify-center gap-1"
-                    style={{
-                      border: `1.5px solid ${isActive ? '#16A34A' : isCached ? 'rgba(22,163,74,0.3)' : 'rgba(0,0,0,0.08)'}`,
-                      background: isActive ? '#16A34A' : isCached ? 'rgba(22,163,74,0.04)' : '#f8fafc',
-                      cursor: isCached ? 'pointer' : 'default',
-                    }}
+                    className={[
+                      'route-date-pill-button w-full py-1.5 px-1 rounded-[9px] transition-all duration-150 flex items-center justify-center gap-1',
+                      isActive ? 'route-date-pill-button--active' : isCached ? 'route-date-pill-button--cached' : 'route-date-pill-button--idle',
+                    ].join(' ')}
                   >
-                    {isLoading && <Loader2 size={9} className="animate-spin" style={{ color: isActive ? '#fff' : '#16A34A' }} />}
+                    {isLoading && (
+                      <Loader2
+                        size={9}
+                        className={[
+                          'animate-spin route-date-pill-spinner',
+                          isActive ? 'route-date-pill-spinner--on-active' : '',
+                        ].filter(Boolean).join(' ')}
+                      />
+                    )}
                     <span
-                      className="text-[11px] font-bold leading-none"
-                      style={{ color: isActive ? '#fff' : isCached ? '#0F172A' : '#94A3B8' }}
+                      className={[
+                        'route-date-pill-label text-[11px] font-bold leading-none',
+                        isActive ? 'route-date-pill-label--active' : isCached ? 'route-date-pill-label--cached' : 'route-date-pill-label--idle',
+                      ].join(' ')}
                     >
                       {label}
                     </span>
@@ -689,19 +629,15 @@ export default function RouteFinderWidget() {
                 }}
                 onKeyDown={handleAddressKey}
                 placeholder="Start typing an address…"
-                className="w-full box-border py-2 pl-7 pr-9 rounded-[10px] text-xs text-gs-text bg-slate-50 outline-none"
-                style={{
-                  border: `1px solid ${geocodeStatus === 'error' ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.1)'}`,
-                }}
-                onFocus={e => {
-                  e.target.style.borderColor = 'rgba(22,163,74,0.4)';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)';
+                className={[
+                  'route-address-input w-full box-border py-2 pl-7 pr-9 rounded-[10px] text-xs text-gs-text bg-slate-50 outline-none',
+                  geocodeStatus === 'error' ? 'route-address-input--error' : '',
+                ].filter(Boolean).join(' ')}
+                onFocus={() => {
                   if (suggestions.length > 0) setShowSuggestions(true);
                 }}
-                onBlur={e => {
+                onBlur={() => {
                   if (suppressBlurRef.current) { suppressBlurRef.current = false; return; }
-                  e.target.style.borderColor = geocodeStatus === 'error' ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.1)';
-                  e.target.style.boxShadow = 'none';
                   setShowSuggestions(false);
                   if (addressInput.trim()) doGeocode(addressInput);
                 }}
@@ -726,17 +662,18 @@ export default function RouteFinderWidget() {
                       key={i}
                       onMouseDown={() => { suppressBlurRef.current = true; selectSuggestion(s); }}
                       onMouseEnter={() => setActiveSuggestion(i)}
-                      className={`py-[7px] px-[11px] cursor-pointer flex items-start gap-2 transition-colors duration-100 ${
-                        i < suggestions.length - 1 ? 'border-b border-black/[0.05]' : ''
-                      }`}
-                      style={{
-                        background: i === activeSuggestion ? 'rgba(22,163,74,0.06)' : '#fff',
-                      }}
+                      className={[
+                        'route-suggest-item py-[7px] px-[11px] cursor-pointer flex items-start gap-2 transition-colors duration-100',
+                        i < suggestions.length - 1 ? 'border-b border-black/[0.05]' : '',
+                        i === activeSuggestion ? 'route-suggest-item--active' : '',
+                      ].filter(Boolean).join(' ')}
                     >
                       <MapPin
                         size={11}
-                        className="mt-0.5 shrink-0"
-                        style={{ color: i === activeSuggestion ? '#16A34A' : '#94A3B8' }}
+                        className={[
+                          'route-suggest-icon mt-0.5 shrink-0',
+                          i === activeSuggestion ? 'route-suggest-icon--active' : '',
+                        ].filter(Boolean).join(' ')}
                       />
                       <div className="min-w-0">
                         <p className="text-[11px] font-semibold text-gs-text m-0 leading-[1.3] truncate">
@@ -798,14 +735,13 @@ export default function RouteFinderWidget() {
                     key={key}
                     type="button"
                     onClick={() => handleTimePrefSelect(key)}
-                    className="flex-1 py-[7px] px-1 rounded-[9px] cursor-pointer text-center transition-all duration-150"
-                    style={{
-                      border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
-                      background: active ? '#3B82F6' : '#fff',
-                    }}
+                    className={[
+                      'route-time-btn flex-1 py-[7px] px-1 rounded-[9px] cursor-pointer text-center transition-all duration-150',
+                      active ? 'route-time-btn--active' : '',
+                    ].filter(Boolean).join(' ')}
                   >
-                    <div className="text-xs font-bold leading-none" style={{ color: active ? '#fff' : '#374151' }}>{label}</div>
-                    <div className="text-[9px] mt-0.5" style={{ color: active ? 'rgba(255,255,255,0.75)' : '#94A3B8' }}>{sub}</div>
+                    <div className="route-time-btn__label text-xs font-bold leading-none">{label}</div>
+                    <div className="route-time-btn__sub text-[9px] mt-0.5">{sub}</div>
                   </button>
                 );
               })}
@@ -822,12 +758,10 @@ export default function RouteFinderWidget() {
                         key={key}
                         type="button"
                         onClick={() => handleSpecificSlotSelect(key)}
-                        className="flex-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all duration-150"
-                        style={{
-                          border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
-                          background: active ? '#3B82F6' : '#fff',
-                          color: active ? '#fff' : '#374151',
-                        }}
+                        className={[
+                          'route-time-slot-btn flex-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all duration-150',
+                          active ? 'route-time-slot-btn--active' : '',
+                        ].filter(Boolean).join(' ')}
                       >
                         {label}
                       </button>
@@ -843,12 +777,10 @@ export default function RouteFinderWidget() {
                         key={key}
                         type="button"
                         onClick={() => handleSpecificSlotSelect(key)}
-                        className="py-[5px] px-2 rounded-[7px] type-label-sm font-semibold cursor-pointer transition-all duration-150 tracking-normal"
-                        style={{
-                          border: `1.5px solid ${active ? '#3B82F6' : 'rgba(0,0,0,0.1)'}`,
-                          background: active ? '#3B82F6' : '#fff',
-                          color: active ? '#fff' : '#374151',
-                        }}
+                        className={[
+                          'route-time-slot-btn py-[5px] px-2 rounded-[7px] type-label-sm font-semibold cursor-pointer transition-all duration-150 tracking-normal',
+                          active ? 'route-time-slot-btn--active' : '',
+                        ].filter(Boolean).join(' ')}
                       >
                         {label}
                       </button>
@@ -905,31 +837,31 @@ export default function RouteFinderWidget() {
           <div>
             {/* Route area header (NH / Maine) */}
             {results.routeArea && results.routeArea !== 'general' && (
-              <div style={{
-                marginBottom: 8, padding: '5px 10px', borderRadius: 8,
-                background: results.routeArea === 'new_hampshire' ? 'rgba(59,130,246,0.06)' : 'rgba(139,92,246,0.06)',
-                border: `1px solid ${results.routeArea === 'new_hampshire' ? 'rgba(59,130,246,0.2)' : 'rgba(139,92,246,0.2)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: results.routeArea === 'new_hampshire' ? '#3B82F6' : '#8B5CF6' }}>
+              <div
+                className={[
+                  'route-area-banner',
+                  results.routeArea === 'new_hampshire' ? 'route-area-banner--nh' : 'route-area-banner--me',
+                ].join(' ')}
+              >
+                <span className="route-area-banner__title">
                   {results.routeArea === 'new_hampshire' ? 'New Hampshire Route' : 'Maine Route'}
                 </span>
                 {results.routeArea === 'new_hampshire' && (
-                  <span style={{ fontSize: 9, color: '#64748B' }}>Alex Gray only</span>
+                  <span className="route-area-banner__note">Alex Gray only</span>
                 )}
               </div>
             )}
             {/* No-safe-route message */}
             {results.noSafeRoute ? (
-              <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(220,38,38,0.2)', background: 'rgba(220,38,38,0.04)' }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: '#DC2626', margin: 0, lineHeight: 1.4 }}>
+              <div className="route-finder-no-safe">
+                <p className="route-finder-no-safe__message">
                   {results.noSafeRouteMessage}
                 </p>
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <p style={{ fontSize: 10, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                <div className="route-finder-results-head">
+                  <p className="route-finder-results-head__title">
                     Top {results.topMatches.length} Matches
                   </p>
                   <button
