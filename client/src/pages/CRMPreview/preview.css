@@ -173,6 +173,195 @@
   min-height: 28px;
 }
 
+.crm-preview .route-finder-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+/* Date pill states */
+.crm-preview .route-date-pill-button--active {
+  border: 1.5px solid #16a34a;
+  background: #16a34a;
+  cursor: pointer;
+}
+
+.crm-preview .route-date-pill-button--cached {
+  border: 1.5px solid rgba(22, 163, 74, 0.3);
+  background: rgba(22, 163, 74, 0.04);
+  cursor: pointer;
+}
+
+.crm-preview .route-date-pill-button--idle {
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  background: #f8fafc;
+  cursor: default;
+}
+
+.crm-preview .route-date-pill-spinner {
+  color: #16a34a;
+}
+
+.crm-preview .route-date-pill-spinner--on-active {
+  color: #fff;
+}
+
+.crm-preview .route-date-pill-label--active {
+  color: #fff;
+}
+
+.crm-preview .route-date-pill-label--cached {
+  color: #0f172a;
+}
+
+.crm-preview .route-date-pill-label--idle {
+  color: #94a3b8;
+}
+
+/* Address input */
+.crm-preview .route-address-input {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.crm-preview .route-address-input--error {
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.crm-preview .route-address-input:focus {
+  border-color: rgba(22, 163, 74, 0.4);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.08);
+}
+
+.crm-preview .route-address-input--error:focus {
+  border-color: rgba(220, 38, 38, 0.4);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08);
+}
+
+/* Autocomplete suggestions */
+.crm-preview .route-suggest-item {
+  background: #fff;
+}
+
+.crm-preview .route-suggest-item--active {
+  background: rgba(22, 163, 74, 0.06);
+}
+
+.crm-preview .route-suggest-icon {
+  color: #94a3b8;
+}
+
+.crm-preview .route-suggest-icon--active {
+  color: #16a34a;
+}
+
+/* Time preference buttons */
+.crm-preview .route-time-btn {
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+}
+
+.crm-preview .route-time-btn--active {
+  border-color: #3b82f6;
+  background: #3b82f6;
+}
+
+.crm-preview .route-time-btn__label {
+  color: #374151;
+}
+
+.crm-preview .route-time-btn--active .route-time-btn__label {
+  color: #fff;
+}
+
+.crm-preview .route-time-btn__sub {
+  color: #94a3b8;
+}
+
+.crm-preview .route-time-btn--active .route-time-btn__sub {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.crm-preview .route-time-slot-btn {
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  color: #374151;
+}
+
+.crm-preview .route-time-slot-btn--active {
+  border-color: #3b82f6;
+  background: #3b82f6;
+  color: #fff;
+}
+
+/* Results section */
+.crm-preview .route-area-banner {
+  margin-bottom: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.crm-preview .route-area-banner--nh {
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.crm-preview .route-area-banner--me {
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.crm-preview .route-area-banner__title {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.crm-preview .route-area-banner--nh .route-area-banner__title {
+  color: #3b82f6;
+}
+
+.crm-preview .route-area-banner--me .route-area-banner__title {
+  color: #8b5cf6;
+}
+
+.crm-preview .route-area-banner__note {
+  font-size: 9px;
+  color: #64748b;
+}
+
+.crm-preview .route-finder-no-safe {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.crm-preview .route-finder-no-safe__message {
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.crm-preview .route-finder-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.crm-preview .route-finder-results-head__title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
 /* ── Lead pipeline (CRM Preview) ── */
 .crm-preview .lead-pipeline {
   min-height: 400px;
