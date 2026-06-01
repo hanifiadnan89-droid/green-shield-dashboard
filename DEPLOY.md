@@ -24,7 +24,7 @@ Build Command: npm run render:build
 Start Command: npm start
 ```
 
-`render:build` runs `install:all`, installs Playwright Chromium into `server/node_modules` (`PLAYWRIGHT_BROWSERS_PATH=0`, required on Render), then builds the client.
+`render:build` runs `install:all`, builds the client, then installs Playwright Chromium into `server/node_modules` (`PLAYWRIGHT_BROWSERS_PATH=0`, no `--with-deps` — Render cannot run root package installs).
 
 After changing the build command, use **Clear build cache & deploy** once so Chromium is installed fresh.
 
