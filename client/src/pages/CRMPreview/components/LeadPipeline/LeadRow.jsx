@@ -55,6 +55,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
         >
           <Send size={13} className="text-gs-accent" />
         </Link>
+
         <button
           type="button"
           className="lead-row__action lead-row__action--neutral"
@@ -65,6 +66,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
             ? <PlayCircle size={13} className="text-gs-accent" />
             : <StopCircle size={13} className="text-gs-danger" />}
         </button>
+
         <button
           type="button"
           className="lead-row__action lead-row__action--neutral hidden sm:flex items-center"
@@ -73,6 +75,7 @@ export default function LeadRow({ lead, onSelect, onPreviewAction, onDelete, isS
         >
           <Edit3 size={13} className="text-gs-muted" />
         </button>
+
         {onDelete && (
           <button
             type="button"
