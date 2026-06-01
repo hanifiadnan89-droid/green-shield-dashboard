@@ -86,6 +86,7 @@ export default function RouteFinderWidget() {
   const [authInfo, setAuthInfo]               = useState({ status: 'checking' });
   const [activeTechnicians, setActiveTechnicians] = useState(null);
   const [dateLoadStatus, setDateLoadStatus]   = useState('idle'); // idle|loading|error
+  const [statusMountError, setStatusMountError] = useState(null);
 
   // Address
   const [addressInput, setAddressInput]   = useState('');
@@ -121,6 +122,7 @@ export default function RouteFinderWidget() {
   useEffect(() => { dateKeysRef.current = DATE_KEYS; }, [DATE_KEYS]);
   const activeDateRef   = useRef(activeDate);
   useEffect(() => { activeDateRef.current = activeDate; }, [activeDate]);
+  const payloadRequestRef = useRef(0);
 
   // ---------------------------------------------------------------------------
   // Helper: splits _auth out of the status response and applies both
@@ -196,46 +198,51 @@ export default function RouteFinderWidget() {
   // ---------------------------------------------------------------------------
   // On mount: load status, trigger preload for missing dates
   // ---------------------------------------------------------------------------
-  useEffect(() => {
-    (async () => {
-      try {
-        const statusData = await api.routes.status();
-        applyStatusData(statusData);
-        const needsLoad = DATE_KEYS.some(d => {
-          const s = statusData[d]?.status;
-          return !s || s === 'missing';
-        });
-        if (needsLoad) {
-          api.routes.preload().catch(() => {});
-          // Optimistically mark missing dates as refreshing (auth-aware)
-          const auth = statusData._auth;
-          if (!auth || auth.status === 'ok' || auth.status === 'unknown') {
-            setDateStatus(prev => {
-              const next = { ...prev };
-              DATE_KEYS.forEach(d => {
-                if (!next[d] || next[d].status === 'missing') {
-                  next[d] = { status: 'refreshing' };
-                }
-              });
-              return next;
+  const loadInitialRouteStatus = useCallback(async () => {
+    try {
+      const statusData = await api.routes.status();
+      applyStatusData(statusData);
+      setStatusMountError(null);
+      const needsLoad = DATE_KEYS.some(d => {
+        const s = statusData[d]?.status;
+        return !s || s === 'missing';
+      });
+      if (needsLoad) {
+        api.routes.preload().catch(() => {});
+        // Optimistically mark missing dates as refreshing (auth-aware)
+        const auth = statusData._auth;
+        if (!auth || auth.status === 'ok' || auth.status === 'unknown') {
+          setDateStatus(prev => {
+            const next = { ...prev };
+            DATE_KEYS.forEach(d => {
+              if (!next[d] || next[d].status === 'missing') {
+                next[d] = { status: 'refreshing' };
+              }
             });
-            startPolling();
-          }
-        } else {
-          const anyRefreshing = DATE_KEYS.some(d => statusData[d]?.status === 'refreshing');
-          if (anyRefreshing) startPolling();
+            return next;
+          });
+          startPolling();
         }
-      } catch {
-        // Server not available — widget still works when routes are offline
+      } else {
+        const anyRefreshing = DATE_KEYS.some(d => statusData[d]?.status === 'refreshing');
+        if (anyRefreshing) startPolling();
       }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    } catch (err) {
+      // Server not available — widget still works when routes are offline
+      setStatusMountError(err?.message || 'Route status unavailable');
+    }
+  }, [DATE_KEYS, applyStatusData, startPolling]);
+
+  useEffect(() => {
+    loadInitialRouteStatus();
+  }, [loadInitialRouteStatus]);
 
   // ---------------------------------------------------------------------------
   // Date selection
   // ---------------------------------------------------------------------------
   const handleDateSelect = useCallback(async (date) => {
+    const requestId = ++payloadRequestRef.current;
+
     setActiveDate(date);
     setActiveTechnicians(null);
     setResults(null);
@@ -247,9 +254,11 @@ export default function RouteFinderWidget() {
     setDateLoadStatus('loading');
     try {
       const data = await api.routes.payload(date);
+      if (requestId !== payloadRequestRef.current) return;
       setActiveTechnicians(data.technicians || []);
       setDateLoadStatus('idle');
     } catch (err) {
+      if (requestId !== payloadRequestRef.current) return;
       setDateLoadStatus('error');
       setActiveTechnicians(null);
       console.warn('[RouteFinderWidget] payload load failed:', err.message);
@@ -512,6 +521,25 @@ export default function RouteFinderWidget() {
         {/* ── FieldRoutes auth status ── */}
         <AuthStatusBanner authInfo={authInfo} onLoginRefreshStarted={handleLoginRefreshStarted} />
 
+        {statusMountError && (
+          <div
+            className="mb-2.5 rounded-lg border border-gs-danger/30 bg-gs-danger/[0.05] px-3 py-2 flex items-start justify-between gap-2"
+            role="alert"
+          >
+            <p className="type-label-sm text-gs-danger m-0 flex items-start gap-1 font-normal tracking-normal leading-snug">
+              <AlertCircle size={11} className="shrink-0 mt-px" />
+              <span>Could not load route cache status. {statusMountError}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => loadInitialRouteStatus()}
+              className="type-label-sm text-gs-danger bg-transparent border border-gs-danger/30 rounded-md px-2 py-0.5 font-semibold cursor-pointer shrink-0 tracking-normal"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* ── Date picker ── */}
         <div className="mb-3.5">
           <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5">
@@ -544,7 +572,7 @@ export default function RouteFinderWidget() {
                       {label}
                     </span>
                   </button>
-                  <StatusBadge status={s.status} meta={s} date={key} />
+                  <StatusBadge status={s.status} meta={s} date={key} onRefresh={handleRefresh} />
                 </div>
               );
             })}
