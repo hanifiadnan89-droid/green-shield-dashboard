@@ -35,7 +35,7 @@ export default function RouteFinderWidget() {
 
   const [activeDate, setActiveDate]           = useState(null);
   const [dateStatus, setDateStatus]           = useState({});
-  const [authInfo, setAuthInfo]               = useState({ status: 'checking' });
+  const [authInfo, setAuthInfo]               = useState({ status: 'unknown' });
   const [activeTechnicians, setActiveTechnicians] = useState(null);
   const [dateLoadStatus, setDateLoadStatus]   = useState('idle'); // idle|loading|error
   const [dateLoadError, setDateLoadError]     = useState('');
@@ -109,7 +109,12 @@ export default function RouteFinderWidget() {
   }, [applyStatusData]);
 
   const refreshRouteStatus = useCallback(async ({ checkAuth = false } = {}) => {
-    if (checkAuth) await api.routes.authCheck();
+    if (checkAuth) {
+      const check = await api.routes.authCheck();
+      if (check?._auth) {
+        setAuthInfo(prev => ({ ...prev, ...check._auth }));
+      }
+    }
     const statusData = await api.routes.status();
     applyStatusData(statusData);
     return statusData;
@@ -182,8 +187,18 @@ export default function RouteFinderWidget() {
         if (anyRefreshing) startPolling();
       }
     } catch (err) {
-      // Server not available — widget still works when routes are offline
       setStatusMountError(err?.message || 'Route status unavailable');
+      try {
+        const auth = await api.routes.authStatus();
+        if (auth?.status) {
+          setAuthInfo(prev => ({
+            ...prev,
+            status: auth.status,
+            lastCheck: auth.lastCheck,
+            message: auth.message,
+          }));
+        }
+      } catch { /* ignore */ }
     }
   }, [DATE_KEYS, applyStatusData, startPolling]);
 

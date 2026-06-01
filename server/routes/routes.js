@@ -1,5 +1,6 @@
 import express from 'express';
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import {
@@ -14,6 +15,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const router = express.Router();
+
+/** Interactive login is allowed on this machine (not Render; request from localhost). */
+function isInteractiveLoginAllowed(req) {
+  if (process.env.RENDER) return false;
+
+  const ip = req.socket?.remoteAddress || '';
+  if (
+    ip === '127.0.0.1'
+    || ip === '::1'
+    || ip === '::ffff:127.0.0.1'
+    || ip.includes('127.0.0.1')
+  ) {
+    return true;
+  }
+
+  const host = (req.get('host') || '').split(':')[0].toLowerCase();
+  return host === 'localhost' || host === '127.0.0.1';
+}
 
 // GET /api/routes/status — cache status for next 6 working days + auth status
 router.get('/status', async (req, res) => {
@@ -35,7 +54,18 @@ router.get('/auth-status', (req, res) => {
 router.post('/auth-check', async (req, res) => {
   try {
     const result = await checkAuthHealth();
-    res.json({ result, ...getAuthStatus() });
+    const auth = getAuthStatus();
+    res.json({
+      result,
+      status: auth.status,
+      lastCheck: auth.lastCheck,
+      message: auth.message,
+      _auth: {
+        status: auth.status,
+        lastCheck: auth.lastCheck,
+        message: auth.message,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -76,16 +106,32 @@ router.post('/login-refresh', (req, res) => {
     });
   }
 
-  const remoteIp = req.socket.remoteAddress || '';
-  if (!remoteIp.includes('127.0.0.1') && !remoteIp.includes('::1') && remoteIp !== '::ffff:127.0.0.1') {
-    return res.status(403).json({ error: 'localhost only' });
+  if (!isInteractiveLoginAllowed(req)) {
+    return res.status(403).json({
+      error: 'Interactive login must be started from this computer. Open the dashboard at http://localhost:3001 (or via npm run dev), not from another device on your network.',
+    });
   }
 
   const scriptPath = path.join(PROJECT_ROOT, 'scripts', 'fieldRoutesLogin.mjs');
-  const child = spawn(process.execPath, [scriptPath], {
-    cwd: PROJECT_ROOT,
-    detached: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
+  if (!existsSync(scriptPath)) {
+    return res.status(500).json({
+      error: `Login script not found at ${scriptPath}`,
+    });
+  }
+
+  let child;
+  try {
+    child = spawn(process.execPath, [scriptPath], {
+      cwd: PROJECT_ROOT,
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (err) {
+    return res.status(500).json({ error: `Could not start login script: ${err.message}` });
+  }
+
+  child.on('error', (err) => {
+    console.error('[login-script] spawn error:', err.message);
   });
 
   child.stdout.on('data', (d) => process.stdout.write(`[login-script] ${d}`));
@@ -108,7 +154,10 @@ router.post('/login-refresh', (req, res) => {
   });
   child.unref();
 
-  res.json({ started: true });
+  res.json({
+    started: true,
+    message: 'Chromium is opening — log in to FieldRoutes in that window. Return here and click “Check Login” when finished.',
+  });
 });
 
 // POST /api/routes/preload — fire-and-forget preload for next 6 working days
