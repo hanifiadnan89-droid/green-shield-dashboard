@@ -283,6 +283,19 @@
   min-height: 28px;
 }
 
+/* Dedicated Route Finder page (Tools → Route Finder) */
+.crm-preview.route-finder-page {
+  min-height: 0;
+}
+
+.crm-preview .route-finder-widget--page {
+  min-height: min(720px, calc(100vh - 10rem));
+}
+
+.crm-preview .route-finder-widget--page .route-finder-body {
+  padding-bottom: 2rem;
+}
+
 .crm-preview .route-finder-body {
   flex: 1;
   overflow-y: auto;

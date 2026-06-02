@@ -14,6 +14,7 @@ const Workflows        = lazy(() => import('./pages/Workflows.jsx'));
 const Followups        = lazy(() => import('./pages/Followups.jsx'));
 const ActivityLog      = lazy(() => import('./pages/ActivityLog.jsx'));
 const ComponentPreview = lazy(() => import('./pages/ComponentPreview.jsx'));
+const RouteFinderPage  = lazy(() => import('./pages/RouteFinder/RouteFinderPage.jsx'));
 
 function AppShell({ testMode, credsMissing }) {
   return (
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/workflows" element={<Workflows />} />
         <Route path="/followups" element={<Followups />} />
         <Route path="/activity" element={<ActivityLog />} />
+        <Route path="/tools/route-finder" element={<RouteFinderPage />} />
         <Route path="/component-preview" element={<ComponentPreview />} />
       </Route>
     </Routes>

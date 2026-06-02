@@ -2,7 +2,7 @@ import { useState, useEffect, memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Shield, LayoutDashboard, Users, Send, Workflow, Clock, Activity,
-  MessageSquare, AlertCircle, StopCircle, Menu, X,
+  MessageSquare, AlertCircle, StopCircle, Menu, X, Navigation,
 } from 'lucide-react';
 
 const NAV = [
@@ -26,9 +26,10 @@ const NAV = [
   {
     group: 'TOOLS',
     items: [
-      { type: 'link', to: '/send',      icon: Send,     label: 'Send Template' },
-      { type: 'link', to: '/workflows', icon: Workflow, label: 'Workflows'     },
-      { type: 'link', to: '/activity',  icon: Activity, label: 'Activity Log'  },
+      { type: 'link', to: '/tools/route-finder', icon: Navigation, label: 'Route Finder'   },
+      { type: 'link', to: '/send',               icon: Send,       label: 'Send Template' },
+      { type: 'link', to: '/workflows',          icon: Workflow,   label: 'Workflows'     },
+      { type: 'link', to: '/activity',           icon: Activity,   label: 'Activity Log'  },
     ],
   },
 ];

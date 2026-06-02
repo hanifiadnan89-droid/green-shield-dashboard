@@ -18,7 +18,8 @@ import {
 // ---------------------------------------------------------------------------
 // Main widget — sub-components in RouteStatusBadge, RouteResultCard, RouteAuthBanner
 // ---------------------------------------------------------------------------
-export default function RouteFinderWidget() {
+export default function RouteFinderWidget({ variant = 'embedded' }) {
+  const isPage = variant === 'page';
   // Date selection
   const DATE_METAS = useMemo(() => buildDateMetas(), []);
   const DATE_KEYS  = useMemo(() => DATE_METAS.map(d => d.key), [DATE_METAS]);
@@ -457,7 +458,12 @@ export default function RouteFinderWidget() {
   // Render
   // ---------------------------------------------------------------------------
   return (
-    <div className="p-card section-enter flex flex-col h-full">
+    <div
+      className={[
+        'p-card section-enter flex flex-col',
+        isPage ? 'route-finder-widget--page w-full max-w-4xl mx-auto' : 'h-full',
+      ].filter(Boolean).join(' ')}
+    >
       {/* Header */}
       <div className="px-5 pt-4 pb-3 border-b border-black/[0.05] flex items-center justify-between">
         <div className="flex items-center gap-2">
