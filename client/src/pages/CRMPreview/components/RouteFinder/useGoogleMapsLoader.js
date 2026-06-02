@@ -1,4 +1,9 @@
 import { useEffect, useState } from 'react';
+import { classifyMapsError } from './mapLoadErrors.js';
+
+const SCRIPT_ID = 'google-maps-js';
+const CALLBACK_NAME = '__gsRouteMapsInit';
+const LOAD_TIMEOUT_MS = 20000;
 
 let loadPromise = null;
 
@@ -6,55 +11,141 @@ function getApiKey() {
   return (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
 }
 
+function removeScriptTag() {
+  document.getElementById(SCRIPT_ID)?.remove();
+  if (window[CALLBACK_NAME]) delete window[CALLBACK_NAME];
+}
+
 function loadScript() {
   const key = getApiKey();
-  if (!key) return Promise.reject(new Error('no_key'));
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
+  if (!key) return Promise.reject(Object.assign(new Error('no_key'), { code: 'no_key' }));
 
-  if (!loadPromise) {
-    loadPromise = new Promise((resolve, reject) => {
-      const id = 'google-maps-js';
-      if (document.getElementById(id)) {
-        const wait = setInterval(() => {
-          if (window.google?.maps) {
-            clearInterval(wait);
-            resolve(window.google.maps);
-          }
-        }, 50);
-        return;
-      }
-      const script = document.createElement('script');
-      script.id = id;
-      script.async = true;
-      script.defer = true;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&v=weekly`;
-      script.onload = () => {
-        if (window.google?.maps) resolve(window.google.maps);
-        else reject(new Error('Google Maps failed to load'));
-      };
-      script.onerror = () => reject(new Error('Google Maps script error'));
-      document.head.appendChild(script);
-    });
+  if (window.google?.maps?.Map) {
+    return Promise.resolve(window.google.maps);
   }
+
+  if (loadPromise) return loadPromise;
+
+  loadPromise = new Promise((resolve, reject) => {
+    let settled = false;
+
+    const fail = (code, detail = '') => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      loadPromise = null;
+      removeScriptTag();
+      const err = Object.assign(new Error(code), { code, detail });
+      console.error('[RouteFinder Maps]', code, detail || '');
+      reject(err);
+    };
+
+    const succeed = () => {
+      if (settled) return;
+      clearTimeout(timer);
+      if (window.google?.maps?.Map) {
+        settled = true;
+        console.info('[RouteFinder Maps] API ready');
+        resolve(window.google.maps);
+      } else {
+        fail('maps_api_unavailable');
+      }
+    };
+
+    const timer = setTimeout(() => fail('timeout'), LOAD_TIMEOUT_MS);
+
+    const prevAuthFailure = window.gm_authFailure;
+    window.gm_authFailure = () => {
+      fail('auth_failure', 'gm_authFailure');
+      if (typeof prevAuthFailure === 'function') prevAuthFailure();
+    };
+
+    window[CALLBACK_NAME] = () => {
+      delete window[CALLBACK_NAME];
+      succeed();
+    };
+
+    if (document.getElementById(SCRIPT_ID)) {
+      removeScriptTag();
+    }
+
+    const script = document.createElement('script');
+    script.id = SCRIPT_ID;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => fail('script_error', 'script.onerror');
+    script.src =
+      `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}` +
+      `&v=weekly&loading=async&callback=${CALLBACK_NAME}`;
+
+    script.addEventListener('load', () => {
+      // If callback never fires (bad key / blocked), avoid hanging until timeout.
+      window.setTimeout(() => {
+        if (loadPromise && !window.google?.maps?.Map) {
+          fail('maps_api_unavailable', 'callback not invoked after script load');
+        }
+      }, 4000);
+    });
+
+    document.head.appendChild(script);
+  }).catch((err) => {
+    loadPromise = null;
+    if (!err.code) {
+      err.code = classifyMapsError(err.message);
+      err.detail = err.message;
+    }
+    throw err;
+  });
+
   return loadPromise;
 }
 
 export function useGoogleMapsLoader() {
-  const [status, setStatus] = useState(() => (
-    getApiKey() ? 'loading' : 'no_key'
-  ));
+  const [state, setState] = useState(() => {
+    if (!getApiKey()) {
+      return { status: 'no_key', errorCode: 'no_key', errorDetail: '' };
+    }
+    if (window.google?.maps?.Map) {
+      return { status: 'ready', errorCode: null, errorDetail: '' };
+    }
+    return { status: 'loading', errorCode: null, errorDetail: '' };
+  });
 
   useEffect(() => {
     if (!getApiKey()) {
-      setStatus('no_key');
+      setState({ status: 'no_key', errorCode: 'no_key', errorDetail: '' });
       return;
     }
+    if (window.google?.maps?.Map) {
+      setState({ status: 'ready', errorCode: null, errorDetail: '' });
+      return;
+    }
+
     let cancelled = false;
     loadScript()
-      .then(() => { if (!cancelled) setStatus('ready'); })
-      .catch(() => { if (!cancelled) setStatus('error'); });
+      .then(() => {
+        if (!cancelled) {
+          setState({ status: 'ready', errorCode: null, errorDetail: '' });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setState({
+            status: 'error',
+            errorCode: err.code || classifyMapsError(err.message),
+            errorDetail: err.detail || err.message || '',
+          });
+        }
+      });
+
     return () => { cancelled = true; };
   }, []);
 
-  return { status, hasKey: !!getApiKey() };
+  return {
+    status: state.status,
+    errorCode: state.errorCode,
+    errorDetail: state.errorDetail,
+    hasKey: !!getApiKey(),
+    apiKeyPresentAtBuild: !!import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+  };
 }

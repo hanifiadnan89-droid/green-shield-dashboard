@@ -701,7 +701,7 @@
 .crm-preview .route-match-detail__grid {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   display: grid;
   gap: 1.25rem;
   padding: 1.25rem 1.5rem 2rem;
@@ -714,7 +714,7 @@
 @media (min-width: 1100px) {
   .crm-preview .route-match-detail__grid {
     grid-template-columns: minmax(280px, 1.15fr) minmax(260px, 1fr) minmax(240px, 0.9fr);
-    align-items: start;
+    align-items: stretch;
   }
 }
 
@@ -762,10 +762,59 @@
 
 .crm-preview .route-match-detail__col--stops {
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.crm-preview .route-match-detail__section-title--stops {
+  flex-shrink: 0;
+}
+
+.crm-preview .route-match-detail__stops-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: min(52vh, calc(100vh - 11rem));
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.25rem;
+  margin-right: -0.25rem;
+}
+
+@media (min-width: 1100px) {
+  .crm-preview .route-match-detail__stops-scroll {
+    max-height: none;
+  }
+}
+
+.crm-preview .route-match-detail__stops-toggle {
+  flex-shrink: 0;
+  margin-top: 0.5rem;
 }
 
 .crm-preview .route-match-detail__col--analytics {
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 1099px) {
+  .crm-preview .route-match-detail__grid {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .crm-preview .route-match-detail__col--stops {
+    max-height: none;
+  }
+
+  .crm-preview .route-match-detail__stops-scroll {
+    max-height: min(60vh, 28rem);
+  }
 }
 
 .crm-preview .route-match-stop-list--detail .route-match-stop-list__item {
@@ -926,6 +975,21 @@
   color: #fff;
   cursor: pointer;
   pointer-events: none;
+}
+
+.crm-preview .route-google-map__error-detail {
+  word-break: break-word;
+}
+
+.crm-preview .route-google-map__coord-note {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 5;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #64748b;
 }
 
 .crm-preview .route-match-score-bars {

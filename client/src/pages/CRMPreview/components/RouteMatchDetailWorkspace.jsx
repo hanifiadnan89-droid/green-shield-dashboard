@@ -95,9 +95,10 @@ export default function RouteMatchDetailWorkspace({
           </section>
 
           <section className="route-match-detail__col route-match-detail__col--stops">
-            <h2 className="route-match-detail__section-title">
+            <h2 className="route-match-detail__section-title route-match-detail__section-title--stops">
               Stop sequence ({stops.length} stops)
             </h2>
+            <div className="route-match-detail__stops-scroll">
             <ol className="route-match-stop-list route-match-stop-list--detail">
               {visibleStops.map(stop => (
                 <li
@@ -120,10 +121,11 @@ export default function RouteMatchDetailWorkspace({
                 </li>
               ))}
             </ol>
+            </div>
             {stops.length > 12 && (
               <button
                 type="button"
-                className="route-match-expanded__link-btn"
+                className="route-match-expanded__link-btn route-match-detail__stops-toggle"
                 onClick={() => setShowAllStops(v => !v)}
               >
                 {showAllStops ? 'Show fewer stops' : `View all ${stops.length} stops`}
