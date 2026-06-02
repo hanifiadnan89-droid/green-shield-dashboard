@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import twilio from 'twilio';
+import helmet from 'helmet';
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -67,6 +68,7 @@ if (isProduction) {
 }
 
 app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
+app.use(helmet());
 app.use(express.json());
 app.use(requireDashboardLogin);
 
