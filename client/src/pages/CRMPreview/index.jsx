@@ -7,7 +7,6 @@ import SalesSummaryBar from './components/SalesSummaryBar.jsx';
 import DashboardIntelligence from './components/DashboardIntelligence.jsx';
 import PipelineSummary from './components/PipelineSummary.jsx';
 import LeadPipeline from './components/LeadPipeline.jsx';
-import RouteFinderWidget from './components/RouteFinderWidget.jsx';
 import LoadingSkeleton from './components/LoadingSkeleton.jsx';
 import './preview.css';
 
@@ -209,22 +208,17 @@ export default function CRMPreview({ testMode }) {
                 onFilterChange={handleFilterChange}
               />
 
-              {/* Lead Pipeline + Route Finder */}
-              <div ref={pipelineRef} className="grid grid-cols-1 lg:grid-cols-12 gap-4 xl:gap-5 pb-4 xl:pb-5">
-                <div className="lg:col-span-8">
-                  <LeadPipeline
-                    leads={leads ?? []}
-                    activeFilter={activeFilter}
-                    setActiveFilter={setActiveFilter}
-                    search={search}
-                    setSearch={setSearch}
-                    onPreviewAction={handlePreviewAction}
-                    onDelete={handleLeadDeleted}
-                  />
-                </div>
-                <div className="lg:col-span-4">
-                  <RouteFinderWidget />
-                </div>
+              {/* Lead Pipeline — full width */}
+              <div ref={pipelineRef} className="pb-4 xl:pb-5">
+                <LeadPipeline
+                  leads={leads ?? []}
+                  activeFilter={activeFilter}
+                  setActiveFilter={setActiveFilter}
+                  search={search}
+                  setSearch={setSearch}
+                  onPreviewAction={handlePreviewAction}
+                  onDelete={handleLeadDeleted}
+                />
               </div>
             </div>
           )}

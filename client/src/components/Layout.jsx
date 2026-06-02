@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Send, Workflow, Clock, Activity,
-  Shield, MessageCircle
+  Shield, MessageCircle, Navigation,
 } from 'lucide-react';
 import { api } from '../api/client.js';
 
@@ -20,6 +20,7 @@ const NAV = [
   { to: '/workflows', icon: Workflow,        label: 'Workflows',    iconAnim: 'workflows' },
   { to: '/followups', icon: Clock,           label: 'Follow-ups',   iconAnim: 'followups' },
   { to: '/activity',  icon: Activity,        label: 'Activity Log', iconAnim: 'activity'  },
+  { to: '/tools/route-finder', icon: Navigation, label: 'Route Finder', iconAnim: 'routes' },
 ];
 
 export default function Layout({ children, testMode }) {
