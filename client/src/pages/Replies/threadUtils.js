@@ -31,9 +31,94 @@ export function formatThreadTime(ts) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` · ${time}`;
 }
 
+export function formatListTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) {
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 export const archKey = l => `${l.row_number}:${l.sms_reply}`;
 
-export function buildThread(lead, history) {
+export function readKey(lead, messages) {
+  const last = messages?.length ? messages[messages.length - 1] : null;
+  return last ? `${lead.row_number}:${last.id}` : `${lead.row_number}:empty`;
+}
+
+export function isRealReplyText(text) {
+  const t = (text || '').trim();
+  return t.length > 0 && t !== '.' && t !== 'yes';
+}
+
+/** Map server message → UI bubble */
+export function mapServerMessage(m) {
+  if (!m?.body) {
+    console.warn('[Replies] Skipping malformed message:', m);
+    return null;
+  }
+  const isOut = m.direction === 'outbound';
+  const isTemplate = m.meta?.isTemplate || m.meta?.type === 'template';
+  const notesKey = m.meta?.templateKey || '';
+  return {
+    id: m.id,
+    dir: isOut ? 'out' : 'in',
+    direction: m.direction,
+    channel: m.channel || 'sms',
+    text: m.body,
+    ts: m.ts,
+    sender: m.sender,
+    status: m.status,
+    isTemplate,
+    color: isTemplate ? (TMPL_COLOR[notesKey] || '#64748B') : undefined,
+  };
+}
+
+export function buildThreadFromMessages(serverMessages, lead, legacyHistory) {
+  const msgs = [];
+  const seen = new Set();
+
+  for (const raw of serverMessages || []) {
+    const mapped = mapServerMessage(raw);
+    if (!mapped || seen.has(mapped.id)) continue;
+    seen.add(mapped.id);
+    msgs.push(mapped);
+  }
+
+  if (lead?.sent && lead.sent !== 'imported' && !msgs.some(m => m.isTemplate)) {
+    const k = (lead.notes || '').toLowerCase().trim();
+    msgs.push({
+      id: `tmpl-${lead.sent}`,
+      dir: 'out',
+      direction: 'outbound',
+      channel: 'sms',
+      isTemplate: true,
+      text: TMPL_LABEL[k] || 'Initial message sent',
+      color: TMPL_COLOR[k] || '#64748B',
+      ts: lead.sent,
+    });
+  }
+
+  if (!msgs.length && lead) {
+    return buildThreadLegacy(lead, legacyHistory);
+  }
+
+  const h = legacyHistory?.[lead?.row_number] || {};
+  for (const out of h.outbound || []) {
+    const id = `legacy-out-${out.ts}-${out.text?.slice(0, 12)}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    msgs.push({ id, dir: 'out', direction: 'outbound', channel: 'sms', text: out.text, ts: out.ts, sender: 'You' });
+  }
+
+  return msgs.sort(compareByTs);
+}
+
+/** Legacy fallback when server history is empty */
+export function buildThreadLegacy(lead, history) {
   const h = history[lead.row_number] || {};
   const msgs = [];
 
@@ -42,6 +127,8 @@ export function buildThread(lead, history) {
     msgs.push({
       id: 'tmpl',
       dir: 'out',
+      direction: 'outbound',
+      channel: 'sms',
       isTemplate: true,
       text: TMPL_LABEL[k] || 'Initial message sent',
       color: TMPL_COLOR[k] || '#64748B',
@@ -50,18 +137,63 @@ export function buildThread(lead, history) {
   }
 
   (h.outbound || []).forEach((m, i) =>
-    msgs.push({ id: `out-${i}`, dir: 'out', text: m.text, ts: m.ts })
+    msgs.push({ id: `out-${i}`, dir: 'out', direction: 'outbound', channel: 'sms', text: m.text, ts: m.ts, sender: 'You' }),
   );
 
   const reply = (lead.sms_reply || '').trim();
-  if (reply && reply !== '.') {
-    msgs.push({ id: 'inbound', dir: 'in', text: reply, ts: h.inboundDetectedAt || null });
+  if (reply && reply !== '.' && reply !== 'yes') {
+    msgs.push({
+      id: 'inbound',
+      dir: 'in',
+      direction: 'inbound',
+      channel: 'sms',
+      text: reply,
+      ts: h.inboundDetectedAt || null,
+      sender: lead.name || 'Customer',
+    });
   }
 
-  return msgs.sort((a, b) => {
-    if (!a.ts && !b.ts) return 0;
-    if (!a.ts) return 1;
-    if (!b.ts) return -1;
-    return new Date(a.ts) - new Date(b.ts);
-  });
+  return msgs.sort(compareByTs);
+}
+
+export function buildThread(lead, history, serverMessages) {
+  if (serverMessages?.length) {
+    return buildThreadFromMessages(serverMessages, lead, history);
+  }
+  return buildThreadLegacy(lead, history);
+}
+
+function compareByTs(a, b) {
+  if (!a.ts && !b.ts) return 0;
+  if (!a.ts) return 1;
+  if (!b.ts) return -1;
+  return new Date(a.ts) - new Date(b.ts);
+}
+
+export function getLatestInbound(messages) {
+  if (!messages?.length) return null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].direction === 'inbound') return messages[i];
+  }
+  return null;
+}
+
+export function getConversationSortTime(lead, messages, meta) {
+  if (meta?.lastAt) return new Date(meta.lastAt).getTime();
+  const last = messages?.length ? messages[messages.length - 1] : null;
+  if (last?.ts) return new Date(last.ts).getTime();
+  if (lead.sent && lead.sent !== 'imported') return new Date(lead.sent).getTime();
+  return 0;
+}
+
+export function previewFromMessages(messages, meta, lead) {
+  if (meta?.preview) return meta.preview;
+  const last = messages?.length ? messages[messages.length - 1] : null;
+  if (last?.body) {
+    const t = last.body.trim();
+    return t.length > 72 ? `${t.slice(0, 72)}…` : t;
+  }
+  const sms = (lead?.sms_reply || '').trim();
+  if (sms && sms !== '.' && sms !== 'yes') return sms.length > 72 ? `${sms.slice(0, 72)}…` : sms;
+  return '—';
 }
