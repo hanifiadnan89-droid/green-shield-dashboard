@@ -30,6 +30,7 @@ import {
   getAuthConfigDiagnostics,
 } from './services/fieldRoutesAuth.js';
 import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.js';
+import { getGoogleCredentialsDiagnostics } from './services/googleCredentials.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -87,10 +88,19 @@ app.use(express.json());
 app.use(requireDashboardLogin);
 
 app.get('/api/health', (req, res) => {
+  const googleCreds = getGoogleCredentialsDiagnostics();
   res.json({
     status: 'ok',
     testMode: process.env.TEST_MODE === 'true',
-    timestamp: new Date().toISOString()
+    sheetId: process.env.SHEET_ID ? 'configured' : 'missing',
+    hasGoogleCreds: googleCreds.ok,
+    googleCreds: {
+      status: googleCreds.status,
+      source: googleCreds.source,
+      message: googleCreds.message,
+      parseError: googleCreds.parseError,
+    },
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -193,5 +203,11 @@ app.listen(PORT, () => {
   console.log(`   Login: ${process.env.DASHBOARD_USERNAME && process.env.DASHBOARD_PASSWORD ? 'enabled' : 'disabled'}`);
   console.log(`   Google Sheets: ${process.env.SHEET_ID ? 'configured' : '⚠️  SHEET_ID missing'}`);
   console.log(`   n8n: ${process.env.N8N_BASE_URL || '⚠️  N8N_BASE_URL missing'}`);
-  console.log(`   Credentials: ${process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_FILE ? '✓' : '⚠️  GOOGLE_SERVICE_ACCOUNT missing'}\n`);
+  const g = getGoogleCredentialsDiagnostics();
+  if (g.ok) {
+    console.log(`   Google credentials: ✓ (${g.source})`);
+  } else {
+    console.log(`   Google credentials: ⚠️  ${g.status} — ${g.message}`);
+  }
+  console.log('');
 });

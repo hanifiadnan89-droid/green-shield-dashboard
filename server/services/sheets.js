@@ -1,19 +1,12 @@
 import { google } from 'googleapis';
-import fs from 'fs';
+import { loadGoogleCredentials } from './googleCredentials.js';
 
 const SHEET_ID = process.env.SHEET_ID || '1hneyXzxNqHDM-AfNs5-c1Qp7jqBeHfpKKsYbf_62obk';
 const SHEET_NAME = process.env.SHEET_NAME || 'Lead Responses';
 const COLUMNS = ['name', 'reason', 'email', 'notes', 'status', 'sent', 'error', 'stop', 'phone', 'phone_formatted', 'sms_reply', 'email_reply', 'deleted', 'sold'];
 
 function getAuth() {
-  let credentials;
-  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-    credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-  } else if (process.env.GOOGLE_SERVICE_ACCOUNT_FILE) {
-    credentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_SERVICE_ACCOUNT_FILE, 'utf8'));
-  } else {
-    throw new Error('No Google credentials configured. Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE in .env');
-  }
+  const credentials = loadGoogleCredentials();
   return new google.auth.GoogleAuth({
     credentials,
     scopes: [

@@ -1,18 +1,11 @@
 import express from 'express';
 import { google } from 'googleapis';
-import fs from 'fs';
+import { loadGoogleCredentials } from '../services/googleCredentials.js';
 
 const router = express.Router();
 
 function getAuth() {
-  let credentials;
-  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-    credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-  } else if (process.env.GOOGLE_SERVICE_ACCOUNT_FILE) {
-    credentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_SERVICE_ACCOUNT_FILE, 'utf8'));
-  } else {
-    throw new Error('No Google credentials configured');
-  }
+  const credentials = loadGoogleCredentials();
   return new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/drive.readonly']
