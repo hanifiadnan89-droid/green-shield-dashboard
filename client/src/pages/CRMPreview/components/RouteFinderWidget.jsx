@@ -15,6 +15,15 @@ import {
   describeGeocodeError,
 } from '../../../utils/geocodeClient.js';
 
+function RouteSection({ page, children, className = '' }) {
+  if (!page) return children;
+  return (
+    <section className={['route-finder-section', className].filter(Boolean).join(' ')}>
+      {children}
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main widget — sub-components in RouteStatusBadge, RouteResultCard, RouteAuthBanner
 // ---------------------------------------------------------------------------
@@ -468,7 +477,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       <div
         className={[
           'route-finder-toolbar shrink-0 flex items-center justify-between border-b border-black/[0.05]',
-          isPage ? 'px-5 lg:px-8 py-4 bg-white' : 'px-5 pt-4 pb-3',
+          isPage ? 'px-4 sm:px-6 lg:px-8 py-4 bg-white border-b border-slate-200/80' : 'px-5 pt-4 pb-3',
         ].join(' ')}
       >
         <div className="flex items-center gap-2">
@@ -518,9 +527,9 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       </div>
 
       <div className="route-finder-body">
-        <div className={isPage ? 'route-finder-workspace' : undefined}>
-        <div className={isPage ? 'route-finder-workspace__setup' : undefined}>
+        <div className={isPage ? 'route-finder-page-layout' : undefined}>
 
+        <RouteSection page={isPage}>
         {/* ── FieldRoutes auth status ── */}
         <AuthStatusBanner authInfo={authInfo} onLoginRefreshStarted={handleLoginRefreshStarted} />
 
@@ -542,9 +551,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             </button>
           </div>
         )}
+        </RouteSection>
 
+        <RouteSection page={isPage}>
         {/* ── Date picker ── */}
-        <div className="mb-3.5">
+        <div className={isPage ? 'mb-0' : 'mb-3.5'}>
           <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5">
             Route Date
           </label>
@@ -610,9 +621,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             </p>
           )}
         </div>
+        </RouteSection>
 
+        <RouteSection page={isPage} className="route-finder-section--address">
         {/* ── Address input ── */}
-        <div className="mb-3">
+        <div className={isPage ? 'mb-0' : 'mb-3'}>
           <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-[5px]">
             Customer Address
           </label>
@@ -656,6 +669,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                 placeholder="Start typing an address…"
                 className={[
                   'route-address-input w-full box-border py-2 pl-7 pr-9 rounded-[10px] text-xs text-gs-text bg-slate-50 outline-none',
+                  isPage ? 'route-address-input--page' : '',
                   geocodeStatus === 'error' ? 'route-address-input--error' : '',
                 ].filter(Boolean).join(' ')}
                 onFocus={() => {
@@ -847,27 +861,28 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             Select a cached date above to see recommendations
           </p>
         )}
+        </RouteSection>
 
-        {/* ── Auto-scoring loading indicator ── */}
+        {(scoringStatus === 'loading' || scoringStatus === 'error') && (
+        <RouteSection page={isPage}>
         {scoringStatus === 'loading' && (
           <p className="route-finder-loading" aria-live="polite">
             <Loader2 size={12} className="animate-spin text-gs-accent shrink-0" />
             <span>Finding best routes…</span>
           </p>
         )}
-
         {scoringStatus === 'error' && (
           <p className="route-finder-inline-error" role="alert">
             <AlertCircle size={12} className="shrink-0" />
             <span>{scoringError}</span>
           </p>
         )}
+        </RouteSection>
+        )}
 
-        </div>
-
-        <div className={isPage ? 'route-finder-workspace__results' : undefined}>
         {/* ── Results ── */}
         {scoringStatus === 'done' && results && (
+        <RouteSection page={isPage} className="route-finder-section--results">
           <div className={isPage ? 'route-finder-results-panel' : undefined}>
             {/* Route area header (NH / Maine) */}
             {results.routeArea && results.routeArea !== 'general' && (
@@ -919,8 +934,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
               </>
             )}
           </div>
+        </RouteSection>
         )}
-        </div>
         </div>
       </div>
     </div>

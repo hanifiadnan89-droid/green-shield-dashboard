@@ -7,7 +7,7 @@ import '../CRMPreview/preview.css';
  */
 export default function RouteFinderPage() {
   return (
-    <div className="crm-preview route-finder-page flex flex-col flex-1 min-h-0 w-full overflow-hidden bg-gs-bg">
+    <div className="crm-preview route-finder-page flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-hidden bg-gs-bg">
       <RouteFinderWidget variant="page" />
     </div>
   );
