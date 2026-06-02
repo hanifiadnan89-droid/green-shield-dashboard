@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { MessageCircle, CheckCircle2, AlertCircle, Archive } from 'lucide-react';
 import { api } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
@@ -7,11 +8,18 @@ import ReplyPageHeader from './Replies/ReplyPageHeader.jsx';
 import ReplyInbox from './Replies/ReplyInbox.jsx';
 import ReplyConversationView from './Replies/ReplyConversationView.jsx';
 import ReplyArchivedDetail from './Replies/ReplyArchivedDetail.jsx';
-import { useChatHistory } from './Replies/useChatHistory.js';
 import { useReplyArchive } from './Replies/useReplyArchive.js';
 import { useReplyCardState } from './Replies/useReplyCardState.js';
 import { useReplySelection } from './Replies/useReplySelection.js';
-import { buildThread, archKey } from './Replies/threadUtils.js';
+import { useConversationThreads } from './Replies/useConversationThreads.js';
+import { useUnreadReplies } from './Replies/useUnreadReplies.js';
+import { buildThread, archKey, getConversationSortTime } from './Replies/threadUtils.js';
+
+function hasConversationSignal(lead) {
+  const sms = (lead.sms_reply || '').trim();
+  const email = (lead.email_reply || '').trim();
+  return (sms.length > 0 && sms !== '.') || (email.length > 0 && email !== '.');
+}
 
 export default function Replies() {
   const [leads, setLeads] = useState([]);
@@ -19,8 +27,25 @@ export default function Replies() {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState(null);
   const textareaRef = useRef(null);
+  const prevThreadsRef = useRef({});
 
-  const { chatHistory, historyRef, recordReplyDetected, saveSentMessage } = useChatHistory();
+  const {
+    threads,
+    meta,
+    syncError,
+    syncing,
+    syncLeads,
+    appendOptimistic,
+    getMessages,
+  } = useConversationThreads();
+
+  const {
+    isUnread,
+    markRead,
+    notifyNewInbound,
+    pulseRows,
+  } = useUnreadReplies();
+
   const {
     archived,
     showArchived,
@@ -33,14 +58,26 @@ export default function Replies() {
   } = useReplyArchive();
   const { getCard, updateCard } = useReplyCardState();
 
-  const searched = leads.filter(l => {
+  const sortedLeads = useMemo(() => {
+    return [...leads].sort((a, b) => {
+      const ta = getConversationSortTime(a, threads[a.row_number], meta[a.row_number]);
+      const tb = getConversationSortTime(b, threads[b.row_number], meta[b.row_number]);
+      return tb - ta;
+    });
+  }, [leads, threads, meta]);
+
+  const searched = sortedLeads.filter(l => {
     if (!showArchived && archived.has(archKey(l))) return false;
     if (!search) return true;
     const q = search.toLowerCase();
+    const msgs = threads[l.row_number] || [];
+    const inThread = msgs.some(m => (m.body || '').toLowerCase().includes(q));
     return (
       (l.name || '').toLowerCase().includes(q) ||
       (l.phone || '').includes(q) ||
-      (l.sms_reply || '').toLowerCase().includes(q)
+      (l.sms_reply || '').toLowerCase().includes(q) ||
+      (l.email_reply || '').toLowerCase().includes(q) ||
+      inThread
     );
   });
 
@@ -49,7 +86,7 @@ export default function Replies() {
 
   const {
     selectedRowNumber,
-    selectLead,
+    selectLead: selectLeadBase,
     clearSelection,
     selectAfterArchive,
     isArchivedLead,
@@ -58,35 +95,39 @@ export default function Replies() {
 
   const selectedLead = leads.find(l => l.row_number === selectedRowNumber) ?? null;
   const selectedIsArchived = selectedLead ? isArchivedLead(selectedLead, archived) : false;
+  const selectedMessages = selectedLead ? getMessages(selectedLead.row_number) : [];
+  const selectedThread = selectedLead
+    ? buildThread(selectedLead, {}, selectedMessages).map(m => m)
+    : [];
 
   function showToast(msg, type = 'success') {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
   }
 
-  async function loadLeads() {
+  const loadLeads = useCallback(async () => {
     setLoading(true);
     try {
       const { leads: all } = await api.leads.list();
-      const replyLeads = (all || []).filter(l => {
-        const t = (l.sms_reply || '').trim();
-        return t.length > 0 && t !== '.';
-      });
-      replyLeads.sort((a, b) => {
-        const da = a.sent && a.sent !== 'imported' ? new Date(a.sent).getTime() : 0;
-        const db = b.sent && b.sent !== 'imported' ? new Date(b.sent).getTime() : 0;
-        return db - da;
-      });
-      replyLeads.forEach(l => recordReplyDetected(l));
+      const replyLeads = (all || []).filter(hasConversationSignal);
+      const synced = await syncLeads(replyLeads);
+
+      for (const lead of replyLeads) {
+        const prev = prevThreadsRef.current[lead.row_number];
+        notifyNewInbound(lead, synced[lead.row_number] || [], prev);
+      }
+      prevThreadsRef.current = synced;
+
       setLeads(replyLeads);
     } catch (err) {
+      console.error('[Replies] loadLeads failed:', err);
       showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
-  }
+  }, [syncLeads, notifyNewInbound]);
 
-  useEffect(() => { loadLeads(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadLeads(); }, [loadLeads]);
 
   useEffect(() => {
     if (!loading && leads.length > 0) {
@@ -97,11 +138,21 @@ export default function Replies() {
   }, [loading, leads]);
 
   useEffect(() => {
-    if (!loading && selectedLead && !selectedIsArchived && textareaRef.current) {
+    if (!loading && selectedLead && !selectedIsArchived) {
+      markRead(selectedLead, selectedMessages);
       const t = setTimeout(() => textareaRef.current?.focus(), 150);
       return () => clearTimeout(t);
     }
-  }, [loading, selectedRowNumber, selectedIsArchived]);
+    if (selectedLead) {
+      markRead(selectedLead, selectedMessages);
+    }
+  }, [loading, selectedRowNumber, selectedIsArchived, selectedLead, selectedMessages, markRead]);
+
+  const selectLead = useCallback((rowNumber) => {
+    selectLeadBase(rowNumber);
+    const lead = leads.find(l => l.row_number === rowNumber);
+    if (lead) markRead(lead, getMessages(rowNumber));
+  }, [selectLeadBase, leads, getMessages, markRead]);
 
   function archiveLead(lead) {
     const rowNumber = lead.row_number;
@@ -121,12 +172,22 @@ export default function Replies() {
 
     updateCard(lead.row_number, { sending: true, error: null });
     try {
-      await api.sms.send(lead.phone, msg, lead.row_number, lead.name);
-      saveSentMessage(lead.row_number, msg);
+      const result = await api.sms.send(lead.phone, msg, lead.row_number, lead.name);
+      const persisted = result.persistedMessage || {
+        id: `local-${Date.now()}`,
+        direction: 'outbound',
+        channel: 'sms',
+        body: msg,
+        ts: new Date().toISOString(),
+        sender: 'You',
+        status: 'sent',
+      };
+      appendOptimistic(lead.row_number, persisted);
       updateCard(lead.row_number, {
         message: '', sending: false, sent: true, error: null, sentAt: new Date(),
       });
       showToast(`SMS sent to ${lead.name}`);
+      await syncLeads([lead]);
     } catch (err) {
       updateCard(lead.row_number, { sending: false, error: err.message });
     }
@@ -145,15 +206,19 @@ export default function Replies() {
   }
 
   async function handleAIDraft(lead) {
-    const h = historyRef.current[lead.row_number] || {};
-    const outboundCount = (h.outbound || []).length;
+    const messages = getMessages(lead.row_number);
+    const uiThread = buildThread(lead, {}, messages);
+    const outboundCount = messages.filter(
+      m => m.direction === 'outbound' && !m.meta?.isTemplate,
+    ).length;
 
     let followUpStep = 'initial_outreach';
     if (outboundCount === 1) followUpStep = 'follow_up_1';
     else if (outboundCount === 2) followUpStep = 'follow_up_2';
     else if (outboundCount >= 3) followUpStep = 'final_follow_up';
 
-    const hasReply = !!(lead.sms_reply && lead.sms_reply.trim());
+    const latestInbound = [...messages].reverse().find(m => m.direction === 'inbound');
+    const hasReply = !!latestInbound;
     if (hasReply && followUpStep === 'initial_outreach') followUpStep = 'follow_up_1';
 
     const notesLower = (lead.notes || '').toLowerCase();
@@ -174,9 +239,16 @@ export default function Replies() {
       status: lead.status || null,
       notes: lead.notes || null,
       sms_reply: hasReply,
-      email_reply: !!(lead.email_reply && lead.email_reply.trim()),
-      last_customer_message: lead.sms_reply || null,
-      prior_chat_history: h.outbound || [],
+      email_reply: messages.some(m => m.direction === 'inbound' && m.channel === 'email'),
+      last_customer_message: latestInbound?.body || lead.sms_reply || null,
+      prior_chat_history: uiThread
+        .filter(m => !m.isTemplate)
+        .map(m => ({
+          role: m.dir === 'in' ? 'customer' : 'agent',
+          text: m.text,
+          ts: m.ts,
+          channel: m.channel,
+        })),
       last_contacted_at: lead.sent || null,
       follow_up_step: followUpStep,
       agreement_sent: false,
@@ -213,7 +285,7 @@ export default function Replies() {
   const showInbox = !loading && leads.length > 0 && (activeLeads.length > 0 || (showArchived && archivedLeads.length > 0));
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="replies-page flex-1 flex flex-col min-h-0 overflow-hidden">
       <ReplyPageHeader
         loading={loading}
         leadsCount={leads.length}
@@ -232,28 +304,33 @@ export default function Replies() {
         onRefresh={loadLeads}
       />
 
-      {toast && (
-        <div className={`mx-6 mt-3 px-4 py-2.5 rounded-xl type-body-sm font-medium border flex items-center gap-2 shrink-0 ${
-          toast.type === 'error'
-            ? 'bg-gs-danger/10 text-gs-danger border-gs-danger/25'
-            : 'bg-gs-accent/10 text-gs-accent border-gs-accent/25'
-        }`}>
-          {toast.type === 'error'
-            ? <AlertCircle size={14} className="shrink-0" />
-            : <CheckCircle2 size={14} className="shrink-0" />}
-          {toast.msg}
-        </div>
-      )}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            className={`replies-toast ${
+              toast.type === 'error' ? 'replies-toast--error' : 'replies-toast--success'
+            }`}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            {toast.type === 'error'
+              ? <AlertCircle size={14} className="shrink-0" />
+              : <CheckCircle2 size={14} className="shrink-0" />}
+            {toast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="flex-1 min-h-0 flex flex-col animate-fade-in-up">
+      <div className="flex-1 min-h-0 flex flex-col">
         {loading ? (
-          <div className="flex justify-center py-20"><Spinner size={24} /></div>
+          <div className="flex justify-center py-20"><Spinner size={28} /></div>
         ) : leads.length === 0 ? (
           <div className="px-6 py-5">
             <EmptyState
               icon={MessageCircle}
-              title="No SMS replies yet"
-              desc="When customers reply to your texts, they'll appear here automatically"
+              title="No replies yet"
+              desc="When customers reply via SMS or email, conversations will appear here"
             />
           </div>
         ) : activeLeads.length === 0 && !showArchived ? (
@@ -261,7 +338,7 @@ export default function Replies() {
             <EmptyState
               icon={Archive}
               title="All chats archived"
-              desc="Toggle 'archived' in the header to view them"
+              desc="Toggle archived in the header to view them"
             />
           </div>
         ) : searched.length === 0 ? (
@@ -280,34 +357,55 @@ export default function Replies() {
             onClearSelection={clearSelection}
             getCard={getCard}
             onSelectLead={selectLead}
+            threads={threads}
+            meta={meta}
+            isUnread={isUnread}
+            pulseRows={pulseRows}
           >
-            {selectedLead ? (
-              selectedIsArchived ? (
-                <ReplyArchivedDetail lead={selectedLead} onRestore={restoreLead} />
+            <AnimatePresence mode="wait">
+              {selectedLead ? (
+                selectedIsArchived ? (
+                  <ReplyArchivedDetail
+                    key={`arch-${selectedLead.row_number}`}
+                    lead={selectedLead}
+                    thread={selectedThread}
+                    syncError={syncError}
+                    syncing={syncing}
+                    onRestore={restoreLead}
+                  />
+                ) : (
+                  <ReplyConversationView
+                    key={selectedLead.row_number}
+                    lead={selectedLead}
+                    cardState={getCard(selectedLead.row_number)}
+                    thread={selectedThread}
+                    syncError={syncError}
+                    syncing={syncing}
+                    isConfirming={archiveConfirm === selectedLead.row_number}
+                    textareaRef={textareaRef}
+                    onToggleArchiveConfirm={rowNumber =>
+                      setArchiveConfirm(prev => (prev === rowNumber ? null : rowNumber))
+                    }
+                    onArchive={archiveLead}
+                    onCancelArchive={() => setArchiveConfirm(null)}
+                    onUpdateCard={updateCard}
+                    onSend={handleSend}
+                    onKeyDown={handleKeyDown}
+                    onQuickReply={applyQuickReply}
+                    onAIDraft={handleAIDraft}
+                  />
+                )
               ) : (
-                <ReplyConversationView
-                  lead={selectedLead}
-                  cardState={getCard(selectedLead.row_number)}
-                  thread={buildThread(selectedLead, chatHistory)}
-                  isConfirming={archiveConfirm === selectedLead.row_number}
-                  textareaRef={textareaRef}
-                  onToggleArchiveConfirm={rowNumber =>
-                    setArchiveConfirm(prev => (prev === rowNumber ? null : rowNumber))
-                  }
-                  onArchive={archiveLead}
-                  onCancelArchive={() => setArchiveConfirm(null)}
-                  onUpdateCard={updateCard}
-                  onSend={handleSend}
-                  onKeyDown={handleKeyDown}
-                  onQuickReply={applyQuickReply}
-                  onAIDraft={handleAIDraft}
-                />
-              )
-            ) : (
-              <p className="reply-inbox-empty-detail">
-                Select a conversation from the list
-              </p>
-            )}
+                <motion.p
+                  key="empty"
+                  className="replies-inbox-empty-detail"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  Select a conversation to view the full thread
+                </motion.p>
+              )}
+            </AnimatePresence>
           </ReplyInbox>
         ) : null}
       </div>

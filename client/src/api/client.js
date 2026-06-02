@@ -50,6 +50,22 @@ export const api = {
     })
   },
 
+  messages: {
+    sync: (leads) => request('/messages/sync', {
+      method: 'POST',
+      body: JSON.stringify({ leads }),
+    }),
+    migrateLocal: (history) => request('/messages/migrate-local', {
+      method: 'POST',
+      body: JSON.stringify({ history }),
+    }),
+    list: (rowNumber) => request(`/messages/${rowNumber}`),
+    append: (rowNumber, message) => request(`/messages/${rowNumber}`, {
+      method: 'POST',
+      body: JSON.stringify(message),
+    }),
+  },
+
   workflows: {
     list: () => request('/workflows')
   },

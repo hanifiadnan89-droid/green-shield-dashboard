@@ -386,6 +386,138 @@
   @apply hidden lg:flex flex-1 items-center justify-center p-8 type-body-sm text-gs-muted text-center;
 }
 
+/* Replies — modern messaging workspace */
+.replies-page {
+  @apply bg-gradient-to-b from-slate-50 to-gs-bg;
+}
+
+.replies-page-header {
+  @apply px-4 sm:px-6 py-4 border-b border-gs-border/80 flex items-center justify-between sticky top-0 z-20;
+  @apply bg-white/90 backdrop-blur-md;
+}
+
+.replies-inbox {
+  @apply flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden;
+}
+
+.replies-inbox-sidebar {
+  @apply w-full lg:w-[min(100%,380px)] xl:w-[400px] shrink-0 flex flex-col min-h-0;
+  @apply bg-white/80 backdrop-blur-sm border-gs-border lg:border-r;
+}
+
+.replies-inbox--detail-open .replies-inbox-sidebar {
+  @apply hidden lg:flex;
+}
+
+.replies-inbox-detail {
+  @apply flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden;
+  @apply hidden lg:flex bg-slate-50/60;
+}
+
+.replies-inbox--detail-open .replies-inbox-detail {
+  @apply flex;
+}
+
+.replies-inbox-detail-inner {
+  @apply flex-1 min-h-0 flex flex-col overflow-hidden;
+}
+
+.replies-inbox-empty-detail {
+  @apply hidden lg:flex flex-1 items-center justify-center p-10 type-body-sm text-gs-muted text-center;
+}
+
+.replies-conv-card {
+  @apply w-full flex gap-3 p-3.5 mx-0 text-left border-b border-gs-border/50 relative;
+  @apply bg-transparent cursor-pointer transition-colors;
+}
+
+.replies-conv-card:hover {
+  @apply bg-gs-accent/[0.04];
+}
+
+.replies-conv-card--selected {
+  @apply bg-gs-accent/[0.08] border-l-[3px] border-l-gs-accent pl-[calc(0.875rem-3px)];
+  box-shadow: inset 0 1px 0 rgba(22, 163, 74, 0.06);
+}
+
+.replies-conv-card--unread .type-body-sm.font-semibold {
+  @apply text-gs-text;
+}
+
+.replies-conv-card--pulse {
+  animation: repliesRowPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes repliesRowPulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(22, 163, 74, 0); }
+  50% { box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.22), 0 0 20px rgba(22, 163, 74, 0.08); }
+}
+
+.replies-unread-dot {
+  @apply absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-gs-accent;
+}
+
+.replies-unread-indicator {
+  @apply w-2 h-2 rounded-full bg-gs-accent shrink-0 self-center;
+}
+
+.replies-draft-badge {
+  @apply type-label-sm text-gs-accent shrink-0 normal-case tracking-normal font-semibold;
+}
+
+.replies-conversation-panel {
+  @apply flex flex-col flex-1 min-h-0 m-0 lg:m-3 lg:rounded-2xl lg:border lg:border-gs-border/80;
+  @apply bg-white lg:shadow-[0_8px_30px_rgba(15,23,42,0.06)] overflow-hidden;
+}
+
+.replies-chat-header {
+  @apply flex items-start justify-between gap-3 px-4 sm:px-5 py-4 border-b border-gs-border/70 shrink-0;
+  @apply bg-white/95 backdrop-blur-sm;
+}
+
+.replies-messages-wrap {
+  @apply bg-gradient-to-b from-slate-50/90 to-white;
+}
+
+.replies-messages-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.replies-bubble-in {
+  @apply rounded-2xl rounded-bl-md px-3.5 py-2.5 type-body-sm text-gs-text leading-relaxed;
+  @apply bg-white border border-slate-200/90 shadow-sm max-w-full whitespace-pre-wrap break-words;
+}
+
+.replies-bubble-out {
+  @apply rounded-2xl rounded-br-md px-3.5 py-2.5 type-body-sm text-white leading-relaxed;
+  @apply bg-gs-accent shadow-sm max-w-full whitespace-pre-wrap break-words;
+}
+
+.replies-template-pill {
+  @apply inline-flex items-center gap-1.5 max-w-[92%] rounded-full px-3 py-1 border;
+}
+
+.replies-composer {
+  @apply border-t border-gs-border/80 bg-white px-4 sm:px-5 py-4;
+}
+
+.replies-sync-warning {
+  @apply mx-4 mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-900 type-label-sm;
+}
+
+.replies-toast {
+  @apply mx-4 sm:mx-6 mt-3 px-4 py-2.5 rounded-xl type-body-sm font-medium border flex items-center gap-2 shrink-0;
+}
+
+.replies-toast--error {
+  @apply bg-gs-danger/10 text-gs-danger border-gs-danger/25;
+}
+
+.replies-toast--success {
+  @apply bg-gs-accent/10 text-gs-accent border-gs-accent/25;
+}
+
 /* Table row hover — inset left accent bar */
 .table-row:hover {
   background: rgba(240, 253, 244, 0.68);

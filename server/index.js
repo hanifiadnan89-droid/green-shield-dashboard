@@ -22,6 +22,8 @@ import documentsRouter from './routes/documents.js';
 import routesRouter from './routes/routes.js';
 import aiRouter from './routes/ai.js';
 import geocodeRouter from './routes/geocode.js';
+import messagesRouter from './routes/messages.js';
+import { appendMessage } from './services/conversationMessages.js';
 import { startCron } from './services/fieldRoutesCron.js';
 import {
   loadAuthStatus,
@@ -113,6 +115,7 @@ app.use('/api/documents', documentsRouter);
 app.use('/api/routes', routesRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/geocode', geocodeRouter);
+app.use('/api/messages', messagesRouter);
 
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
@@ -177,13 +180,31 @@ app.post('/api/send-sms', async (req, res) => {
       to: toNumber
     });
 
+    let persistedMessage = null;
+    if (row_number) {
+      try {
+        persistedMessage = appendMessage(row_number, {
+          direction: 'outbound',
+          channel: 'sms',
+          body: message,
+          ts: new Date().toISOString(),
+          sender: 'You',
+          status: sentMessage.status || 'sent',
+          meta: { twilioSid: sentMessage.sid },
+        });
+      } catch (persistErr) {
+        console.error('[send-sms] Failed to persist message history:', persistErr.message);
+      }
+    }
+
     res.json({
       success: true,
       sid: sentMessage.sid,
       phone: toNumber,
       message,
       row_number,
-      name
+      name,
+      persistedMessage,
     });
   } catch (error) {
     console.error('SMS send error:', error);
