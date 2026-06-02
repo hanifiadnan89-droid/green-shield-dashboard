@@ -89,7 +89,7 @@ export const api = {
     payload:    (date) => request(`/routes/payload?date=${date}`),
     status:     () => request('/routes/status'),
     authStatus: () => request('/routes/auth-status'),
-    authCheck:  () => request('/routes/auth-check', { method: 'POST' }),
+    authCheck:  (force = false) => request(`/routes/auth-check${force ? '?force=true' : ''}`, { method: 'POST' }),
     loginCapabilities: () => request('/routes/login-capabilities'),
     authDiagnostics: (runCheck = false) =>
       request(`/routes/auth-diagnostics${runCheck ? '?check=true' : ''}`),

@@ -14,7 +14,9 @@ export function buildRouteDateHelperText({
   hasCachedDate,
 }) {
   if (authNeedsLogin) {
-    return 'Log in to FieldRoutes to load schedules. Use the banner above.';
+    return hasCachedDate
+      ? 'Cached schedules are still available. Click Log Back In to refresh from FieldRoutes.'
+      : 'Click Log Back In above to connect to FieldRoutes.';
   }
   if (anyDateRefreshing) {
     return refreshAllPending

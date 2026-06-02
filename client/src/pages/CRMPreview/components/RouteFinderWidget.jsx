@@ -109,33 +109,33 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     }, 3000);
   }, [applyStatusData]);
 
-  const refreshRouteStatus = useCallback(async ({ checkAuth = false } = {}) => {
-    if (checkAuth) {
-      const check = await api.routes.authCheck();
-      if (check?._auth) {
-        setAuthInfo(prev => ({ ...prev, ...check._auth }));
-      }
-    }
+  const refreshRouteStatus = useCallback(async () => {
     const statusData = await api.routes.status();
     applyStatusData(statusData);
     return statusData;
   }, [applyStatusData]);
 
-  const handleLoginRefreshStarted = useCallback(async ({ checkAuth = false } = {}) => {
-    const statusData = await refreshRouteStatus({ checkAuth });
+  const handleLoginRefreshStarted = useCallback(async () => {
+    const statusData = await refreshRouteStatus();
     if (statusData?._auth?.status === 'ok') {
-      api.routes.preload(false).catch(() => {});
-      setDateStatus(prev => {
-        const next = { ...prev };
-        DATE_KEYS.forEach(d => {
-          const status = next[d]?.status;
-          if (!status || ['missing', 'needs_login', 'failed'].includes(status)) {
-            next[d] = { ...(next[d] || {}), status: 'refreshing' };
-          }
-        });
-        return next;
+      const needsLoad = DATE_KEYS.some(d => {
+        const s = statusData[d]?.status;
+        return !s || s === 'missing';
       });
-      startPolling();
+      if (needsLoad) {
+        api.routes.preload(false).catch(() => {});
+        setDateStatus(prev => {
+          const next = { ...prev };
+          DATE_KEYS.forEach(d => {
+            const status = next[d]?.status;
+            if (!status || status === 'missing') {
+              next[d] = { ...(next[d] || {}), status: 'refreshing' };
+            }
+          });
+          return next;
+        });
+        startPolling();
+      }
     }
     return statusData;
   }, [DATE_KEYS, refreshRouteStatus, startPolling]);
@@ -160,29 +160,46 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   // ---------------------------------------------------------------------------
   const loadInitialRouteStatus = useCallback(async () => {
     try {
+      try {
+        const auth = await api.routes.authStatus();
+        if (auth?.status) {
+          setAuthInfo(prev => ({
+            ...prev,
+            status: auth.status,
+            lastCheck: auth.lastCheck,
+            message: auth.message,
+            lastCheckFormatted: auth.lastCheck
+              ? new Date(auth.lastCheck).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+              : prev.lastCheckFormatted,
+          }));
+        }
+      } catch (authErr) {
+        console.warn('[RouteFinder] auth status read failed:', authErr?.message);
+      }
+
       const statusData = await api.routes.status();
       applyStatusData(statusData);
       setStatusMountError(null);
+
       const needsLoad = DATE_KEYS.some(d => {
         const s = statusData[d]?.status;
         return !s || s === 'missing';
       });
-      if (needsLoad) {
-        api.routes.preload().catch(() => {});
-        // Optimistically mark missing dates as refreshing (auth-aware)
-        const auth = statusData._auth;
-        if (!auth || auth.status === 'ok' || auth.status === 'unknown') {
-          setDateStatus(prev => {
-            const next = { ...prev };
-            DATE_KEYS.forEach(d => {
-              if (!next[d] || next[d].status === 'missing') {
-                next[d] = { status: 'refreshing' };
-              }
-            });
-            return next;
+      const authStatus = statusData._auth?.status;
+      const canPreload = authStatus === 'ok' || authStatus === 'unknown';
+
+      if (needsLoad && canPreload) {
+        api.routes.preload(false).catch(() => {});
+        setDateStatus(prev => {
+          const next = { ...prev };
+          DATE_KEYS.forEach(d => {
+            if (!next[d] || next[d].status === 'missing') {
+              next[d] = { status: 'refreshing' };
+            }
           });
-          startPolling();
-        }
+          return next;
+        });
+        startPolling();
       } else {
         const anyRefreshing = DATE_KEYS.some(d => statusData[d]?.status === 'refreshing');
         if (anyRefreshing) startPolling();

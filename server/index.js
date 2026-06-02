@@ -30,6 +30,7 @@ import {
   checkAuthHealth,
   startAuthKeepalive,
   getAuthConfigDiagnostics,
+  isAuthStatusFresh,
 } from './services/fieldRoutesAuth.js';
 import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.js';
 import { getGoogleCredentialsDiagnostics } from './services/googleCredentials.js';
@@ -154,7 +155,11 @@ loadAuthStatus().then(() => {
       console.log(`[auth] ${diag.recommendation}`);
     }
   }
-  return checkAuthHealth();
+  if (isAuthStatusFresh()) {
+    console.log('[auth] Startup: using fresh persisted ok status (skipping immediate health check)');
+    return 'ok';
+  }
+  return checkAuthHealth({ force: true });
 })
   .then(s => console.log(`[auth] Startup check: FieldRoutes auth is ${s}`))
   .catch(err => console.warn('[auth] Startup check failed:', err.message));
