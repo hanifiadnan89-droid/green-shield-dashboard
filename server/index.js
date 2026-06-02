@@ -21,6 +21,7 @@ import driveRouter from './routes/drive.js';
 import documentsRouter from './routes/documents.js';
 import routesRouter from './routes/routes.js';
 import aiRouter from './routes/ai.js';
+import geocodeRouter from './routes/geocode.js';
 import { startCron } from './services/fieldRoutesCron.js';
 import {
   loadAuthStatus,
@@ -101,6 +102,7 @@ app.use('/api/drive', driveRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/routes', routesRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/geocode', geocodeRouter);
 
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));

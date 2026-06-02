@@ -9,21 +9,11 @@ import { buildDateMetas } from './RouteFinder/routeFinderDates.js';
 import { TIME_PREFS, FOUR_HOUR_SLOTS, TWO_HOUR_SLOTS } from './RouteFinder/routeFinderConstants.js';
 import { getDatePillTitle } from './RouteFinder/getDatePillTitle.js';
 import { buildRouteDateHelperText } from './RouteFinder/buildRouteDateHelperText.js';
-
-// ---------------------------------------------------------------------------
-// Nominatim geocoder (Phase 3b: extract to nominatim.js)
-// ---------------------------------------------------------------------------
-async function nominatimGeocode(address) {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=us`;
-  const resp = await fetch(url, { headers: { 'User-Agent': 'GreenShieldDashboard/1.0' } });
-  if (!resp.ok) throw new Error('Geocoding service unavailable');
-  const data = await resp.json();
-  if (!data.length) throw new Error('Address not found');
-  const { lat, lon, display_name } = data[0];
-  const parts = display_name.split(',').map(s => s.trim());
-  const short = parts.slice(0, 3).join(', ');
-  return { lat: parseFloat(lat), lng: parseFloat(lon), display: short, full: display_name };
-}
+import {
+  fetchAddressSuggestions,
+  lookupAddress,
+  describeGeocodeError,
+} from '../../../utils/geocodeClient.js';
 
 // ---------------------------------------------------------------------------
 // Main widget — sub-components in RouteStatusBadge, RouteResultCard, RouteAuthBanner
@@ -47,6 +37,7 @@ export default function RouteFinderWidget() {
   const [geocode, setGeocode]             = useState(null);
   const [geocodeStatus, setGeocodeStatus] = useState('idle');
   const [geocodeError, setGeocodeError]   = useState('');
+  const [suggestError, setSuggestError]   = useState('');
   const [isEditing, setIsEditing]         = useState(false);
 
   // Address autocomplete
@@ -285,34 +276,27 @@ export default function RouteFinderWidget() {
   // Address autocomplete
   // ---------------------------------------------------------------------------
   const fetchSuggestions = useCallback(async (query) => {
-    if (query.trim().length < 4) { setSuggestions([]); setShowSuggestions(false); return; }
+    if (query.trim().length < 4) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setSuggestError('');
+      return;
+    }
     try {
-      // Bias toward ME/NH area (bounded=0 allows results outside viewport too)
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=6&countrycodes=us&addressdetails=1&viewbox=-73.0,42.5,-69.5,47.5&bounded=0`;
-      const resp = await fetch(url, { headers: { 'User-Agent': 'GreenShieldDashboard/1.0' } });
-      if (!resp.ok) return;
-      const data = await resp.json();
-      const formatted = data.map(item => {
-        const a = item.address || {};
-        const streetNum = a.house_number || '';
-        const street    = a.road || a.pedestrian || a.path || '';
-        const primary   = [streetNum, street].filter(Boolean).join(' ') ||
-                          item.display_name.split(',')[0].trim();
-        const city  = a.city || a.town || a.village || a.hamlet || '';
-        const state = a.state || '';
-        const zip   = a.postcode || '';
-        const secondary = [city, [state, zip].filter(Boolean).join(' ')]
-                            .filter(Boolean).join(', ');
-        const shortDisplay = [primary, secondary].filter(Boolean).join(', ');
-        return { primary, secondary, shortDisplay, full: item.display_name,
-                 lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
-      }).filter(s => s.primary);
+      const formatted = await fetchAddressSuggestions(query);
       setSuggestions(formatted);
       setShowSuggestions(formatted.length > 0);
       setActiveSuggestion(-1);
-    } catch {
+      setSuggestError(
+        formatted.length === 0
+          ? 'No matches — try city and state, e.g. 24 Morning St, Portland, ME 04101'
+          : '',
+      );
+    } catch (err) {
+      console.warn('[geocode] suggest failed:', err);
       setSuggestions([]);
       setShowSuggestions(false);
+      setSuggestError(describeGeocodeError(err));
     }
   }, []);
 
@@ -354,20 +338,22 @@ export default function RouteFinderWidget() {
     }
     setGeocodeStatus('loading');
     setGeocodeError('');
+    setSuggestError('');
     setResults(null);
     setScoringStatus('idle');
     setTimePref(null);
     setSpecificSlot(null);
     setShowOther(false);
     try {
-      const result = await nominatimGeocode(trimmed);
+      const result = await lookupAddress(trimmed);
       geocodeCacheRef.current[trimmed] = result;
       setGeocode(result);
       setGeocodeStatus('success');
       setIsEditing(false);
     } catch (err) {
+      console.warn('[geocode] lookup failed:', err);
       setGeocodeStatus('error');
-      setGeocodeError(err.message);
+      setGeocodeError(describeGeocodeError(err));
     }
   }, []);
 
@@ -669,6 +655,12 @@ export default function RouteFinderWidget() {
                 </button>
               )}
 
+              {suggestError && (
+                <p className="text-[9px] text-amber-700 mt-1 mb-0 leading-snug" role="status">
+                  {suggestError}
+                </p>
+              )}
+
               {/* Autocomplete dropdown */}
               {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 z-[200] bg-white rounded-[10px] mt-1 border border-black/10 shadow-[0_6px_20px_rgba(0,0,0,0.1)] overflow-hidden">
@@ -710,7 +702,7 @@ export default function RouteFinderWidget() {
           {geocodeStatus === 'error' && (
             <p className="route-finder-inline-error" role="alert">
               <AlertCircle size={10} className="shrink-0" />
-              <span>{geocodeError} — try a more complete address</span>
+              <span>{geocodeError}</span>
             </p>
           )}
           <p className="type-label-sm text-slate-400 mt-1 font-normal tracking-normal">
