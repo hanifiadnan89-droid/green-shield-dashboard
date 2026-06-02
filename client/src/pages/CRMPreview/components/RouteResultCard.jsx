@@ -4,8 +4,8 @@ import { matchLayoutId } from './RouteFinder/routeMatchCardConfig.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
-export default function RouteResultCard({ match, rank, routeArea, onSelect }) {
-  const layoutId = matchLayoutId(match);
+export default function RouteResultCard({ match, rank, routeArea, onSelect, layout = true }) {
+  const layoutId = layout ? matchLayoutId(match) : undefined;
   const isTop = rank === 1;
 
   return (
