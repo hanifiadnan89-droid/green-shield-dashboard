@@ -1324,6 +1324,27 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     ? `Est. done by ${fmtTime12h(insertion.projectedRouteEnd)}`
     : null;
 
+  const routeStops = buildRouteStopsDisplay(stops, timeline, insertion, lead);
+  const totalServiceMin = stops.reduce((sum, s) => sum + (s.durationMinutes || getDefaultDuration(s.serviceType)), 0) + durationMin;
+  let totalDriveMin = 0;
+  for (let i = 0; i < timeline.length; i++) {
+    const fromLat = i === 0 ? simFromLat : timeline[i - 1].stop.lat;
+    const fromLng = i === 0 ? simFromLng : timeline[i - 1].stop.lng;
+    const s = timeline[i].stop;
+    if (s.lat && s.lng) {
+      totalDriveMin += travelMin(haversine(fromLat, fromLng, s.lat, s.lng));
+    }
+  }
+  totalDriveMin += insertion.addedDriveMinutes ?? 0;
+  const daySummary = {
+    startTime: fmtTime12h(DAY_START_MIN),
+    endTime: fmtTime12h(insertion.projectedRouteEnd),
+    totalStops: stops.length + 1,
+    totalDriveHours: Math.round((totalDriveMin / 60) * 10) / 10,
+    totalServiceHours: Math.round((totalServiceMin / 60) * 10) / 10,
+    capacityLeftHours: Math.round(Math.max(0, cap.remainingHours - durationMin / 60) * 100) / 100,
+  };
+
   return {
     techName:  tech.techName,
     techId:    tech.techId,
@@ -1400,7 +1421,53 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     },
     // Cluster detail for display
     clusterDetail: insertionCluster,
+    routeStops,
+    daySummary,
   };
+}
+
+function buildRouteStopsDisplay(stops, timeline, insertion, lead) {
+  const rows = [];
+  const insertAfter = insertion.afterIndex;
+
+  const pushStop = (stop, i) => {
+    const entry = timeline[i];
+    rows.push({
+      id: `stop-${i}`,
+      customerName: stop.customerName || 'Stop',
+      address: stop.address || '',
+      scheduledTime: fmtTime12h(entry?.arrivalMin ?? stop.spotStartMinutes),
+      isTimed: isTimedStop(stop),
+      lat: stop.lat,
+      lng: stop.lng,
+      isNew: false,
+    });
+  };
+
+  const pushNew = () => {
+    rows.push({
+      id: 'new-stop',
+      customerName: lead.customerName || 'New customer',
+      address: lead.address || 'Customer address',
+      scheduledTime: fmtTime12h(insertion.estimatedArrivalMin),
+      isTimed: false,
+      lat: lead.lat,
+      lng: lead.lng,
+      isNew: true,
+    });
+  };
+
+  if (insertAfter === -1) {
+    pushNew();
+    stops.forEach((s, i) => pushStop(s, i));
+  } else {
+    stops.forEach((s, i) => {
+      pushStop(s, i);
+      if (i === insertAfter) pushNew();
+    });
+  }
+
+  return rows;
 }
 
 // ---------------------------------------------------------------------------
