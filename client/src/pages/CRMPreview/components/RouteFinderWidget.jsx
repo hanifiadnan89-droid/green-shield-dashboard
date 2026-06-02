@@ -460,21 +460,37 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   return (
     <div
       className={[
-        'p-card section-enter flex flex-col',
-        isPage ? 'route-finder-widget--page w-full max-w-4xl mx-auto' : 'h-full',
+        'section-enter flex flex-col',
+        isPage ? 'route-finder-widget--page flex-1 min-h-0 w-full' : 'p-card h-full',
       ].filter(Boolean).join(' ')}
     >
       {/* Header */}
-      <div className="px-5 pt-4 pb-3 border-b border-black/[0.05] flex items-center justify-between">
+      <div
+        className={[
+          'route-finder-toolbar shrink-0 flex items-center justify-between border-b border-black/[0.05]',
+          isPage ? 'px-5 lg:px-8 py-4 bg-white' : 'px-5 pt-4 pb-3',
+        ].join(' ')}
+      >
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-gs-accent/10 flex items-center justify-center">
             <Navigation size={14} className="text-gs-accent" />
           </div>
           <div>
-            <h3 className="text-[13px] font-bold text-gs-text m-0 leading-none">Route Finder</h3>
-            <p className="type-label-sm text-slate-400 m-0 mt-0.5 font-normal tracking-normal">
-              Find best technician for a new stop
-            </p>
+            {isPage ? (
+              <>
+                <h1 className="text-base lg:text-lg font-bold text-gs-text m-0 leading-tight">Route Finder</h1>
+                <p className="type-label-sm text-slate-400 m-0 mt-0.5 font-normal tracking-normal">
+                  FieldRoutes scheduling — best technician for a new stop
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-[13px] font-bold text-gs-text m-0 leading-none">Route Finder</h3>
+                <p className="type-label-sm text-slate-400 m-0 mt-0.5 font-normal tracking-normal">
+                  Find best technician for a new stop
+                </p>
+              </>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -502,6 +518,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       </div>
 
       <div className="route-finder-body">
+        <div className={isPage ? 'route-finder-workspace' : undefined}>
+        <div className={isPage ? 'route-finder-workspace__setup' : undefined}>
 
         {/* ── FieldRoutes auth status ── */}
         <AuthStatusBanner authInfo={authInfo} onLoginRefreshStarted={handleLoginRefreshStarted} />
@@ -845,9 +863,12 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
           </p>
         )}
 
+        </div>
+
+        <div className={isPage ? 'route-finder-workspace__results' : undefined}>
         {/* ── Results ── */}
         {scoringStatus === 'done' && results && (
-          <div>
+          <div className={isPage ? 'route-finder-results-panel' : undefined}>
             {/* Route area header (NH / Maine) */}
             {results.routeArea && results.routeArea !== 'general' && (
               <div
@@ -887,9 +908,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                     Re-score
                   </button>
                 </div>
+                <div className={isPage ? 'route-finder-results-grid' : undefined}>
                 {results.topMatches.map(match => (
                   <ResultCard key={match.routeId} match={match} rank={match.rank} routeArea={results.routeArea} />
                 ))}
+                </div>
                 <p className="type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal">
                   {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
                 </p>
@@ -897,6 +920,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             )}
           </div>
         )}
+        </div>
+        </div>
       </div>
     </div>
   );
