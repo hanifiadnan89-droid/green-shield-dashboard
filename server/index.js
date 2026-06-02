@@ -68,7 +68,13 @@ if (isProduction) {
   app.set('trust proxy', 1);
 }
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
+app.use(cors({
+  origin: [
+    'https://green-shield-dashboard.onrender.com',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
+  ]
+}));
 app.use(helmet());
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
