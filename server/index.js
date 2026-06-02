@@ -39,7 +39,7 @@ function requireDashboardLogin(req, res, next) {
   const expectedPassword = process.env.DASHBOARD_PASSWORD;
 
   if (!expectedUsername || !expectedPassword) {
-    return next();
+    return res.status(500).send('Dashboard login is not configured');
   }
 
   const authHeader = req.headers.authorization || '';
