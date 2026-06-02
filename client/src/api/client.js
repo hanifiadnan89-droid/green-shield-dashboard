@@ -1,14 +1,26 @@
 const BASE = '/api';
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      ...options,
+    });
+  } catch (networkErr) {
+    const err = new Error(networkErr.message || 'Failed to fetch');
+    err.cause = networkErr;
+    err.isNetworkError = true;
+    throw err;
+  }
+
   const data = await res.json().catch(() => ({ error: res.statusText }));
   if (!res.ok) {
     const err = new Error(data.error || `HTTP ${res.status}`);
+    if (data.code) err.code = data.code;
     if (data.hint) err.hint = data.hint;
+    err.httpStatus = res.status;
     throw err;
   }
   return data;
@@ -49,6 +61,12 @@ export const api = {
 
   drive: {
     quotes: () => request('/drive/quotes')
+  },
+
+  geocode: {
+    suggest: (q) => request(`/geocode/suggest?q=${encodeURIComponent(q)}`),
+    lookup: (q) => request(`/geocode/lookup?q=${encodeURIComponent(q)}`),
+    status: () => request('/geocode/status'),
   },
 
   routes: {
