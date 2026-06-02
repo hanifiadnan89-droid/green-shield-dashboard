@@ -74,9 +74,6 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     testMode: process.env.TEST_MODE === 'true',
-    sheetId: process.env.SHEET_ID,
-    n8nBase: process.env.N8N_BASE_URL,
-    hasGoogleCreds: !!(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_FILE),
     timestamp: new Date().toISOString()
   });
 });
