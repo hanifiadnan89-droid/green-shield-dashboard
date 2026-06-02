@@ -39,6 +39,24 @@ let _authStatus = {
 
 let _keepaliveTimer = null;
 
+/** Trust persisted "ok" without a network check (navigation / keepalive). */
+export const AUTH_OK_STALE_MS = 60 * 60 * 1000;
+
+/** Route schedule cache TTL (preload skip threshold). */
+export const ROUTE_CACHE_TTL_MS = 60 * 60 * 1000;
+
+const DEFAULT_KEEPALIVE_MS = AUTH_OK_STALE_MS;
+
+function authStatusAgeMs(auth = _authStatus) {
+  if (!auth?.lastCheck) return Infinity;
+  const t = new Date(auth.lastCheck).getTime();
+  return Number.isNaN(t) ? Infinity : Date.now() - t;
+}
+
+export function isAuthStatusFresh(auth = _authStatus) {
+  return auth?.status === 'ok' && authStatusAgeMs(auth) < AUTH_OK_STALE_MS;
+}
+
 export async function loadAuthStatus() {
   try {
     const raw = await fs.readFile(STATUS_PATH, 'utf8');
@@ -53,13 +71,17 @@ export async function loadAuthStatus() {
     _authStatus = { status: 'unknown', lastCheck: null, message: null };
   }
 
-  if (process.env.RENDER && (process.env.FIELDROUTES_AUTH_STATE_JSON || '').trim()) {
+  if (
+    process.env.RENDER
+    && (process.env.FIELDROUTES_AUTH_STATE_JSON || '').trim()
+    && _authStatus.status !== 'ok'
+  ) {
     _authStatus = {
       status: 'checking',
       lastCheck: null,
-      message: 'Validating FIELDROUTES_AUTH_STATE_JSON after deploy…',
+      message: 'Validating FieldRoutes session…',
     };
-    console.log('[auth] Render: env auth JSON present — will re-validate on startup check');
+    console.log('[auth] Render: env auth JSON present — will validate on startup if needed');
   }
 }
 
@@ -267,7 +289,18 @@ export async function readAuthState() {
   return JSON.parse(raw);
 }
 
-export async function checkAuthHealth() {
+/**
+ * @param {{ force?: boolean }} [options]
+ * force=true — always hit FieldRoutes (login button, post-login).
+ * force=false — skip network if status is fresh ok (page loads, keepalive).
+ */
+export async function checkAuthHealth({ force = false } = {}) {
+  const previous = getAuthStatus();
+
+  if (!force && isAuthStatusFresh(previous)) {
+    return 'ok';
+  }
+
   const source = getAuthStateSource();
   let state;
 
@@ -371,12 +404,14 @@ export async function checkAuthHealth() {
   } catch (err) {
     const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
     const msg = isTimeout ? 'Auth health check timed out (12 s)' : `Network error: ${err.message}`;
+    if (previous.status === 'ok' && authStatusAgeMs(previous) < AUTH_OK_STALE_MS) {
+      console.warn(`[auth] Health check error but keeping ok (age ${Math.round(authStatusAgeMs(previous) / 60000)}m): ${msg}`);
+      return 'ok';
+    }
     setAuthStatus('failed', msg);
     return 'failed';
   }
 }
-
-const DEFAULT_KEEPALIVE_MS = 45 * 60 * 1000;
 
 export function startAuthKeepalive(intervalMs = DEFAULT_KEEPALIVE_MS) {
   if (_keepaliveTimer) return;
@@ -385,8 +420,12 @@ export function startAuthKeepalive(intervalMs = DEFAULT_KEEPALIVE_MS) {
 
   _keepaliveTimer = setInterval(async () => {
     if (_authStatus.status === 'needs_login') return;
+    if (isAuthStatusFresh()) {
+      console.log('[auth] Keepalive: session still fresh, skipping network check');
+      return;
+    }
     console.log('[auth] Keepalive: checking FieldRoutes session...');
-    const result = await checkAuthHealth();
+    const result = await checkAuthHealth({ force: true });
     console.log(`[auth] Keepalive result: ${result}`);
   }, intervalMs);
 

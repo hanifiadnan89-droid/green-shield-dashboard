@@ -176,16 +176,23 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// GET /api/routes/auth-status — current FieldRoutes auth status (explicit endpoint)
+// GET /api/routes/auth-status — persisted status only (no network login probe)
 router.get('/auth-status', (req, res) => {
   const auth = getAuthStatus();
   res.json(auth);
 });
 
-// POST /api/routes/auth-check — trigger an immediate auth health check
+// Alias: GET /api/routes/auth/status
+router.get('/auth/status', (req, res) => {
+  const auth = getAuthStatus();
+  res.json(auth);
+});
+
+// POST /api/routes/auth-check — optional forced health check (?force=true or body.force)
 router.post('/auth-check', async (req, res) => {
   try {
-    const result = await checkAuthHealth();
+    const force = req.query.force === 'true' || req.body?.force === true;
+    const result = await checkAuthHealth({ force });
     const auth = getAuthStatus();
     res.json({
       result,

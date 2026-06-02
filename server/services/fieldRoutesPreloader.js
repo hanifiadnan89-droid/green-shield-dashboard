@@ -2,7 +2,13 @@ import { promises as fs, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { extractRoutePayload } from '../../client/src/utils/fieldRoutesExtractor.js';
-import { getAuthStatus, setAuthStatus, getPlaywrightStorageState } from './fieldRoutesAuth.js';
+import {
+  getAuthStatus,
+  setAuthStatus,
+  getPlaywrightStorageState,
+  ROUTE_CACHE_TTL_MS,
+  isAuthStatusFresh,
+} from './fieldRoutesAuth.js';
 import { launchFieldRoutesChromium } from './playwrightRuntime.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -181,6 +187,42 @@ async function replaceMeta(date, entry) {
   });
 }
 
+async function hasFreshNormalizedCache(date) {
+  const normPath = resolve(ROUTES_DIR, `${date}.normalized.json`);
+  if (!existsSync(normPath)) return false;
+  try {
+    const stat = await fs.stat(normPath);
+    return Date.now() - stat.mtimeMs < ROUTE_CACHE_TTL_MS;
+  } catch {
+    return false;
+  }
+}
+
+async function reconcileDateEntry(date, entry) {
+  const base = entry || { status: 'missing' };
+  if (base.status === 'cached' && base.timestamp) {
+    const ageMs = Date.now() - new Date(base.timestamp).getTime();
+    if (ageMs < ROUTE_CACHE_TTL_MS && (await hasFreshNormalizedCache(date))) {
+      return base;
+    }
+  }
+  if (await hasFreshNormalizedCache(date)) {
+    try {
+      const normPath = resolve(ROUTES_DIR, `${date}.normalized.json`);
+      const stat = await fs.stat(normPath);
+      return {
+        status: 'cached',
+        timestamp: stat.mtime.toISOString(),
+        techCount: base.techCount,
+        stopCount: base.stopCount,
+      };
+    } catch {
+      return base;
+    }
+  }
+  return base;
+}
+
 export async function refreshDate(date) {
   const auth = getAuthStatus();
   if (auth.status === 'needs_login') {
@@ -224,7 +266,9 @@ export async function getStatus() {
   const dates = getNextSixWorkingDays();
   const meta  = await readMeta();
   const result = {};
-  for (const date of dates) result[date] = meta[date] || { status: 'missing' };
+  for (const date of dates) {
+    result[date] = await reconcileDateEntry(date, meta[date]);
+  }
 
   const lastRefresh = Object.values(meta)
     .filter(e => e?.status === 'cached' && e?.timestamp)
@@ -256,23 +300,28 @@ export async function getNormalizedForDate(date) {
 
 export async function preloadNextSixWorkingDays({ force = false } = {}) {
   const auth = getAuthStatus();
-  if (auth.status === 'needs_login') {
+  const dates = getNextSixWorkingDays();
+  const meta  = await readMeta();
+
+  if (auth.status === 'needs_login' && !isAuthStatusFresh()) {
     console.warn('[preloader] Skipping preload — FieldRoutes auth needs login.');
-    const dates = getNextSixWorkingDays();
-    const meta  = await readMeta();
-    const needsUpdate = dates.filter(d => {
+    const needsUpdate = [];
+    for (const d of dates) {
       const s = meta[d]?.status;
-      return !s || s === 'missing' || s === 'refreshing';
-    });
+      if (!s || s === 'missing' || s === 'refreshing') {
+        if (!(await hasFreshNormalizedCache(d))) needsUpdate.push(d);
+      }
+    }
     if (needsUpdate.length > 0) {
       await withMetaLock(async () => {
         const m = await readMeta();
         for (const d of needsUpdate) {
+          if (await hasFreshNormalizedCache(d)) continue;
           m[d] = {
             ...(m[d] || {}),
             status: 'needs_login',
             timestamp: new Date().toISOString(),
-            error: 'FieldRoutes session expired — refresh session in Route Finder.',
+            error: 'FieldRoutes session expired. Click Log Back In in Route Finder.',
           };
         }
         await writeMeta(m);
@@ -281,14 +330,13 @@ export async function preloadNextSixWorkingDays({ force = false } = {}) {
     return;
   }
 
-  const dates = getNextSixWorkingDays();
-  const meta  = await readMeta();
   for (const date of dates) {
     if (!force) {
+      if (await hasFreshNormalizedCache(date)) continue;
       const entry = meta[date];
       if (entry?.status === 'cached' && entry?.timestamp) {
         const ageMs = Date.now() - new Date(entry.timestamp).getTime();
-        if (ageMs < 6 * 60 * 60 * 1000) continue;
+        if (ageMs < ROUTE_CACHE_TTL_MS) continue;
       }
     }
     try {

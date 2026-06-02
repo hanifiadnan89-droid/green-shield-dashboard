@@ -142,6 +142,119 @@
   font-size: 11px;
 }
 
+.crm-preview .route-auth-bar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid;
+}
+
+.crm-preview .route-auth-bar__status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.crm-preview .route-auth-bar__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.crm-preview .route-auth-bar__label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.crm-preview .route-auth-bar__meta {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.crm-preview .route-auth-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: #16a34a;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.crm-preview .route-auth-bar__btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.crm-preview .route-auth-bar__btn--warn {
+  background: #d97706;
+}
+
+.crm-preview .route-auth-bar__btn--secondary {
+  background: #64748b;
+  margin-top: 0.5rem;
+}
+
+.crm-preview .route-auth-bar__error {
+  margin: 0.35rem 0 0;
+  font-size: 0.6875rem;
+  color: #dc2626;
+  line-height: 1.35;
+}
+
+.crm-preview .route-auth-bar__advanced-toggle {
+  margin-top: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.crm-preview .route-auth-bar__advanced {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px dashed rgba(100, 116, 139, 0.35);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.crm-preview .route-auth-bar__advanced-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.crm-preview .route-auth-bar__advanced-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.6875rem;
+  font-family: ui-monospace, monospace;
+  resize: vertical;
+}
+
 .crm-preview .route-auth-feedback--success {
   border: 1px solid rgba(22, 163, 74, 0.25);
   background: rgba(22, 163, 74, 0.06);
