@@ -132,7 +132,7 @@ export default function Layout({ children, testMode }) {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden bg-gs-bg">
+      <div className="flex-1 flex flex-col overflow-hidden bg-gs-bg min-w-0 w-full">
         {children}
       </div>
     </div>
