@@ -67,7 +67,7 @@ describe('buildRouteDateHelperText', () => {
         refreshAllPending: true,
         hasCachedDate: false,
       }),
-    ).toBe('Log in to FieldRoutes to load schedules. Use the banner above.');
+    ).toBe('Click Log Back In above to connect to FieldRoutes.');
   });
 
   it('shows refresh-all copy when pending', () => {

@@ -3,7 +3,7 @@ import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigatio
 import { api } from '../../../api/client.js';
 import { scoreRoutes, detectRouteArea } from '../../../utils/fieldRoutesScorer.js';
 import StatusBadge from './RouteStatusBadge.jsx';
-import ResultCard from './RouteResultCard.jsx';
+import RouteMatchResults from './RouteMatchResults.jsx';
 import AuthStatusBanner from './RouteAuthBanner.jsx';
 import { buildDateMetas } from './RouteFinder/routeFinderDates.js';
 import { TIME_PREFS, FOUR_HOUR_SLOTS, TWO_HOUR_SLOTS } from './RouteFinder/routeFinderConstants.js';
@@ -423,6 +423,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       const lead = {
         lat: latLng.lat,
         lng: latLng.lng,
+        address: latLng.full || latLng.display || '',
         serviceType: 'Regular Service',
         durationMinutes: 30,
         timeWindowPreference: prefStr || 'AT',
@@ -940,11 +941,10 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                     Re-score
                   </button>
                 </div>
-                <div className={isPage ? 'route-finder-results-grid' : undefined}>
-                {results.topMatches.map(match => (
-                  <ResultCard key={match.routeId} match={match} rank={match.rank} routeArea={results.routeArea} />
-                ))}
-                </div>
+                <RouteMatchResults
+                  matches={results.topMatches}
+                  routeArea={results.routeArea}
+                />
                 <p className="type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal">
                   {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
                 </p>
