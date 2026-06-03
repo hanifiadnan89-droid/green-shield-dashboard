@@ -37,7 +37,7 @@ export default function LeadsQuickFilters({ activeId, onChange, category, notesP
     : category === 'inprogress' ? 'followup'
     : notesParam === 'na' ? 'no_answer'
     : notesParam === 'ag' ? 'agreement'
-    : activeId;
+    : activeId || 'all';
 
   return (
     <LayoutGroup id="leads-quick-filters">

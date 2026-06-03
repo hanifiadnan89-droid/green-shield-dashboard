@@ -137,19 +137,19 @@ export function createLeadsColumns({
       header: 'Stop',
       enableSorting: true,
       meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
-      cell: ({ getValue }) => (getValue() === 'yes' ? <StatusPill value="yes" /> : null),
+      cell: ({ getValue }) => (getValue() === 'yes' ? <StatusPill value="Stop" /> : null),
     }),
     col.accessor('sms_reply', {
       header: 'SMS',
       enableSorting: true,
       meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
-      cell: ({ getValue }) => (hasRealReply(getValue()) ? <StatusPill value="yes" /> : null),
+      cell: ({ getValue }) => (hasRealReply(getValue()) ? <StatusPill value="Replied" /> : null),
     }),
     col.accessor('email_reply', {
       header: 'Email',
       enableSorting: true,
       meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
-      cell: ({ getValue }) => (hasRealReply(getValue()) ? <StatusPill value="yes" /> : null),
+      cell: ({ getValue }) => (hasRealReply(getValue()) ? <StatusPill value="Replied" /> : null),
     }),
     col.accessor('error', {
       header: 'Error',

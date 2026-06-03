@@ -3,11 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
-import {
-  CATEGORY_META,
-  filterLeads,
-  resolveQuickFilterId,
-} from './Leads/leadsFilters.js';
+import { CATEGORY_META, filterLeads } from './Leads/leadsFilters.js';
 import LeadsToolbar from './Leads/LeadsToolbar.jsx';
 import LeadsTable from './Leads/LeadsTable.jsx';
 import LeadsEmptyState from './Leads/LeadsEmptyState.jsx';
@@ -55,15 +51,17 @@ export default function Leads() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    setQuickFilter(resolveQuickFilterId({ category, notesParam, filters }));
-  }, [category, notesParam, filters]);
+    if (!detailLead) return;
+    const updated = leads.find(l => l.row_number === detailLead.row_number);
+    if (updated) setDetailLead(updated);
+  }, [leads, detailLead?.row_number]);
 
   const handleQuickFilter = useCallback((id) => {
     setQuickFilter(id);
     if (id === 'active') {
       setFilters({ ...EMPTY_FILTERS, status: 'active' });
     } else if (id === 'archived') {
-      setFilters({ ...EMPTY_FILTERS, status: 'archived' });
+      setFilters({ ...EMPTY_FILTERS });
     } else if (id === 'all') {
       setFilters({ ...EMPTY_FILTERS });
     } else {
@@ -167,26 +165,40 @@ export default function Leads() {
         )}
       </AnimatePresence>
 
-      <div className="leads-table-shell">
-        <div className="leads-table-panel">
-          {loading ? (
-            <div className="flex justify-center py-20">
-              <Spinner />
+      <div className="leads-workspace-layout">
+        <div className="leads-main">
+          <div className="leads-table-shell leads-table-shell--split">
+            <div className="leads-table-panel">
+              {loading ? (
+                <div className="flex justify-center py-20">
+                  <Spinner />
+                </div>
+              ) : filtered.length === 0 ? (
+                <LeadsEmptyState search={search} categoryMeta={categoryMeta} />
+              ) : (
+                <LeadsTable
+                  data={filtered}
+                  selectedRowNumber={detailLead?.row_number ?? null}
+                  onRowClick={setDetailLead}
+                  navigate={navigate}
+                  onStop={handleStop}
+                  onEdit={setEditLead}
+                  actionLoading={actionLoading}
+                />
+              )}
             </div>
-          ) : filtered.length === 0 ? (
-            <LeadsEmptyState search={search} categoryMeta={categoryMeta} />
-          ) : (
-            <LeadsTable
-              data={filtered}
-              selectedRowNumber={detailLead?.row_number ?? null}
-              onRowClick={setDetailLead}
-              navigate={navigate}
-              onStop={handleStop}
-              onEdit={setEditLead}
-              actionLoading={actionLoading}
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {detailLead && (
+            <LeadDetailWorkspace
+              lead={detailLead}
+              onClose={() => setDetailLead(null)}
+              onLeadUpdated={load}
             />
           )}
-        </div>
+        </AnimatePresence>
       </div>
 
       <AnimatePresence>
@@ -195,15 +207,6 @@ export default function Leads() {
             lead={editLead}
             onClose={() => setEditLead(null)}
             onSave={handleSaveEdit}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {detailLead && (
-          <LeadDetailWorkspace
-            lead={detailLead}
-            onClose={() => setDetailLead(null)}
           />
         )}
       </AnimatePresence>
