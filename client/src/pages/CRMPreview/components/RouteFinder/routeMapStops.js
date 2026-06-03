@@ -1,5 +1,7 @@
 /** Normalize route stops for map rendering and labels. */
 export function getMapStops(stops = []) {
+/** Normalize route stops for map rendering and labels. */
+export function getMapStops(stops = []) {
   return (stops || []).filter(s => {
     if (s.lat == null || s.lng == null || s.lat === '' || s.lng === '') return false;
     const lat = Number(s.lat);
@@ -12,15 +14,19 @@ export function getMapStops(stops = []) {
 export function getMapCoordinateStatus(stops = []) {
   const total = (stops || []).length;
   const withCoords = getMapStops(stops).length;
+
   if (total === 0) {
     return { ok: false, code: 'no_stops', total: 0, withCoords: 0 };
   }
+
   if (withCoords === 0) {
     return { ok: false, code: 'no_coordinates', total, withCoords: 0 };
   }
+
   if (withCoords < total) {
     return { ok: true, code: 'partial_coordinates', total, withCoords };
   }
+
   return { ok: true, code: 'ok', total, withCoords };
 }
 

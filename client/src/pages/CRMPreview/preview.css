@@ -786,7 +786,6 @@
 .crm-preview .route-match-detail__stops-scroll {
   flex: 1 1 auto;
   min-height: 8rem;
-  /* Always cap height so the list scrolls (never max-height:none on desktop). */
   max-height: min(62vh, calc(100dvh - 10.5rem));
   overflow-y: scroll;
   overflow-x: hidden;

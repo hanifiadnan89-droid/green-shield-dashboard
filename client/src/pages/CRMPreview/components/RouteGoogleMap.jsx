@@ -78,6 +78,7 @@ export default function RouteGoogleMap({
 
     try {
       const maps = window.google.maps;
+
       if (!mapRef.current) {
         mapRef.current = new maps.Map(containerRef.current, {
           mapTypeId: localType === 'satellite' ? 'satellite' : 'roadmap',
@@ -95,6 +96,7 @@ export default function RouteGoogleMap({
 
       overlaysRef.current.markers.forEach(m => m.setMap(null));
       overlaysRef.current.markers = [];
+
       if (overlaysRef.current.polyline) {
         overlaysRef.current.polyline.setMap(null);
         overlaysRef.current.polyline = null;
@@ -107,6 +109,7 @@ export default function RouteGoogleMap({
         strokeOpacity: 0.95,
         strokeWeight: compact ? 3 : 5,
       });
+
       overlaysRef.current.polyline.setMap(mapRef.current);
 
       const bounds = new maps.LatLngBounds();
@@ -121,6 +124,7 @@ export default function RouteGoogleMap({
           title: meta.customerName,
           zIndex: meta.isNew ? 100 : meta.role === 'start' || meta.role === 'end' ? 90 : 10,
         });
+
         overlaysRef.current.markers.push(marker);
       });
     } catch (err) {
@@ -139,6 +143,7 @@ export default function RouteGoogleMap({
 
   if (!coordStatus.ok && coordStatus.code === 'no_coordinates') {
     const { title, hint } = describeMapLoadError('no_coordinates');
+
     return (
       <MapFallback
         wrapperClass={wrapperClass}
@@ -168,6 +173,7 @@ export default function RouteGoogleMap({
 
   if (status === 'error') {
     const { title, hint } = describeMapLoadError(errorCode, errorDetail);
+
     return (
       <MapFallback
         wrapperClass={wrapperClass}
@@ -181,6 +187,7 @@ export default function RouteGoogleMap({
 
   if (mapInitError) {
     const { title, hint } = describeMapLoadError(mapInitError.code, mapInitError.detail);
+
     return (
       <MapFallback
         wrapperClass={wrapperClass}
@@ -194,6 +201,7 @@ export default function RouteGoogleMap({
 
   if (status === 'ready' && !path.length) {
     const { title, hint } = describeMapLoadError('no_coordinates');
+
     return (
       <MapFallback
         wrapperClass={wrapperClass}
@@ -224,22 +232,26 @@ export default function RouteGoogleMap({
           </button>
         </div>
       )}
+
       <div
         ref={containerRef}
         className="route-google-map__canvas"
         role="img"
         aria-label="Route map"
       />
+
       {coordStatus.code === 'partial_coordinates' && (
         <p className="route-google-map__coord-note type-label-sm m-0">
           Showing {coordStatus.withCoords} of {coordStatus.total} stops on map
         </p>
       )}
+
       {onExpand && (
         <button type="button" className="route-google-map__expand-hint" onClick={onExpand}>
           Click to open full route map
         </button>
       )}
+
       {compact && onExpand && (
         <button
           type="button"

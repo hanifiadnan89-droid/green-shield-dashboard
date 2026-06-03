@@ -5,14 +5,13 @@ import RouteMatchDetailWorkspace from './RouteMatchDetailWorkspace.jsx';
 import RouteMatchMapWorkspace from './RouteMatchMapWorkspace.jsx';
 import { isGoogleMapsEnabled } from './RouteFinder/useGoogleMapsLoader.js';
 
-const mapsEnabled = isGoogleMapsEnabled();
-
 /**
  * view: grid | detail | map
  */
 export default function RouteMatchResults({ matches, routeArea }) {
   const [view, setView] = useState('grid');
   const [activeRouteId, setActiveRouteId] = useState(null);
+  const mapsEnabled = isGoogleMapsEnabled();
 
   const activeMatch = activeRouteId
     ? matches.find(m => m.routeId === activeRouteId)
@@ -34,7 +33,7 @@ export default function RouteMatchResults({ matches, routeArea }) {
 
   const openFullMap = useCallback(() => {
     if (mapsEnabled) setView('map');
-  }, []);
+  }, [mapsEnabled]);
 
   const handleSelectTechnician = useCallback(() => {
     backToGrid();

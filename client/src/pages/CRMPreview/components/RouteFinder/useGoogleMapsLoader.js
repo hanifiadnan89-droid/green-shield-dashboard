@@ -11,7 +11,7 @@ function getApiKey() {
   return (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
 }
 
-/** True when VITE_GOOGLE_MAPS_API_KEY was set at build time (satellite route preview). */
+/** True when VITE_GOOGLE_MAPS_API_KEY was set at build time. */
 export function isGoogleMapsEnabled() {
   return !!getApiKey();
 }
@@ -23,7 +23,9 @@ function removeScriptTag() {
 
 function loadScript() {
   const key = getApiKey();
-  if (!key) return Promise.reject(Object.assign(new Error('no_key'), { code: 'no_key' }));
+  if (!key) {
+    return Promise.reject(Object.assign(new Error('no_key'), { code: 'no_key' }));
+  }
 
   if (window.google?.maps?.Map) {
     return Promise.resolve(window.google.maps);
@@ -40,6 +42,7 @@ function loadScript() {
       clearTimeout(timer);
       loadPromise = null;
       removeScriptTag();
+
       const err = Object.assign(new Error(code), { code, detail });
       console.error('[RouteFinder Maps]', code, detail || '');
       reject(err);
@@ -48,6 +51,7 @@ function loadScript() {
     const succeed = () => {
       if (settled) return;
       clearTimeout(timer);
+
       if (window.google?.maps?.Map) {
         settled = true;
         console.info('[RouteFinder Maps] API ready');
@@ -84,7 +88,6 @@ function loadScript() {
       `&v=weekly&loading=async&callback=${CALLBACK_NAME}`;
 
     script.addEventListener('load', () => {
-      // If callback never fires (bad key / blocked), avoid hanging until timeout.
       window.setTimeout(() => {
         if (loadPromise && !window.google?.maps?.Map) {
           fail('maps_api_unavailable', 'callback not invoked after script load');
@@ -95,10 +98,12 @@ function loadScript() {
     document.head.appendChild(script);
   }).catch((err) => {
     loadPromise = null;
+
     if (!err.code) {
       err.code = classifyMapsError(err.message);
       err.detail = err.message;
     }
+
     throw err;
   });
 
@@ -110,9 +115,11 @@ export function useGoogleMapsLoader() {
     if (!getApiKey()) {
       return { status: 'no_key', errorCode: 'no_key', errorDetail: '' };
     }
+
     if (window.google?.maps?.Map) {
       return { status: 'ready', errorCode: null, errorDetail: '' };
     }
+
     return { status: 'loading', errorCode: null, errorDetail: '' };
   });
 
@@ -121,12 +128,14 @@ export function useGoogleMapsLoader() {
       setState({ status: 'no_key', errorCode: 'no_key', errorDetail: '' });
       return;
     }
+
     if (window.google?.maps?.Map) {
       setState({ status: 'ready', errorCode: null, errorDetail: '' });
       return;
     }
 
     let cancelled = false;
+
     loadScript()
       .then(() => {
         if (!cancelled) {
@@ -143,7 +152,9 @@ export function useGoogleMapsLoader() {
         }
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return {
