@@ -615,27 +615,34 @@
 /* Full-width technician detail + route map workspaces */
 .crm-preview .route-match-workspace {
   position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: transparent;
+  pointer-events: none;
+}
+
+.crm-preview .route-match-workspace__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.crm-preview .route-match-detail {
+  position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 120;
-  background: #f1f5f9;
-  display: flex;
-  flex-direction: column;
-}
-
-@media (min-width: 1024px) {
-  .crm-preview .route-match-workspace {
-    left: 14rem;
-  }
-}
-
-.crm-preview .route-match-workspace--map {
-  background: #0f172a;
-}
-
-.crm-preview .route-match-detail {
+  z-index: 1;
+  pointer-events: auto;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -645,7 +652,18 @@
   width: 100%;
   max-width: none;
   border-radius: 0;
-  box-shadow: none;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), -8px 0 40px rgba(15, 23, 42, 0.12);
+}
+
+@media (min-width: 1024px) {
+  .crm-preview .route-match-detail {
+    left: 14rem;
+  }
+}
+
+.crm-preview .route-match-workspace--map {
+  background: #0f172a;
+  pointer-events: auto;
 }
 
 .crm-preview .route-match-detail__header {
@@ -685,16 +703,24 @@
 }
 
 .crm-preview .route-match-detail__close {
-  border: 0;
-  background: transparent;
-  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #fff;
+  color: #475569;
   cursor: pointer;
-  padding: 0.35rem;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 10px;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .crm-preview .route-match-detail__close:hover {
-  background: rgba(15, 23, 42, 0.06);
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.16);
   color: #0f172a;
 }
 
