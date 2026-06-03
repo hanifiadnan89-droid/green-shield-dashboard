@@ -398,6 +398,7 @@
 
 /* Dedicated Route Finder page (Tools → Route Finder) — full workspace */
 .crm-preview.route-finder-page {
+  position: relative;
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -467,6 +468,7 @@
 }
 
 .crm-preview .route-finder-section--results .route-finder-results-panel {
+  position: relative;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -612,23 +614,14 @@
   font-size: 0.6875rem;
 }
 
-/* Full-width technician detail + route map workspaces */
+/* Full-width technician detail + route map workspaces (portaled inside Route Finder) */
 .crm-preview .route-match-workspace {
   --route-match-peek-h: clamp(3.25rem, 9vh, 5.75rem);
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  position: absolute;
+  inset: 0;
   z-index: 120;
   background: transparent;
   pointer-events: none;
-}
-
-@media (min-width: 1024px) {
-  .crm-preview .route-match-workspace {
-    left: 14rem;
-  }
 }
 
 .crm-preview .route-match-workspace__backdrop-top {
@@ -655,8 +648,18 @@
   right: 0;
   bottom: 0;
   z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  width: 100%;
+  max-width: none;
+  background: #fff;
+}
+
+.crm-preview .route-match-detail__surface {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   pointer-events: auto;
-  flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
