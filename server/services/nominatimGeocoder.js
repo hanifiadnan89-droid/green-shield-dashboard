@@ -2,6 +2,9 @@
  * Server-side Nominatim proxy (OpenStreetMap).
  * Browsers must not call nominatim.org directly — Helmet CSP blocks it on Render.
  * No API key required; optional NOMINATIM_BASE_URL override.
+ *
+ * All outbound calls are serialized (1 req/sec policy) with an in-memory cache
+ * so autocomplete + blur/lookup do not burst past Nominatim rate limits.
  */
 
 const NOMINATIM_BASE = (process.env.NOMINATIM_BASE_URL || 'https://nominatim.openstreetmap.org').replace(/\/$/, '');
@@ -9,46 +12,79 @@ const USER_AGENT = process.env.NOMINATIM_USER_AGENT
   || 'GreenShieldDashboard/1.0 (route-finder; contact: support@greenshieldpestsolutions.com)';
 
 const ME_VIEWBOX = '-73.0,42.5,-69.5,47.5';
-let lastRequestAt = 0;
+const MIN_INTERVAL_MS = 1100;
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+/** @type {Promise<unknown>} */
+let requestQueue = Promise.resolve();
+let lastFetchCompletedAt = 0;
+const responseCache = new Map();
+
+function cacheKey(kind, query) {
+  return `${kind}:${query.trim().toLowerCase()}`;
+}
+
+function cacheGet(key) {
+  const entry = responseCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    responseCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function cacheSet(key, value) {
+  responseCache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+/** Serialize Nominatim HTTP calls (fixes concurrent suggest/lookup bursts). */
+function enqueueNominatim(task) {
+  const run = requestQueue.then(() => task());
+  requestQueue = run.catch(() => {});
+  return run;
+}
 
 async function nominatimFetch(pathAndQuery) {
-  const now = Date.now();
-  const waitMs = Math.max(0, 1100 - (now - lastRequestAt));
-  if (waitMs > 0) {
-    await new Promise((r) => setTimeout(r, waitMs));
-  }
-  lastRequestAt = Date.now();
+  return enqueueNominatim(async () => {
+    const waitMs = Math.max(0, MIN_INTERVAL_MS - (Date.now() - lastFetchCompletedAt));
+    if (waitMs > 0) {
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
 
-  const url = `${NOMINATIM_BASE}${pathAndQuery}`;
-  let resp;
-  try {
-    resp = await fetch(url, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        Accept: 'application/json',
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-  } catch (err) {
-    const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-    const e = new Error(isTimeout ? 'Geocoding request timed out (15s)' : `Geocoding network error: ${err.message}`);
-    e.code = 'GEOCODE_NETWORK';
-    throw e;
-  }
+    const url = `${NOMINATIM_BASE}${pathAndQuery}`;
+    let resp;
+    try {
+      resp = await fetch(url, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (err) {
+      const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+      const e = new Error(isTimeout ? 'Geocoding request timed out (15s)' : `Geocoding network error: ${err.message}`);
+      e.code = 'GEOCODE_NETWORK';
+      throw e;
+    } finally {
+      lastFetchCompletedAt = Date.now();
+    }
 
-  if (resp.status === 429) {
-    const e = new Error('Geocoding rate limit — wait a moment and try again');
-    e.code = 'GEOCODE_RATE_LIMIT';
-    throw e;
-  }
+    if (resp.status === 429) {
+      const e = new Error('Geocoding rate limit — wait a moment and try again');
+      e.code = 'GEOCODE_RATE_LIMIT';
+      throw e;
+    }
 
-  if (!resp.ok) {
-    const e = new Error(`Geocoding service returned HTTP ${resp.status}`);
-    e.code = 'GEOCODE_HTTP';
-    throw e;
-  }
+    if (!resp.ok) {
+      const e = new Error(`Geocoding service returned HTTP ${resp.status}`);
+      e.code = 'GEOCODE_HTTP';
+      throw e;
+    }
 
-  return resp.json();
+    return resp.json();
+  });
 }
 
 export function formatSuggestion(item) {
@@ -87,6 +123,10 @@ export async function searchAddressSuggestions(query, limit = 6) {
   const q = query.trim();
   if (q.length < 4) return [];
 
+  const key = cacheKey('suggest', q);
+  const cached = cacheGet(key);
+  if (cached) return cached;
+
   const params = new URLSearchParams({
     q,
     format: 'json',
@@ -102,7 +142,9 @@ export async function searchAddressSuggestions(query, limit = 6) {
     throw new Error('Unexpected geocoding response format');
   }
 
-  return data.map(formatSuggestion).filter((s) => s.primary);
+  const suggestions = data.map(formatSuggestion).filter((s) => s.primary);
+  cacheSet(key, suggestions);
+  return suggestions;
 }
 
 export async function lookupAddress(query) {
@@ -112,6 +154,10 @@ export async function lookupAddress(query) {
     e.code = 'GEOCODE_EMPTY';
     throw e;
   }
+
+  const key = cacheKey('lookup', q);
+  const cached = cacheGet(key);
+  if (cached) return cached;
 
   const params = new URLSearchParams({
     q,
@@ -127,7 +173,9 @@ export async function lookupAddress(query) {
     throw e;
   }
 
-  return formatLookupResult(data[0]);
+  const result = formatLookupResult(data[0]);
+  cacheSet(key, result);
+  return result;
 }
 
 export function getGeocodeConfigDiagnostics() {
@@ -136,5 +184,14 @@ export function getGeocodeConfigDiagnostics() {
     baseUrl: NOMINATIM_BASE,
     apiKeyRequired: false,
     proxied: true,
+    serialized: true,
+    cacheTtlSeconds: CACHE_TTL_MS / 1000,
   };
+}
+
+/** @internal test helper */
+export function resetNominatimQueueForTests() {
+  requestQueue = Promise.resolve();
+  lastFetchCompletedAt = 0;
+  responseCache.clear();
 }

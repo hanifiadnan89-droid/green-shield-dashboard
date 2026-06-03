@@ -68,9 +68,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const [scoringError, setScoringError]   = useState('');
   const [results, setResults]             = useState(null);
 
-  const geocodeCacheRef    = useRef({});
-  const suggestDebounceRef = useRef(null);
-  const suppressBlurRef    = useRef(false);
+  const geocodeCacheRef       = useRef({});
+  const suggestCacheRef       = useRef({});
+  const suggestDebounceRef    = useRef(null);
+  const suggestRequestIdRef   = useRef(0);
+  const suppressBlurRef       = useRef(false);
   const pollRef            = useRef(null);
   const bgStatusRef        = useRef(null);
   const dateKeysRef     = useRef(DATE_KEYS);
@@ -303,14 +305,33 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   // Address autocomplete
   // ---------------------------------------------------------------------------
   const fetchSuggestions = useCallback(async (query) => {
-    if (query.trim().length < 4) {
+    const trimmed = query.trim();
+    if (trimmed.length < 4) {
       setSuggestions([]);
       setShowSuggestions(false);
       setSuggestError('');
       return;
     }
+
+    const cacheKey = trimmed.toLowerCase();
+    if (suggestCacheRef.current[cacheKey]) {
+      const formatted = suggestCacheRef.current[cacheKey];
+      setSuggestions(formatted);
+      setShowSuggestions(formatted.length > 0);
+      setActiveSuggestion(-1);
+      setSuggestError(
+        formatted.length === 0
+          ? 'No matches — try city and state, e.g. 24 Morning St, Portland, ME 04101'
+          : '',
+      );
+      return;
+    }
+
+    const requestId = ++suggestRequestIdRef.current;
     try {
-      const formatted = await fetchAddressSuggestions(query);
+      const formatted = await fetchAddressSuggestions(trimmed);
+      if (requestId !== suggestRequestIdRef.current) return;
+      suggestCacheRef.current[cacheKey] = formatted;
       setSuggestions(formatted);
       setShowSuggestions(formatted.length > 0);
       setActiveSuggestion(-1);
@@ -320,6 +341,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
           : '',
       );
     } catch (err) {
+      if (requestId !== suggestRequestIdRef.current) return;
       console.warn('[geocode] suggest failed:', err);
       setSuggestions([]);
       setShowSuggestions(false);
@@ -677,7 +699,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   setActiveSuggestion(-1);
                   if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
                   if (val.trim().length >= 4) {
-                    suggestDebounceRef.current = setTimeout(() => fetchSuggestions(val), 350);
+                    suggestDebounceRef.current = setTimeout(() => fetchSuggestions(val), 500);
                   } else {
                     setSuggestions([]);
                     setShowSuggestions(false);
@@ -694,9 +716,13 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   if (suggestions.length > 0) setShowSuggestions(true);
                 }}
                 onBlur={() => {
-                  if (suppressBlurRef.current) { suppressBlurRef.current = false; return; }
+                  if (suppressBlurRef.current) {
+                    suppressBlurRef.current = false;
+                    return;
+                  }
                   setShowSuggestions(false);
-                  if (addressInput.trim()) doGeocode(addressInput);
+                  // Do not auto-lookup on blur — clicking match cards / elsewhere
+                  // used to fire a second Nominatim call and trigger rate limits.
                 }}
               />
               {geocodeStatus === 'loading' ? (
@@ -941,10 +967,15 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                     Re-score
                   </button>
                 </div>
-                <RouteMatchResults
-                  matches={results.topMatches}
-                  routeArea={results.routeArea}
-                />
+                <div
+                  onMouseDown={() => { suppressBlurRef.current = true; }}
+                  onTouchStart={() => { suppressBlurRef.current = true; }}
+                >
+                  <RouteMatchResults
+                    matches={results.topMatches}
+                    routeArea={results.routeArea}
+                  />
+                </div>
                 <p className="type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal">
                   {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
                 </p>

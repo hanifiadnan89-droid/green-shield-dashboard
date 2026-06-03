@@ -1,8 +1,14 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
   plugins: [react()],
+  // Load VITE_* from repo root .env when building via `npm run build --prefix client`
+  envDir: path.resolve(__dirname, '..'),
 
 build: {
   chunkSizeWarningLimit: 1500,
