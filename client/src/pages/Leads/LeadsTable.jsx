@@ -9,7 +9,7 @@ import { motion, LayoutGroup } from 'motion/react';
 import { ChevronDown, ChevronsUpDown, ChevronUp, MessageSquare, Mail, Phone } from 'lucide-react';
 import { createLeadsColumns, LEADS_INITIAL_SORTING } from '../leadsColumns.jsx';
 import { hasRealReply } from '../CRMPreview/mockData.js';
-import { isLeadPriority, isLeadUnread } from './leadsFilters.js';
+import { isLeadPriority } from './leadsFilters.js';
 import LeadStatusLabel from './LeadStatusLabel.jsx';
 import LeadRowActions from './LeadRowActions.jsx';
 
@@ -58,6 +58,8 @@ export default function LeadsTable({
   onStop,
   onEdit,
   actionLoading,
+  isLeadUnread = () => false,
+  pulseRows = new Set(),
 }) {
   const [sorting, setSorting] = useState(LEADS_INITIAL_SORTING);
 
@@ -71,8 +73,9 @@ export default function LeadsTable({
       RowActions: LeadRowActions,
       NameCell: LeadNameCell,
       formatSent,
+      isLeadUnread,
     }),
-    [navigate, onStop, onEdit, actionLoading]
+    [navigate, onStop, onEdit, actionLoading, isLeadUnread]
   );
 
   const table = useReactTable({
@@ -126,7 +129,8 @@ export default function LeadsTable({
               const lead = row.original;
               const selected = selectedRowNumber === lead.row_number;
               const unread = isLeadUnread(lead);
-              const priority = isLeadPriority(lead);
+              const pulsing = pulseRows.has(lead.row_number);
+              const priority = isLeadPriority(lead) && !unread;
               const delay = Math.min(index, STAGGER_CAP) * STAGGER_DELAY;
 
               return (
@@ -138,7 +142,7 @@ export default function LeadsTable({
                     selected ? 'leads-row--selected' : '',
                     unread ? 'leads-row--unread' : '',
                     priority && !selected ? 'leads-row--priority' : '',
-                    unread && !selected ? 'leads-row--pulse' : '',
+                    (unread || pulsing) && !selected ? 'leads-row--pulse' : '',
                   ].filter(Boolean).join(' ')}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}

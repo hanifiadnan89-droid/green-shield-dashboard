@@ -25,6 +25,7 @@ export const LEADS_INITIAL_SORTING = [{ id: 'row_number', desc: true }];
  *   RowActions?: React.ComponentType;
  *   NameCell?: React.ComponentType<{ lead: LeadRow; unread?: boolean }>;
  *   formatSent?: (sent: string) => React.ReactNode;
+ *   isLeadUnread?: (lead: LeadRow) => boolean;
  * }} handlers
  */
 export function createLeadsColumns({
@@ -36,6 +37,7 @@ export function createLeadsColumns({
   RowActions,
   NameCell,
   formatSent,
+  isLeadUnread,
 }) {
   const renderSent = formatSent || ((sent) => {
     if (sent === 'imported') return <span className="text-gs-muted">imported</span>;
@@ -92,7 +94,8 @@ export function createLeadsColumns({
       meta: columnMeta({ minWidth: 'min-w-[10rem]' }),
       cell: ({ row, getValue }) => {
         if (NameCell) {
-          return <NameCell lead={row.original} unread={hasRealReply(row.original.sms_reply) || hasRealReply(row.original.email_reply)} />;
+          const unread = isLeadUnread ? isLeadUnread(row.original) : false;
+          return <NameCell lead={row.original} unread={unread} />;
         }
         return getValue() || <span className="text-gs-muted">—</span>;
       },
