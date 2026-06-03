@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
+import { useLiveActivityFeed } from './useLiveActivityFeed.js';
+import { formatSyncAgo } from './useLiveClock.js';
 import {
   Users, Send, MessageSquare, FileText, DollarSign, CheckCircle2,
   RefreshCw, ArrowUpRight, Activity, Bug, Rat, AlertTriangle,
@@ -19,19 +21,29 @@ const KPI_ICONS = {
   check: CheckCircle2,
 };
 
-export function Panel({ children, className = '', delay = 0, title, action }) {
+export function Panel({ children, className = '', delay = 0, title, action, floatOffset = 0 }) {
   return (
     <motion.div
-      className={`pc-panel ${className}`.trim()}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.45, ease: EASE }}
+      className={`pc-panel pc-panel--glass ${className}`.trim()}
+      initial={{ opacity: 0, y: 22, scale: 0.98 }}
+      animate={{
+        opacity: 1,
+        y: [0, -3, 0],
+        scale: 1,
+      }}
+      transition={{
+        opacity: { delay, duration: 0.5, ease: EASE },
+        y: { delay: delay + 0.5, duration: 5 + floatOffset, repeat: Infinity, ease: 'easeInOut' },
+        scale: { delay, duration: 0.5, ease: EASE },
+      }}
       whileHover={{
-        y: -2,
-        boxShadow: '0 16px 48px rgba(74,222,128,0.1)',
-        transition: { duration: 0.25 },
+        y: -6,
+        scale: 1.01,
+        boxShadow: '0 20px 56px rgba(74,222,128,0.16), 0 0 0 1px rgba(74,222,128,0.2)',
+        transition: { duration: 0.28 },
       }}
     >
+      <span className="pc-panel__shimmer" aria-hidden />
       {(title || action) && (
         <div className="pc-panel__head">
           {title && <p className="pc-panel__title">{title}</p>}
@@ -47,6 +59,13 @@ export function MiniSparkline({ data = [], color = '#4ade80', height = 28 }) {
   const w = 64;
   const h = height;
   const max = Math.max(...data, 1);
+  const [cycle, setCycle] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setCycle(c => c + 1), 4200);
+    return () => clearInterval(id);
+  }, []);
+
   const coords = data.map((v, i) => ({
     x: (i / Math.max(data.length - 1, 1)) * w,
     y: h - (v / max) * (h - 4) - 2,
@@ -56,15 +75,16 @@ export function MiniSparkline({ data = [], color = '#4ade80', height = 28 }) {
   return (
     <svg width={w} height={h} className="pc-mini-spark">
       <motion.path
+        key={cycle}
         d={d}
         fill="none"
         stroke={color}
         strokeWidth="1.5"
         strokeLinecap="round"
-        initial={{ pathLength: 0, opacity: 0 }}
+        initial={{ pathLength: 0, opacity: 0.3 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 0.8, ease: EASE }}
-        style={{ filter: `drop-shadow(0 0 4px ${color}88)` }}
+        transition={{ duration: 1.1, ease: EASE }}
+        style={{ filter: `drop-shadow(0 0 6px ${color})` }}
       />
     </svg>
   );
@@ -87,14 +107,7 @@ function TrendBadge({ trend }) {
   );
 }
 
-export function CommandHeader({ total, sentToday, onRefresh, onViewPipeline, lastSync }) {
-  const [pulse, setPulse] = useState(true);
-  useEffect(() => {
-    const id = setInterval(() => setPulse(p => !p), 2000);
-    return () => clearInterval(id);
-  }, []);
-
-  const ago = formatAgo(lastSync);
+export function CommandHeader({ onRefresh, onViewPipeline, lastSync, now }) {
 
   return (
     <header className="pc-header">
@@ -106,7 +119,7 @@ export function CommandHeader({ total, sentToday, onRefresh, onViewPipeline, las
         <h2 className="pc-header__title">
           <motion.span
             className="pc-header__pulse-icon"
-            animate={{ scale: pulse ? [1, 1.15, 1] : 1, opacity: pulse ? [0.7, 1, 0.7] : 0.8 }}
+            animate={{ scale: [1, 1.18, 1], opacity: [0.65, 1, 0.65] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
             <Activity size={18} />
@@ -131,7 +144,14 @@ export function CommandHeader({ total, sentToday, onRefresh, onViewPipeline, las
           />
           Live
         </span>
-        <span className="pc-header__sync">Last updated: {ago}</span>
+        <motion.span
+          className="pc-header__sync"
+          key={formatSyncAgo(lastSync, now)}
+          initial={{ opacity: 0.6 }}
+          animate={{ opacity: 1 }}
+        >
+          Last updated: {formatSyncAgo(lastSync, now)}
+        </motion.span>
         <motion.button
           type="button"
           className="pc-icon-btn"
@@ -156,14 +176,6 @@ export function CommandHeader({ total, sentToday, onRefresh, onViewPipeline, las
   );
 }
 
-function formatAgo(date) {
-  if (!date) return '—';
-  const s = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (s < 10) return 'just now';
-  if (s < 60) return `${s}s ago`;
-  return `${Math.floor(s / 60)}m ago`;
-}
-
 export function KpiRow({ kpis, onNavigate }) {
   return (
     <div className="pc-kpi-row">
@@ -178,8 +190,18 @@ export function KpiRow({ kpis, onNavigate }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 + i * 0.06, duration: 0.4, ease: EASE }}
-            whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            whileHover={{
+              y: -6,
+              boxShadow: '0 12px 40px rgba(74,222,128,0.2), inset 0 0 24px rgba(74,222,128,0.06)',
+              transition: { duration: 0.22 },
+            }}
           >
+            <motion.span
+              className="pc-kpi__glow"
+              aria-hidden
+              animate={{ opacity: [0.2, 0.5, 0.2] }}
+              transition={{ duration: 3, repeat: Infinity, delay: i * 0.2 }}
+            />
             <div className="pc-kpi__top">
               <span className="pc-kpi__icon">
                 <Icon size={14} />
@@ -270,15 +292,15 @@ export function PipelineFlow({ stages, conversionRate }) {
             animate={{ opacity: [0.4, 0.9, 0.4], scaleX: [0.95, 1, 0.95] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
           />
-          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          {Array.from({ length: 14 }, (_, i) => (
             <motion.span
               key={i}
-              className="pc-flow__particle"
-              animate={{ left: ['-5%', '105%'], opacity: [0, 1, 1, 0] }}
+              className={`pc-flow__particle${i % 3 === 0 ? ' pc-flow__particle--lg' : ''}`}
+              animate={{ left: ['-8%', '108%'], opacity: [0, 0.9, 0.9, 0] }}
               transition={{
-                duration: 2.8,
+                duration: 2.2 + (i % 4) * 0.4,
                 repeat: Infinity,
-                delay: i * 0.35,
+                delay: i * 0.22,
                 ease: 'linear',
               }}
             />
@@ -297,7 +319,12 @@ export function PipelineFlow({ stages, conversionRate }) {
                 <AnimatedNumber value={stage.count} />
               </p>
               <p className="pc-flow__stage-label">{stage.label}</p>
-              <span className="pc-flow__stage-dot" style={{ background: stage.color, boxShadow: `0 0 10px ${stage.color}` }} />
+              <motion.span
+                className="pc-flow__stage-dot"
+                style={{ background: stage.color, boxShadow: `0 0 10px ${stage.color}` }}
+                animate={{ scale: [1, 1.25, 1], opacity: [0.85, 1, 0.85] }}
+                transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.3 }}
+              />
             </motion.div>
           ))}
         </div>
@@ -381,9 +408,18 @@ export function LeadActivityChart({ series }) {
   }));
   const lineD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
   const peak = coords.reduce((best, c) => (c.total > best.total ? c : best), coords[0]);
+  const [scanIdx, setScanIdx] = useState(0);
+  useEffect(() => {
+    if (!coords.length) return undefined;
+    const id = setInterval(() => {
+      setScanIdx(i => (i + 1) % coords.length);
+    }, 800);
+    return () => clearInterval(id);
+  }, [coords.length]);
+  const scanX = coords[scanIdx]?.x ?? 0;
 
   return (
-    <Panel title="Lead Activity (7 Days)" delay={0.26} className="pc-activity-chart">
+    <Panel title="Lead Activity (7 Days)" delay={0.26} className="pc-activity-chart" floatOffset={0.5}>
       <svg viewBox={`0 0 ${w} ${h}`} className="pc-activity-chart__svg" preserveAspectRatio="none">
         <defs>
           <linearGradient id="pc-act-fill" x1="0" y1="0" x2="0" y2="1">
@@ -405,9 +441,19 @@ export function LeadActivityChart({ series }) {
           strokeWidth="2.5"
           strokeLinecap="round"
           initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.2, ease: EASE }}
-          style={{ filter: 'drop-shadow(0 0 8px rgba(74,222,128,0.5))' }}
+          animate={{ pathLength: [0, 1, 1], pathOffset: [0, 0, 0.02] }}
+          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1 }}
+          style={{ filter: 'drop-shadow(0 0 10px rgba(74,222,128,0.55))' }}
+        />
+        <motion.line
+          x1={scanX}
+          x2={scanX}
+          y1={pad}
+          y2={h - pad}
+          stroke="rgba(74,222,128,0.35)"
+          strokeWidth="1"
+          animate={{ opacity: [0.2, 0.7, 0.2] }}
+          transition={{ duration: 2, repeat: Infinity }}
         />
         {peak && (
           <motion.circle
@@ -593,12 +639,25 @@ export function RepliesOverTime({ series, total, trend }) {
 
 export function PipelineHealth({ score, checks, onNavigate }) {
   return (
-    <Panel title="Pipeline Health" delay={0.44}>
+    <Panel title="Pipeline Health" delay={0.44} floatOffset={1.2}>
       <div className="pc-health__ring">
+        <svg className="pc-health__ecg" viewBox="0 0 120 32" preserveAspectRatio="none">
+          <motion.path
+            d="M0 16 L12 16 L18 8 L24 24 L30 16 L120 16"
+            fill="none"
+            stroke="#4ade80"
+            strokeWidth="2"
+            strokeLinecap="round"
+            initial={{ pathLength: 0, opacity: 0.4 }}
+            animate={{ pathLength: [0, 1, 1], opacity: [0.4, 1, 0.6] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
+            style={{ filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.6))' }}
+          />
+        </svg>
         <motion.div
           className="pc-health__heartbeat"
-          animate={{ scaleX: [1, 1.05, 1, 1.03, 1] }}
-          transition={{ duration: 1.2, repeat: Infinity }}
+          animate={{ scale: [1, 1.12, 1, 1.08, 1] }}
+          transition={{ duration: 1.1, repeat: Infinity }}
         >
           <Heart size={28} className="text-[#4ade80]" />
         </motion.div>
@@ -662,25 +721,29 @@ const FEED_TONE = {
 };
 
 export function TodaysActivityFeed({ items }) {
+  const { visible, pulseId } = useLiveActivityFeed(items, 3200);
+
   return (
-    <Panel title="Today's Activity Feed" delay={0.48} className="pc-feed-panel">
+    <Panel title="Today's Activity Feed" delay={0.48} className="pc-feed-panel" floatOffset={0.8}>
       <div className="pc-feed">
-        <AnimatePresence mode="popLayout">
-          {items.length === 0 ? (
-            <p className="pc-muted">No activity yet today</p>
-          ) : (
-            items.map((item, i) => {
+        <LayoutGroup>
+          <AnimatePresence mode="popLayout">
+            {visible.length === 0 ? (
+              <p className="pc-muted">No activity yet today</p>
+            ) : (
+              visible.map((item, i) => {
               const Icon = FEED_ICONS[item.type] || Zap;
+              const isPulse = item.id === pulseId;
               return (
                 <motion.div
                   key={item.id}
-                  className={`pc-feed__row pc-feed__row--${FEED_TONE[item.type] || 'info'}`}
                   layout
-                  initial={{ opacity: 0, x: 12 }}
+                  className={`pc-feed__row pc-feed__row--${FEED_TONE[item.type] || 'info'}${isPulse ? ' pc-feed__row--pulse' : ''}`}
+                  initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -8 }}
-                  transition={{ delay: 0.5 + i * 0.05, ease: EASE }}
-                  whileHover={{ x: 4, backgroundColor: 'rgba(255,255,255,0.04)' }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                  whileHover={{ x: 6, backgroundColor: 'rgba(74,222,128,0.08)' }}
                 >
                   <span className="pc-feed__icon">
                     <Icon size={14} />
@@ -690,8 +753,9 @@ export function TodaysActivityFeed({ items }) {
                 </motion.div>
               );
             })
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
+        </LayoutGroup>
       </div>
     </Panel>
   );
@@ -724,15 +788,13 @@ export function SystemStatusStrip() {
           <span className="pc-status-strip__value">{item.value}</span>
         </div>
       ))}
-      <motion.a
-        href="/leads"
-        className="pc-status-strip__sheets"
-        whileHover={{ x: 2 }}
-      >
-        <Sheet size={14} />
-        Connected to Google Sheets
-        <ArrowUpRight size={12} />
-      </motion.a>
+      <motion.div whileHover={{ x: 2 }}>
+        <Link to="/leads" className="pc-status-strip__sheets">
+          <Sheet size={14} />
+          Connected to Google Sheets
+          <ArrowUpRight size={12} />
+        </Link>
+      </motion.div>
     </motion.footer>
   );
 }

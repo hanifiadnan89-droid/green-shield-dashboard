@@ -401,11 +401,25 @@ function buildTodayActivity(leads, priority) {
     });
   }
 
+  const moreSent = [...leads]
+    .filter(_hasSent)
+    .sort((a, b) => new Date(b.sent) - new Date(a.sent))
+    .slice(2, 5);
+  for (const lead of moreSent) {
+    items.push({
+      id: `sent2-${lead.row_number}`,
+      type: 'sent',
+      text: `${(lead.notes || '').toUpperCase()} outreach · ${lead.name}`,
+      time: relativeTime(lead.sent),
+      ts: lead.sent,
+    });
+  }
+
   return items
     .sort((a, b) => {
       const ta = a.ts ? new Date(a.ts).getTime() : Date.now();
       const tb = b.ts ? new Date(b.ts).getTime() : Date.now();
       return tb - ta;
     })
-    .slice(0, 8);
+    .slice(0, 12);
 }

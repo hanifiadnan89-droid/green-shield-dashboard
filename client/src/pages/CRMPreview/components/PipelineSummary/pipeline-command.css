@@ -2,12 +2,42 @@
 
 .pipeline-command {
   position: relative;
-  border-radius: 20px;
   padding: 1.25rem 1.25rem 0;
   overflow: hidden;
-  background: linear-gradient(165deg, #0c1210 0%, #060a08 50%, #0a100c 100%);
-  border: 1px solid rgba(74, 222, 128, 0.1);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.45);
+  background: #050807;
+}
+
+.pipeline-command--fullscreen {
+  min-height: 100%;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  padding: 1rem 1.25rem 0;
+}
+
+.crm-preview--command .gs-command-main {
+  background: #050807;
+}
+
+.gs-command-main__scroll {
+  scrollbar-color: rgba(74, 222, 128, 0.25) transparent;
+}
+
+.gs-command-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.gs-command-error__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #f8fafc;
 }
 
 .pipeline-command__glow {
@@ -807,4 +837,152 @@
 
 .pipeline-command__empty a {
   color: #4ade80;
+}
+
+/* Ambient motion layer */
+.pc-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.pc-ambient__mesh {
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(
+    125deg,
+    rgba(74, 222, 128, 0.06) 0%,
+    transparent 35%,
+    rgba(56, 189, 248, 0.04) 55%,
+    transparent 70%,
+    rgba(163, 230, 53, 0.05) 100%
+  );
+  background-size: 200% 200%;
+}
+
+.pc-ambient__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+}
+
+.pc-ambient__grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Glass panels */
+.pc-panel--glass {
+  position: relative;
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0.02) 45%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.pc-panel__shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(74, 222, 128, 0.06) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: pc-shimmer 5s ease-in-out infinite;
+}
+
+@keyframes pc-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.pc-kpi {
+  position: relative;
+  overflow: hidden;
+}
+
+.pc-kpi__glow {
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.15) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.pc-flow__particle--lg {
+  width: 10px;
+  height: 10px;
+  box-shadow: 0 0 16px #a3e635, 0 0 24px #4ade80;
+}
+
+.pc-feed__row--pulse {
+  box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.08) !important;
+}
+
+.pc-health__ecg {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 32px;
+  opacity: 0.85;
+}
+
+/* Loading skeleton */
+.pc-skel {
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(74, 222, 128, 0.08), rgba(255, 255, 255, 0.04));
+  background-size: 200% 100%;
+}
+
+.pc-skel-layout {
+  gap: 1rem;
+  min-height: 80vh;
+}
+
+.pc-skel--header { height: 56px; }
+.pc-skel-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr) 280px;
+  gap: 0.65rem;
+}
+.pc-skel--kpi { height: 96px; }
+.pc-skel--services { grid-row: span 1; min-height: 200px; }
+.pc-skel-mid {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 1.2fr;
+  gap: 1rem;
+}
+.pc-skel--flow { height: 180px; }
+.pc-skel--conv { height: 180px; }
+.pc-skel--chart { height: 180px; }
+.pc-skel-bottom {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+.pc-skel--card { height: 160px; }
+
+@media (max-width: 1199px) {
+  .pc-skel-kpi-row { grid-template-columns: repeat(3, 1fr); }
+  .pc-skel--services { grid-column: 1 / -1; }
+  .pc-skel-mid { grid-template-columns: 1fr; }
+  .pc-skel-bottom { grid-template-columns: repeat(2, 1fr); }
 }
