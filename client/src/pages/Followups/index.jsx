@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import Spinner from '../../components/Spinner.jsx';
 import useFollowups from './useFollowups.js';
-import FollowupsHeader from './FollowupsHeader.jsx';
 import FollowupsKpiRow from './FollowupsKpiRow.jsx';
-import FollowupsAutomationCard from './FollowupsAutomationCard.jsx';
 import FollowupsQuickFilters from './FollowupsQuickFilters.jsx';
 import FollowupsTable from './FollowupsTable.jsx';
 import FollowupsDetailPanel from './FollowupsDetailPanel.jsx';
@@ -22,7 +20,6 @@ export default function FollowupsPage() {
     filteredLeads,
     kpis,
     loading,
-    lastRefreshed,
     quickFilter,
     setQuickFilter,
     selectedLead,
@@ -32,7 +29,6 @@ export default function FollowupsPage() {
     setConfirmStopLead,
     handleStopRequest,
     handleStopConfirm,
-    load,
     toast,
   } = useFollowups();
 
@@ -52,20 +48,8 @@ export default function FollowupsPage() {
 
   return (
     <div className="followups-page">
-      <FollowupsHeader
-        loading={loading}
-        onRefresh={load}
-        inFlightCount={inFlightLeads.length}
-      />
-
       <div className="followups-scroll">
         <FollowupsKpiRow kpis={kpis} loading={loading} />
-
-        <FollowupsAutomationCard
-          lastRefreshed={lastRefreshed}
-          loading={loading}
-          onRefresh={load}
-        />
 
         <FollowupsQuickFilters
           value={quickFilter}

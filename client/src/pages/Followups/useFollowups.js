@@ -9,7 +9,6 @@ import {
 export default function useFollowups() {
   const [allLeads, setAllLeads] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [lastRefreshed, setLastRefreshed] = useState(null);
   const [quickFilter, setQuickFilter] = useState('all');
   const [selectedLead, setSelectedLead] = useState(null);
   const [stopLoading, setStopLoading] = useState({});
@@ -27,7 +26,6 @@ export default function useFollowups() {
       const { leads: data } = await api.leads.list();
       const list = data || [];
       setAllLeads(list);
-      setLastRefreshed(new Date());
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -88,7 +86,6 @@ export default function useFollowups() {
     filteredLeads,
     kpis,
     loading,
-    lastRefreshed,
     quickFilter,
     setQuickFilter,
     selectedLead,
