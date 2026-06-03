@@ -3,6 +3,9 @@ import { AnimatePresence } from 'motion/react';
 import RouteResultCard from './RouteResultCard.jsx';
 import RouteMatchDetailWorkspace from './RouteMatchDetailWorkspace.jsx';
 import RouteMatchMapWorkspace from './RouteMatchMapWorkspace.jsx';
+import { isGoogleMapsEnabled } from './RouteFinder/useGoogleMapsLoader.js';
+
+const mapsEnabled = isGoogleMapsEnabled();
 
 /**
  * view: grid | detail | map
@@ -30,7 +33,7 @@ export default function RouteMatchResults({ matches, routeArea }) {
   }, []);
 
   const openFullMap = useCallback(() => {
-    setView('map');
+    if (mapsEnabled) setView('map');
   }, []);
 
   const handleSelectTechnician = useCallback(() => {
@@ -67,7 +70,7 @@ export default function RouteMatchResults({ matches, routeArea }) {
       </AnimatePresence>
 
       <AnimatePresence>
-        {view === 'map' && activeMatch && (
+        {mapsEnabled && view === 'map' && activeMatch && (
           <RouteMatchMapWorkspace
             key={`map-${activeMatch.routeId}`}
             match={activeMatch}

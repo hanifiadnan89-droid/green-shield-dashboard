@@ -5,6 +5,7 @@ import { ArrowLeft, X } from 'lucide-react';
 import RouteMatchCardContent from './RouteMatchCardContent.jsx';
 import RouteMatchScoreBreakdown from './RouteMatchScoreBreakdown.jsx';
 import RouteGoogleMap from './RouteGoogleMap.jsx';
+import { isGoogleMapsEnabled } from './RouteFinder/useGoogleMapsLoader.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -21,6 +22,7 @@ export default function RouteMatchDetailWorkspace({
   const stops = match.routeStops || [];
   const visibleStops = showAllStops ? stops : stops.slice(0, 12);
   const day = match.daySummary;
+  const mapsEnabled = isGoogleMapsEnabled();
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -84,13 +86,15 @@ export default function RouteMatchDetailWorkspace({
               >
                 Select This Technician
               </button>
-              <button
-                type="button"
-                className="route-match-detail__btn route-match-detail__btn--secondary"
-                onClick={onOpenFullMap}
-              >
-                View Full Route
-              </button>
+              {mapsEnabled && (
+                <button
+                  type="button"
+                  className="route-match-detail__btn route-match-detail__btn--secondary"
+                  onClick={onOpenFullMap}
+                >
+                  View Full Route
+                </button>
+              )}
             </div>
           </section>
 
@@ -151,15 +155,19 @@ export default function RouteMatchDetailWorkspace({
               </>
             )}
 
-            <h2 className="route-match-detail__section-title mt-4">Route preview</h2>
-            <RouteGoogleMap
-              stops={stops}
-              mapType="satellite"
-              compact
-              showControls={false}
-              interactive={false}
-              onExpand={onOpenFullMap}
-            />
+            {mapsEnabled && (
+              <>
+                <h2 className="route-match-detail__section-title mt-4">Route preview</h2>
+                <RouteGoogleMap
+                  stops={stops}
+                  mapType="satellite"
+                  compact
+                  showControls={false}
+                  interactive={false}
+                  onExpand={onOpenFullMap}
+                />
+              </>
+            )}
           </section>
         </div>
       </motion.div>

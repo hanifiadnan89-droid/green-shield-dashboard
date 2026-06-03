@@ -59,7 +59,7 @@ export default function RouteGoogleMap({
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const overlaysRef = useRef({ markers: [], polyline: null });
-  const { status, errorCode, errorDetail, hasKey, apiKeyPresentAtBuild } = useGoogleMapsLoader();
+  const { status, errorCode, errorDetail, hasKey } = useGoogleMapsLoader();
   const [mapInitError, setMapInitError] = useState(null);
   const [localType, setLocalType] = useState(mapType);
   const coordStatus = useMemo(() => getMapCoordinateStatus(stops), [stops]);
@@ -150,13 +150,7 @@ export default function RouteGoogleMap({
   }
 
   if (!hasKey || status === 'no_key') {
-    const { title, hint } = describeMapLoadError('no_key');
-    const rebuildHint = apiKeyPresentAtBuild
-      ? hint
-      : `${hint} The built bundle has no key — redeploy on Render after setting the variable.`;
-    return (
-      <MapFallback wrapperClass={wrapperClass} title={title} hint={rebuildHint} code="no_key" />
-    );
+    return null;
   }
 
   if (status === 'loading') {

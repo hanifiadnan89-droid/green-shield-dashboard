@@ -11,6 +11,11 @@ function getApiKey() {
   return (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
 }
 
+/** True when VITE_GOOGLE_MAPS_API_KEY was set at build time (satellite route preview). */
+export function isGoogleMapsEnabled() {
+  return !!getApiKey();
+}
+
 function removeScriptTag() {
   document.getElementById(SCRIPT_ID)?.remove();
   if (window[CALLBACK_NAME]) delete window[CALLBACK_NAME];
