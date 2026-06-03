@@ -66,17 +66,15 @@ router.post('/:rowNumber/read', (req, res) => {
       inboundKey = getLatestInboundReadKey(messages);
     }
     if (!inboundKey) {
-      return res.json({ lastReadInboundKey: null, unread: false });
+      return res.json({ lastReadInboundKey: null, lastReadAt: null, unread: false });
     }
-    const lastReadInboundKey = markThreadRead(rowNumber, inboundKey);
+    const readState = await markThreadRead(rowNumber, { inboundKey });
     const messages = getMessagesForLead(rowNumber);
     res.json({
-      lastReadInboundKey,
-      unread: false,
+      ...readState,
       meta: {
         ...getConversationPreview(messages),
-        lastReadInboundKey,
-        unread: false,
+        ...readState,
       },
     });
   } catch (err) {

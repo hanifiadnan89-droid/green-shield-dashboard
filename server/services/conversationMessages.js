@@ -78,6 +78,54 @@ function hasMessage(messages, candidate) {
   return messages.some(m => messageKey(m) === key);
 }
 
+function findInboundByContent(messages, channel, body) {
+  const normalizedBody = (body || '').trim();
+  if (!normalizedBody) return null;
+  const ch = channel === 'email' ? 'email' : 'sms';
+  return messages.find(
+    m => m.direction === 'inbound' && m.channel === ch && (m.body || '').trim() === normalizedBody,
+  ) || null;
+}
+
+/** Same row + channel + body → same ts across resync/redeploy (read cursor stays valid). */
+export function stableInboundTs(rowNumber, channel, body) {
+  const seed = `${rowNumber}|${channel === 'email' ? 'email' : 'sms'}|${(body || '').trim()}`;
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+  }
+  const anchor = Date.UTC(2024, 0, 1);
+  const offsetMs = Math.abs(h) % (5 * 365 * 24 * 60 * 60 * 1000);
+  return new Date(anchor + offsetMs).toISOString();
+}
+
+function parseTimeMs(value) {
+  if (!value) return null;
+  const t = new Date(value).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+async function persistReadAtToSheet(rowNumber, iso) {
+  if (process.env.TEST_MODE === 'true' || !iso) return;
+  try {
+    const { updateLead } = await import('./sheets.js');
+    await updateLead(rowNumber, { replies_last_read_at: iso });
+  } catch (err) {
+    console.warn('[conversationMessages] Sheet read-state persist failed:', err.message);
+  }
+}
+
+function hydrateThreadReadFromLead(thread, lead) {
+  const sheetAt = lead?.replies_last_read_at;
+  if (!sheetAt) return;
+  const sheetMs = parseTimeMs(sheetAt);
+  if (sheetMs == null) return;
+  const threadMs = parseTimeMs(thread.lastReadAt);
+  if (threadMs == null || sheetMs > threadMs) {
+    thread.lastReadAt = sheetAt;
+  }
+}
+
 function sortMessages(messages) {
   return [...messages].sort((a, b) => {
     const ta = new Date(a.ts).getTime();
@@ -97,11 +145,15 @@ function getThread(store, rowNumber) {
       lastSyncedSmsReply: '',
       lastSyncedEmailReply: '',
       lastReadInboundKey: null,
+      lastReadAt: null,
     };
   }
   const thread = store.threads[key];
   if (thread.lastReadInboundKey === undefined) {
     thread.lastReadInboundKey = null;
+  }
+  if (thread.lastReadAt === undefined) {
+    thread.lastReadAt = null;
   }
   return thread;
 }
@@ -128,7 +180,27 @@ export function getLatestInboundReadKey(messages) {
   return inboundReadKey(getLatestInbound(messages));
 }
 
-export function isThreadUnread(messages, thread) {
+export function getLastInboundAt(messages) {
+  const inbound = getLatestInbound(messages);
+  return inbound?.ts || null;
+}
+
+export function getLastReadAt(thread, lead) {
+  return thread?.lastReadAt || lead?.replies_last_read_at || null;
+}
+
+export function isThreadUnread(messages, thread, lead = null) {
+  const inboundAt = getLastInboundAt(messages);
+  if (!inboundAt) return false;
+
+  const inboundMs = parseTimeMs(inboundAt);
+  const readAt = getLastReadAt(thread, lead);
+  const readMs = parseTimeMs(readAt);
+
+  if (readMs != null && inboundMs != null) {
+    return inboundMs > readMs;
+  }
+
   const latestKey = getLatestInboundReadKey(messages);
   if (!latestKey) return false;
   const readKey = thread?.lastReadInboundKey;
@@ -136,20 +208,57 @@ export function isThreadUnread(messages, thread) {
   return readKey !== latestKey;
 }
 
-export function markThreadRead(rowNumber, inboundKey) {
-  if (!inboundKey) {
-    throw new Error('inboundKey is required');
-  }
+export function buildThreadReadMeta(messages, thread, lead = null) {
+  const lastInboundAt = getLastInboundAt(messages);
+  const lastReadAt = getLastReadAt(thread, lead);
+  return {
+    lastInboundAt,
+    lastReadAt,
+    lastReadInboundKey: thread?.lastReadInboundKey ?? null,
+    unread: isThreadUnread(messages, thread, lead),
+  };
+}
+
+export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
+  const options = typeof inboundKeyOrOptions === 'string'
+    ? { inboundKey: inboundKeyOrOptions }
+    : (inboundKeyOrOptions || {});
+
   const store = readStore();
   const thread = getThread(store, rowNumber);
-  thread.lastReadInboundKey = inboundKey;
+  const messages = sortMessages((thread.messages || []).map(normalizeMessage).filter(Boolean));
+
+  let inboundKey = options.inboundKey || getLatestInboundReadKey(messages);
+  const latestInbound = getLatestInbound(messages);
+  const inboundMs = parseTimeMs(latestInbound?.ts);
+  const lastReadAt = options.lastReadAt
+    || (inboundMs != null ? new Date(inboundMs).toISOString() : new Date().toISOString());
+
+  if (!inboundKey && !latestInbound) {
+    throw new Error('No inbound message to mark read');
+  }
+
+  thread.lastReadAt = lastReadAt;
+  if (inboundKey) {
+    thread.lastReadInboundKey = inboundKey;
+  } else if (latestInbound) {
+    thread.lastReadInboundKey = inboundReadKey(latestInbound);
+  }
+
   store.threads[String(rowNumber)] = thread;
   writeStore(store);
-  return thread.lastReadInboundKey;
+  await persistReadAtToSheet(rowNumber, lastReadAt);
+
+  return {
+    lastReadAt: thread.lastReadAt,
+    lastReadInboundKey: thread.lastReadInboundKey,
+    lastInboundAt: getLastInboundAt(messages),
+    unread: false,
+  };
 }
 
 function migrateLegacyViewedKeys(lead, messages, thread, legacyViewedKeys) {
-  if (thread.lastReadInboundKey || !legacyViewedKeys?.length) return;
+  if ((thread.lastReadAt || thread.lastReadInboundKey) || !legacyViewedKeys?.length) return;
   const row = String(lead.row_number);
   const rowKeys = legacyViewedKeys.filter(k => typeof k === 'string' && k.startsWith(`${row}:`));
   if (!rowKeys.length) return;
@@ -158,13 +267,16 @@ function migrateLegacyViewedKeys(lead, messages, thread, legacyViewedKeys) {
   if (!latestKey) return;
 
   const smsKey = `${row}:${(lead.sms_reply || '').trim()}`;
+  const inboundAt = getLastInboundAt(messages);
   if (rowKeys.includes(smsKey)) {
     thread.lastReadInboundKey = latestKey;
+    if (inboundAt) thread.lastReadAt = inboundAt;
     return;
   }
 
   // Prior client tracked per message id; any viewed key for this row means the thread was opened.
   thread.lastReadInboundKey = latestKey;
+  if (inboundAt) thread.lastReadAt = inboundAt;
 }
 
 function ensureTemplateMessage(lead, messages) {
@@ -187,38 +299,41 @@ function ensureTemplateMessage(lead, messages) {
   return sortMessages([...messages, tmpl]);
 }
 
-function appendInboundIfNew(messages, { channel, body, ts, sender, meta }) {
+function appendInboundIfNew(messages, { channel, body, ts, sender, meta, rowNumber }) {
+  const existing = findInboundByContent(messages, channel, body);
+  if (existing) return messages;
+
   const normalized = normalizeMessage({
     direction: 'inbound',
     channel,
     body,
-    ts: ts || new Date().toISOString(),
+    ts: ts || (rowNumber ? stableInboundTs(rowNumber, channel, body) : new Date().toISOString()),
     sender,
     meta,
   });
   if (!normalized) return messages;
-  const existing = messages.find(m => messageKey(m) === messageKey(normalized));
-  if (existing) return messages;
+  if (hasMessage(messages, normalized)) return messages;
   return [...messages, normalized];
 }
 
-function recoverAndAppendSheetReply(messages, previousValue, newValue, channel, sender) {
+function recoverAndAppendSheetReply(messages, previousValue, newValue, channel, sender, rowNumber) {
   let next = messages;
   const prev = (previousValue || '').trim();
   const curr = (newValue || '').trim();
 
-  if (prev && prev !== curr && isRealReplyText(prev) && !next.some(m => m.direction === 'inbound' && m.channel === channel && m.body === prev)) {
-    next = appendInboundIfNew(next, { channel, body: prev, ts: new Date(Date.now() - 1000).toISOString(), sender });
+  if (prev && prev !== curr && isRealReplyText(prev) && !findInboundByContent(next, channel, prev)) {
+    next = appendInboundIfNew(next, { channel, body: prev, sender, rowNumber });
   }
 
   if (isRealReplyText(curr)) {
-    next = appendInboundIfNew(next, { channel, body: curr, sender });
-  } else if (isFlagOnly(curr) && !next.some(m => m.direction === 'inbound' && m.channel === channel)) {
+    next = appendInboundIfNew(next, { channel, body: curr, sender, rowNumber });
+  } else if (isFlagOnly(curr) && !findInboundByContent(next, channel, channel === 'sms' ? '(Customer replied via SMS)' : '(Customer replied via email)')) {
     next = appendInboundIfNew(next, {
       channel,
       body: channel === 'sms' ? '(Customer replied via SMS)' : '(Customer replied via email)',
       sender,
       meta: { flagOnly: true },
+      rowNumber,
     });
   }
 
@@ -237,6 +352,7 @@ export function syncLeadMessages(lead, { legacyViewedKeys } = {}) {
 
   const store = readStore();
   const thread = getThread(store, lead.row_number);
+  hydrateThreadReadFromLead(thread, lead);
   const warnings = [];
   let messages = Array.isArray(thread.messages)
     ? thread.messages.map(normalizeMessage).filter(Boolean)
@@ -255,6 +371,7 @@ export function syncLeadMessages(lead, { legacyViewedKeys } = {}) {
         sms,
         'sms',
         lead.name || 'Customer',
+        lead.row_number,
       );
       thread.lastSyncedSmsReply = sms;
     }
@@ -268,6 +385,7 @@ export function syncLeadMessages(lead, { legacyViewedKeys } = {}) {
         email,
         'email',
         lead.name || 'Customer',
+        lead.row_number,
       );
       thread.lastSyncedEmailReply = email;
     }
@@ -279,7 +397,11 @@ export function syncLeadMessages(lead, { legacyViewedKeys } = {}) {
   store.threads[String(lead.row_number)] = thread;
   writeStore(store);
 
-  return { messages, warnings, lastReadInboundKey: thread.lastReadInboundKey };
+  return {
+    messages,
+    warnings,
+    ...buildThreadReadMeta(messages, thread, lead),
+  };
 }
 
 export function syncLeadsMessages(leads, options = {}) {
@@ -287,13 +409,14 @@ export function syncLeadsMessages(leads, options = {}) {
   const meta = {};
   const allWarnings = [];
   for (const lead of leads || []) {
-    const { messages, warnings, lastReadInboundKey } = syncLeadMessages(lead, options);
+    const { messages, warnings, ...readMeta } = syncLeadMessages(lead, options);
     results[lead.row_number] = messages;
     const thread = readStore().threads[String(lead.row_number)];
     meta[lead.row_number] = {
       ...getConversationPreview(messages),
-      lastReadInboundKey: lastReadInboundKey ?? thread?.lastReadInboundKey ?? null,
-      unread: isThreadUnread(messages, thread),
+      ...readMeta,
+      lastReadAt: readMeta.lastReadAt ?? thread?.lastReadAt ?? lead.replies_last_read_at ?? null,
+      unread: isThreadUnread(messages, thread, lead),
     };
     if (warnings?.length) {
       allWarnings.push({ row_number: lead.row_number, warnings });
@@ -312,7 +435,7 @@ export function countUnreadForLeads(leads) {
   for (const lead of leads || []) {
     const thread = store.threads[String(lead.row_number)];
     const messages = sortMessages((thread?.messages || []).map(normalizeMessage).filter(Boolean));
-    if (isThreadUnread(messages, thread)) {
+    if (isThreadUnread(messages, thread, lead)) {
       count += 1;
       rowNumbers.push(lead.row_number);
     }
@@ -326,14 +449,13 @@ export function getMessagesForLead(rowNumber) {
   return sortMessages((thread?.messages || []).map(normalizeMessage).filter(Boolean));
 }
 
-export function getThreadMeta(rowNumber) {
+export function getThreadMeta(rowNumber, lead = null) {
   const store = readStore();
   const thread = store.threads[String(rowNumber)];
   const messages = getMessagesForLead(rowNumber);
   return {
     ...getConversationPreview(messages),
-    lastReadInboundKey: thread?.lastReadInboundKey ?? null,
-    unread: isThreadUnread(messages, thread),
+    ...buildThreadReadMeta(messages, thread, lead),
   };
 }
 
