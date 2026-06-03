@@ -10,12 +10,7 @@ const col = createDataTableColumns();
 
 /** @typedef {Record<string, unknown> & { row_number: number; name?: string; sent?: string }} FollowupRow */
 
-export function daysSince(dateStr) {
-  if (!dateStr || dateStr === 'imported') return null;
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
-  return Math.floor((Date.now() - d.getTime()) / 86400000);
-}
+export { daysSince } from './Followups/followupsUtils.js';
 
 export function DaysBadge({ days }) {
   if (days === null) return <span className="text-gs-muted">—</span>;
