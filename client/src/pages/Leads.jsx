@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../api/client.js';
@@ -53,9 +53,12 @@ export default function Leads() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!detailLead) return;
-    const updated = leads.find(l => l.row_number === detailLead.row_number);
-    if (updated) setDetailLead(updated);
+    if (!detailLead?.row_number) return;
+    setDetailLead(prev => {
+      if (!prev) return prev;
+      const updated = leads.find(l => l.row_number === prev.row_number);
+      return updated || prev;
+    });
   }, [leads, detailLead?.row_number]);
 
   const handleQuickFilter = useCallback((id) => {
@@ -105,10 +108,20 @@ export default function Leads() {
 
   const { isLeadUnread, markLeadRead, pulseRows } = useLeadsUnreadState(leads);
 
+  const markedDetailRow = useRef(null);
+  const detailLeadRef = useRef(null);
+  detailLeadRef.current = detailLead;
+
   useEffect(() => {
-    if (!detailLead || !hasConversationSignal(detailLead)) return;
-    void markLeadRead(detailLead);
-  }, [detailLead, markLeadRead]);
+    const row = detailLead?.row_number;
+    if (!row || !detailLeadRef.current || !hasConversationSignal(detailLeadRef.current)) {
+      markedDetailRow.current = null;
+      return;
+    }
+    if (markedDetailRow.current === row) return;
+    markedDetailRow.current = row;
+    void markLeadRead(detailLeadRef.current);
+  }, [detailLead?.row_number, markLeadRead]);
 
   return (
     <motion.div
