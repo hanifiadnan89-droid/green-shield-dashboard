@@ -18,7 +18,6 @@ export default function ReplyConversationView({
   onUpdateCard,
   onSend,
   onKeyDown,
-  onQuickReply,
   onAIDraft,
 }) {
   return (
@@ -64,7 +63,6 @@ export default function ReplyConversationView({
         onUpdateCard={onUpdateCard}
         onSend={onSend}
         onKeyDown={onKeyDown}
-        onQuickReply={onQuickReply}
         onAIDraft={onAIDraft}
       />
     </div>

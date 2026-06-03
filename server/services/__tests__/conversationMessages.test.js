@@ -46,6 +46,27 @@ describe('conversationMessages', () => {
     expect(msgs.filter(m => m.body === 'Hello there')).toHaveLength(1);
   });
 
+  it('persists read state by inbound fingerprint across sync', () => {
+    const lead = { row_number: 99, name: 'Pat', sent: '2024-06-01T10:00:00.000Z', notes: 'na' };
+    mod.syncLeadMessages({ ...lead, sms_reply: 'Need service' });
+    const messages = mod.getMessagesForLead(99);
+    const readKey = mod.getLatestInboundReadKey(messages);
+    expect(readKey).toBeTruthy();
+    mod.markThreadRead(99, readKey);
+    expect(mod.getThreadMeta(99).unread).toBe(false);
+    mod.syncLeadMessages({ ...lead, sms_reply: 'Need service' });
+    expect(mod.getThreadMeta(99).unread).toBe(false);
+  });
+
+  it('marks unread when new inbound arrives after read', () => {
+    const lead = { row_number: 100, name: 'Sam', sent: '2024-06-01T10:00:00.000Z', notes: 'na' };
+    mod.syncLeadMessages({ ...lead, sms_reply: 'First' });
+    const key1 = mod.getLatestInboundReadKey(mod.getMessagesForLead(100));
+    mod.markThreadRead(100, key1);
+    mod.syncLeadMessages({ ...lead, sms_reply: 'Second' });
+    expect(mod.getThreadMeta(100).unread).toBe(true);
+  });
+
   it('includes template outbound from lead.sent', () => {
     const { messages } = mod.syncLeadMessages({
       row_number: 3,

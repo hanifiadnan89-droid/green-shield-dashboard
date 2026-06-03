@@ -1,7 +1,6 @@
 import { motion } from 'motion/react';
-import { Send, CheckCircle2, AlertCircle, Zap, Bot, AlertTriangle } from 'lucide-react';
+import { Send, CheckCircle2, AlertCircle, Bot, AlertTriangle } from 'lucide-react';
 import Spinner from '../../components/Spinner.jsx';
-import { QUICK_REPLIES } from './constants.js';
 import { formatTime } from './threadUtils.js';
 
 export default function ReplyComposer({
@@ -11,7 +10,6 @@ export default function ReplyComposer({
   onUpdateCard,
   onSend,
   onKeyDown,
-  onQuickReply,
   onAIDraft,
 }) {
   return (
@@ -48,22 +46,6 @@ export default function ReplyComposer({
         onChange={e => onUpdateCard(lead.row_number, { message: e.target.value, sent: false, error: null })}
         onKeyDown={e => onKeyDown(e, lead)}
       />
-
-      <div className="flex items-center gap-1.5 flex-wrap mt-2">
-        <Zap size={11} className="text-gs-muted shrink-0" />
-        {QUICK_REPLIES.map(qr => (
-          <motion.button
-            key={qr.label}
-            type="button"
-            onClick={() => onQuickReply(lead.row_number, qr.text)}
-            className="quick-reply-pill"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            {qr.label}
-          </motion.button>
-        ))}
-      </div>
 
       {cs.draftError && (
         <div className="reply-alert-error mt-2">

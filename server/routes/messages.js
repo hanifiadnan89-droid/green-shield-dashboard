@@ -5,6 +5,10 @@ import {
   appendMessage,
   mergeLocalOutboundHistory,
   getConversationPreview,
+  markThreadRead,
+  getLatestInboundReadKey,
+  countUnreadForLeads,
+  getThreadMeta,
 } from '../services/conversationMessages.js';
 
 const router = express.Router();
@@ -12,18 +16,30 @@ const router = express.Router();
 /** Sync sheet reply fields → append-only history for many leads */
 router.post('/sync', (req, res) => {
   try {
+    const { leads, legacyViewedKeys } = req.body;
+    if (!Array.isArray(leads)) {
+      return res.status(400).json({ error: 'leads array is required' });
+    }
+    const { threads, meta } = syncLeadsMessages(leads, {
+      legacyViewedKeys: Array.isArray(legacyViewedKeys) ? legacyViewedKeys : [],
+    });
+    res.json({ threads, meta });
+  } catch (err) {
+    console.error('[messages] sync error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/unread-count', (req, res) => {
+  try {
     const { leads } = req.body;
     if (!Array.isArray(leads)) {
       return res.status(400).json({ error: 'leads array is required' });
     }
-    const threads = syncLeadsMessages(leads);
-    const meta = {};
-    for (const [rowNumber, messages] of Object.entries(threads)) {
-      meta[rowNumber] = getConversationPreview(messages);
-    }
-    res.json({ threads, meta });
+    syncLeadsMessages(leads);
+    res.json(countUnreadForLeads(leads));
   } catch (err) {
-    console.error('[messages] sync error:', err);
+    console.error('[messages] unread-count error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -40,12 +56,41 @@ router.post('/migrate-local', (req, res) => {
   }
 });
 
+router.post('/:rowNumber/read', (req, res) => {
+  try {
+    const rowNumber = parseInt(req.params.rowNumber, 10);
+    if (!rowNumber) return res.status(400).json({ error: 'Invalid row number' });
+    let inboundKey = req.body?.inboundKey;
+    if (!inboundKey) {
+      const messages = getMessagesForLead(rowNumber);
+      inboundKey = getLatestInboundReadKey(messages);
+    }
+    if (!inboundKey) {
+      return res.json({ lastReadInboundKey: null, unread: false });
+    }
+    const lastReadInboundKey = markThreadRead(rowNumber, inboundKey);
+    const messages = getMessagesForLead(rowNumber);
+    res.json({
+      lastReadInboundKey,
+      unread: false,
+      meta: {
+        ...getConversationPreview(messages),
+        lastReadInboundKey,
+        unread: false,
+      },
+    });
+  } catch (err) {
+    console.error('[messages] read error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:rowNumber', (req, res) => {
   try {
     const rowNumber = parseInt(req.params.rowNumber, 10);
     if (!rowNumber) return res.status(400).json({ error: 'Invalid row number' });
     const messages = getMessagesForLead(rowNumber);
-    res.json({ messages, meta: getConversationPreview(messages) });
+    res.json({ messages, meta: getThreadMeta(rowNumber) });
   } catch (err) {
     console.error('[messages] get error:', err);
     res.status(500).json({ error: err.message });

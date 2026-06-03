@@ -14,10 +14,16 @@ describe('threadUtils', () => {
     expect(thread[thread.length - 1].text).toBe('Thanks');
   });
 
-  it('readKey uses latest message id', () => {
+  it('readKey uses stable inbound fingerprint', () => {
     const lead = { row_number: 5 };
-    const key = readKey(lead, [{ id: 'msg-99', direction: 'inbound', body: 'x' }]);
-    expect(key).toBe('5:msg-99');
+    const key = readKey(lead, [{
+      id: 'msg-99',
+      direction: 'inbound',
+      channel: 'sms',
+      body: 'Hello',
+      ts: '2024-01-01T12:00:00.000Z',
+    }]);
+    expect(key).toBe('5:sms|2024-01-01T12:00:00.000Z|Hello');
   });
 
   it('getLatestInbound skips outbound', () => {

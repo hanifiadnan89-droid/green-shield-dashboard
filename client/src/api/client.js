@@ -51,13 +51,21 @@ export const api = {
   },
 
   messages: {
-    sync: (leads) => request('/messages/sync', {
+    sync: (leads, legacyViewedKeys = []) => request('/messages/sync', {
       method: 'POST',
-      body: JSON.stringify({ leads }),
+      body: JSON.stringify({ leads, legacyViewedKeys }),
     }),
     migrateLocal: (history) => request('/messages/migrate-local', {
       method: 'POST',
       body: JSON.stringify({ history }),
+    }),
+    unreadCount: (leads) => request('/messages/unread-count', {
+      method: 'POST',
+      body: JSON.stringify({ leads }),
+    }),
+    markRead: (rowNumber, inboundKey) => request(`/messages/${rowNumber}/read`, {
+      method: 'POST',
+      body: JSON.stringify({ inboundKey }),
     }),
     list: (rowNumber) => request(`/messages/${rowNumber}`),
     append: (rowNumber, message) => request(`/messages/${rowNumber}`, {

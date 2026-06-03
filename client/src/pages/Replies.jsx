@@ -37,6 +37,7 @@ export default function Replies() {
     syncLeads,
     appendOptimistic,
     getMessages,
+    patchMeta,
   } = useConversationThreads();
 
   const {
@@ -44,6 +45,7 @@ export default function Replies() {
     markRead,
     notifyNewInbound,
     pulseRows,
+    applyMetaReadState,
   } = useUnreadReplies();
 
   const {
@@ -130,29 +132,43 @@ export default function Replies() {
   useEffect(() => { loadLeads(); }, [loadLeads]);
 
   useEffect(() => {
-    if (!loading && leads.length > 0) {
-      window.dispatchEvent(new CustomEvent('replies-viewed', {
-        detail: leads.map(l => `${l.row_number}:${l.sms_reply}`),
-      }));
+    applyMetaReadState(meta);
+  }, [meta, applyMetaReadState]);
+
+  useEffect(() => {
+    if (loading) return;
+    const count = leads.filter(l =>
+      isUnread(l, threads[l.row_number] || [], meta[l.row_number]),
+    ).length;
+    window.dispatchEvent(new CustomEvent('replies-unread-count', { detail: { count } }));
+  }, [loading, leads, threads, meta, isUnread]);
+
+  const markReadWithMeta = useCallback(async (lead, messages) => {
+    const result = await markRead(lead, messages);
+    if (result?.lastReadInboundKey != null) {
+      patchMeta(lead.row_number, {
+        lastReadInboundKey: result.lastReadInboundKey,
+        unread: false,
+      });
     }
-  }, [loading, leads]);
+  }, [markRead, patchMeta]);
 
   useEffect(() => {
     if (!loading && selectedLead && !selectedIsArchived) {
-      markRead(selectedLead, selectedMessages);
+      void markReadWithMeta(selectedLead, selectedMessages);
       const t = setTimeout(() => textareaRef.current?.focus(), 150);
       return () => clearTimeout(t);
     }
     if (selectedLead) {
-      markRead(selectedLead, selectedMessages);
+      void markReadWithMeta(selectedLead, selectedMessages);
     }
-  }, [loading, selectedRowNumber, selectedIsArchived, selectedLead, selectedMessages, markRead]);
+  }, [loading, selectedRowNumber, selectedIsArchived, selectedLead, selectedMessages, markReadWithMeta]);
 
   const selectLead = useCallback((rowNumber) => {
     selectLeadBase(rowNumber);
     const lead = leads.find(l => l.row_number === rowNumber);
-    if (lead) markRead(lead, getMessages(rowNumber));
-  }, [selectLeadBase, leads, getMessages, markRead]);
+    if (lead) void markReadWithMeta(lead, getMessages(rowNumber));
+  }, [selectLeadBase, leads, getMessages, markReadWithMeta]);
 
   function archiveLead(lead) {
     const rowNumber = lead.row_number;
@@ -198,11 +214,6 @@ export default function Replies() {
       e.preventDefault();
       handleSend(lead);
     }
-  }
-
-  function applyQuickReply(rowNumber, text) {
-    updateCard(rowNumber, { message: text, sent: false, error: null });
-    document.getElementById(`reply-ta-${rowNumber}`)?.focus();
   }
 
   async function handleAIDraft(lead) {
@@ -391,7 +402,6 @@ export default function Replies() {
                     onUpdateCard={updateCard}
                     onSend={handleSend}
                     onKeyDown={handleKeyDown}
-                    onQuickReply={applyQuickReply}
                     onAIDraft={handleAIDraft}
                   />
                 )

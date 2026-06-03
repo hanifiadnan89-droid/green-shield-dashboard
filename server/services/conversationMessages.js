@@ -96,9 +96,75 @@ function getThread(store, rowNumber) {
       messages: [],
       lastSyncedSmsReply: '',
       lastSyncedEmailReply: '',
+      lastReadInboundKey: null,
     };
   }
-  return store.threads[key];
+  const thread = store.threads[key];
+  if (thread.lastReadInboundKey === undefined) {
+    thread.lastReadInboundKey = null;
+  }
+  return thread;
+}
+
+/** Stable read cursor — survives message id regeneration after redeploy */
+export function inboundReadKey(message) {
+  if (!message || message.direction !== 'inbound') return null;
+  const body = (message.body || '').trim();
+  if (!body) return null;
+  const ts = message.ts || '';
+  const channel = message.channel === 'email' ? 'email' : 'sms';
+  return `${channel}|${ts}|${body}`;
+}
+
+export function getLatestInbound(messages) {
+  if (!messages?.length) return null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].direction === 'inbound') return messages[i];
+  }
+  return null;
+}
+
+export function getLatestInboundReadKey(messages) {
+  return inboundReadKey(getLatestInbound(messages));
+}
+
+export function isThreadUnread(messages, thread) {
+  const latestKey = getLatestInboundReadKey(messages);
+  if (!latestKey) return false;
+  const readKey = thread?.lastReadInboundKey;
+  if (!readKey) return true;
+  return readKey !== latestKey;
+}
+
+export function markThreadRead(rowNumber, inboundKey) {
+  if (!inboundKey) {
+    throw new Error('inboundKey is required');
+  }
+  const store = readStore();
+  const thread = getThread(store, rowNumber);
+  thread.lastReadInboundKey = inboundKey;
+  store.threads[String(rowNumber)] = thread;
+  writeStore(store);
+  return thread.lastReadInboundKey;
+}
+
+function migrateLegacyViewedKeys(lead, messages, thread, legacyViewedKeys) {
+  if (thread.lastReadInboundKey || !legacyViewedKeys?.length) return;
+  const row = String(lead.row_number);
+  const rowKeys = legacyViewedKeys.filter(k => typeof k === 'string' && k.startsWith(`${row}:`));
+  if (!rowKeys.length) return;
+
+  const latestKey = getLatestInboundReadKey(messages);
+  if (!latestKey) return;
+
+  const smsKey = `${row}:${(lead.sms_reply || '').trim()}`;
+  if (rowKeys.includes(smsKey)) {
+    thread.lastReadInboundKey = latestKey;
+    return;
+  }
+
+  // Prior client tracked per message id; any viewed key for this row means the thread was opened.
+  thread.lastReadInboundKey = latestKey;
 }
 
 function ensureTemplateMessage(lead, messages) {
@@ -130,7 +196,9 @@ function appendInboundIfNew(messages, { channel, body, ts, sender, meta }) {
     sender,
     meta,
   });
-  if (!normalized || hasMessage(messages, normalized)) return messages;
+  if (!normalized) return messages;
+  const existing = messages.find(m => messageKey(m) === messageKey(normalized));
+  if (existing) return messages;
   return [...messages, normalized];
 }
 
@@ -161,7 +229,7 @@ function recoverAndAppendSheetReply(messages, previousValue, newValue, channel, 
  * Sync sheet scalar reply fields into append-only message history.
  * When the sheet overwrites sms_reply/email_reply, recover the previous value once.
  */
-export function syncLeadMessages(lead) {
+export function syncLeadMessages(lead, { legacyViewedKeys } = {}) {
   if (!lead?.row_number) {
     console.warn('[conversationMessages] syncLeadMessages: missing row_number', lead);
     return { messages: [], warnings: ['missing row_number'] };
@@ -207,18 +275,26 @@ export function syncLeadMessages(lead) {
 
   messages = sortMessages(messages);
   thread.messages = messages;
+  migrateLegacyViewedKeys(lead, messages, thread, legacyViewedKeys);
   store.threads[String(lead.row_number)] = thread;
   writeStore(store);
 
-  return { messages, warnings };
+  return { messages, warnings, lastReadInboundKey: thread.lastReadInboundKey };
 }
 
-export function syncLeadsMessages(leads) {
+export function syncLeadsMessages(leads, options = {}) {
   const results = {};
+  const meta = {};
   const allWarnings = [];
   for (const lead of leads || []) {
-    const { messages, warnings } = syncLeadMessages(lead);
+    const { messages, warnings, lastReadInboundKey } = syncLeadMessages(lead, options);
     results[lead.row_number] = messages;
+    const thread = readStore().threads[String(lead.row_number)];
+    meta[lead.row_number] = {
+      ...getConversationPreview(messages),
+      lastReadInboundKey: lastReadInboundKey ?? thread?.lastReadInboundKey ?? null,
+      unread: isThreadUnread(messages, thread),
+    };
     if (warnings?.length) {
       allWarnings.push({ row_number: lead.row_number, warnings });
     }
@@ -226,13 +302,39 @@ export function syncLeadsMessages(leads) {
   if (allWarnings.length) {
     console.warn('[conversationMessages] sync warnings:', JSON.stringify(allWarnings.slice(0, 5)));
   }
-  return results;
+  return { threads: results, meta };
+}
+
+export function countUnreadForLeads(leads) {
+  const store = readStore();
+  let count = 0;
+  const rowNumbers = [];
+  for (const lead of leads || []) {
+    const thread = store.threads[String(lead.row_number)];
+    const messages = sortMessages((thread?.messages || []).map(normalizeMessage).filter(Boolean));
+    if (isThreadUnread(messages, thread)) {
+      count += 1;
+      rowNumbers.push(lead.row_number);
+    }
+  }
+  return { count, rowNumbers };
 }
 
 export function getMessagesForLead(rowNumber) {
   const store = readStore();
   const thread = store.threads[String(rowNumber)];
   return sortMessages((thread?.messages || []).map(normalizeMessage).filter(Boolean));
+}
+
+export function getThreadMeta(rowNumber) {
+  const store = readStore();
+  const thread = store.threads[String(rowNumber)];
+  const messages = getMessagesForLead(rowNumber);
+  return {
+    ...getConversationPreview(messages),
+    lastReadInboundKey: thread?.lastReadInboundKey ?? null,
+    unread: isThreadUnread(messages, thread),
+  };
 }
 
 export function appendMessage(rowNumber, rawMessage) {
