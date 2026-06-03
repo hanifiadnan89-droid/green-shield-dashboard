@@ -1,60 +1,105 @@
-import { ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
+import { AlertTriangle } from 'lucide-react';
 import { TEMPLATES } from './constants.js';
+import { getEnrichedTemplates } from './templateWorkflow.js';
+import SelectedLeadSummary from './SelectedLeadSummary.jsx';
+import TemplateWorkflowCard from './TemplateWorkflowCard.jsx';
+import TemplatePreviewPanel from './TemplatePreviewPanel.jsx';
+
+const EASE = [0.22, 1, 0.36, 1];
 
 export default function StepChooseTemplate({
   selectedLead,
   preselected,
-  selectedTemplate,
+  highlightedTemplate,
+  onHighlightTemplate,
   onChangeLead,
-  onSelectTemplate,
+  onContinueToPreview,
 }) {
+  const templates = useMemo(() => getEnrichedTemplates(), []);
   const stopBlocked = selectedLead?.stop === 'yes';
+  const [focusedTemplate, setFocusedTemplate] = useState(highlightedTemplate || templates[0] || null);
+
+  useEffect(() => {
+    if (highlightedTemplate) setFocusedTemplate(highlightedTemplate);
+  }, [highlightedTemplate]);
+
+  useEffect(() => {
+    setFocusedTemplate(prev => prev || templates[0] || null);
+  }, [templates]);
+
+  function handleFocusTemplate(t) {
+    setFocusedTemplate(t);
+    onHighlightTemplate?.(t);
+  }
+
+  function handleSelectTemplate(t) {
+    setFocusedTemplate(t);
+    onHighlightTemplate?.(t);
+  }
 
   return (
-    <div className="max-w-3xl space-y-4">
-      {selectedLead && (
-        <div className="card p-4 flex items-center justify-between">
-          <div>
-            <p className="type-label-sm text-gs-muted mb-0.5 font-normal tracking-normal">Selected Lead</p>
-            <p className="type-body-sm font-medium text-gs-text">{selectedLead.name}</p>
-            <p className="type-label-sm text-gs-muted font-normal tracking-normal">
-              {selectedLead.phone}{selectedLead.email ? ` • ${selectedLead.email}` : ''}
+    <motion.div
+      className="send-choose-tmpl"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE }}
+    >
+      <SelectedLeadSummary
+        lead={selectedLead}
+        preselected={preselected}
+        onChangeLead={onChangeLead}
+      />
+
+      {stopBlocked && (
+        <motion.div
+          className="send-choose-tmpl__alert"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+        >
+          <AlertTriangle size={16} className="shrink-0" />
+          <span>
+            This lead has <strong>stop=yes</strong>. Remove the stop flag before sending.
+          </span>
+        </motion.div>
+      )}
+
+      <div className="send-choose-tmpl__workspace">
+        <div className="send-choose-tmpl__list-panel">
+          <div className="send-choose-tmpl__list-header">
+            <h3 className="text-sm font-semibold text-gs-text">Workflow templates</h3>
+            <p className="text-xs text-gs-muted mt-0.5">
+              {TEMPLATES.length} sequences · SMS + email via n8n
             </p>
           </div>
-          {!preselected && (
-            <button type="button" onClick={onChangeLead} className="btn-ghost type-label-sm tracking-normal">
-              Change
-            </button>
-          )}
+
+          <LayoutGroup>
+            <ul className="send-choose-tmpl__cards" role="list">
+              <AnimatePresence mode="popLayout">
+                {templates.map((t, index) => (
+                  <TemplateWorkflowCard
+                    key={t.code}
+                    template={t}
+                    index={index}
+                    selected={focusedTemplate?.code === t.code}
+                    disabled={stopBlocked}
+                    onSelect={handleSelectTemplate}
+                    onHover={handleFocusTemplate}
+                  />
+                ))}
+              </AnimatePresence>
+            </ul>
+          </LayoutGroup>
         </div>
-      )}
-      {stopBlocked && (
-        <div className="bg-gs-danger/10 border border-gs-danger/30 rounded-lg px-4 py-3 text-gs-danger type-body-sm">
-          ⚠ This lead has <strong>stop=yes</strong>. Remove the stop flag first before sending.
-        </div>
-      )}
-      <div className="grid gap-3">
-        {TEMPLATES.map(t => (
-          <button
-            key={t.code}
-            type="button"
-            onClick={() => onSelectTemplate(t)}
-            disabled={stopBlocked}
-            className={`card text-left hover:border-opacity-70 transition-all p-4 cursor-pointer group ${
-              selectedTemplate?.code === t.code ? `border ${t.activeBg}` : 'hover:border-gs-muted/50'
-            } ${stopBlocked ? 'opacity-40 cursor-not-allowed' : ''}`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${t.accentDot}`} />
-                <span className={`type-body-sm font-semibold ${t.accentText}`}>{t.label}</span>
-              </div>
-              <ChevronRight size={14} className="text-gs-muted" />
-            </div>
-            <p className="type-label-sm text-gs-muted pl-4 font-normal tracking-normal">{t.description}</p>
-          </button>
-        ))}
+
+        <TemplatePreviewPanel
+          template={focusedTemplate}
+          lead={selectedLead}
+          stopBlocked={stopBlocked}
+          onContinue={onContinueToPreview}
+        />
       </div>
-    </div>
+    </motion.div>
   );
 }

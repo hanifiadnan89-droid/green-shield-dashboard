@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { LayoutGroup, motion } from 'motion/react';
 import { Check } from 'lucide-react';
 import { STEPS } from './constants.js';
 
@@ -20,6 +20,7 @@ export default function SendTemplateStepper({ step }) {
         </p>
       </motion.div>
 
+      <LayoutGroup>
       <nav className="send-template-stepper__track" aria-label="Send template progress">
         {STEPS.map(({ n, label }, index) => {
           const done = step > n;
@@ -63,6 +64,7 @@ export default function SendTemplateStepper({ step }) {
           );
         })}
       </nav>
+      </LayoutGroup>
     </header>
   );
 }
