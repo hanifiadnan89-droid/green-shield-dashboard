@@ -206,7 +206,7 @@ export default function CRMPreview({ testMode }) {
               <SalesSummaryBar leads={leads ?? []} loading={false} />
 
               {/* Pipeline Summary — full width */}
-              <PipelineSummary stats={stats ?? {}} leads={leads ?? []} />
+              <PipelineSummary stats={stats ?? {}} leads={leads ?? []} onRefresh={refresh} />
 
               <DashboardIntelligence
                 leads={leads ?? []}
