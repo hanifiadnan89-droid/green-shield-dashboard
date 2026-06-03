@@ -34,6 +34,7 @@ import {
 } from './services/fieldRoutesAuth.js';
 import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.js';
 import { getGoogleCredentialsDiagnostics } from './services/googleCredentials.js';
+import { getSheetsStartupCheck, runSheetsStartupCheck } from './services/sheetsStartupCheck.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -93,6 +94,7 @@ app.use(requireDashboardLogin);
 
 app.get('/api/health', (req, res) => {
   const googleCreds = getGoogleCredentialsDiagnostics();
+  const sheetsCheck = getSheetsStartupCheck();
   res.json({
     status: 'ok',
     testMode: process.env.TEST_MODE === 'true',
@@ -104,6 +106,7 @@ app.get('/api/health', (req, res) => {
       message: googleCreds.message,
       parseError: googleCreds.parseError,
     },
+    sheets: sheetsCheck,
     timestamp: new Date().toISOString(),
   });
 });
@@ -228,7 +231,9 @@ app.listen(PORT, () => {
   console.log(`   Mode: ${mode}`);
   console.log(`   Dashboard UI: ${fs.existsSync(clientDistPath) ? 'served from client/dist' : 'not built yet'}`);
   console.log(`   Login: ${process.env.DASHBOARD_USERNAME && process.env.DASHBOARD_PASSWORD ? 'enabled' : 'disabled'}`);
-  console.log(`   Google Sheets: ${process.env.SHEET_ID ? 'configured' : '⚠️  SHEET_ID missing'}`);
+  console.log('Google creds loaded:', !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  console.log('Sheet ID:', process.env.SHEET_ID || '(not set — using default in sheets.js)');
+  console.log(`   Google Sheets SHEET_ID env: ${process.env.SHEET_ID ? 'configured' : '⚠️  SHEET_ID missing (default ID used)'}`);
   console.log(`   n8n: ${process.env.N8N_BASE_URL || '⚠️  N8N_BASE_URL missing'}`);
   const g = getGoogleCredentialsDiagnostics();
   if (g.ok) {
@@ -237,4 +242,7 @@ app.listen(PORT, () => {
     console.log(`   Google credentials: ⚠️  ${g.status} — ${g.message}`);
   }
   console.log('');
+  runSheetsStartupCheck().catch(err => {
+    console.error('[sheets] Startup check unexpected error:', err.message);
+  });
 });
