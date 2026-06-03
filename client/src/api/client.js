@@ -117,7 +117,10 @@ export const api = {
     refreshServerAuth: () => request('/routes/auth-refresh-server', { method: 'POST' }),
     refresh:      (date) => request(`/routes/refresh?date=${date}`, { method: 'POST' }),
     preload:      (force = false) => request(`/routes/preload${force ? '?force=true' : ''}`, { method: 'POST' }),
-    backgroundRefresh: () => request('/routes/background-refresh', { method: 'POST' }),
+    backgroundRefresh: (priorityDates = []) => request('/routes/background-refresh', {
+      method: 'POST',
+      body: JSON.stringify({ priorityDates }),
+    }),
     loginRefresh: () => request('/routes/login-refresh', { method: 'POST' }),
   },
 

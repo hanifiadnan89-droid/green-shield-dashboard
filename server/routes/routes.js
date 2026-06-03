@@ -352,7 +352,8 @@ router.post('/login-refresh', async (req, res) => {
 // POST /api/routes/background-refresh — session keepalive + stale cache preload (quiet)
 router.post('/background-refresh', async (req, res) => {
   try {
-    const result = await runRouteFinderBackgroundRefresh();
+    const priorityDates = Array.isArray(req.body?.priorityDates) ? req.body.priorityDates : [];
+    const result = await runRouteFinderBackgroundRefresh({ priorityDates });
     res.json(result);
   } catch (err) {
     console.error('[routes] background-refresh error:', err.message);
@@ -361,7 +362,7 @@ router.post('/background-refresh', async (req, res) => {
 });
 
 // POST /api/routes/preload — fire-and-forget preload for next 6 working days
-// ?force=true bypasses the 6-hour freshness check and re-scrapes every date
+// ?force=true bypasses route cache TTL and re-scrapes every date
 router.post('/preload', (req, res) => {
   const force = req.query.force === 'true';
   res.json({ started: true, force });
