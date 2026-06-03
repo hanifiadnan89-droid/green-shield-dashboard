@@ -18,7 +18,8 @@ export default function ReplyConversationView({
   onUpdateCard,
   onSend,
   onKeyDown,
-  onAIDraft,
+  onAiPromptChange,
+  onAiAssist,
 }) {
   return (
     <div className="replies-conversation-panel flex flex-col flex-1 min-h-0">
@@ -63,7 +64,8 @@ export default function ReplyConversationView({
         onUpdateCard={onUpdateCard}
         onSend={onSend}
         onKeyDown={onKeyDown}
-        onAIDraft={onAIDraft}
+        onAiPromptChange={onAiPromptChange}
+        onAiAssist={onAiAssist}
       />
     </div>
   );

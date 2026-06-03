@@ -1,7 +1,8 @@
 import { motion } from 'motion/react';
-import { Send, CheckCircle2, AlertCircle, Bot, AlertTriangle } from 'lucide-react';
+import { Send, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
 import Spinner from '../../components/Spinner.jsx';
 import { formatTime } from './threadUtils.js';
+import AiResponseAssistant from './AiResponseAssistant.jsx';
 
 export default function ReplyComposer({
   lead,
@@ -10,7 +11,8 @@ export default function ReplyComposer({
   onUpdateCard,
   onSend,
   onKeyDown,
-  onAIDraft,
+  onAiPromptChange,
+  onAiAssist,
 }) {
   return (
     <motion.div
@@ -19,26 +21,17 @@ export default function ReplyComposer({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: 0.05 }}
     >
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="type-label-sm text-gs-muted uppercase tracking-wider">Your reply</span>
-        <motion.button
-          type="button"
-          onClick={() => onAIDraft(lead)}
-          disabled={cs.drafting}
-          title="Generate AI draft reply"
-          className="btn-ai-draft"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.96 }}
-        >
-          {cs.drafting ? <Spinner size={10} /> : <Bot size={11} />}
-          {cs.drafting ? 'Drafting…' : 'AI Draft'}
-        </motion.button>
-      </div>
+      <label
+        htmlFor={`reply-ta-${lead.row_number}`}
+        className="type-label-sm text-gs-muted uppercase tracking-wider block mb-2"
+      >
+        Your reply
+      </label>
 
       <textarea
         id={`reply-ta-${lead.row_number}`}
         ref={textareaRef}
-        rows={3}
+        rows={4}
         className="input resize-none type-body-sm leading-relaxed w-full"
         placeholder="Type your reply… (Enter to send, Shift+Enter for new line)"
         value={cs.message}
@@ -47,15 +40,15 @@ export default function ReplyComposer({
         onKeyDown={e => onKeyDown(e, lead)}
       />
 
-      {cs.draftError && (
-        <div className="reply-alert-error mt-2">
-          <AlertCircle size={13} className="shrink-0" />
-          AI draft failed: {cs.draftError}
-        </div>
-      )}
+      <AiResponseAssistant
+        lead={lead}
+        cardState={cs}
+        onPromptChange={onAiPromptChange}
+        onSubmit={onAiAssist}
+      />
 
       {cs.reviewRequired && (
-        <div className="reply-alert-review mt-2">
+        <div className="reply-alert-review mt-3">
           <AlertTriangle size={14} className="text-gs-warn mt-0.5 shrink-0" />
           <div>
             <p className="type-body-sm font-semibold text-amber-800 m-0 mb-0.5">

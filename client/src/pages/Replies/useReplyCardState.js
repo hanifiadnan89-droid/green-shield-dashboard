@@ -6,8 +6,9 @@ const DEFAULT_CARD = {
   sent: false,
   error: null,
   sentAt: null,
-  drafting: false,
-  draftError: null,
+  aiPrompt: '',
+  aiGenerating: false,
+  aiError: null,
   reviewRequired: false,
   reviewReason: null,
 };
