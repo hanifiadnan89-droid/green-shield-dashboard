@@ -870,7 +870,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   })}
                 </div>
                 <p className="type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal">2-hour slots</p>
-                <div className="flex flex-wrap gap-[5px]">
+                <div className="route-time-slots-row route-time-slots-row--two-hour">
                   {TWO_HOUR_SLOTS.map(({ key, label }) => {
                     const active = specificSlot === key;
                     return (
@@ -879,7 +879,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                         type="button"
                         onClick={() => handleSpecificSlotSelect(key)}
                         className={[
-                          'route-time-slot-btn py-[5px] px-2 rounded-[7px] type-label-sm font-semibold cursor-pointer transition-all duration-150 tracking-normal',
+                          'route-time-slot-btn route-time-slot-btn--grid py-[5px] px-1 rounded-[7px] type-label-sm font-semibold cursor-pointer transition-all duration-150 tracking-normal',
                           active ? 'route-time-slot-btn--active' : '',
                         ].filter(Boolean).join(' ')}
                       >
