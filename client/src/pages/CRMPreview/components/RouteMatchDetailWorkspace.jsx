@@ -56,7 +56,7 @@ export default function RouteMatchDetailWorkspace({
     >
       <motion.button
         type="button"
-        className="route-match-workspace__backdrop"
+        className="route-match-workspace__backdrop-top"
         aria-label="Close technician details"
         onClick={onBack}
         initial={{ opacity: 0 }}
@@ -71,7 +71,14 @@ export default function RouteMatchDetailWorkspace({
         layoutId={layoutId}
         layout
         className="route-match-detail"
-        transition={{ layout: layoutTransition }}
+        initial={{ y: 22, opacity: 0.96 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 18, opacity: 0 }}
+        transition={{
+          layout: layoutTransition,
+          y: { duration: 0.4, ease: EASE },
+          opacity: { duration: 0.3, ease: EASE },
+        }}
       >
         <header className="route-match-detail__header">
           <button type="button" className="route-match-detail__back" onClick={onBack}>

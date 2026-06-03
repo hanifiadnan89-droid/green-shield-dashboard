@@ -39,14 +39,24 @@ export default function RouteMatchMapWorkspace({ match, onBack }) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.28, ease: EASE }}
     >
+      <motion.button
+        type="button"
+        className="route-match-workspace__backdrop-top"
+        aria-label="Back to technician details"
+        onClick={onBack}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.32, ease: EASE }}
+      />
       <motion.div
         ref={panelRef}
         tabIndex={-1}
         className="route-match-map-full"
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.99 }}
-        transition={{ duration: 0.34, ease: EASE }}
+        initial={{ y: 22, opacity: 0.96 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 18, opacity: 0 }}
+        transition={{ duration: 0.4, ease: EASE }}
       >
         <header className="route-match-map-full__header">
           <button type="button" className="route-match-detail__back" onClick={onBack}>
