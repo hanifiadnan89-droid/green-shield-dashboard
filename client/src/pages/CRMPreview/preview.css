@@ -614,33 +614,46 @@
 
 /* Full-width technician detail + route map workspaces */
 .crm-preview .route-match-workspace {
+  --route-match-peek-h: clamp(3.25rem, 9vh, 5.75rem);
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 120;
   background: transparent;
   pointer-events: none;
 }
 
-.crm-preview .route-match-workspace__backdrop {
-  position: fixed;
-  inset: 0;
+@media (min-width: 1024px) {
+  .crm-preview .route-match-workspace {
+    left: 14rem;
+  }
+}
+
+.crm-preview .route-match-workspace__backdrop-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--route-match-peek-h);
   z-index: 0;
   margin: 0;
   padding: 0;
   border: 0;
   cursor: pointer;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.38);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   pointer-events: auto;
 }
 
 .crm-preview .route-match-detail {
-  position: fixed;
-  top: 0;
+  position: absolute;
+  top: var(--route-match-peek-h);
+  left: 0;
   right: 0;
   bottom: 0;
-  left: 0;
   z-index: 1;
   pointer-events: auto;
   flex: 1;
@@ -652,13 +665,19 @@
   width: 100%;
   max-width: none;
   border-radius: 0;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), -8px 0 40px rgba(15, 23, 42, 0.12);
+  box-shadow:
+    0 -6px 28px rgba(15, 23, 42, 0.1),
+    0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
-@media (min-width: 1024px) {
-  .crm-preview .route-match-detail {
-    left: 14rem;
-  }
+.crm-preview .route-match-workspace--map .route-match-map-full {
+  position: absolute;
+  top: var(--route-match-peek-h);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .crm-preview .route-match-workspace--map {
