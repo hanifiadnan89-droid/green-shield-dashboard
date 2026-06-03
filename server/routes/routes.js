@@ -21,6 +21,7 @@ import {
   refreshFieldRoutesSessionWithCredentials,
 } from '../services/fieldRoutesHeadlessLogin.js';
 import { getPlaywrightChromiumDiagnostics } from '../services/playwrightRuntime.js';
+import { runRouteFinderBackgroundRefresh } from '../services/routeFinderBackgroundRefresh.js';
 
 function parseIncomingAuthBody(body) {
   if (!body) {
@@ -346,6 +347,17 @@ router.post('/login-refresh', async (req, res) => {
       });
     }
   });
+});
+
+// POST /api/routes/background-refresh — session keepalive + stale cache preload (quiet)
+router.post('/background-refresh', async (req, res) => {
+  try {
+    const result = await runRouteFinderBackgroundRefresh();
+    res.json(result);
+  } catch (err) {
+    console.error('[routes] background-refresh error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/routes/preload — fire-and-forget preload for next 6 working days

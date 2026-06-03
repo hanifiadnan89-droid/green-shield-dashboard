@@ -10,6 +10,7 @@ import { TIME_PREFS, FOUR_HOUR_SLOTS, TWO_HOUR_SLOTS } from './RouteFinder/route
 import { getDatePillTitle } from './RouteFinder/getDatePillTitle.js';
 import { buildRouteDateHelperText } from './RouteFinder/buildRouteDateHelperText.js';
 import { resolveTimeWindowPref } from './RouteFinder/resolveTimeWindowPref.js';
+import { useRouteFinderBackgroundRefresh } from './RouteFinder/useRouteFinderBackgroundRefresh.js';
 
 function routeFinderDebug(label, detail) {
   if (import.meta.env.DEV) {
@@ -77,7 +78,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const suggestRequestIdRef   = useRef(0);
   const suppressBlurRef       = useRef(false);
   const pollRef            = useRef(null);
-  const bgStatusRef        = useRef(null);
   const dateKeysRef     = useRef(DATE_KEYS);
   useEffect(() => { dateKeysRef.current = DATE_KEYS; }, [DATE_KEYS]);
   const activeDateRef   = useRef(activeDate);
@@ -148,18 +148,26 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
-  // 30-second background status refresh — updates date pills + auth status
-  useEffect(() => {
-    bgStatusRef.current = setInterval(async () => {
-      if (pollRef.current) return; // active polling already running
-      try {
-        const statusData = await api.routes.status();
-        applyStatusData(statusData);
-      } catch { /* ignore */ }
-    }, 30000);
-    return () => { if (bgStatusRef.current) clearInterval(bgStatusRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const reloadActiveDatePayload = useCallback(async (statusData) => {
+    const date = activeDateRef.current;
+    if (!date || !statusData) return;
+    if (statusData[date]?.status !== 'cached') return;
+    const requestId = ++payloadRequestRef.current;
+    try {
+      const data = await api.routes.payload(date);
+      if (requestId !== payloadRequestRef.current) return;
+      setActiveTechnicians(data.technicians || []);
+      routeFinderDebug('active date payload reloaded', { date, techs: data.technicians?.length ?? 0 });
+    } catch (err) {
+      console.warn('[RouteFinder] silent payload reload failed:', err?.message);
+    }
   }, []);
+
+  useRouteFinderBackgroundRefresh({
+    applyStatusData,
+    startPolling,
+    reloadActiveDatePayload,
+  });
 
   // ---------------------------------------------------------------------------
   // On mount: load status, trigger preload for missing dates
