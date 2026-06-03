@@ -1,11 +1,11 @@
 /** Normalize route stops for map rendering and labels. */
 export function getMapStops(stops = []) {
-/** Normalize route stops for map rendering and labels. */
-export function getMapStops(stops = []) {
   return (stops || []).filter(s => {
     if (s.lat == null || s.lng == null || s.lat === '' || s.lng === '') return false;
+
     const lat = Number(s.lat);
     const lng = Number(s.lng);
+
     return Number.isFinite(lat) && Number.isFinite(lng);
   });
 }
@@ -32,12 +32,15 @@ export function getMapCoordinateStatus(stops = []) {
 
 export function getStopMarkerMeta(stops) {
   const list = getMapStops(stops);
+
   if (!list.length) return [];
 
   return list.map((stop, index) => {
     const isFirst = index === 0;
     const isLast = index === list.length - 1;
+
     let role = 'middle';
+
     if (stop.isNew) role = 'new';
     else if (isFirst) role = 'start';
     else if (isLast) role = 'end';
@@ -52,5 +55,8 @@ export function getStopMarkerMeta(stops) {
 }
 
 export function getRoutePathCoords(stops) {
-  return getMapStops(stops).map(s => ({ lat: s.lat, lng: s.lng }));
+  return getMapStops(stops).map(s => ({
+    lat: Number(s.lat),
+    lng: Number(s.lng),
+  }));
 }
