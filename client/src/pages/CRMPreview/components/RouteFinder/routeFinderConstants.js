@@ -1,7 +1,7 @@
 export const TIME_PREFS = [
   { key: 'AM', label: 'AM', sub: '8am – 12pm' },
   { key: 'PM', label: 'PM', sub: '12pm – 6pm' },
-  { key: 'specific', label: 'Specific', sub: 'choose slot' },
+  { key: 'specific', label: 'Specific', sub: 'Choose slot' },
 ];
 
 export const FOUR_HOUR_SLOTS = [
