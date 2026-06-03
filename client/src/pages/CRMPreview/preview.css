@@ -785,9 +785,10 @@
 
 .crm-preview .route-match-detail__stops-scroll {
   flex: 1 1 auto;
-  min-height: 6rem;
-  max-height: min(52vh, calc(100dvh - 12rem));
-  overflow-y: auto;
+  min-height: 8rem;
+  /* Always cap height so the list scrolls (never max-height:none on desktop). */
+  max-height: min(62vh, calc(100dvh - 10.5rem));
+  overflow-y: scroll;
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -816,13 +817,12 @@
 }
 
 @media (min-width: 1100px) {
-  .crm-preview .route-match-detail__stops-scroll {
-    max-height: none;
+  .crm-preview .route-match-detail__col--stops {
     height: 100%;
   }
 
-  .crm-preview .route-match-detail__col--stops {
-    height: 100%;
+  .crm-preview .route-match-detail__stops-scroll {
+    max-height: min(72vh, calc(100dvh - 8.5rem));
   }
 }
 
@@ -848,17 +848,14 @@
 
   .crm-preview .route-match-detail__col--stops {
     flex: none;
-    max-height: none;
   }
 
   .crm-preview .route-match-detail__stops-panel {
     flex: none;
-    max-height: none;
   }
 
   .crm-preview .route-match-detail__stops-scroll {
-    max-height: min(50vh, calc(100dvh - 11rem));
-    height: auto;
+    max-height: min(48vh, calc(100dvh - 12rem));
   }
 }
 
