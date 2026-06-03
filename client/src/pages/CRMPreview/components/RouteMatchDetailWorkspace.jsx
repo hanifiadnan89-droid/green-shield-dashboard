@@ -99,10 +99,16 @@ export default function RouteMatchDetailWorkspace({
           </section>
 
           <section className="route-match-detail__col route-match-detail__col--stops">
+            <div className="route-match-detail__stops-panel">
             <h2 className="route-match-detail__section-title route-match-detail__section-title--stops">
               Stop sequence ({stops.length} stops)
             </h2>
-            <div className="route-match-detail__stops-scroll">
+            <div
+              className="route-match-detail__stops-scroll"
+              role="region"
+              aria-label={`Stop sequence, ${stops.length} stops`}
+              tabIndex={0}
+            >
             <ol className="route-match-stop-list route-match-stop-list--detail">
               {visibleStops.map(stop => (
                 <li
@@ -135,6 +141,7 @@ export default function RouteMatchDetailWorkspace({
                 {showAllStops ? 'Show fewer stops' : `View all ${stops.length} stops`}
               </button>
             )}
+            </div>
           </section>
 
           <section className="route-match-detail__col route-match-detail__col--analytics">

@@ -714,6 +714,7 @@
 @media (min-width: 1100px) {
   .crm-preview .route-match-detail__grid {
     grid-template-columns: minmax(280px, 1.15fr) minmax(260px, 1fr) minmax(240px, 0.9fr);
+    grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
   }
 }
@@ -766,6 +767,16 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  max-height: 100%;
+}
+
+.crm-preview .route-match-detail__stops-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .crm-preview .route-match-detail__section-title--stops {
@@ -773,20 +784,45 @@
 }
 
 .crm-preview .route-match-detail__stops-scroll {
-  flex: 1;
-  min-height: 0;
-  max-height: min(52vh, calc(100vh - 11rem));
+  flex: 1 1 auto;
+  min-height: 6rem;
+  max-height: min(52vh, calc(100dvh - 12rem));
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-right: 0.25rem;
-  margin-right: -0.25rem;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 rgba(15, 23, 42, 0.06);
+  padding-right: 0.35rem;
+  margin-right: -0.15rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.crm-preview .route-match-detail__stops-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.crm-preview .route-match-detail__stops-scroll::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+}
+
+.crm-preview .route-match-detail__stops-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 9999px;
 }
 
 @media (min-width: 1100px) {
   .crm-preview .route-match-detail__stops-scroll {
     max-height: none;
+    height: 100%;
+  }
+
+  .crm-preview .route-match-detail__col--stops {
+    height: 100%;
   }
 }
 
@@ -798,6 +834,7 @@
 .crm-preview .route-match-detail__col--analytics {
   min-width: 0;
   min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -806,15 +843,27 @@
   .crm-preview .route-match-detail__grid {
     overflow-y: auto;
     overscroll-behavior: contain;
+    grid-template-rows: none;
   }
 
   .crm-preview .route-match-detail__col--stops {
+    flex: none;
+    max-height: none;
+  }
+
+  .crm-preview .route-match-detail__stops-panel {
+    flex: none;
     max-height: none;
   }
 
   .crm-preview .route-match-detail__stops-scroll {
-    max-height: min(60vh, 28rem);
+    max-height: min(50vh, calc(100dvh - 11rem));
+    height: auto;
   }
+}
+
+.crm-preview .route-match-detail__stops-scroll .route-match-stop-list--detail {
+  padding: 0.5rem;
 }
 
 .crm-preview .route-match-stop-list--detail .route-match-stop-list__item {
