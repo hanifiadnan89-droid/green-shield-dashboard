@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import Spinner from '../../components/Spinner.jsx';
 import LeadSearchPanel from './LeadSearchPanel.jsx';
@@ -16,18 +16,55 @@ export default function StepPickLead({
   allLeadsCount,
   onSelectLead,
 }) {
-  const [highlightedLead, setHighlightedLead] = useState(null);
+  /** Baseline preview when not hovering (first visible / last valid in list) */
+  const [selectedLead, setSelectedLead] = useState(null);
+  /** Transient hover — cleared on mouse leave and list scroll */
+  const [hoveredLead, setHoveredLead] = useState(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     if (!filteredLeads.length) {
-      setHighlightedLead(null);
+      setSelectedLead(null);
+      setHoveredLead(null);
       return;
     }
-    setHighlightedLead(prev => {
+    setSelectedLead(prev => {
       if (prev && filteredLeads.some(l => l.row_number === prev.row_number)) return prev;
       return filteredLeads[0];
     });
+    setHoveredLead(null);
   }, [filteredLeads]);
+
+  const previewLead = useMemo(
+    () => hoveredLead ?? selectedLead,
+    [hoveredLead, selectedLead],
+  );
+
+  const handleHover = useCallback((lead) => {
+    if (lead) {
+      setHoveredLead(lead);
+    } else {
+      setHoveredLead(null);
+    }
+  }, []);
+
+  const handleListScroll = useCallback(() => {
+    setHoveredLead(null);
+  }, []);
+
+  const handleListMouseLeave = useCallback(() => {
+    setHoveredLead(null);
+  }, []);
+
+  const handleSelectFromList = useCallback((lead) => {
+    setSelectedLead(lead);
+    onSelectLead(lead);
+  }, [onSelectLead]);
+
+  const handleContinue = useCallback((lead) => {
+    setSelectedLead(lead);
+    onSelectLead(lead);
+  }, [onSelectLead]);
 
   return (
     <motion.div
@@ -54,16 +91,22 @@ export default function StepPickLead({
             <EmptyLeadListState />
           ) : (
             <>
-              <ul className="send-pick-lead__cards" role="list">
+              <ul
+                ref={listRef}
+                className="send-pick-lead__cards"
+                role="list"
+                onScroll={handleListScroll}
+                onMouseLeave={handleListMouseLeave}
+              >
                 <AnimatePresence mode="popLayout">
                   {filteredLeads.map((lead, index) => (
                     <LeadCard
                       key={lead.row_number}
                       lead={lead}
                       index={index}
-                      highlighted={highlightedLead?.row_number === lead.row_number}
-                      onHover={setHighlightedLead}
-                      onSelect={onSelectLead}
+                      highlighted={previewLead?.row_number === lead.row_number}
+                      onHover={handleHover}
+                      onSelect={handleSelectFromList}
                     />
                   ))}
                 </AnimatePresence>
@@ -78,8 +121,8 @@ export default function StepPickLead({
         </div>
 
         <LeadPreviewPanel
-          lead={highlightedLead}
-          onContinue={onSelectLead}
+          lead={previewLead}
+          onContinue={handleContinue}
         />
       </div>
     </motion.div>
