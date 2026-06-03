@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, X } from 'lucide-react';
 import RouteMatchCardContent from './RouteMatchCardContent.jsx';
@@ -10,12 +9,14 @@ import { isGoogleMapsEnabled } from './RouteFinder/useGoogleMapsLoader.js';
 const EASE = [0.22, 1, 0.36, 1];
 
 export default function RouteMatchDetailWorkspace({
+  layoutId,
   match,
   rank,
   routeArea,
   onBack,
   onSelectTechnician,
   onOpenFullMap,
+  layoutTransition = { duration: 0.42, ease: EASE },
 }) {
   const panelRef = useRef(null);
   const [showAllStops, setShowAllStops] = useState(false);
@@ -42,7 +43,7 @@ export default function RouteMatchDetailWorkspace({
     panelRef.current?.focus();
   }, []);
 
-  return createPortal(
+  return (
     <motion.div
       className="crm-preview route-match-workspace"
       role="dialog"
@@ -51,36 +52,53 @@ export default function RouteMatchDetailWorkspace({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.24, ease: EASE }}
+      transition={{ duration: 0.3, ease: EASE }}
     >
+      <motion.button
+        type="button"
+        className="route-match-workspace__backdrop"
+        aria-label="Close technician details"
+        onClick={onBack}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.32, ease: EASE }}
+      />
+
       <motion.div
         ref={panelRef}
         tabIndex={-1}
+        layoutId={layoutId}
+        layout
         className="route-match-detail"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 10 }}
-        transition={{ duration: 0.32, ease: EASE }}
+        transition={{ layout: layoutTransition }}
       >
         <header className="route-match-detail__header">
           <button type="button" className="route-match-detail__back" onClick={onBack}>
             <ArrowLeft size={16} aria-hidden />
             Back to Matches
           </button>
-
           <h1 id="route-match-detail-title" className="route-match-detail__title m-0">
             Technician match · {match.techName}
           </h1>
-
-          <button type="button" className="route-match-detail__close" onClick={onBack} aria-label="Close">
-            <X size={20} />
+          <button
+            type="button"
+            className="route-match-detail__close"
+            onClick={onBack}
+            aria-label="Close"
+          >
+            <X size={20} strokeWidth={2.25} />
           </button>
         </header>
 
-        <div className="route-match-detail__grid">
+        <motion.div
+          className="route-match-detail__grid"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: EASE, delay: 0.1 }}
+        >
           <section className="route-match-detail__col route-match-detail__col--summary">
             <RouteMatchCardContent match={match} rank={rank} routeArea={routeArea} compact={false} />
-
             <div className="route-match-detail__actions">
               <button
                 type="button"
@@ -89,7 +107,6 @@ export default function RouteMatchDetailWorkspace({
               >
                 Select This Technician
               </button>
-
               {mapsEnabled && (
                 <button
                   type="button"
@@ -107,7 +124,6 @@ export default function RouteMatchDetailWorkspace({
               <h2 className="route-match-detail__section-title route-match-detail__section-title--stops">
                 Stop sequence ({stops.length} stops)
               </h2>
-
               <div
                 className="route-match-detail__stops-scroll"
                 role="region"
@@ -124,23 +140,19 @@ export default function RouteMatchDetailWorkspace({
                       ].filter(Boolean).join(' ')}
                     >
                       <span className="route-match-stop-list__time">{stop.scheduledTime || '—'}</span>
-
                       <div className="min-w-0">
                         <p className="route-match-stop-list__name m-0">
                           {stop.isNew ? 'NEW · ' : ''}{stop.customerName}
                         </p>
-
                         {stop.address && (
                           <p className="route-match-stop-list__addr m-0">{stop.address}</p>
                         )}
                       </div>
-
                       {stop.isTimed && <span className="route-match-stop-list__timed">⏱</span>}
                     </li>
                   ))}
                 </ol>
               </div>
-
               {stops.length > 12 && (
                 <button
                   type="button"
@@ -160,7 +172,6 @@ export default function RouteMatchDetailWorkspace({
             {day && (
               <>
                 <h2 className="route-match-detail__section-title mt-4">Day summary</h2>
-
                 <dl className="route-match-day-summary route-match-day-summary--detail">
                   <div><dt>Start</dt><dd>{day.startTime || '—'}</dd></div>
                   <div><dt>End</dt><dd>{day.endTime || '—'}</dd></div>
@@ -175,7 +186,6 @@ export default function RouteMatchDetailWorkspace({
             {mapsEnabled && (
               <>
                 <h2 className="route-match-detail__section-title mt-4">Route preview</h2>
-
                 <RouteGoogleMap
                   stops={stops}
                   mapType="satellite"
@@ -187,9 +197,8 @@ export default function RouteMatchDetailWorkspace({
               </>
             )}
           </section>
-        </div>
+        </motion.div>
       </motion.div>
-    </motion.div>,
-    document.body,
+    </motion.div>
   );
 }
