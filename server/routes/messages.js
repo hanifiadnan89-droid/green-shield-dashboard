@@ -56,7 +56,7 @@ router.post('/migrate-local', (req, res) => {
   }
 });
 
-router.post('/:rowNumber/read', (req, res) => {
+router.post('/:rowNumber/read', async (req, res) => {
   try {
     const rowNumber = parseInt(req.params.rowNumber, 10);
     if (!rowNumber) return res.status(400).json({ error: 'Invalid row number' });
