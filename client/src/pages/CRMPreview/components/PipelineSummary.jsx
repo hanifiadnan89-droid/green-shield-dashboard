@@ -1,5 +1,5 @@
-import PipelineSummaryFlow from './PipelineSummary/PipelineSummaryFlow.jsx';
+import PipelineCommandCenter from './PipelineSummary/PipelineCommandCenter.jsx';
 
-export default function PipelineSummary({ stats = {} }) {
-  return <PipelineSummaryFlow stats={stats} />;
+export default function PipelineSummary({ stats = {}, leads = [] }) {
+  return <PipelineCommandCenter stats={stats} leads={leads} />;
 }
