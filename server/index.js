@@ -45,8 +45,9 @@ function requireDashboardLogin(req, res, next) {
   const expectedUsername = process.env.DASHBOARD_USERNAME;
   const expectedPassword = process.env.DASHBOARD_PASSWORD;
 
+  // Login is optional — only enforce when both env vars are set (see DEPLOY.md).
   if (!expectedUsername || !expectedPassword) {
-    return res.status(500).send('Dashboard login is not configured');
+    return next();
   }
 
   const authHeader = req.headers.authorization || '';
