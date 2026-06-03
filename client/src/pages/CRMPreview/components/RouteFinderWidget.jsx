@@ -58,10 +58,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   // Time preference
   const [timePref, setTimePref]         = useState(null);
   const [specificSlot, setSpecificSlot] = useState(null);
-  const [specialNotes, setSpecialNotes] = useState('');
-
-  // Time preference override ("Other" panel)
-  const [showOther, setShowOther]         = useState(false);
 
   // Scoring
   const [scoringStatus, setScoringStatus] = useState('idle');
@@ -493,8 +489,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setIsEditing(false);
     setTimePref(null);
     setSpecificSlot(null);
-    setShowOther(false);
-    setSpecialNotes('');
     setResults(null);
     setScoringStatus('idle');
     setSuggestions([]);
@@ -674,9 +668,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             <div className="rounded-[10px] border border-gs-accent/30 bg-gs-accent/[0.04] px-2.5 py-2 flex items-start gap-[7px]">
               <CheckCircle size={13} className="text-gs-accent mt-px shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold text-gs-text m-0 leading-[1.3]">{geocode.display}</p>
-                <p className="type-mono text-slate-400 mt-0.5 mb-0">
-                  {geocode.lat.toFixed(5)}, {geocode.lng.toFixed(5)}
+                <p className="text-[11px] font-semibold text-gs-text m-0 leading-snug">
+                  {geocode.full || geocode.display}
                 </p>
               </div>
               <button
@@ -787,36 +780,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
               <span>{geocodeError}</span>
             </p>
           )}
-          <p className="type-label-sm text-slate-400 mt-1 font-normal tracking-normal">
-            Type to see suggestions · press Enter or ↑↓ to navigate
-          </p>
         </div>
 
-        {/* ── Other windows toggle ── */}
         {geocodeStatus === 'success' && (
-          <div className={`flex items-center ${showOther ? 'mb-0' : 'mb-2.5'}`}>
-            <button
-              type="button"
-              onClick={() => {
-                const closing = showOther;
-                setShowOther(o => !o);
-                if (closing) {
-                  setTimePref(null);
-                  setSpecificSlot(null);
-                  if (geocode && activeTechnicians?.length) runScore(activeTechnicians, geocode, 'AT');
-                }
-              }}
-              className="bg-transparent border-0 cursor-pointer p-0 text-[11px] text-blue-500 font-semibold flex items-center gap-0.5"
-            >
-              {showOther ? '▴' : '▾'} Other windows
-            </button>
-          </div>
-        )}
-
-        {/* ── Other: timing preference picker ── */}
-        {geocodeStatus === 'success' && showOther && (
-          <div className="mb-3 px-3 py-2.5 bg-blue-500/[0.04] rounded-[10px] border border-blue-500/15">
-            <div className={`flex gap-1.5 ${timePref === 'specific' ? 'mb-2.5' : 'mb-0'}`}>
+          <div className="route-time-prefs mt-3 mb-3">
+            <div className={`flex gap-2 ${timePref === 'specific' ? 'mb-2.5' : 'mb-0'}`}>
               {TIME_PREFS.map(({ key, label, sub }) => {
                 const active = timePref === key;
                 return (
@@ -825,7 +793,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                     type="button"
                     onClick={() => handleTimePrefSelect(key)}
                     className={[
-                      'route-time-btn flex-1 py-[7px] px-1 rounded-[9px] cursor-pointer text-center transition-all duration-150',
+                      'route-time-btn flex-1 py-2 px-1 rounded-[10px] cursor-pointer text-center transition-all duration-150',
                       active ? 'route-time-btn--active' : '',
                     ].filter(Boolean).join(' ')}
                   >
@@ -837,7 +805,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             </div>
 
             {timePref === 'specific' && (
-              <div>
+              <div className="pt-0.5">
                 <p className="type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal">4-hour slots</p>
                 <div className="flex gap-[5px] mb-2">
                   {FOUR_HOUR_SLOTS.map(({ key, label }) => {
@@ -878,24 +846,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── Special notes ── */}
-        {geocodeStatus === 'success' && (
-          <div className="mb-3">
-            <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-[5px]">
-              Special Notes <span className="font-normal normal-case">(optional)</span>
-            </label>
-            <textarea
-              value={specialNotes}
-              onChange={e => setSpecialNotes(e.target.value)}
-              placeholder="e.g. call ahead, gate code, commercial account..."
-              rows={2}
-              className="w-full box-border py-[7px] px-2.5 rounded-[9px] resize-none border border-black/10 text-[11px] text-gray-700 bg-slate-50 outline-none leading-[1.4]"
-              onFocus={e => { e.target.style.borderColor = 'rgba(22,163,74,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.08)'; }}
-              onBlur={e => { e.target.style.borderColor = 'rgba(0,0,0,0.1)'; e.target.style.boxShadow = 'none'; }}
-            />
           </div>
         )}
 
