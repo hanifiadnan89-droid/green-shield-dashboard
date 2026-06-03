@@ -9,6 +9,8 @@ import LeadsTable from './Leads/LeadsTable.jsx';
 import LeadsEmptyState from './Leads/LeadsEmptyState.jsx';
 import EditLeadModal from './Leads/EditLeadModal.jsx';
 import LeadDetailWorkspace from './Leads/LeadDetailWorkspace.jsx';
+import { useLeadsUnreadState } from './Leads/useLeadsUnreadState.js';
+import { hasConversationSignal } from './Replies/conversationLeadFilter.js';
 import './Leads/leads.css';
 
 const EMPTY_FILTERS = { status: '', notes: '', stop: '', error: '', sms_reply: '', email_reply: '' };
@@ -101,6 +103,13 @@ export default function Leads() {
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
+  const { isLeadUnread, markLeadRead, pulseRows } = useLeadsUnreadState(leads);
+
+  useEffect(() => {
+    if (!detailLead || !hasConversationSignal(detailLead)) return;
+    void markLeadRead(detailLead);
+  }, [detailLead, markLeadRead]);
+
   return (
     <motion.div
       className="leads-page"
@@ -184,6 +193,8 @@ export default function Leads() {
                   onStop={handleStop}
                   onEdit={setEditLead}
                   actionLoading={actionLoading}
+                  isLeadUnread={isLeadUnread}
+                  pulseRows={pulseRows}
                 />
               )}
             </div>

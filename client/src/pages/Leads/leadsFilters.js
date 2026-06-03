@@ -128,14 +128,10 @@ export function filterLeads(leads, { search, filters, category, notesParam, quic
   return [...result].sort((a, b) => b.row_number - a.row_number);
 }
 
+/** Non-unread visual priority (errors, active pipeline) — not based on reply text alone */
 export function isLeadPriority(lead) {
-  if (hasRealReply(lead.sms_reply) || hasRealReply(lead.email_reply)) return true;
   if ((lead.error && lead.error.trim()) || lead.status === 'error' || lead.status === 'email_failed') return true;
   return (lead.status || '').toLowerCase() === 'active';
-}
-
-export function isLeadUnread(lead) {
-  return hasRealReply(lead.sms_reply) || hasRealReply(lead.email_reply);
 }
 
 export function resolveQuickFilterId({ category, notesParam, filters }) {

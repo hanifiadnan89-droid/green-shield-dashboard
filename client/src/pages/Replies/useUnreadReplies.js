@@ -1,32 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { api } from '../../api/client.js';
 import { getLatestInbound, inboundReadKey } from './threadUtils.js';
-
-function parseTimeMs(value) {
-  if (!value) return null;
-  const t = new Date(value).getTime();
-  return Number.isNaN(t) ? null : t;
-}
-
-function isInboundNewerThanRead(messages, metaForRow, readAtByRow, rowNumber) {
-  const inboundAt = metaForRow?.lastInboundAt || getLatestInbound(messages)?.ts;
-  if (!inboundAt) return false;
-
-  const inboundMs = parseTimeMs(inboundAt);
-  const readAt = metaForRow?.lastReadAt ?? readAtByRow[rowNumber];
-  const readMs = parseTimeMs(readAt);
-
-  if (readMs != null && inboundMs != null) {
-    return inboundMs > readMs;
-  }
-
-  const latestInbound = getLatestInbound(messages);
-  const latestKey = inboundReadKey(latestInbound);
-  if (!latestKey) return false;
-  const readKey = metaForRow?.lastReadInboundKey ?? readAtByRow[rowNumber];
-  if (!readKey) return true;
-  return readKey !== latestKey;
-}
+import { isInboundNewerThanRead } from './readState.js';
 
 /**
  * Server-backed read state: lastReadAt vs lastInboundAt (persisted in sheet + server store).
