@@ -42,8 +42,8 @@ let _keepaliveTimer = null;
 /** Trust persisted "ok" without a network check (navigation / keepalive). */
 export const AUTH_OK_STALE_MS = 60 * 60 * 1000;
 
-/** Route schedule cache TTL (preload skip threshold). */
-export const ROUTE_CACHE_TTL_MS = 60 * 60 * 1000;
+/** Route schedule cache TTL — data older than this is re-scraped on background refresh. */
+export const ROUTE_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const DEFAULT_KEEPALIVE_MS = AUTH_OK_STALE_MS;
 

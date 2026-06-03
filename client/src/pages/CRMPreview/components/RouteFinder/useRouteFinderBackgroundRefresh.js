@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { api } from '../../../../api/client.js';
 
-/** Client tick interval — server route cache TTL is 1h, so most ticks only check auth metadata. */
+/** Client tick interval — server re-scrapes routes when cache is older than 10 minutes. */
 export const ROUTE_FINDER_BACKGROUND_REFRESH_MS = 5 * 60 * 1000;
 
 function routeFinderDebug(label, detail) {
@@ -18,16 +18,19 @@ export function useRouteFinderBackgroundRefresh({
   applyStatusData,
   startPolling,
   reloadActiveDatePayload,
+  getPriorityDates,
 }) {
   const inFlightRef = useRef(false);
   const intervalRef = useRef(null);
   const applyStatusRef = useRef(applyStatusData);
   const startPollingRef = useRef(startPolling);
   const reloadPayloadRef = useRef(reloadActiveDatePayload);
+  const getPriorityDatesRef = useRef(getPriorityDates);
 
   applyStatusRef.current = applyStatusData;
   startPollingRef.current = startPolling;
   reloadPayloadRef.current = reloadActiveDatePayload;
+  getPriorityDatesRef.current = getPriorityDates;
 
   useEffect(() => {
     const run = async () => {
@@ -36,11 +39,14 @@ export function useRouteFinderBackgroundRefresh({
       routeFinderDebug('background refresh started', { at: new Date().toISOString() });
 
       try {
-        const result = await api.routes.backgroundRefresh();
+        const priorityDates = getPriorityDatesRef.current?.() || [];
+        const result = await api.routes.backgroundRefresh(priorityDates);
         routeFinderDebug('background refresh response', {
           ok: result?.ok,
           auth: result?.status?._auth?.status,
           preloadStarted: result?.preloadStarted,
+          refreshedDates: result?.refreshedDates,
+          remainingStale: result?.remainingStale,
           authRefreshedWithCredentials: result?.authRefreshedWithCredentials,
         });
 

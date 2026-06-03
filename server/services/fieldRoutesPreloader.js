@@ -298,6 +298,67 @@ export async function getNormalizedForDate(date) {
   }
 }
 
+export async function isDateCacheStale(date) {
+  if (await hasFreshNormalizedCache(date)) return false;
+  const meta = await readMeta();
+  const entry = meta[date];
+  if (entry?.status === 'cached' && entry?.timestamp) {
+    const ageMs = Date.now() - new Date(entry.timestamp).getTime();
+    if (ageMs < ROUTE_CACHE_TTL_MS) return false;
+  }
+  return true;
+}
+
+/**
+ * Refresh stale working-day routes with a per-tick cap (background use).
+ * priorityDates (e.g. user-selected pill) are scraped first when stale.
+ */
+export async function preloadStaleWorkingDays({
+  force = false,
+  priorityDates = [],
+  maxPerTick = 2,
+} = {}) {
+  const auth = getAuthStatus();
+  const dates = getNextSixWorkingDays();
+
+  if (auth.status === 'needs_login' && !isAuthStatusFresh()) {
+    console.warn('[preloader] Skipping stale preload — FieldRoutes auth needs login.');
+    return { refreshed: [], remainingStale: 0 };
+  }
+
+  const stale = [];
+  for (const date of dates) {
+    if (force || (await isDateCacheStale(date))) {
+      stale.push(date);
+    }
+  }
+
+  const priority = priorityDates.filter(d => stale.includes(d));
+  const ordered = [
+    ...priority,
+    ...stale.filter(d => !priority.includes(d)),
+  ];
+  const toRefresh = ordered.slice(0, Math.max(1, maxPerTick));
+
+  const refreshed = [];
+  for (const date of toRefresh) {
+    try {
+      await refreshDate(date);
+      refreshed.push(date);
+    } catch (err) {
+      if (err.message?.includes('needs_login')) {
+        console.warn('[preloader] Auth expired mid-stale preload — stopping.');
+        break;
+      }
+    }
+  }
+
+  return {
+    refreshed,
+    remainingStale: Math.max(0, ordered.length - refreshed.length),
+  };
+}
+
 export async function preloadNextSixWorkingDays({ force = false } = {}) {
   const auth = getAuthStatus();
   const dates = getNextSixWorkingDays();

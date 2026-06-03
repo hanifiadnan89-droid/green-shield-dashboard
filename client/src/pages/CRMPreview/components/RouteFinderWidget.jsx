@@ -167,6 +167,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     applyStatusData,
     startPolling,
     reloadActiveDatePayload,
+    getPriorityDates: () => (activeDateRef.current ? [activeDateRef.current] : []),
   });
 
   // ---------------------------------------------------------------------------
