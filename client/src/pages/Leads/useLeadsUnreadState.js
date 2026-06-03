@@ -1,55 +1,98 @@
-import { useCallback, useEffect } from 'react';
-import { useConversationThreads } from '../Replies/useConversationThreads.js';
-import { useUnreadReplies } from '../Replies/useUnreadReplies.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '../../api/client.js';
 import { filterConversationLeads, hasConversationSignal } from '../Replies/conversationLeadFilter.js';
+import { getLatestInbound, inboundReadKey } from '../Replies/threadUtils.js';
 
 /**
- * Same read/unread protocol as Replies: message sync + lastInboundAt vs lastReadAt.
+ * Leads unread highlighting — same server read protocol as Replies:
+ * unread when lastInboundAt > lastReadAt (via /api/messages/unread-count).
+ *
+ * Avoids syncing full thread history for every conversation lead on page load.
  */
 export function useLeadsUnreadState(leads) {
-  const { threads, meta, syncLeads, syncing } = useConversationThreads();
-  const { isUnread, markRead, applyMetaReadState, pulseRows } = useUnreadReplies();
+  const [unreadRows, setUnreadRows] = useState(() => new Set());
+  const refreshTimer = useRef(null);
+  const leadsRef = useRef(leads);
+  leadsRef.current = leads;
 
-  const conversationLeads = useMemo(() => filterConversationLeads(leads), [leads]);
+  const refreshUnread = useCallback(async () => {
+    const replyLeads = filterConversationLeads(leadsRef.current);
+    if (!replyLeads.length) {
+      setUnreadRows(new Set());
+      return;
+    }
+    try {
+      const { rowNumbers, count } = await api.messages.unreadCount(replyLeads);
+      const rows = Array.isArray(rowNumbers) ? rowNumbers : [];
+      setUnreadRows(new Set(rows));
+      window.dispatchEvent(new CustomEvent('replies-unread-count', {
+        detail: { count: typeof count === 'number' ? count : rows.length },
+      }));
+    } catch (err) {
+      console.warn('[Leads] unread count failed:', err.message);
+    }
+  }, []);
 
-  const syncConversationState = useCallback(async () => {
-    if (!conversationLeads.length) return;
-    await syncLeads(conversationLeads);
-  }, [conversationLeads, syncLeads]);
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => {
+      refreshTimer.current = null;
+      void refreshUnread();
+    }, 200);
+  }, [refreshUnread]);
 
   useEffect(() => {
-    syncConversationState();
-  }, [syncConversationState]);
+    scheduleRefresh();
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    };
+  }, [leads, scheduleRefresh]);
 
   useEffect(() => {
-    applyMetaReadState(meta);
-  }, [meta, applyMetaReadState]);
+    const onUnreadEvent = () => scheduleRefresh();
+    window.addEventListener('replies-unread-count', onUnreadEvent);
+    return () => window.removeEventListener('replies-unread-count', onUnreadEvent);
+  }, [scheduleRefresh]);
 
-  useEffect(() => {
-    const refresh = () => { syncConversationState(); };
-    window.addEventListener('replies-unread-count', refresh);
-    return () => window.removeEventListener('replies-unread-count', refresh);
-  }, [syncConversationState]);
-
-  const isLeadUnread = useCallback((lead) => {
-    if (!hasConversationSignal(lead)) return false;
-    const row = lead.row_number;
-    return isUnread(lead, threads[row] || [], meta[row]);
-  }, [isUnread, threads, meta]);
+  const isLeadUnread = useCallback(
+    (lead) => unreadRows.has(lead.row_number),
+    [unreadRows],
+  );
 
   const markLeadRead = useCallback(async (lead) => {
     if (!hasConversationSignal(lead)) return null;
-    const messages = threads[lead.row_number] || [];
-    const result = await markRead(lead, messages);
-    window.dispatchEvent(new CustomEvent('replies-unread-count'));
-    return result;
-  }, [markRead, threads]);
+    try {
+      const { messages } = await api.messages.list(lead.row_number);
+      const latestInbound = getLatestInbound(messages);
+      const key = inboundReadKey(latestInbound);
+      if (!key) {
+        setUnreadRows(prev => {
+          const next = new Set(prev);
+          next.delete(lead.row_number);
+          return next;
+        });
+        return null;
+      }
+      const result = await api.messages.markRead(lead.row_number, key);
+      setUnreadRows(prev => {
+        const next = new Set(prev);
+        next.delete(lead.row_number);
+        return next;
+      });
+      scheduleRefresh();
+      return result;
+    } catch (err) {
+      console.warn('[Leads] markRead failed:', err.message);
+      return null;
+    }
+  }, [scheduleRefresh]);
+
+  const emptyPulse = useMemo(() => new Set(), []);
 
   return {
     isLeadUnread,
     markLeadRead,
-    pulseRows,
-    syncing,
-    refreshReadState: syncConversationState,
+    pulseRows: emptyPulse,
+    refreshReadState: refreshUnread,
   };
 }
