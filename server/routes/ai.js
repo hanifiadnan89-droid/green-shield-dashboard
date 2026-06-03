@@ -59,6 +59,34 @@ function detectEscalation(context) {
   return { required: false, reason: null };
 }
 
+function buildAssistSystemPrompt(knowledge) {
+  return `You are the AI Response Assistant for Green Shield Pest Solutions — an interactive copilot inside the Replies inbox (like ChatGPT embedded in the CRM).
+
+Adnan types instructions describing how he wants to respond. You write the SMS (or email-style) reply text based on HIS instructions plus the conversation context already provided. You do NOT choose strategy or tone unless he asks.
+
+KNOWLEDGE BASE — follow all rules in these files:
+${knowledge}
+
+RULES:
+1. Follow the user's instruction precisely (tone, length, content, language, number of versions).
+2. Default output: 1–4 sentences, SMS-ready, human and direct — unless the user asks otherwise.
+3. Voice: Adnan at Green Shield Pest Solutions — professional, calm, friendly, not pushy.
+4. Never invent pricing, availability, specific dates, technician names, guarantees, or discounts not in the knowledge base.
+5. You already have the full thread and latest customer message — never ask Adnan to repeat what the customer said.
+6. If CURRENT REPLY DRAFT is provided, treat rewrite/shorten/professional prompts as edits to that text unless told otherwise.
+7. For "create 3 versions" or similar, put all versions in the draft field, clearly labeled (Version 1:, Version 2:, etc.).
+8. For translate/summarize tasks, put the result in draft (summary can be slightly longer).
+9. Escalation topics in the latest customer message (anger, refund, cancel, legal, health, bad review, discount demand): set human_review_required true and explain in review_reason.
+10. Do not add a sign-off unless the user requests it or this is clearly first contact.
+
+OUTPUT — respond ONLY with valid JSON. No markdown fences, no extra text:
+{
+  "draft": "text to place in the reply compose box",
+  "human_review_required": false,
+  "review_reason": null
+}`;
+}
+
 function buildSystemPrompt(knowledge) {
   return `You are the AI reply assistant for Green Shield Pest Solutions. Your only job is to draft a short SMS reply that Adnan will review and approve before sending. You never send anything automatically.
 
@@ -120,25 +148,120 @@ function buildUserMessage(context) {
     `- Route availability context: ${context.route_availability_context || 'Not available — do not name specific dates'}`,
   ];
 
-  if (context.prior_chat_history && context.prior_chat_history.length > 0) {
+  const history = context.conversation_history?.length
+    ? context.conversation_history
+    : (context.prior_chat_history || []).map(m => ({
+        role: m.role || 'agent',
+        text: m.text,
+        ts: m.ts,
+        channel: m.channel || 'sms',
+      }));
+
+  if (history.length > 0) {
     lines.push('');
-    lines.push('PRIOR OUTBOUND MESSAGES (from us):');
-    context.prior_chat_history.forEach((m, i) => {
-      const ts = m.ts ? ` [${m.ts}]` : '';
-      lines.push(`  ${i + 1}.${ts} ${m.text}`);
+    lines.push('FULL CONVERSATION (oldest to newest):');
+    history.forEach((m, i) => {
+      const who = m.role === 'customer' ? 'Customer' : 'Adnan (us)';
+      const ch = m.channel ? ` [${m.channel}]` : '';
+      const ts = m.ts ? ` ${m.ts}` : '';
+      lines.push(`  ${i + 1}. ${who}${ch}${ts}: ${m.text}`);
     });
   }
 
   lines.push('');
   lines.push(`CUSTOMER'S LATEST MESSAGE:`);
-  lines.push(context.last_customer_message || '(no inbound message — drafting a follow-up)');
-
-  lines.push('');
-  lines.push(`TASK: Draft a reply SMS from Adnan at Green Shield Pest Solutions. Follow all rules above. Return only valid JSON.`);
+  lines.push(context.last_customer_message || '(no inbound message yet)');
 
   return lines.join('\n');
 }
 
+function buildAssistUserMessage(context, userPrompt, currentDraft) {
+  const lines = [buildUserMessage(context)];
+  lines.push('');
+  if (currentDraft?.trim()) {
+    lines.push('CURRENT REPLY DRAFT (in compose box — use for rewrite/edit prompts):');
+    lines.push(currentDraft.trim());
+    lines.push('');
+  }
+  lines.push('ADNAN\'S INSTRUCTION (follow exactly):');
+  lines.push(userPrompt.trim());
+  lines.push('');
+  lines.push('Write the reply text for the compose box per the instruction. Return only valid JSON.');
+  return lines.join('\n');
+}
+
+function parseAiJson(raw) {
+  try {
+    const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    return JSON.parse(clean);
+  } catch {
+    return {
+      draft: raw,
+      human_review_required: true,
+      review_reason: 'AI response was not valid JSON — review before sending.',
+    };
+  }
+}
+
+async function runAssist({ lead_context, user_prompt, current_draft }) {
+  const escalation = detectEscalation(lead_context);
+  if (escalation.required && lead_context.stop) {
+    return {
+      draft: '',
+      human_review_required: true,
+      review_reason: escalation.reason,
+    };
+  }
+
+  const knowledge = loadKnowledge();
+  const systemPrompt = buildAssistSystemPrompt(knowledge);
+  const userMessage = buildAssistUserMessage(lead_context, user_prompt, current_draft);
+
+  const response = await getClient().messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }],
+  });
+
+  const raw = response.content[0]?.text?.trim() || '{}';
+  const parsed = parseAiJson(raw);
+
+  return {
+    draft: (parsed.draft || '').trim(),
+    human_review_required: escalation.required || parsed.human_review_required || false,
+    review_reason: escalation.reason || parsed.review_reason || null,
+  };
+}
+
+router.post('/assist-reply', async (req, res) => {
+  try {
+    const { lead_context, user_prompt, current_draft } = req.body;
+
+    if (!lead_context) {
+      return res.status(400).json({ error: 'Missing lead_context in request body.' });
+    }
+    if (!lead_context.name || !lead_context.phone) {
+      return res.status(400).json({ error: 'lead_context must include at least name and phone.' });
+    }
+    const prompt = (user_prompt || '').trim();
+    if (!prompt) {
+      return res.status(400).json({ error: 'Describe how you would like to respond (user_prompt is required).' });
+    }
+
+    const result = await runAssist({
+      lead_context,
+      user_prompt: prompt,
+      current_draft: current_draft || '',
+    });
+    return res.json(result);
+  } catch (err) {
+    console.error('[ai/assist-reply]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/** @deprecated Use POST /ai/assist-reply with a user_prompt instead */
 router.post('/draft-reply', async (req, res) => {
   try {
     const { lead_context } = req.body;
@@ -150,10 +273,8 @@ router.post('/draft-reply', async (req, res) => {
       return res.status(400).json({ error: 'lead_context must include at least name and phone.' });
     }
 
-    // Pre-flight escalation check before calling the API
     const escalation = detectEscalation(lead_context);
     if (escalation.required && lead_context.stop) {
-      // Hard stop — don't even draft
       return res.json({
         draft: '',
         human_review_required: true,
@@ -163,7 +284,7 @@ router.post('/draft-reply', async (req, res) => {
 
     const knowledge = loadKnowledge();
     const systemPrompt = buildSystemPrompt(knowledge);
-    const userMessage = buildUserMessage(lead_context);
+    const userMessage = `${buildUserMessage(lead_context)}\n\nTASK: Draft a reply SMS from Adnan at Green Shield Pest Solutions. Follow all rules above. Return only valid JSON.`;
 
     const response = await getClient().messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -173,27 +294,13 @@ router.post('/draft-reply', async (req, res) => {
     });
 
     const raw = response.content[0]?.text?.trim() || '{}';
-
-    let parsed;
-    try {
-      // Strip markdown code fences if Claude adds them
-      const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-      parsed = JSON.parse(clean);
-    } catch {
-      // Fallback: return raw text as draft if JSON parse fails
-      parsed = { draft: raw, human_review_required: true, review_reason: 'AI response was not valid JSON — review before sending.' };
-    }
-
-    // Merge pre-flight escalation result with AI result
-    const finalReviewRequired = escalation.required || parsed.human_review_required || false;
-    const finalReviewReason = escalation.reason || parsed.review_reason || null;
+    const parsed = parseAiJson(raw);
 
     return res.json({
       draft: (parsed.draft || '').trim(),
-      human_review_required: finalReviewRequired,
-      review_reason: finalReviewReason,
+      human_review_required: escalation.required || parsed.human_review_required || false,
+      review_reason: escalation.reason || parsed.review_reason || null,
     });
-
   } catch (err) {
     console.error('[ai/draft-reply]', err.message);
     return res.status(500).json({ error: err.message });

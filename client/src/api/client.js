@@ -121,6 +121,11 @@ export const api = {
   },
 
   ai: {
+    assistReply: (lead_context, user_prompt, current_draft = '') => request('/ai/assist-reply', {
+      method: 'POST',
+      body: JSON.stringify({ lead_context, user_prompt, current_draft }),
+    }),
+    /** @deprecated */
     draftReply: (lead_context) => request('/ai/draft-reply', {
       method: 'POST',
       body: JSON.stringify({ lead_context }),
