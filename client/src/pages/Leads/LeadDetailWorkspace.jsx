@@ -1,229 +1,356 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import {
-  X, Phone, Mail, Send, Hash, CheckCircle, XCircle, Calendar, Clock,
+  X, Phone, Mail, Send, Hash, MessageSquare, Archive, ArchiveRestore,
+  ExternalLink, TrendingUp, AlertCircle,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { hasRealReply } from '../CRMPreview/mockData.js';
 import { getAvatarStyle, getInitials } from '../CRMPreview/mockData.js';
-import LeadStatusPill from './LeadStatusPill.jsx';
+import { getActivityMeta } from '../CRMPreview/mockData.js';
+import { formatThreadTime } from '../Replies/threadUtils.js';
+import LeadStatusLabel from './LeadStatusLabel.jsx';
+import { useLeadDetailData } from './useLeadDetailData.js';
+import Spinner from '../../components/Spinner.jsx';
 
-const KNOWN_KEYS = new Set([
-  'name', 'email', 'phone', 'notes', 'status', 'sent', 'stop',
-  'sms_reply', 'email_reply', 'error', 'row_number',
-]);
-
-function FieldRow({ label, children }) {
+function InsightTile({ label, value, sub }) {
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-gs-border/40 last:border-0">
-      <span className="text-gs-muted text-xs w-28 shrink-0 pt-0.5">{label}</span>
-      <div className="text-gs-text text-sm flex-1 break-words">{children}</div>
+    <div className="leads-insight-tile">
+      <p className="leads-insight-tile__label">{label}</p>
+      <p className="leads-insight-tile__value">{value}</p>
+      {sub && <p className="leads-insight-tile__sub">{sub}</p>}
     </div>
   );
 }
 
-export default function LeadDetailWorkspace({ lead, onClose }) {
-  const navigate = useNavigate();
-  const [activity, setActivity] = useState([]);
-  const [loadingActivity, setLoadingActivity] = useState(true);
-
-  useEffect(() => {
-    setLoadingActivity(true);
-    api.activity.list(50).then(data => {
-      const entries = (data.log || []).filter(e =>
-        e.leadName && e.leadName.toLowerCase() === lead.name?.toLowerCase()
-      );
-      setActivity(entries.slice(0, 10));
-    }).catch(() => {}).finally(() => setLoadingActivity(false));
-  }, [lead.name]);
-
-  useEffect(() => {
-    function onKey(e) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const sentDate = lead.sent && lead.sent !== 'imported' ? new Date(lead.sent) : null;
-  const daysInSystem = sentDate
-    ? Math.floor((Date.now() - sentDate.getTime()) / 86400000)
-    : null;
-  const extraKeys = Object.keys(lead).filter(k => !KNOWN_KEYS.has(k));
-  const avatar = getAvatarStyle(lead.name);
+function ConversationPreview({ thread, leadName }) {
+  const recent = thread.slice(-6);
+  if (!recent.length) return null;
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key="leads-workspace-layer"
-        className="fixed inset-0 z-[60]"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-      <motion.div
-        className="leads-workspace-backdrop absolute inset-0"
-        onClick={onClose}
-      />
-      <motion.div
-        className="leads-workspace absolute inset-0 z-[1] flex flex-col"
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 16 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Lead details: ${lead.name}`}
-      >
-        <header className="leads-workspace__header">
-          <motion.div
-            layoutId={`lead-avatar-${lead.row_number}`}
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-sm font-bold shrink-0"
-            style={{ background: avatar.bg, color: avatar.text, border: `1px solid ${avatar.text}22` }}
-          >
-            {getInitials(lead.name)}
-          </motion.div>
-          <div className="flex-1 min-w-0">
-            <motion.h2
-              layoutId={`lead-name-${lead.row_number}`}
-              className="text-xl sm:text-2xl font-bold text-gs-text truncate"
+    <section className="leads-detail-section">
+      <h3 className="leads-detail-section__title">Recent conversation</h3>
+      <div className="leads-conversation-preview">
+        {recent.map(msg => {
+          const isCustomer = msg.dir === 'in' || msg.direction === 'inbound';
+          return (
+            <div
+              key={msg.id}
+              className={`leads-conversation-preview__bubble ${isCustomer ? 'leads-conversation-preview__bubble--in' : 'leads-conversation-preview__bubble--out'}`}
             >
-              {lead.name || 'Unknown Lead'}
-            </motion.h2>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <span className="text-gs-muted text-xs flex items-center gap-1">
-                <Hash size={11} /> Row {lead.row_number}
-              </span>
-              {lead.status && (
-                <LeadStatusPill value={lead.status} layoutId={`lead-status-${lead.row_number}`} />
+              <p className="leads-conversation-preview__who">
+                {isCustomer ? (leadName || 'Customer') : 'Office'}
+              </p>
+              <p className="leads-conversation-preview__text">{msg.text}</p>
+              {msg.ts && (
+                <p className="leads-conversation-preview__time">{formatThreadTime(msg.ts)}</p>
               )}
-              {lead.notes && <LeadStatusPill value={lead.notes} />}
             </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RecentResponses({ lead }) {
+  const sms = hasRealReply(lead.sms_reply) ? lead.sms_reply.trim() : '';
+  const email = hasRealReply(lead.email_reply) ? lead.email_reply.trim() : '';
+  if (!sms && !email) return null;
+
+  return (
+    <section className="leads-detail-section">
+      <h3 className="leads-detail-section__title">Recent customer responses</h3>
+      <div className="space-y-3">
+        {sms && (
+          <div className="leads-response-snippet">
+            <p className="leads-response-snippet__channel"><MessageSquare size={12} /> SMS</p>
+            <p className="leads-response-snippet__body">&ldquo;{sms}&rdquo;</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="leads-btn-icon shrink-0"
-            aria-label="Close"
-          >
-            <X size={18} />
+        )}
+        {email && (
+          <div className="leads-response-snippet">
+            <p className="leads-response-snippet__channel"><Mail size={12} /> Email</p>
+            <p className="leads-response-snippet__body">&ldquo;{email.length > 280 ? `${email.slice(0, 280)}…` : email}&rdquo;</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Timeline({ activity, thread }) {
+  const items = [];
+
+  for (const msg of [...thread].reverse().slice(0, 8)) {
+    const isIn = msg.dir === 'in' || msg.direction === 'inbound';
+    items.push({
+      id: `msg-${msg.id}`,
+      ts: msg.ts,
+      label: isIn ? 'Customer replied' : msg.isTemplate ? 'Template sent' : 'Message sent',
+      detail: msg.text?.length > 90 ? `${msg.text.slice(0, 90)}…` : msg.text,
+      tone: isIn ? 'in' : 'out',
+    });
+  }
+
+  for (const entry of activity.slice(0, 12)) {
+    const meta = getActivityMeta(entry.action || '');
+    items.push({
+      id: `act-${entry.id}`,
+      ts: entry.timestamp,
+      label: meta.label,
+      detail: entry.template ? `Template: ${entry.template}` : entry.leadName,
+      tone: entry.status === 'error' ? 'error' : 'activity',
+    });
+  }
+
+  items.sort((a, b) => {
+    const ta = a.ts ? new Date(a.ts).getTime() : 0;
+    const tb = b.ts ? new Date(b.ts).getTime() : 0;
+    return tb - ta;
+  });
+
+  const shown = items.slice(0, 14);
+
+  return (
+    <section className="leads-detail-section">
+      <h3 className="leads-detail-section__title">Communication timeline</h3>
+      {shown.length === 0 ? (
+        <p className="text-xs text-gs-muted">No communication history yet.</p>
+      ) : (
+        <ul className="leads-timeline">
+          {shown.map(item => (
+            <li key={item.id} className={`leads-timeline__item leads-timeline__item--${item.tone}`}>
+              <div className="leads-timeline__dot" />
+              <div className="leads-timeline__body">
+                <p className="leads-timeline__label">{item.label}</p>
+                {item.detail && <p className="leads-timeline__detail">{item.detail}</p>}
+                {item.ts && (
+                  <p className="leads-timeline__time">
+                    {new Date(item.ts).toLocaleString(undefined, {
+                      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                    })}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function QuickActions({ lead, onClose, hasConversation, onArchive, archiving, isArchived }) {
+  const navigate = useNavigate();
+
+  const goReplies = () => {
+    onClose();
+    navigate('/replies', { state: { selectRowNumber: lead.row_number } });
+  };
+
+  return (
+    <section className="leads-detail-section leads-detail-section--actions">
+      <h3 className="leads-detail-section__title">Quick actions</h3>
+      <div className="leads-quick-actions">
+        <button
+          type="button"
+          className="leads-quick-actions__btn leads-quick-actions__btn--primary"
+          onClick={() => { onClose(); navigate('/send', { state: { lead } }); }}
+        >
+          <Send size={14} /> Send template
+        </button>
+        {hasConversation && (
+          <button type="button" className="leads-quick-actions__btn" onClick={goReplies}>
+            <MessageSquare size={14} /> Open conversation
           </button>
-        </header>
+        )}
+        <button
+          type="button"
+          className="leads-quick-actions__btn"
+          onClick={() => { onClose(); navigate('/send', { state: { lead, channel: 'sms' } }); }}
+        >
+          <Phone size={14} /> Send SMS
+        </button>
+        <button
+          type="button"
+          className="leads-quick-actions__btn"
+          onClick={() => { onClose(); navigate('/send', { state: { lead, channel: 'email' } }); }}
+        >
+          <Mail size={14} /> Send email
+        </button>
+        {hasConversation && (
+          <button type="button" className="leads-quick-actions__btn" onClick={goReplies}>
+            <ExternalLink size={14} /> Reply history
+          </button>
+        )}
+        <button
+          type="button"
+          className="leads-quick-actions__btn"
+          onClick={onArchive}
+          disabled={archiving}
+        >
+          {isArchived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+          {isArchived ? 'Restore from archive' : 'Archive lead'}
+        </button>
+      </div>
+    </section>
+  );
+}
 
-        <div className="leads-workspace__body">
-          <div className="leads-workspace__grid">
-            <section className="leads-workspace__card">
-              <h3 className="leads-workspace__card-title">Contact</h3>
-              <FieldRow label="Phone">
-                {lead.phone
-                  ? <span className="font-mono text-sm flex items-center gap-2"><Phone size={14} className="text-gs-muted" />{lead.phone}</span>
-                  : <span className="text-gs-muted">—</span>}
-              </FieldRow>
-              <FieldRow label="Email">
-                {lead.email
-                  ? <span className="font-mono text-xs break-all flex items-start gap-2"><Mail size={14} className="text-gs-muted shrink-0 mt-0.5" />{lead.email}</span>
-                  : <span className="text-gs-muted">—</span>}
-              </FieldRow>
-              {lead.address && <FieldRow label="Address">{lead.address}</FieldRow>}
-            </section>
+export default function LeadDetailWorkspace({ lead, onClose, onLeadUpdated }) {
+  const navigate = useNavigate();
+  const { loading, loadError, activity, thread, insights, replyArchived } = useLeadDetailData(lead);
+  const [archiving, setArchiving] = useState(false);
 
-            <section className="leads-workspace__card">
-              <h3 className="leads-workspace__card-title">Status & follow-up</h3>
-              <FieldRow label="Stop">
-                {lead.stop === 'yes'
-                  ? <span className="text-gs-danger text-xs font-semibold">Yes — follow-ups stopped</span>
-                  : <span className="text-gs-muted text-xs">No</span>}
-              </FieldRow>
-              <FieldRow label="SMS reply">
-                {hasRealReply(lead.sms_reply)
-                  ? <span className="text-gs-accent text-xs font-semibold flex items-center gap-1"><CheckCircle size={12} /> Replied</span>
-                  : <span className="text-gs-muted text-xs">None</span>}
-              </FieldRow>
-              <FieldRow label="Email reply">
-                {hasRealReply(lead.email_reply)
-                  ? <span className="text-gs-accent text-xs font-semibold flex items-center gap-1"><CheckCircle size={12} /> Replied</span>
-                  : <span className="text-gs-muted text-xs">None</span>}
-              </FieldRow>
-              {lead.error && (
-                <FieldRow label="Error">
-                  <span className="text-gs-danger text-xs">{lead.error}</span>
-                </FieldRow>
-              )}
-            </section>
+  const avatar = getAvatarStyle(lead.name);
+  const hasConversation = thread.length > 0 || hasRealReply(lead.sms_reply) || hasRealReply(lead.email_reply);
+  const sentDate = lead.sent && lead.sent !== 'imported' ? new Date(lead.sent) : null;
 
-            <section className="leads-workspace__card">
-              <h3 className="leads-workspace__card-title">Timeline</h3>
-              <FieldRow label="First sent">
-                {sentDate ? (
-                  <span className="flex items-center gap-2">
-                    <Calendar size={14} className="text-gs-muted" />
-                    {sentDate.toLocaleDateString()}
-                    <span className="text-gs-muted text-xs">({daysInSystem}d ago)</span>
-                  </span>
-                ) : lead.sent === 'imported' ? 'Imported' : '—'}
-              </FieldRow>
-              {daysInSystem !== null && (
-                <FieldRow label="In system">
-                  <span className="flex items-center gap-2">
-                    <Clock size={14} className="text-gs-muted" />
-                    {daysInSystem} day{daysInSystem !== 1 ? 's' : ''}
-                  </span>
-                </FieldRow>
-              )}
-            </section>
+  async function handleArchive() {
+    setArchiving(true);
+    try {
+      const isArchived = (lead.status || '').toLowerCase() === 'archived';
+      await api.leads.update(lead.row_number, {
+        ...lead,
+        status: isArchived ? 'active' : 'archived',
+      });
+      onLeadUpdated?.();
+    } catch {
+      /* toast handled by parent if needed */
+    } finally {
+      setArchiving(false);
+    }
+  }
 
-            <section className="leads-workspace__card">
-              <h3 className="leads-workspace__card-title">Recent activity</h3>
-              {loadingActivity ? (
-                <p className="text-gs-muted text-xs">Loading…</p>
-              ) : activity.length === 0 ? (
-                <p className="text-gs-muted text-xs">No activity recorded for this lead</p>
-              ) : (
-                <ul className="space-y-2">
-                  {activity.map(entry => (
-                    <li key={entry.id} className="flex items-start gap-2 text-xs py-2 border-b border-gs-border/30 last:border-0">
-                      {entry.status === 'error'
-                        ? <XCircle size={12} className="text-gs-danger mt-0.5 shrink-0" />
-                        : <CheckCircle size={12} className="text-gs-accent mt-0.5 shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium capitalize">{entry.action?.replace(/_/g, ' ')}</span>
-                        {entry.template && (
-                          <span className="ml-1.5 text-gs-info font-mono uppercase text-[10px]">{entry.template}</span>
-                        )}
-                      </div>
-                      <span className="text-gs-muted shrink-0">
-                        {entry.timestamp ? new Date(entry.timestamp).toLocaleDateString() : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            {extraKeys.length > 0 && (
-              <section className="leads-workspace__card lg:col-span-2">
-                <h3 className="leads-workspace__card-title">Additional info</h3>
-                {extraKeys.map(k => (
-                  <FieldRow key={k} label={k.replace(/_/g, ' ')}>{lead[k] || '—'}</FieldRow>
-                ))}
-              </section>
-            )}
+  return (
+    <motion.aside
+      className="leads-detail-panel"
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 24 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+      aria-label={`Lead details: ${lead.name}`}
+    >
+      <header className="leads-detail-panel__header">
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
+          style={{ background: avatar.bg, color: avatar.text }}
+        >
+          {getInitials(lead.name)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-bold text-gs-text truncate">{lead.name || 'Unknown'}</h2>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs">
+            <span className="text-gs-muted flex items-center gap-1"><Hash size={10} /> Row {lead.row_number}</span>
+            {lead.status && <LeadStatusLabel value={lead.status} />}
+            {lead.notes && <LeadStatusLabel value={lead.notes} />}
           </div>
         </div>
+        <button type="button" onClick={onClose} className="leads-btn-icon shrink-0" aria-label="Close panel">
+          <X size={18} />
+        </button>
+      </header>
 
-        <footer className="leads-workspace__footer">
-          <button
-            type="button"
-            onClick={() => { onClose(); navigate('/send', { state: { lead } }); }}
-            className="btn-primary text-sm gap-2"
-          >
-            <Send size={14} /> Send template
+      <div className="leads-detail-panel__scroll">
+        {loading ? (
+          <div className="flex justify-center py-16"><Spinner /></div>
+        ) : (
+          <>
+            {loadError && (
+              <p className="text-xs text-gs-danger px-1 mb-4">{loadError}</p>
+            )}
+
+            <div className={`leads-health leads-health--${insights.health}`}>
+              <div className="leads-health__main">
+                <TrendingUp size={16} />
+                <div>
+                  <p className="leads-health__label">Lead health</p>
+                  <p className="leads-health__value">{insights.healthLabel}</p>
+                </div>
+              </div>
+              <div className="leads-health__score">
+                <span className="leads-health__score-num">{insights.engagementScore}</span>
+                <span className="leads-health__score-label">engagement</span>
+              </div>
+            </div>
+
+            <div className="leads-insight-grid">
+              <InsightTile label="Contact attempts" value={insights.contactAttempts} />
+              <InsightTile label="Replies" value={insights.replyCount} />
+              <InsightTile
+                label="Last contact"
+                value={insights.lastContact ? insights.lastContact.toLocaleDateString() : '—'}
+                sub={insights.lastContact ? insights.lastContact.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : null}
+              />
+              <InsightTile label="Workflow" value={insights.workflow} />
+            </div>
+
+            <section className="leads-detail-section">
+              <h3 className="leads-detail-section__title">Customer overview</h3>
+              <dl className="leads-overview-dl">
+                <div><dt>Full name</dt><dd>{lead.name || '—'}</dd></div>
+                <div><dt>Phone</dt><dd className="font-mono text-xs">{lead.phone || '—'}</dd></div>
+                <div><dt>Email</dt><dd className="text-xs break-all">{lead.email || '—'}</dd></div>
+                <div><dt>Status</dt><dd><LeadStatusLabel value={lead.status} /></dd></div>
+                <div><dt>Lead source</dt><dd>{insights.leadSource}</dd></div>
+                <div><dt>First sent</dt><dd>{sentDate ? sentDate.toLocaleDateString() : lead.sent === 'imported' ? 'Imported' : '—'}</dd></div>
+                <div><dt>Last activity</dt><dd>{insights.lastContact ? insights.lastContact.toLocaleString() : '—'}</dd></div>
+                <div><dt>Agreement sent</dt><dd>{insights.agreementSent ? 'Yes' : 'No'}</dd></div>
+                <div><dt>Follow-up pending</dt><dd>{insights.followUpPending ? 'Yes' : 'No'}</dd></div>
+                <div><dt>Archived</dt><dd>{insights.archived || replyArchived ? 'Yes' : 'No'}</dd></div>
+              </dl>
+            </section>
+
+            {thread.length > 0 ? (
+              <ConversationPreview thread={thread} leadName={lead.name} />
+            ) : (
+              <RecentResponses lead={lead} />
+            )}
+
+            <Timeline activity={activity} thread={thread} />
+
+            {(lead.error || insights.stopped) && (
+              <section className="leads-detail-section leads-detail-section--alert">
+                {insights.stopped && (
+                  <p className="text-xs text-gs-warn flex items-center gap-2"><AlertCircle size={14} /> Follow-ups stopped</p>
+                )}
+                {lead.error && (
+                  <p className="text-xs text-gs-danger mt-2">{lead.error}</p>
+                )}
+              </section>
+            )}
+
+            <QuickActions
+              lead={lead}
+              onClose={onClose}
+              hasConversation={hasConversation}
+              onArchive={handleArchive}
+              archiving={archiving}
+              isArchived={(lead.status || '').toLowerCase() === 'archived'}
+            />
+          </>
+        )}
+      </div>
+
+      <footer className="leads-detail-panel__footer">
+        <button
+          type="button"
+          className="btn-primary text-xs flex-1 justify-center gap-1.5"
+          onClick={() => { onClose(); navigate('/send', { state: { lead } }); }}
+        >
+          <Send size={12} /> Send template
+        </button>
+        {hasConversation && (
+          <button type="button" className="btn-ghost text-xs gap-1.5" onClick={() => {
+            onClose();
+            navigate('/replies', { state: { selectRowNumber: lead.row_number } });
+          }}>
+            <MessageSquare size={12} /> Replies
           </button>
-          <button type="button" onClick={onClose} className="btn-ghost text-sm">Close</button>
-        </footer>
-      </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        )}
+      </footer>
+    </motion.aside>
   );
 }

@@ -1,4 +1,28 @@
 import { hasRealReply } from '../CRMPreview/mockData.js';
+import { ARCHIVE_KEY } from '../Replies/constants.js';
+
+export function getReplyArchivedKeys() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Matches Replies inbox archive key */
+export function replyArchiveKey(lead) {
+  return `${lead.row_number}:${lead.sms_reply}`;
+}
+
+export function isLeadArchived(lead) {
+  if (!lead) return false;
+  if ((lead.status || '').toLowerCase() === 'archived') return true;
+  return getReplyArchivedKeys().has(replyArchiveKey(lead));
+}
+
+export function applyArchivedFilter(leads) {
+  return leads.filter(isLeadArchived);
+}
 
 export const CATEGORY_META = {
   replies:    { label: 'Replies',     desc: 'Leads that replied via SMS or email, or have replied status' },
@@ -68,7 +92,7 @@ export function applyQuickFilter(leads, quickId) {
     case 'agreement':
       return leads.filter(l => (l.notes || '').toLowerCase() === 'ag');
     case 'archived':
-      return leads.filter(l => (l.status || '').toLowerCase() === 'archived');
+      return applyArchivedFilter(leads);
     case 'followup':
       return applyCategoryFilter(leads, 'inprogress');
     default:
@@ -81,6 +105,10 @@ export function filterLeads(leads, { search, filters, category, notesParam, quic
   if (quickFilter && quickFilter !== 'all' && !category) {
     result = applyQuickFilter(result, quickFilter);
   }
+  const effectiveFilters = { ...filters };
+  if (quickFilter === 'archived' && !category) {
+    delete effectiveFilters.status;
+  }
   result = result.filter(lead => {
     if (search) {
       const q = search.toLowerCase();
@@ -89,8 +117,10 @@ export function filterLeads(leads, { search, filters, category, notesParam, quic
       );
       if (!match) return false;
     }
-    const effectiveFilters = notesParam ? { ...filters, notes: notesParam } : filters;
-    for (const [key, val] of Object.entries(effectiveFilters)) {
+    const mergedFilters = notesParam
+      ? { ...effectiveFilters, notes: notesParam }
+      : effectiveFilters;
+    for (const [key, val] of Object.entries(mergedFilters)) {
       if (val && (lead[key] || '').toLowerCase() !== val.toLowerCase()) return false;
     }
     return true;

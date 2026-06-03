@@ -10,7 +10,7 @@ import { ChevronDown, ChevronsUpDown, ChevronUp, MessageSquare, Mail, Phone } fr
 import { createLeadsColumns, LEADS_INITIAL_SORTING } from '../leadsColumns.jsx';
 import { hasRealReply } from '../CRMPreview/mockData.js';
 import { isLeadPriority, isLeadUnread } from './leadsFilters.js';
-import LeadStatusPill from './LeadStatusPill.jsx';
+import LeadStatusLabel from './LeadStatusLabel.jsx';
 import LeadRowActions from './LeadRowActions.jsx';
 
 const STAGGER_CAP = 40;
@@ -67,7 +67,7 @@ export default function LeadsTable({
       onStop,
       onEdit,
       actionLoading,
-      StatusPill: LeadStatusPill,
+      StatusPill: LeadStatusLabel,
       RowActions: LeadRowActions,
       NameCell: LeadNameCell,
       formatSent,

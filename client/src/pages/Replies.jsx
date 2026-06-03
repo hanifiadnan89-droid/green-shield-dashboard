@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { MessageCircle, CheckCircle2, AlertCircle, Archive } from 'lucide-react';
 import { api } from '../api/client.js';
@@ -19,6 +20,7 @@ import { buildLeadContext } from './Replies/buildLeadContext.js';
 import { hasConversationSignal } from './Replies/conversationLeadFilter.js';
 
 export default function Replies() {
+  const location = useLocation();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -168,6 +170,18 @@ export default function Replies() {
     const lead = leads.find(l => l.row_number === rowNumber);
     if (lead) void markReadWithMeta(lead, getMessages(rowNumber));
   }, [selectLeadBase, leads, getMessages, markReadWithMeta]);
+
+  const deepLinkRowRef = useRef(location.state?.selectRowNumber);
+
+  useEffect(() => {
+    const row = deepLinkRowRef.current;
+    if (row == null || loading || !leads.length) return;
+    const lead = leads.find(l => l.row_number === row);
+    if (!lead) return;
+    if (archived.has(archKey(lead))) setShowArchived(true);
+    selectLead(row);
+    deepLinkRowRef.current = null;
+  }, [loading, leads, archived, selectLead, setShowArchived]);
 
   function archiveLead(lead) {
     const rowNumber = lead.row_number;
