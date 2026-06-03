@@ -1,54 +1,77 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { readKey, getLatestInbound } from './threadUtils.js';
-
-const VIEWED_KEY = 'gs_viewed_replies';
-
-function loadViewed() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(VIEWED_KEY) || '[]'));
-  } catch {
-    return new Set();
-  }
-}
-
-function saveViewed(set) {
-  localStorage.setItem(VIEWED_KEY, JSON.stringify([...set]));
-}
+import { useCallback, useRef, useState } from 'react';
+import { api } from '../../api/client.js';
+import { getLatestInbound, inboundReadKey } from './threadUtils.js';
 
 /**
- * Tracks per-conversation read state from latest message id (not sheet overwrite).
+ * Server-backed read state keyed by stable inbound fingerprint (ts + body + channel).
  */
 export function useUnreadReplies() {
-  const [viewed, setViewed] = useState(loadViewed);
-  const viewedRef = useRef(viewed);
+  const [readByRow, setReadByRow] = useState({});
+  const readByRowRef = useRef(readByRow);
   const [pulseRows, setPulseRows] = useState(new Set());
 
-  useEffect(() => {
-    viewedRef.current = viewed;
-  }, [viewed]);
+  readByRowRef.current = readByRow;
 
-  const isUnread = useCallback((lead, messages) => {
-    const latestInbound = getLatestInbound(messages);
-    if (!latestInbound) return false;
-    const key = readKey(lead, messages);
-    return !viewedRef.current.has(key);
+  const applyMetaReadState = useCallback((syncedMeta) => {
+    if (!syncedMeta || typeof syncedMeta !== 'object') return;
+    setReadByRow(prev => {
+      const next = { ...prev };
+      let changed = false;
+      for (const [row, m] of Object.entries(syncedMeta)) {
+        if (m?.lastReadInboundKey != null && next[row] !== m.lastReadInboundKey) {
+          next[row] = m.lastReadInboundKey;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
   }, []);
 
-  const markRead = useCallback((lead, messages) => {
-    const key = readKey(lead, messages);
-    setViewed(prev => {
-      if (prev.has(key)) return prev;
-      const next = new Set(prev);
-      next.add(key);
-      saveViewed(next);
-      return next;
-    });
+  const isUnread = useCallback((lead, messages, metaForRow) => {
+    const latestInbound = getLatestInbound(messages);
+    if (!latestInbound) return false;
+    const latestKey = inboundReadKey(latestInbound);
+    if (!latestKey) return false;
+    const readKey = metaForRow?.lastReadInboundKey ?? readByRowRef.current[lead.row_number];
+    if (metaForRow?.unread === false) return false;
+    if (metaForRow?.unread === true) return true;
+    return readKey !== latestKey;
+  }, []);
+
+  const markRead = useCallback(async (lead, messages) => {
+    const latestInbound = getLatestInbound(messages);
+    const latestKey = inboundReadKey(latestInbound);
+    if (!latestKey) return null;
+
+    const row = lead.row_number;
+    if (readByRowRef.current[row] === latestKey) {
+      setPulseRows(prev => {
+        if (!prev.has(row)) return prev;
+        const next = new Set(prev);
+        next.delete(row);
+        return next;
+      });
+      return { lastReadInboundKey: latestKey, unread: false };
+    }
+
+    setReadByRow(prev => ({ ...prev, [row]: latestKey }));
     setPulseRows(prev => {
-      if (!prev.has(lead.row_number)) return prev;
+      if (!prev.has(row)) return prev;
       const next = new Set(prev);
-      next.delete(lead.row_number);
+      next.delete(row);
       return next;
     });
+
+    try {
+      const result = await api.messages.markRead(row, latestKey);
+      if (result?.lastReadInboundKey) {
+        setReadByRow(prev => ({ ...prev, [row]: result.lastReadInboundKey }));
+      }
+      return result;
+    } catch (err) {
+      console.warn('[Replies] markRead failed:', err.message);
+      return null;
+    }
   }, []);
 
   const notifyNewInbound = useCallback((lead, messages, prevMessages) => {
@@ -56,10 +79,10 @@ export function useUnreadReplies() {
     const latest = getLatestInbound(messages);
     if (!latest) return false;
     const prevLatest = getLatestInbound(prevMessages);
-    if (prevLatest?.id === latest.id) return false;
+    if (prevLatest && inboundReadKey(prevLatest) === inboundReadKey(latest)) return false;
 
-    const key = readKey(lead, messages);
-    if (viewedRef.current.has(key)) return false;
+    const latestKey = inboundReadKey(latest);
+    if (readByRowRef.current[lead.row_number] === latestKey) return false;
 
     setPulseRows(prev => new Set(prev).add(lead.row_number));
     return true;
@@ -70,5 +93,7 @@ export function useUnreadReplies() {
     markRead,
     notifyNewInbound,
     pulseRows,
+    applyMetaReadState,
+    readByRow,
   };
 }

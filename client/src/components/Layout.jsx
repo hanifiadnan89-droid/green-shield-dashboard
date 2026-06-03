@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Send, Workflow, Clock, Activity,
@@ -10,8 +10,6 @@ const isRealReply = l => {
   const t = (l.sms_reply || '').trim();
   return t.length > 0 && t !== '.';
 };
-const replyKey = l => `${l.row_number}:${l.sms_reply}`;
-
 const NAV = [
   { to: '/',          icon: LayoutDashboard, label: 'Dashboard',    iconAnim: 'dashboard' },
   { to: '/leads',     icon: Users,           label: 'Leads',        iconAnim: 'leads'     },
@@ -25,17 +23,18 @@ const NAV = [
 
 export default function Layout({ children, testMode }) {
   const [replyBadge, setReplyBadge] = useState(0);
-  const viewedRef = useRef(
-    new Set(JSON.parse(localStorage.getItem('gs_viewed_replies') || '[]'))
-  );
 
   useEffect(() => {
     const compute = async () => {
       try {
         const { leads } = await api.leads.list();
         const replyLeads = (leads || []).filter(isRealReply);
-        const unviewed = replyLeads.filter(l => !viewedRef.current.has(replyKey(l)));
-        setReplyBadge(unviewed.length);
+        if (!replyLeads.length) {
+          setReplyBadge(0);
+          return;
+        }
+        const { count } = await api.messages.unreadCount(replyLeads);
+        setReplyBadge(count);
       } catch {}
     };
     compute();
@@ -45,12 +44,12 @@ export default function Layout({ children, testMode }) {
 
   useEffect(() => {
     const handler = (e) => {
-      (e.detail || []).forEach(key => viewedRef.current.add(key));
-      localStorage.setItem('gs_viewed_replies', JSON.stringify([...viewedRef.current]));
-      setReplyBadge(0);
+      if (typeof e.detail?.count === 'number') {
+        setReplyBadge(e.detail.count);
+      }
     };
-    window.addEventListener('replies-viewed', handler);
-    return () => window.removeEventListener('replies-viewed', handler);
+    window.addEventListener('replies-unread-count', handler);
+    return () => window.removeEventListener('replies-unread-count', handler);
   }, []);
 
   return (

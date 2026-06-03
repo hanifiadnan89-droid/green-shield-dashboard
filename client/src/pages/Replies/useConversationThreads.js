@@ -1,6 +1,14 @@
 import { useCallback, useRef, useState } from 'react';
 import { api } from '../../api/client.js';
-import { HISTORY_KEY } from './constants.js';
+import { HISTORY_KEY, VIEWED_KEY } from './constants.js';
+
+function loadLegacyViewedKeys() {
+  try {
+    return JSON.parse(localStorage.getItem(VIEWED_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Server-backed message threads with one-time localStorage migration.
@@ -39,7 +47,8 @@ export function useConversationThreads() {
     setSyncError(null);
     try {
       await migrateLocalOnce();
-      const { threads: synced, meta: syncedMeta } = await api.messages.sync(leads);
+      const legacyViewedKeys = loadLegacyViewedKeys();
+      const { threads: synced, meta: syncedMeta } = await api.messages.sync(leads, legacyViewedKeys);
       setThreads(synced || {});
       setMeta(syncedMeta || {});
       if (!synced || typeof synced !== 'object') {
@@ -73,6 +82,13 @@ export function useConversationThreads() {
 
   const getMessages = useCallback((rowNumber) => threads[rowNumber] || [], [threads]);
 
+  const patchMeta = useCallback((rowNumber, patch) => {
+    setMeta(prev => ({
+      ...prev,
+      [rowNumber]: { ...(prev[rowNumber] || {}), ...patch },
+    }));
+  }, []);
+
   return {
     threads,
     meta,
@@ -81,5 +97,6 @@ export function useConversationThreads() {
     syncLeads,
     appendOptimistic,
     getMessages,
+    patchMeta,
   };
 }

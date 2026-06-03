@@ -44,9 +44,21 @@ export function formatListTime(ts) {
 
 export const archKey = l => `${l.row_number}:${l.sms_reply}`;
 
+/** Stable fingerprint for inbound read cursor (matches server inboundReadKey). */
+export function inboundReadKey(message) {
+  if (!message || message.direction !== 'inbound') return null;
+  const body = (message.body || '').trim();
+  if (!body) return null;
+  const ts = message.ts || '';
+  const channel = message.channel === 'email' ? 'email' : 'sms';
+  return `${channel}|${ts}|${body}`;
+}
+
+/** @deprecated Use inboundReadKey(getLatestInbound(messages)) */
 export function readKey(lead, messages) {
-  const last = messages?.length ? messages[messages.length - 1] : null;
-  return last ? `${lead.row_number}:${last.id}` : `${lead.row_number}:empty`;
+  const inbound = getLatestInbound(messages);
+  if (inbound) return `${lead.row_number}:${inboundReadKey(inbound)}`;
+  return `${lead.row_number}:empty`;
 }
 
 export function isRealReplyText(text) {

@@ -2,6 +2,8 @@ import { motion } from 'motion/react';
 import { initials, formatListTime, previewFromMessages } from './threadUtils.js';
 import UnreadPulseBadge from './UnreadPulseBadge.jsx';
 
+const EASE = [0.22, 1, 0.36, 1];
+
 export default function ConversationCard({
   lead,
   selected,
@@ -29,20 +31,26 @@ export default function ConversationCard({
         unread ? 'replies-conv-card--unread' : '',
         pulsing ? 'replies-conv-card--pulse' : '',
       ].filter(Boolean).join(' ')}
-      whileHover={{ y: -1, transition: { duration: 0.15 } }}
-      whileTap={{ scale: 0.995 }}
+      whileHover={{
+        y: -2,
+        scale: 1.008,
+        transition: { duration: 0.2, ease: EASE },
+      }}
+      whileTap={{ scale: 0.996, transition: { duration: 0.12 } }}
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -12 }}
       transition={{ duration: 0.2 }}
     >
-      <div className="relative shrink-0">
+      <span className="replies-conv-card__shimmer" aria-hidden />
+
+      <div className={`relative shrink-0 ${unread ? 'replies-conv-card__avatar-wrap--unread' : ''}`}>
         <div className={isArchived ? 'reply-avatar-archived' : 'reply-avatar-active'}>
           <span className={`type-label-sm font-bold ${isArchived ? 'text-gs-muted' : 'text-gs-accent'}`}>
             {initials(lead.name)}
           </span>
         </div>
-        <UnreadPulseBadge show={unread && pulsing} />
+        <UnreadPulseBadge show={unread} />
       </div>
 
       <div className="min-w-0 flex-1 text-left">
@@ -77,7 +85,7 @@ export default function ConversationCard({
         )}
       </div>
 
-      {unread && !pulsing && (
+      {unread && (
         <span className="replies-unread-indicator" aria-label="Unread" />
       )}
     </motion.button>
