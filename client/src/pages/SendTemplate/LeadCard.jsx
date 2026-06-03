@@ -21,7 +21,9 @@ export default function LeadCard({
         layout
         onClick={() => onSelect(lead)}
         onMouseEnter={() => onHover(lead)}
+        onMouseLeave={() => onHover(null)}
         onFocus={() => onHover(lead)}
+        onBlur={() => onHover(null)}
         className={`send-lead-card ${highlighted ? 'send-lead-card--highlighted' : ''}`}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
