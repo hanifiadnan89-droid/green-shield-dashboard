@@ -9,6 +9,13 @@ import { buildDateMetas } from './RouteFinder/routeFinderDates.js';
 import { TIME_PREFS, FOUR_HOUR_SLOTS, TWO_HOUR_SLOTS } from './RouteFinder/routeFinderConstants.js';
 import { getDatePillTitle } from './RouteFinder/getDatePillTitle.js';
 import { buildRouteDateHelperText } from './RouteFinder/buildRouteDateHelperText.js';
+import { resolveTimeWindowPref } from './RouteFinder/resolveTimeWindowPref.js';
+
+function routeFinderDebug(label, detail) {
+  if (import.meta.env.DEV) {
+    console.debug(`[RouteFinder] ${label}`, detail);
+  }
+}
 import {
   fetchAddressSuggestions,
   lookupAddress,
@@ -76,6 +83,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const activeDateRef   = useRef(activeDate);
   useEffect(() => { activeDateRef.current = activeDate; }, [activeDate]);
   const payloadRequestRef = useRef(0);
+  const scoreRequestRef = useRef(0);
 
   // ---------------------------------------------------------------------------
   // Helper: splits _auth out of the status response and applies both
@@ -234,7 +242,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setScoringStatus('idle');
     setTimePref(null);
     setSpecificSlot(null);
-    setShowOther(false);
 
     setDateLoadStatus('loading');
     setDateLoadError('');
@@ -360,7 +367,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setScoringStatus('idle');
     setTimePref(null);
     setSpecificSlot(null);
-    setShowOther(false);
     setIsEditing(false);
   }, []);
 
@@ -377,7 +383,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setScoringStatus('idle');
       setTimePref(null);
       setSpecificSlot(null);
-      setShowOther(false);
       setIsEditing(false);
       return;
     }
@@ -388,7 +393,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setScoringStatus('idle');
     setTimePref(null);
     setSpecificSlot(null);
-    setShowOther(false);
     try {
       const result = await lookupAddress(trimmed);
       geocodeCacheRef.current[trimmed] = result;
@@ -432,54 +436,88 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   // ---------------------------------------------------------------------------
   // Scoring
   // ---------------------------------------------------------------------------
-  const runScore = useCallback(async (techList, latLng, prefStr = 'AT') => {
-    if (!techList?.length || !latLng) return;
+  const runScore = useCallback(async (techList, latLng, prefStr) => {
+    if (!techList?.length || !latLng || !prefStr) return;
+    const requestId = ++scoreRequestRef.current;
     setScoringStatus('loading');
     setScoringError('');
+    routeFinderDebug('search started', {
+      date: activeDateRef.current,
+      address: latLng.full || latLng.display,
+      timeWindow: prefStr,
+      technicians: techList.length,
+    });
     try {
-      const routeArea = detectRouteArea(latLng.full || '');
+      const routeArea = detectRouteArea(latLng.full || latLng.display || '');
       const lead = {
         lat: latLng.lat,
         lng: latLng.lng,
         address: latLng.full || latLng.display || '',
         serviceType: 'Regular Service',
         durationMinutes: 30,
-        timeWindowPreference: prefStr || 'AT',
+        timeWindowPreference: prefStr,
         routeArea,
         date: activeDateRef.current,
       };
       const scored = scoreRoutes(techList, lead, 3);
+      if (requestId !== scoreRequestRef.current) return;
+      routeFinderDebug('matches returned', {
+        count: scored?.topMatches?.length ?? 0,
+        noSafeRoute: scored?.noSafeRoute ?? false,
+      });
       setResults(scored);
       setScoringStatus('done');
     } catch (err) {
+      if (requestId !== scoreRequestRef.current) return;
       setScoringStatus('error');
       setScoringError(err.message || 'Scoring failed');
+      routeFinderDebug('search failed', err.message);
     }
   }, []);
+
+  const timeWindowPref = resolveTimeWindowPref(timePref, specificSlot);
+
+  const maybeRunScore = useCallback(() => {
+    const pref = resolveTimeWindowPref(timePref, specificSlot);
+    routeFinderDebug('search check', {
+      date: activeDate,
+      address: geocode?.full || geocode?.display || null,
+      timeWindow: pref,
+      technicians: activeTechnicians?.length ?? 0,
+      ready: Boolean(
+        activeDate && geocodeStatus === 'success' && geocode && activeTechnicians?.length && pref,
+      ),
+    });
+    if (!activeDate || geocodeStatus !== 'success' || !geocode || !activeTechnicians?.length || !pref) {
+      return;
+    }
+    runScore(activeTechnicians, geocode, pref);
+  }, [
+    activeDate,
+    geocodeStatus,
+    geocode,
+    activeTechnicians,
+    timePref,
+    specificSlot,
+    runScore,
+  ]);
+
+  useEffect(() => {
+    maybeRunScore();
+  }, [maybeRunScore]);
 
   const handleTimePrefSelect = useCallback((key) => {
     setTimePref(key);
     setSpecificSlot(null);
-    if (key !== 'specific' && geocode && activeTechnicians?.length) {
-      runScore(activeTechnicians, geocode, key);
-    }
-  }, [geocode, activeTechnicians, runScore]);
+    setResults(null);
+    setScoringStatus('idle');
+  }, []);
 
   const handleSpecificSlotSelect = useCallback((slot) => {
     setSpecificSlot(slot);
-    if (geocode && activeTechnicians?.length) {
-      runScore(activeTechnicians, geocode, slot);
-    }
-  }, [geocode, activeTechnicians, runScore]);
-
-  // ---------------------------------------------------------------------------
-  // Auto-score when both geocode + technicians are ready
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!geocode || !activeTechnicians?.length) return;
-    runScore(activeTechnicians, geocode, 'AT');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [geocode, activeTechnicians]);
+    setResults(null);
+    setScoringStatus('idle');
+  }, []);
 
   const handleReset = () => {
     setAddressInput('');
@@ -782,6 +820,12 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
           )}
         </div>
 
+        {geocodeStatus === 'success' && activeDate && !timeWindowPref && (
+          <p className="route-finder-hint type-label-sm text-gs-muted text-center mt-3 mb-0 font-normal tracking-normal">
+            Select a time window to find technician matches
+          </p>
+        )}
+
         {geocodeStatus === 'success' && (
           <div className="route-time-prefs mt-3 mb-3">
             <div className={`flex gap-2 ${timePref === 'specific' ? 'mb-2.5' : 'mb-0'}`}>
@@ -910,7 +954,10 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   <button
                     type="button"
                     disabled={scoringStatus === 'loading'}
-                    onClick={() => runScore(activeTechnicians, geocode, timePref === 'specific' ? specificSlot : timePref ?? 'AT')}
+                    onClick={() => {
+                      const pref = resolveTimeWindowPref(timePref, specificSlot);
+                      if (pref) runScore(activeTechnicians, geocode, pref);
+                    }}
                     className="route-finder-rescore type-label-sm text-gs-muted bg-transparent border-0 cursor-pointer font-normal tracking-normal disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Run scoring again with current settings"
                   >
