@@ -1,65 +1,87 @@
-import { Search, ChevronRight } from 'lucide-react';
-import StatusBadge from '../../components/StatusBadge.jsx';
+import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import Spinner from '../../components/Spinner.jsx';
+import LeadSearchPanel from './LeadSearchPanel.jsx';
+import LeadCard from './LeadCard.jsx';
+import LeadPreviewPanel from './LeadPreviewPanel.jsx';
+import { EmptyLeadListState, EmptySearchState } from './EmptyLeadState.jsx';
+
+const EASE = [0.22, 1, 0.36, 1];
 
 export default function StepPickLead({
   search,
   onSearchChange,
   leadsLoading,
   filteredLeads,
+  allLeadsCount,
   onSelectLead,
 }) {
+  const [highlightedLead, setHighlightedLead] = useState(null);
+
+  useEffect(() => {
+    if (!filteredLeads.length) {
+      setHighlightedLead(null);
+      return;
+    }
+    setHighlightedLead(prev => {
+      if (prev && filteredLeads.some(l => l.row_number === prev.row_number)) return prev;
+      return filteredLeads[0];
+    });
+  }, [filteredLeads]);
+
   return (
-    <div className="max-w-3xl space-y-4">
-      <div>
-        <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1">
-          Search Lead
-        </label>
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted" />
-          <input
-            className="input pl-8"
-            placeholder="Name, phone, or email..."
-            value={search}
-            onChange={e => onSearchChange(e.target.value)}
+    <motion.div
+      className="send-pick-lead"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE }}
+    >
+      <div className="send-pick-lead__workspace">
+        <div className="send-pick-lead__list-panel">
+          <LeadSearchPanel
+            search={search}
+            onSearchChange={onSearchChange}
+            resultCount={filteredLeads.length}
+            totalCount={allLeadsCount}
           />
-        </div>
-      </div>
-      {leadsLoading ? (
-        <div className="flex justify-center py-8">
-          <Spinner />
-        </div>
-      ) : (
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {filteredLeads.map(lead => (
-            <button
-              key={lead.row_number}
-              type="button"
-              onClick={() => onSelectLead(lead)}
-              className="w-full text-left card hover:border-gs-accent/50 transition-colors p-4 cursor-pointer group"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="type-body-sm font-medium text-gs-text group-hover:text-gs-accent transition-colors">
-                    {lead.name || 'Unknown'}
-                  </p>
-                  <p className="type-label-sm text-gs-muted mt-0.5 font-normal tracking-normal">
-                    {lead.phone}{lead.email ? ` • ${lead.email}` : ''}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {lead.stop === 'yes' && <StatusBadge value="stopped" />}
-                  <StatusBadge value={lead.notes} />
-                  <ChevronRight size={14} className="text-gs-muted" />
-                </div>
-              </div>
-            </button>
-          ))}
-          {filteredLeads.length === 0 && (
-            <p className="type-body-sm text-gs-muted text-center py-8">No leads match</p>
+
+          {leadsLoading ? (
+            <div className="send-pick-lead__loading flex-1">
+              <Spinner size={28} />
+              <p className="type-label-sm text-gs-muted">Loading leads…</p>
+            </div>
+          ) : allLeadsCount === 0 ? (
+            <EmptyLeadListState />
+          ) : (
+            <>
+              <ul className="send-pick-lead__cards" role="list">
+                <AnimatePresence mode="popLayout">
+                  {filteredLeads.map((lead, index) => (
+                    <LeadCard
+                      key={lead.row_number}
+                      lead={lead}
+                      index={index}
+                      highlighted={highlightedLead?.row_number === lead.row_number}
+                      onHover={setHighlightedLead}
+                      onSelect={onSelectLead}
+                    />
+                  ))}
+                </AnimatePresence>
+              </ul>
+              <AnimatePresence>
+                {filteredLeads.length === 0 && search && (
+                  <EmptySearchState query={search} />
+                )}
+              </AnimatePresence>
+            </>
           )}
         </div>
-      )}
-    </div>
+
+        <LeadPreviewPanel
+          lead={highlightedLead}
+          onContinue={onSelectLead}
+        />
+      </div>
+    </motion.div>
   );
 }
