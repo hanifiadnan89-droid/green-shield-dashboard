@@ -23,6 +23,7 @@ export default function SendTemplate({ testMode }) {
   const [search, setSearch]               = useState('');
   const [selectedLead, setSelectedLead]   = useState(preselected);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [highlightedTemplate, setHighlightedTemplate] = useState(null);
   const [selectedChannel, setSelectedChannel]   = useState('both');
   const [quotes, setQuotes]                         = useState([]);
   const [selectedQuote, setSelectedQuote]           = useState(null);
@@ -62,6 +63,7 @@ export default function SendTemplate({ testMode }) {
     setStep(1);
     setSelectedLead(null);
     setSelectedTemplate(null);
+    setHighlightedTemplate(null);
     setSelectedChannel('both');
     setSelectedQuote(null);
     setSelectedPrepGuides(new Set());
@@ -71,8 +73,20 @@ export default function SendTemplate({ testMode }) {
 
   function handleSelectLead(lead) {
     setSelectedLead(lead);
+    setHighlightedTemplate(null);
     setStep(2);
   }
+
+  function handleContinueToPreview(template) {
+    setSelectedTemplate(template);
+    setStep(3);
+  }
+
+  useEffect(() => {
+    if (step === 2 && selectedTemplate) {
+      setHighlightedTemplate(selectedTemplate);
+    }
+  }, [step, selectedTemplate]);
 
   function handleTogglePrepGuide(idx) {
     setSelectedPrepGuides(s => {
@@ -114,15 +128,14 @@ export default function SendTemplate({ testMode }) {
         )}
 
         {step === 2 && (
-          <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-4xl mx-auto w-full">
-            <StepChooseTemplate
-              selectedLead={selectedLead}
-              preselected={preselected}
-              selectedTemplate={selectedTemplate}
-              onChangeLead={() => { setSelectedLead(null); setStep(1); }}
-              onSelectTemplate={t => { setSelectedTemplate(t); setStep(3); }}
-            />
-          </div>
+          <StepChooseTemplate
+            selectedLead={selectedLead}
+            preselected={preselected}
+            highlightedTemplate={highlightedTemplate}
+            onHighlightTemplate={setHighlightedTemplate}
+            onChangeLead={() => { setSelectedLead(null); setHighlightedTemplate(null); setStep(1); }}
+            onContinueToPreview={handleContinueToPreview}
+          />
         )}
 
         {step === 3 && selectedLead && selectedTemplate && (
