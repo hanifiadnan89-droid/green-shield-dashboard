@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../api/client.js';
-import SendStepIndicator from './SendTemplate/SendStepIndicator.jsx';
+import SendTemplateStepper from './SendTemplate/SendTemplateStepper.jsx';
 import SendResultScreen from './SendTemplate/SendResultScreen.jsx';
 import StepPickLead from './SendTemplate/StepPickLead.jsx';
 import StepChooseTemplate from './SendTemplate/StepChooseTemplate.jsx';
 import StepPreviewSummary from './SendTemplate/StepPreviewSummary.jsx';
 import StepPreviewDocuments from './SendTemplate/StepPreviewDocuments.jsx';
 import StepPreviewFooter from './SendTemplate/StepPreviewFooter.jsx';
+import './SendTemplate/send-template.css';
 
-/* ── Main Page ── */
+const EASE = [0.22, 1, 0.36, 1];
+
 export default function SendTemplate({ testMode }) {
   const location   = useLocation();
   const preselected = location.state?.lead || null;
@@ -33,7 +36,7 @@ export default function SendTemplate({ testMode }) {
       api.leads.list().then(d => setLeads(d.leads || [])).finally(() => setLeadsLoading(false));
     }
     api.drive.quotes().then(d => setQuotes(d.quotes || []));
-  }, []);
+  }, [preselected]);
 
   const filteredLeads = leads.filter(l => {
     if (!search) return true;
@@ -89,32 +92,41 @@ export default function SendTemplate({ testMode }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <SendStepIndicator step={step} />
+    <div className="send-template-page">
+      <SendTemplateStepper step={step} />
 
-      <div className="px-6 py-5 animate-fade-in-up">
+      <motion.div
+        key={step}
+        className="send-template-page__body"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: EASE }}
+      >
         {step === 1 && (
           <StepPickLead
             search={search}
             onSearchChange={setSearch}
             leadsLoading={leadsLoading}
             filteredLeads={filteredLeads}
+            allLeadsCount={leads.length}
             onSelectLead={handleSelectLead}
           />
         )}
 
         {step === 2 && (
-          <StepChooseTemplate
-            selectedLead={selectedLead}
-            preselected={preselected}
-            selectedTemplate={selectedTemplate}
-            onChangeLead={() => { setSelectedLead(null); setStep(1); }}
-            onSelectTemplate={t => { setSelectedTemplate(t); setStep(3); }}
-          />
+          <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-4xl mx-auto w-full">
+            <StepChooseTemplate
+              selectedLead={selectedLead}
+              preselected={preselected}
+              selectedTemplate={selectedTemplate}
+              onChangeLead={() => { setSelectedLead(null); setStep(1); }}
+              onSelectTemplate={t => { setSelectedTemplate(t); setStep(3); }}
+            />
+          </div>
         )}
 
         {step === 3 && selectedLead && selectedTemplate && (
-          <div className="space-y-6">
+          <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-4xl mx-auto w-full space-y-6">
             <StepPreviewSummary selectedLead={selectedLead} selectedTemplate={selectedTemplate} />
             <StepPreviewDocuments
               selectedLead={selectedLead}
@@ -136,7 +148,7 @@ export default function SendTemplate({ testMode }) {
             />
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }
