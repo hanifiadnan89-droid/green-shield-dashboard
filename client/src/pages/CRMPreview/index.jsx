@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef, startTransition } from 'react';
 import { api } from '../../api/client.js';
+import { filterConversationLeads, hasConversationSignal } from '../Replies/conversationLeadFilter.js';
 import { deriveStats } from './mockData.js';
 import PremiumSidebar from './components/PremiumSidebar.jsx';
 import PreviewHeader from './components/PreviewHeader.jsx';
@@ -68,9 +69,6 @@ function ErrorState({ onRetry, message }) {
   );
 }
 
-const isRealReply = l => { const t = (l.sms_reply || '').trim(); return t.length > 0 && t !== '.'; };
-const replyKey    = l => `${l.row_number}:${l.sms_reply}`;
-
 export default function CRMPreview({ testMode }) {
   const [leads, setLeads]       = useState(null);
   const [, setActivity] = useState(null);
@@ -78,10 +76,8 @@ export default function CRMPreview({ testMode }) {
   const [error, setError]       = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const loadingRef              = useRef(false);
-  const viewedRepliesRef        = useRef(
-    new Set(JSON.parse(localStorage.getItem('gs_viewed_replies') || '[]'))
-  );
   const [unreadReplies, setUnreadReplies] = useState(0);
+  const [unreadReplyRows, setUnreadReplyRows] = useState(() => new Set());
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [search, setSearch]             = useState('');
@@ -123,23 +119,34 @@ export default function CRMPreview({ testMode }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Recompute unread badge whenever leads refresh
+  const refreshUnreadReplies = useCallback(async (leadList) => {
+    const replyLeads = filterConversationLeads(leadList);
+    if (!replyLeads.length) {
+      setUnreadReplies(0);
+      setUnreadReplyRows(new Set());
+      return;
+    }
+    try {
+      const { count, rowNumbers } = await api.messages.unreadCount(replyLeads);
+      setUnreadReplies(typeof count === 'number' ? count : 0);
+      setUnreadReplyRows(new Set(Array.isArray(rowNumbers) ? rowNumbers : []));
+    } catch {
+      /* keep previous badge on transient errors */
+    }
+  }, []);
+
   useEffect(() => {
     if (!leads) return;
-    const unviewed = leads.filter(isRealReply).filter(l => !viewedRepliesRef.current.has(replyKey(l)));
-    setUnreadReplies(unviewed.length);
-  }, [leads]);
+    refreshUnreadReplies(leads);
+  }, [leads, refreshUnreadReplies]);
 
-  // Keep badge in sync when the Replies page marks replies as viewed
   useEffect(() => {
-    const handler = (e) => {
-      (e.detail || []).forEach(key => viewedRepliesRef.current.add(key));
-      localStorage.setItem('gs_viewed_replies', JSON.stringify([...viewedRepliesRef.current]));
-      setUnreadReplies(0);
+    const handler = () => {
+      if (leads) refreshUnreadReplies(leads);
     };
-    window.addEventListener('replies-viewed', handler);
-    return () => window.removeEventListener('replies-viewed', handler);
-  }, []);
+    window.addEventListener('replies-unread-count', handler);
+    return () => window.removeEventListener('replies-unread-count', handler);
+  }, [leads, refreshUnreadReplies]);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -168,9 +175,9 @@ export default function CRMPreview({ testMode }) {
   const stats = useMemo(() => leads ? deriveStats(leads) : null, [leads]);
 
   const isUnreadReply = useCallback((lead) => {
-    if (!isRealReply(lead)) return false;
-    return !viewedRepliesRef.current.has(replyKey(lead));
-  }, []);
+    if (!hasConversationSignal(lead)) return false;
+    return unreadReplyRows.has(lead.row_number);
+  }, [unreadReplyRows]);
 
   return (
     <div

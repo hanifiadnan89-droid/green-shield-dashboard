@@ -5,11 +5,7 @@ import {
   Shield, MessageCircle, Navigation,
 } from 'lucide-react';
 import { api } from '../api/client.js';
-
-const isRealReply = l => {
-  const t = (l.sms_reply || '').trim();
-  return t.length > 0 && t !== '.';
-};
+import { filterConversationLeads } from '../pages/Replies/conversationLeadFilter.js';
 const NAV = [
   { to: '/',          icon: LayoutDashboard, label: 'Dashboard',    iconAnim: 'dashboard' },
   { to: '/leads',     icon: Users,           label: 'Leads',        iconAnim: 'leads'     },
@@ -28,7 +24,7 @@ export default function Layout({ children, testMode }) {
     const compute = async () => {
       try {
         const { leads } = await api.leads.list();
-        const replyLeads = (leads || []).filter(isRealReply);
+        const replyLeads = filterConversationLeads(leads);
         if (!replyLeads.length) {
           setReplyBadge(0);
           return;
