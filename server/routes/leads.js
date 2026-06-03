@@ -9,7 +9,16 @@ router.get('/', async (req, res) => {
     const leads = await getLeads();
     res.json({ leads, count: leads.length });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[leads] GET / failed:', err.message);
+    if (err?.stack) console.error(err.stack);
+    const msg = err.message || 'Failed to load leads';
+    const isConfig =
+      /not configured|GOOGLE_SERVICE_ACCOUNT|missing/i.test(msg)
+      || /invalid JSON|parse/i.test(msg);
+    res.status(isConfig ? 503 : 500).json({
+      error: msg,
+      code: isConfig ? 'google_credentials' : 'sheets_error',
+    });
   }
 });
 
