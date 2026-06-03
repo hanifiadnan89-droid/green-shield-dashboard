@@ -16,11 +16,7 @@ import { useUnreadReplies } from './Replies/useUnreadReplies.js';
 import { buildThread, archKey, getConversationSortTime } from './Replies/threadUtils.js';
 import { buildLeadContext } from './Replies/buildLeadContext.js';
 
-function hasConversationSignal(lead) {
-  const sms = (lead.sms_reply || '').trim();
-  const email = (lead.email_reply || '').trim();
-  return (sms.length > 0 && sms !== '.') || (email.length > 0 && email !== '.');
-}
+import { hasConversationSignal } from './Replies/conversationLeadFilter.js';
 
 export default function Replies() {
   const [leads, setLeads] = useState([]);
