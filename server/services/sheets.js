@@ -3,7 +3,7 @@ import { loadGoogleCredentials } from './googleCredentials.js';
 
 const SHEET_ID = process.env.SHEET_ID || '1hneyXzxNqHDM-AfNs5-c1Qp7jqBeHfpKKsYbf_62obk';
 const SHEET_NAME = process.env.SHEET_NAME || 'Lead Responses';
-const COLUMNS = ['name', 'reason', 'email', 'notes', 'status', 'sent', 'error', 'stop', 'phone', 'phone_formatted', 'sms_reply', 'email_reply', 'deleted', 'sold'];
+const COLUMNS = ['name', 'reason', 'email', 'notes', 'status', 'sent', 'error', 'stop', 'phone', 'phone_formatted', 'sms_reply', 'email_reply', 'deleted', 'sold', 'replies_last_read_at'];
 
 function getAuth() {
   const credentials = loadGoogleCredentials();
@@ -27,7 +27,7 @@ export async function getLeads() {
   const sheets = google.sheets({ version: 'v4', auth });
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A:N`
+    range: `${SHEET_NAME}!A:O`
   });
   const rows = res.data.values || [];
   if (rows.length < 2) return [];
@@ -47,7 +47,7 @@ export async function updateLead(rowNumber, updates) {
 
   const existing = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A${rowNumber}:N${rowNumber}`
+    range: `${SHEET_NAME}!A${rowNumber}:O${rowNumber}`
   });
   const currentRow = (existing.data.values || [[]])[0] || [];
 
@@ -58,7 +58,7 @@ export async function updateLead(rowNumber, updates) {
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A${rowNumber}:N${rowNumber}`,
+    range: `${SHEET_NAME}!A${rowNumber}:O${rowNumber}`,
     valueInputOption: 'RAW',
     requestBody: { values: [newRow] }
   });
@@ -74,7 +74,7 @@ export async function appendLead(lead) {
   const row = COLUMNS.map(col => lead[col] ?? '');
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A:N`,
+    range: `${SHEET_NAME}!A:O`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [row] }

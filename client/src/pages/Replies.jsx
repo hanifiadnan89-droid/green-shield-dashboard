@@ -146,9 +146,11 @@ export default function Replies() {
 
   const markReadWithMeta = useCallback(async (lead, messages) => {
     const result = await markRead(lead, messages);
-    if (result?.lastReadInboundKey != null) {
+    if (result?.lastReadInboundKey != null || result?.lastReadAt != null) {
       patchMeta(lead.row_number, {
         lastReadInboundKey: result.lastReadInboundKey,
+        lastReadAt: result.lastReadAt,
+        lastInboundAt: result.lastInboundAt,
         unread: false,
       });
     }
