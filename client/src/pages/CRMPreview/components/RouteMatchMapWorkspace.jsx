@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import RouteGoogleMap from './RouteGoogleMap.jsx';
+import { useRouteMatchPortalRoot } from './RouteFinder/useRouteMatchPortalRoot.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
 export default function RouteMatchMapWorkspace({ match, onBack }) {
   const panelRef = useRef(null);
+  const portalRoot = useRouteMatchPortalRoot();
   const stops = match.routeStops || [];
 
   useEffect(() => {
@@ -28,7 +30,7 @@ export default function RouteMatchMapWorkspace({ match, onBack }) {
     panelRef.current?.focus();
   }, []);
 
-  return createPortal(
+  const workspace = (
     <motion.div
       className="crm-preview route-match-workspace route-match-workspace--map"
       role="dialog"
@@ -75,7 +77,9 @@ export default function RouteMatchMapWorkspace({ match, onBack }) {
           compact={false}
         />
       </motion.div>
-    </motion.div>,
-    document.body,
+    </motion.div>
   );
+
+  const mount = portalRoot || document.body;
+  return createPortal(workspace, mount);
 }

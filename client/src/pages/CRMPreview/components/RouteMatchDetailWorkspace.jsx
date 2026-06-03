@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, X } from 'lucide-react';
 import RouteMatchCardContent from './RouteMatchCardContent.jsx';
 import RouteMatchScoreBreakdown from './RouteMatchScoreBreakdown.jsx';
 import RouteGoogleMap from './RouteGoogleMap.jsx';
 import { isGoogleMapsEnabled } from './RouteFinder/useGoogleMapsLoader.js';
+import { useRouteMatchPortalRoot } from './RouteFinder/useRouteMatchPortalRoot.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -19,6 +21,7 @@ export default function RouteMatchDetailWorkspace({
   layoutTransition = { duration: 0.42, ease: EASE },
 }) {
   const panelRef = useRef(null);
+  const portalRoot = useRouteMatchPortalRoot();
   const [showAllStops, setShowAllStops] = useState(false);
   const stops = match.routeStops || [];
   const visibleStops = showAllStops ? stops : stops.slice(0, 12);
@@ -43,7 +46,7 @@ export default function RouteMatchDetailWorkspace({
     panelRef.current?.focus();
   }, []);
 
-  return (
+  const workspace = (
     <motion.div
       className="crm-preview route-match-workspace"
       role="dialog"
@@ -65,21 +68,22 @@ export default function RouteMatchDetailWorkspace({
         transition={{ duration: 0.32, ease: EASE }}
       />
 
-      <motion.div
-        ref={panelRef}
-        tabIndex={-1}
-        layoutId={layoutId}
-        layout
-        className="route-match-detail"
-        initial={{ y: 22, opacity: 0.96 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 18, opacity: 0 }}
-        transition={{
-          layout: layoutTransition,
-          y: { duration: 0.4, ease: EASE },
-          opacity: { duration: 0.3, ease: EASE },
-        }}
-      >
+      <div className="route-match-detail">
+        <motion.div
+          ref={panelRef}
+          tabIndex={-1}
+          layoutId={layoutId}
+          layout
+          className="route-match-detail__surface"
+          initial={{ y: 22, opacity: 0.96 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 18, opacity: 0 }}
+          transition={{
+            layout: layoutTransition,
+            y: { duration: 0.4, ease: EASE },
+            opacity: { duration: 0.3, ease: EASE },
+          }}
+        >
         <header className="route-match-detail__header">
           <button type="button" className="route-match-detail__back" onClick={onBack}>
             <ArrowLeft size={16} aria-hidden />
@@ -205,7 +209,10 @@ export default function RouteMatchDetailWorkspace({
             )}
           </section>
         </motion.div>
-      </motion.div>
+        </motion.div>
+      </div>
     </motion.div>
   );
+
+  return portalRoot ? createPortal(workspace, portalRoot) : workspace;
 }
