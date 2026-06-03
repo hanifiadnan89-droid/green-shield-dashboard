@@ -6,9 +6,7 @@ import SendTemplateStepper from './SendTemplate/SendTemplateStepper.jsx';
 import SendResultScreen from './SendTemplate/SendResultScreen.jsx';
 import StepPickLead from './SendTemplate/StepPickLead.jsx';
 import StepChooseTemplate from './SendTemplate/StepChooseTemplate.jsx';
-import StepPreviewSummary from './SendTemplate/StepPreviewSummary.jsx';
-import StepPreviewDocuments from './SendTemplate/StepPreviewDocuments.jsx';
-import StepPreviewFooter from './SendTemplate/StepPreviewFooter.jsx';
+import StepPreviewSend from './SendTemplate/StepPreviewSend.jsx';
 import './SendTemplate/send-template.css';
 
 const EASE = [0.22, 1, 0.36, 1];
@@ -139,27 +137,22 @@ export default function SendTemplate({ testMode }) {
         )}
 
         {step === 3 && selectedLead && selectedTemplate && (
-          <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-4xl mx-auto w-full space-y-6">
-            <StepPreviewSummary selectedLead={selectedLead} selectedTemplate={selectedTemplate} />
-            <StepPreviewDocuments
-              selectedLead={selectedLead}
-              selectedPrepGuides={selectedPrepGuides}
-              onTogglePrepGuide={handleTogglePrepGuide}
-            />
-            <StepPreviewFooter
-              selectedTemplate={selectedTemplate}
-              selectedChannel={selectedChannel}
-              onChannelChange={setSelectedChannel}
-              quotes={quotes}
-              selectedQuote={selectedQuote}
-              onToggleQuote={handleToggleQuote}
-              testMode={testMode}
-              sending={sending}
-              stopBlocked={selectedLead?.stop === 'yes'}
-              onBack={() => setStep(2)}
-              onSend={handleSend}
-            />
-          </div>
+          <StepPreviewSend
+            selectedLead={selectedLead}
+            selectedTemplate={selectedTemplate}
+            selectedPrepGuides={selectedPrepGuides}
+            onTogglePrepGuide={handleTogglePrepGuide}
+            selectedChannel={selectedChannel}
+            onChannelChange={setSelectedChannel}
+            quotes={quotes}
+            selectedQuote={selectedQuote}
+            onToggleQuote={handleToggleQuote}
+            testMode={testMode}
+            sending={sending}
+            stopBlocked={selectedLead?.stop === 'yes'}
+            onBack={() => setStep(2)}
+            onSend={handleSend}
+          />
         )}
       </motion.div>
     </div>

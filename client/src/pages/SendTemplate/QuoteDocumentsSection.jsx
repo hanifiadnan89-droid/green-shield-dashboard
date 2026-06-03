@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Send, CheckCircle, FileText, ExternalLink, Check, AlertTriangle } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Send, CheckCircle, FileText, ExternalLink, Check, AlertTriangle, MapPin } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Spinner from '../../components/Spinner.jsx';
+import { formatMoney, computeFinalQuote } from './previewSendUtils.js';
 
 /* ── Quote Documents Section ── */
-export default function QuoteDocumentsSection({ lead, prepGuideIndices = [] }) {
+export default function QuoteDocumentsSection({
+  lead,
+  prepGuideIndices = [],
+  onStateChange,
+  variant = 'default',
+}) {
   const [files, setFiles]             = useState(null);
   const [selected, setSelected]       = useState(null);
   const [pricing, setPricing]         = useState({ initial: '', recurring: '', discounted: '' });
@@ -23,6 +30,10 @@ export default function QuoteDocumentsSection({ lead, prepGuideIndices = [] }) {
       setMissing(!!data.missing);
     }).catch(() => setFiles([])).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    onStateChange?.({ pricing, address, notes, selected });
+  }, [pricing, address, notes, selected, onStateChange]);
 
   function buildPayload() {
     return {
@@ -83,8 +94,11 @@ export default function QuoteDocumentsSection({ lead, prepGuideIndices = [] }) {
     }
   }
 
+  const isPreview = variant === 'preview';
+  const shellClass = isPreview ? 'send-doc-panel' : 'card flex flex-col gap-0 p-0 overflow-hidden';
+
   return (
-    <div className="card flex flex-col gap-0 p-0 overflow-hidden">
+    <div className={shellClass}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-gs-border flex items-center gap-2">
         <div className="p-1.5 rounded-lg bg-gs-accent/12 border border-gs-accent/20">
@@ -107,82 +121,102 @@ export default function QuoteDocumentsSection({ lead, prepGuideIndices = [] }) {
         ) : files?.length === 0 ? (
           <p className="text-gs-muted text-xs py-2 text-center">No PDFs found in Quotes folder</p>
         ) : (
-          <div className="space-y-1.5">
-            {files.map((f) => (
-              <button
+          <div className="space-y-2">
+            {files.map((f, i) => (
+              <motion.button
                 key={f.key}
+                type="button"
                 onClick={() => setSelected(s => s?.key === f.key ? null : f)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs transition-all cursor-pointer ${
-                  selected?.key === f.key
-                    ? 'bg-gs-accent/12 border border-gs-accent/30 text-gs-accent'
-                    : 'bg-gs-bg border border-gs-border text-gs-text hover:border-gs-muted/40'
-                }`}
+                className={`send-doc-card ${selected?.key === f.key ? 'send-doc-card--selected' : ''}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03, duration: 0.25 }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.99 }}
               >
-                <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                  selected?.key === f.key ? 'bg-gs-accent border-gs-accent' : 'border-gs-border'
-                }`}>
-                  {selected?.key === f.key && <Check size={10} className="text-white" />}
+                <span className="send-doc-card__shimmer" aria-hidden />
+                <div className={`send-doc-card__check ${selected?.key === f.key ? 'send-doc-card__check--on' : ''}`}>
+                  {selected?.key === f.key && <Check size={10} strokeWidth={3} />}
                 </div>
-                <FileText size={12} className="shrink-0 opacity-60" />
-                <span className="truncate font-medium">{f.name}</span>
-                <span className="ml-auto text-gs-muted shrink-0">{(f.size / 1024).toFixed(0)}KB</span>
-              </button>
+                <FileText size={16} className="shrink-0 text-gs-accent opacity-80" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-gs-text truncate">{f.name}</p>
+                  <p className="text-[10px] text-gs-muted uppercase tracking-wide mt-0.5">PDF · {(f.size / 1024).toFixed(0)} KB</p>
+                </div>
+                <a
+                  href={api.documents.fileUrl('quotes', f.index)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="send-doc-card__preview text-xs text-gs-info hover:underline shrink-0"
+                >
+                  Preview
+                </a>
+              </motion.button>
             ))}
           </div>
         )}
 
         {/* Customer info preview */}
         {lead && (
-          <div className="bg-gs-bg border border-gs-border rounded-lg px-3 py-2.5">
-            <p className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-2">Auto-fill Preview</p>
-            <div className="space-y-1">
+          <div className="send-preview-profile">
+            <p className="send-preview-profile__title">Customer profile</p>
+            <div className="send-preview-profile__grid">
               {[
-                ['Name',  lead.name],
+                ['Name', lead.name],
                 ['Phone', lead.phone],
                 ['Email', lead.email],
+                ['Reason', lead.reason],
+                ['Notes', lead.notes],
+                ['Status', lead.status],
               ].map(([label, val]) => (
-                <div key={label} className="flex items-center gap-2 text-xs">
-                  <span className="text-gs-muted w-12 shrink-0">{label}</span>
-                  <span className="text-gs-text truncate">{val || <span className="text-gs-muted/50">—</span>}</span>
+                <div key={label} className="send-preview-profile__cell">
+                  <p className="send-preview-profile__label">{label}</p>
+                  <p className="send-preview-profile__value">{val || '—'}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Address inputs */}
-        <div>
-          <p className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-2">Service Address (optional)</p>
+        <div className="send-preview-address">
+          <p className="send-preview-address__title">
+            <MapPin size={14} className="inline mr-1.5 -mt-0.5 text-gs-accent" />
+            Service address
+          </p>
           <div className="space-y-2">
-            <div>
-              <label className="text-xs text-gs-muted mb-1 block">Street</label>
-              <input className="input py-1.5 text-xs" placeholder="123 Main St" value={address.street}
-                onChange={e => setAddress(p => ({ ...p, street: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gs-muted mb-1 block">City, State Zip</label>
-              <input className="input py-1.5 text-xs" placeholder="Portland, ME 04101" value={address.cityState}
-                onChange={e => setAddress(p => ({ ...p, cityState: e.target.value }))} />
-            </div>
+            <input
+              className="input text-sm"
+              placeholder="Street address"
+              value={address.street}
+              onChange={e => setAddress(p => ({ ...p, street: e.target.value }))}
+            />
+            <input
+              className="input text-sm"
+              placeholder="City, State ZIP"
+              value={address.cityState}
+              onChange={e => setAddress(p => ({ ...p, cityState: e.target.value }))}
+            />
           </div>
         </div>
 
-        {/* Pricing inputs */}
-        <div>
-          <p className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-2">Pricing</p>
+        <div className="send-preview-pricing-edit">
+          <p className="send-preview-pricing-edit__title">Quote pricing</p>
           <div className="grid grid-cols-2 gap-2">
             {[
-              ['initial',    'Initial Quote'],
-              ['discounted', 'Discount Amount'],
-              ['recurring',  'Recurring/Month'],
+              ['initial', 'Initial quote'],
+              ['discounted', 'Discount'],
+              ['recurring', 'Recurring / mo'],
             ].map(([key, label]) => (
               <div key={key}>
-                <label className="text-xs text-gs-muted mb-1 block">{label}</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
+                  {label}
+                </label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gs-muted text-xs">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted text-sm">$</span>
                   <input
-                    className="input pl-6 py-1.5 text-xs"
-                    placeholder="0.00"
+                    className="input pl-7 text-sm"
+                    placeholder="0"
                     value={pricing[key]}
                     onChange={e => setPricing(p => ({ ...p, [key]: e.target.value }))}
                   />
@@ -190,6 +224,11 @@ export default function QuoteDocumentsSection({ lead, prepGuideIndices = [] }) {
               </div>
             ))}
           </div>
+          {pricing.initial && (
+            <p className="text-sm font-semibold text-gs-accent mt-3 text-right">
+              Final: {formatMoney(computeFinalQuote(pricing))}
+            </p>
+          )}
         </div>
 
         {/* Notes */}

@@ -535,3 +535,388 @@
 .send-workflow-timeline__channels {
   @apply inline-flex items-center gap-1 text-gs-muted;
 }
+
+/* ── Step 3: Preview & Send launch console ── */
+
+.send-preview-launch {
+  @apply px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-[1600px] mx-auto w-full space-y-5;
+}
+
+.send-preview-top {
+  @apply grid gap-4 md:grid-cols-3;
+}
+
+.send-preview-top-card {
+  @apply rounded-2xl border p-4 sm:p-5 relative overflow-hidden;
+  border-color: rgba(220, 231, 219, 0.9);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(243, 247, 241, 0.88));
+  box-shadow: var(--gs-shadow-soft);
+}
+
+.send-preview-top-card--template {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(236, 253, 245, 0.5));
+}
+
+.send-preview-top__label {
+  @apply text-[10px] font-bold uppercase tracking-[0.1em] text-gs-muted;
+}
+
+.send-preview-top__avatar {
+  @apply w-11 h-11 rounded-xl flex items-center justify-center text-xs font-bold shrink-0;
+  background: rgba(22, 163, 74, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.22);
+  color: #15803d;
+}
+
+.send-preview-top__title {
+  @apply font-display font-semibold text-lg text-gs-text tracking-tight truncate;
+}
+
+.send-preview-top__code {
+  @apply text-xs font-bold tracking-widest mt-2;
+}
+
+.send-preview-top__meta {
+  @apply text-xs text-gs-muted;
+}
+
+.send-preview-top__pill {
+  @apply text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md;
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  color: #15803d;
+}
+
+.send-preview-top__channel {
+  @apply inline-flex items-center gap-1 text-[10px] font-medium text-gs-muted uppercase tracking-wide;
+}
+
+.send-preview-launch__workspace {
+  @apply grid gap-5 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)_minmax(300px,340px)] items-start;
+}
+
+.send-preview-docs {
+  @apply rounded-2xl border overflow-hidden flex flex-col max-h-[calc(100vh-220px)] min-h-[520px];
+  border-color: rgba(220, 231, 219, 0.85);
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: var(--gs-shadow-soft);
+}
+
+.send-preview-docs__header {
+  @apply flex items-center gap-3 px-4 py-3 border-b shrink-0;
+  border-color: rgba(220, 231, 219, 0.6);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.send-preview-docs__stack {
+  @apply flex-1 min-h-0 overflow-y-auto p-3 space-y-3;
+}
+
+.send-doc-panel {
+  @apply rounded-xl border overflow-hidden flex flex-col;
+  border-color: rgba(220, 231, 219, 0.7);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.send-doc-card {
+  @apply w-full flex items-center gap-3 p-3 rounded-xl border text-left relative overflow-hidden cursor-pointer;
+  border-color: rgba(220, 231, 219, 0.8);
+  background: rgba(255, 255, 255, 0.7);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.send-doc-card__shimmer {
+  @apply pointer-events-none absolute inset-0 opacity-0;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.7) 48%, transparent 58%);
+  transform: translateX(-120%);
+}
+
+.send-doc-card:hover .send-doc-card__shimmer {
+  @apply opacity-100;
+  animation: sendLeadCardShimmer 0.85s ease forwards;
+}
+
+.send-doc-card:hover {
+  border-color: rgba(22, 163, 74, 0.28);
+  box-shadow: 0 6px 18px rgba(15, 42, 20, 0.07);
+}
+
+.send-doc-card--selected {
+  border-color: rgba(22, 163, 74, 0.45);
+  background: rgba(22, 163, 74, 0.05);
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.12);
+}
+
+.send-doc-card--info.send-doc-card--selected {
+  border-color: rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.send-doc-card__check {
+  @apply w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0;
+  border-color: #dce7db;
+  color: transparent;
+}
+
+.send-doc-card__check--on {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #000;
+}
+
+.send-doc-card__check--info.send-doc-card__check--on {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.send-doc-card__preview {
+  @apply px-2 py-1 rounded-md border border-gs-border/60 bg-white/80;
+}
+
+.send-preview-profile {
+  @apply rounded-xl p-3.5 border;
+  border-color: rgba(220, 231, 219, 0.7);
+  background: linear-gradient(180deg, rgba(248, 252, 246, 0.9), rgba(255, 255, 255, 0.8));
+}
+
+.send-preview-profile__title {
+  @apply text-xs font-bold uppercase tracking-[0.08em] text-gs-muted mb-2;
+}
+
+.send-preview-profile__grid {
+  @apply grid grid-cols-2 gap-2;
+}
+
+.send-preview-profile__cell {
+  @apply rounded-lg px-2 py-1.5 bg-white/70 border border-gs-border/40;
+}
+
+.send-preview-profile__label {
+  @apply text-[9px] font-semibold uppercase tracking-wide text-gs-muted;
+}
+
+.send-preview-profile__value {
+  @apply text-xs text-gs-text truncate mt-0.5;
+}
+
+.send-preview-address {
+  @apply rounded-xl p-3.5 border;
+  border-color: rgba(22, 163, 74, 0.18);
+  background: rgba(22, 163, 74, 0.04);
+}
+
+.send-preview-address__title {
+  @apply text-xs font-bold uppercase tracking-[0.08em] text-gs-muted mb-2;
+}
+
+.send-preview-pricing-edit {
+  @apply rounded-xl p-3.5 border;
+  border-color: rgba(220, 231, 219, 0.7);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.send-preview-pricing-edit__title {
+  @apply text-xs font-bold uppercase tracking-[0.08em] text-gs-muted mb-2;
+}
+
+.send-preview-comm {
+  @apply rounded-2xl border overflow-hidden flex flex-col min-h-[520px] max-h-[calc(100vh-220px)];
+  border-color: rgba(220, 231, 219, 0.85);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--gs-shadow-soft);
+}
+
+.send-preview-comm__header {
+  @apply px-5 py-4 border-b shrink-0;
+  border-color: rgba(220, 231, 219, 0.5);
+}
+
+.send-preview-comm__grid {
+  @apply grid lg:grid-cols-2 gap-5 p-5;
+}
+
+.send-preview-phone__bezel {
+  @apply mx-auto max-w-[280px] rounded-[2rem] p-2 border-4;
+  border-color: #0f172a;
+  background: linear-gradient(180deg, #1e293b, #0f172a);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.send-preview-phone__notch {
+  @apply w-24 h-5 rounded-b-2xl mx-auto;
+  background: #0f172a;
+}
+
+.send-preview-phone__screen {
+  @apply rounded-[1.4rem] p-4 min-h-[200px];
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+}
+
+.send-preview-phone__label {
+  @apply text-[10px] font-semibold uppercase tracking-wide text-gs-muted text-center mb-3;
+}
+
+.send-preview-phone__bubble {
+  @apply rounded-2xl rounded-tl-md px-3 py-2.5 text-sm leading-relaxed text-gs-text ml-2;
+  background: #fff;
+  border: 1px solid rgba(220, 231, 219, 0.9);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.send-preview-phone__time {
+  @apply text-[10px] text-gs-muted text-center mt-3;
+}
+
+.send-preview-email__label {
+  @apply text-xs font-semibold uppercase tracking-wide text-gs-muted mb-2;
+}
+
+.send-preview-email__card {
+  @apply rounded-xl border p-4;
+  border-color: rgba(220, 231, 219, 0.8);
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(15, 42, 20, 0.05);
+}
+
+.send-preview-email__row {
+  @apply flex gap-2 text-xs py-1;
+}
+
+.send-preview-email__subject {
+  @apply border-b border-gs-border/50 pb-2 mb-2;
+}
+
+.send-preview-email__body {
+  @apply text-sm text-gs-muted leading-relaxed m-0;
+}
+
+.send-preview-comm__timeline {
+  @apply px-5 pb-5 border-t pt-4;
+  border-color: rgba(220, 231, 219, 0.5);
+}
+
+.send-preview-sidebar {
+  @apply rounded-2xl border overflow-hidden flex flex-col sticky top-4;
+  border-color: rgba(220, 231, 219, 0.85);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 247, 241, 0.9));
+  box-shadow: var(--gs-shadow-soft);
+  max-height: calc(100vh - 120px);
+}
+
+.send-preview-sidebar__scroll {
+  @apply flex-1 overflow-y-auto p-4 space-y-4 min-h-0;
+}
+
+.send-preview-sidebar__block {
+  @apply rounded-xl border p-3.5;
+  border-color: rgba(220, 231, 219, 0.6);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.send-preview-sidebar__heading {
+  @apply text-xs font-bold uppercase tracking-[0.08em] text-gs-muted mb-2.5;
+}
+
+.send-preview-checklist {
+  @apply space-y-2 list-none m-0 p-0;
+}
+
+.send-preview-checklist__item {
+  @apply flex items-center gap-2.5 text-xs text-gs-muted;
+}
+
+.send-preview-checklist__item--ok {
+  @apply text-gs-text font-medium;
+}
+
+.send-preview-checklist__icon {
+  @apply w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0;
+  border-color: #dce7db;
+}
+
+.send-preview-checklist__icon--ok {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #000;
+}
+
+.send-preview-pricing__row {
+  @apply flex justify-between text-xs py-1.5 border-b border-gs-border/40;
+}
+
+.send-preview-pricing__row--discount span:last-child {
+  @apply text-gs-warn;
+}
+
+.send-preview-pricing__total {
+  @apply flex justify-between items-center pt-3 mt-2 text-base font-bold text-gs-text;
+}
+
+.send-preview-pricing__total span:last-child {
+  @apply text-gs-accent text-xl font-display;
+}
+
+.send-preview-channels {
+  @apply space-y-2;
+}
+
+.send-preview-channel {
+  @apply w-full text-left rounded-lg border p-2.5 cursor-pointer;
+  border-color: rgba(220, 231, 219, 0.8);
+  background: rgba(255, 255, 255, 0.6);
+  color: #64748b;
+}
+
+.send-preview-channel--active {
+  border-color: rgba(22, 163, 74, 0.45);
+  background: rgba(22, 163, 74, 0.08);
+  color: #15803d;
+}
+
+.send-preview-drive-quote {
+  @apply flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer;
+  border-color: rgba(220, 231, 219, 0.8);
+  background: rgba(255, 255, 255, 0.6);
+  color: #64748b;
+}
+
+.send-preview-drive-quote--on {
+  border-color: rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+}
+
+.send-preview-sidebar__test {
+  @apply text-xs rounded-lg px-3 py-2;
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  color: #b45309;
+}
+
+.send-preview-sidebar__actions {
+  @apply shrink-0 p-4 border-t;
+  border-color: rgba(220, 231, 219, 0.6);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 -8px 24px rgba(15, 42, 20, 0.06);
+}
+
+.send-preview-launch-btn {
+  @apply btn-primary flex items-center justify-center gap-2 py-3.5 text-base font-semibold rounded-xl;
+}
+
+@media (max-width: 1279px) {
+  .send-preview-launch__workspace {
+    grid-template-columns: 1fr;
+  }
+  .send-preview-sidebar {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+  .send-preview-docs,
+  .send-preview-comm {
+    max-height: none;
+    min-height: auto;
+  }
+}
