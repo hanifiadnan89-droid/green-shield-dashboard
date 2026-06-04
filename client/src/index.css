@@ -440,3 +440,21 @@
     }
   }
 }
+
+/* Route workspace transitions (sidebar stays fixed in AppShell) */
+.page-transition,
+.page-transition-outlet {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition,
+  .page-transition-outlet {
+    will-change: auto;
+  }
+}

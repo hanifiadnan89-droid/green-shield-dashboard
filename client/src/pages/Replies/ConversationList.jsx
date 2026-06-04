@@ -68,7 +68,9 @@ export default function ConversationList({
       <div className="rc-conv-list">
         {listCount === 0 ? (
           <p className="rc-list-empty">
-            {search ? 'No conversations match your search' : 'No conversations to show'}
+            {search.trim()
+              ? 'No conversations match your search.'
+              : 'No conversations to show'}
           </p>
         ) : (
           <>

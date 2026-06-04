@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { buildThreadFromMessages, getLatestInbound, readKey } from './threadUtils.js';
+import {
+  archKey,
+  buildThreadFromMessages,
+  getLatestInbound,
+  leadMatchesConversationSearch,
+  partitionSearchedReplyLeads,
+  readKey,
+} from './threadUtils.js';
 
 describe('threadUtils', () => {
   it('builds ordered thread from server messages', () => {
@@ -32,5 +39,52 @@ describe('threadUtils', () => {
       { id: '2', direction: 'inbound', body: 'in' },
     ];
     expect(getLatestInbound(messages)?.body).toBe('in');
+  });
+
+  it('leadMatchesConversationSearch matches name and thread body', () => {
+    const lead = { row_number: 1, name: 'Jane Doe', phone: '2075550100' };
+    expect(leadMatchesConversationSearch(lead, 'jane', [])).toBe(true);
+    expect(leadMatchesConversationSearch(lead, 'wasp', [{ body: 'We have wasps' }])).toBe(true);
+    expect(leadMatchesConversationSearch(lead, 'nomatch', [])).toBe(false);
+  });
+
+  it('partitionSearchedReplyLeads hides archived unless showArchived', () => {
+    const leads = [
+      { row_number: 1, name: 'Active', sms_reply: 'hi' },
+      { row_number: 2, name: 'Archived', sms_reply: 'bye' },
+    ];
+    const archived = new Set([archKey(leads[1])]);
+    const threads = { 2: [{ body: 'secret archived note' }] };
+
+    const noArch = partitionSearchedReplyLeads(leads, {
+      search: 'secret',
+      threads,
+      archived,
+      showArchived: false,
+    });
+    expect(noArch.matchCount).toBe(0);
+    expect(noArch.archivedLeads).toHaveLength(0);
+
+    const withArch = partitionSearchedReplyLeads(leads, {
+      search: 'secret',
+      threads,
+      archived,
+      showArchived: true,
+    });
+    expect(withArch.archivedLeads).toHaveLength(1);
+    expect(withArch.activeLeads).toHaveLength(0);
+  });
+
+  it('partitionSearchedReplyLeads returns empty active list for no search matches', () => {
+    const leads = [{ row_number: 1, name: 'Active', sms_reply: 'hi' }];
+    const result = partitionSearchedReplyLeads(leads, {
+      search: 'zzzzz',
+      threads: {},
+      archived: new Set(),
+      showArchived: false,
+    });
+    expect(result.hasActiveSearch).toBe(true);
+    expect(result.activeLeads).toHaveLength(0);
+    expect(result.matchCount).toBe(0);
   });
 });
