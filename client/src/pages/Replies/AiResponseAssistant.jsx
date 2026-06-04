@@ -1,6 +1,5 @@
-import { useRef } from 'react';
 import { motion } from 'motion/react';
-import { Bot, AlertCircle, Sparkles } from 'lucide-react';
+import { AlertCircle, Sparkles } from 'lucide-react';
 import Spinner from '../../components/Spinner.jsx';
 
 const QUICK_ACTIONS = [
@@ -17,8 +16,6 @@ export default function AiResponseAssistant({
   onPromptChange,
   onSubmit,
 }) {
-  const inputRef = useRef(null);
-
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -33,13 +30,15 @@ export default function AiResponseAssistant({
     onSubmit(lead, prompt);
   }
 
+  const inputId = `ai-response-${lead.row_number}`;
+
   return (
-    <div className="rc-ai-panel">
-      <div className="rc-ai-panel__head">
-        <p className="rc-ai-panel__title">
-          <Sparkles size={13} aria-hidden />
+    <section className="rc-composer__ai" aria-label="AI response assistant">
+      <div className="rc-composer__ai-head">
+        <label htmlFor={inputId} className="rc-composer__label rc-composer__label--ai">
+          <Sparkles size={12} aria-hidden />
           AI Response Assistant
-        </p>
+        </label>
         {cs.aiGenerating ? (
           <span className="rc-ai-thinking">
             <Spinner size={12} />
@@ -61,21 +60,19 @@ export default function AiResponseAssistant({
             className="rc-ai-action"
             disabled={cs.aiGenerating}
             onClick={() => runQuickAction(action.prompt)}
-            whileHover={{ scale: 1.03, y: -1 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             {action.label}
           </motion.button>
         ))}
       </div>
 
-      <div className="rc-ai-input-wrap">
-        <Bot size={16} className="rc-ai-input-wrap__icon" aria-hidden />
+      <div className="rc-composer__ai-field">
         <textarea
-          ref={inputRef}
-          id={`ai-response-${lead.row_number}`}
+          id={inputId}
           rows={2}
-          className="rc-ai-input"
+          className="rc-composer__textarea"
           placeholder="Describe how you'd like to respond, or pick a quick action above…"
           value={cs.aiPrompt || ''}
           disabled={cs.aiGenerating}
@@ -84,7 +81,7 @@ export default function AiResponseAssistant({
           aria-label="AI response instructions"
         />
         {cs.aiGenerating && (
-          <span className="rc-ai-spinner">
+          <span className="rc-composer__ai-spinner" aria-hidden>
             <Spinner size={14} />
           </span>
         )}
@@ -96,6 +93,6 @@ export default function AiResponseAssistant({
           {cs.aiError}
         </div>
       )}
-    </div>
+    </section>
   );
 }
