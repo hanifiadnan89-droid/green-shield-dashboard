@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw } from 'lucide-react';
+import { motion } from 'motion/react';
+import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw, Route } from 'lucide-react';
+import RouteFinderScoringSkeleton from './RouteFinderCommandSkeleton.jsx';
 import { api } from '../../../api/client.js';
 import { scoreRoutes, detectRouteArea } from '../../../utils/fieldRoutesScorer.js';
 import StatusBadge from './RouteStatusBadge.jsx';
@@ -551,19 +553,19 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     <div
       className={[
         'section-enter flex flex-col',
-        isPage ? 'route-finder-widget--page flex-1 min-h-0 w-full' : 'p-card h-full',
+        isPage ? 'rf-command rf-command-widget route-finder-widget--page flex-1 min-h-0 w-full' : 'p-card h-full',
       ].filter(Boolean).join(' ')}
     >
       {/* Header */}
       <div
         className={[
-          'route-finder-toolbar shrink-0 flex items-center justify-between border-b border-black/[0.05]',
-          isPage ? 'px-4 sm:px-6 lg:px-8 py-4 bg-white border-b border-slate-200/80' : 'px-5 pt-4 pb-3',
+          'route-finder-toolbar shrink-0 flex items-center justify-between',
+          isPage ? '' : 'px-5 pt-4 pb-3 border-b border-black/[0.05]',
         ].join(' ')}
       >
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gs-accent/10 flex items-center justify-center">
-            <Navigation size={14} className="text-gs-accent" />
+          <div className={isPage ? 'route-finder-toolbar__icon' : 'w-7 h-7 rounded-lg bg-gs-accent/10 flex items-center justify-center'}>
+            <Navigation size={isPage ? 16 : 14} className={isPage ? undefined : 'text-gs-accent'} />
           </div>
           <div>
             {isPage ? (
@@ -637,7 +639,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         <RouteSection page={isPage}>
         {/* ── Date picker ── */}
         <div className={isPage ? 'mb-0' : 'mb-3.5'}>
-          <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5">
+          <label className={isPage ? 'rf-section-label' : 'type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5'}>
             Route Date
           </label>
           {routeDateHelperText && (
@@ -655,12 +657,14 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
 
               return (
                 <div key={key} className="route-date-pill-cell">
-                  <button
+                  <motion.button
                     type="button"
                     onClick={() => isCached && handleDateSelect(key)}
                     disabled={!isCached}
                     aria-disabled={!isCached}
                     title={pillTitle}
+                    whileHover={isCached && !isActive ? { scale: 1.02 } : undefined}
+                    whileTap={isCached ? { scale: 0.98 } : undefined}
                     className={[
                       'route-date-pill-button w-full py-1.5 px-1 rounded-[9px] transition-all duration-150 flex items-center justify-center gap-1',
                       isActive ? 'route-date-pill-button--active' : isCached ? 'route-date-pill-button--cached' : 'route-date-pill-button--idle',
@@ -683,7 +687,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                     >
                       {label}
                     </span>
-                  </button>
+                  </motion.button>
                   <StatusBadge status={s.status} meta={s} date={key} onRefresh={handleRefresh} />
                 </div>
               );
@@ -707,22 +711,22 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         <RouteSection page={isPage} className="route-finder-section--address">
         {/* ── Address input ── */}
         <div className={isPage ? 'mb-0' : 'mb-3'}>
-          <label className="type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-[5px]">
+          <label className={isPage ? 'rf-section-label' : 'type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-[5px]'}>
             Customer Address
           </label>
 
           {geocodeStatus === 'success' && !isEditing ? (
-            <div className="rounded-[10px] border border-gs-accent/30 bg-gs-accent/[0.04] px-2.5 py-2 flex items-start gap-[7px]">
-              <CheckCircle size={13} className="text-gs-accent mt-px shrink-0" />
+            <div className={isPage ? 'rf-address-card' : 'rounded-[10px] border border-gs-accent/30 bg-gs-accent/[0.04] px-2.5 py-2 flex items-start gap-[7px]'}>
+              <CheckCircle size={isPage ? 16 : 13} className="text-gs-accent mt-px shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold text-gs-text m-0 leading-snug">
+                <p className={isPage ? 'rf-address-card__text' : 'text-[11px] font-semibold text-gs-text m-0 leading-snug'}>
                   {geocode.full || geocode.display}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="type-label-sm text-gs-accent bg-transparent border-0 cursor-pointer py-px px-1 font-semibold shrink-0 tracking-normal"
+                className={isPage ? 'rf-address-card__edit' : 'type-label-sm text-gs-accent bg-transparent border-0 cursor-pointer py-px px-1 font-semibold shrink-0 tracking-normal'}
               >
                 Edit
               </button>
@@ -841,10 +845,12 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
               {TIME_PREFS.map(({ key, label, sub }) => {
                 const active = timePref === key;
                 return (
-                  <button
+                  <motion.button
                     key={key}
                     type="button"
                     onClick={() => handleTimePrefSelect(key)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     className={[
                       'route-time-btn flex-1 py-2 px-1 rounded-[10px] cursor-pointer text-center transition-all duration-150',
                       active ? 'route-time-btn--active' : '',
@@ -852,7 +858,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   >
                     <div className="route-time-btn__label text-xs font-bold leading-none">{label}</div>
                     <div className="route-time-btn__sub text-[9px] mt-0.5">{sub}</div>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -913,10 +919,14 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         {(scoringStatus === 'loading' || scoringStatus === 'error') && (
         <RouteSection page={isPage}>
         {scoringStatus === 'loading' && (
-          <p className="route-finder-loading" aria-live="polite">
-            <Loader2 size={12} className="animate-spin text-gs-accent shrink-0" />
-            <span>Finding best routes…</span>
-          </p>
+          isPage ? (
+            <RouteFinderScoringSkeleton count={3} />
+          ) : (
+            <p className="route-finder-loading" aria-live="polite">
+              <Loader2 size={12} className="animate-spin text-gs-accent shrink-0" />
+              <span>Finding best routes…</span>
+            </p>
+          )
         )}
         {scoringStatus === 'error' && (
           <p className="route-finder-inline-error" role="alert">
@@ -939,6 +949,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   results.routeArea === 'new_hampshire' ? 'route-area-banner--nh' : 'route-area-banner--me',
                 ].join(' ')}
               >
+                {isPage && <Route size={16} className="route-area-banner__icon" aria-hidden />}
                 <span className="route-area-banner__title">
                   {results.routeArea === 'new_hampshire' ? 'New Hampshire Route' : 'Maine Route'}
                 </span>
@@ -982,7 +993,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                     routeArea={results.routeArea}
                   />
                 </div>
-                <p className="type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal">
+                <p className={isPage ? 'route-finder-footer-summary' : 'type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal'}>
                   {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
                 </p>
               </>
