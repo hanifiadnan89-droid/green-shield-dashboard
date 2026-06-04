@@ -56,7 +56,7 @@ export default function RouteMatchDetailWorkspace({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.3, ease: EASE }}
+      transition={{ duration: 0.26, ease: EASE }}
     >
       <motion.button
         type="button"
@@ -66,7 +66,7 @@ export default function RouteMatchDetailWorkspace({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.32, ease: EASE }}
+        transition={{ duration: 0.22, ease: EASE }}
       />
 
       <div className="route-match-detail">
@@ -76,13 +76,13 @@ export default function RouteMatchDetailWorkspace({
           layoutId={layoutId}
           layout
           className="route-match-detail__surface"
-          initial={{ y: 22, opacity: 0.96 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 18, opacity: 0 }}
+          initial={{ opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 8 }}
           transition={{
             layout: layoutTransition,
-            y: { duration: 0.4, ease: EASE },
-            opacity: { duration: 0.3, ease: EASE },
+            opacity: { duration: 0.28, ease: EASE },
+            x: { duration: 0.28, ease: EASE },
           }}
         >
         <header className="route-match-detail__header">

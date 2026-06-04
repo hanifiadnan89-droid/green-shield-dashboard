@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { WorkspaceSwap } from '../components/WorkspaceTransition.jsx';
 import { MessageCircle, CheckCircle2, AlertCircle, Archive } from 'lucide-react';
 import { api } from '../api/client.js';
 import EmptyState from '../components/EmptyState.jsx';
@@ -354,11 +355,17 @@ export default function Replies() {
             isUnread={isUnread}
             pulseRows={pulseRows}
           >
-            <AnimatePresence mode="wait">
+            <WorkspaceSwap
+              swapKey={
+                selectedLead
+                  ? (selectedIsArchived ? `arch-${selectedLead.row_number}` : String(selectedLead.row_number))
+                  : 'empty'
+              }
+              className="replies-inbox-detail-swap"
+            >
               {selectedLead ? (
                 selectedIsArchived ? (
                   <ReplyArchivedDetail
-                    key={`arch-${selectedLead.row_number}`}
                     lead={selectedLead}
                     thread={selectedThread}
                     syncError={syncError}
@@ -367,7 +374,6 @@ export default function Replies() {
                   />
                 ) : (
                   <ReplyConversationView
-                    key={selectedLead.row_number}
                     lead={selectedLead}
                     cardState={getCard(selectedLead.row_number)}
                     thread={selectedThread}
@@ -388,18 +394,13 @@ export default function Replies() {
                   />
                 )
               ) : (
-                <motion.div
-                  key="empty"
-                  className="replies-inbox-empty-detail"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
+                <div className="replies-inbox-empty-detail">
                   <MessageCircle size={40} className="rc-empty-hint__icon mx-auto" aria-hidden />
                   <p className="m-0">Select a conversation</p>
                   <p className="m-0 text-sm opacity-60">Your AI communications workspace will open here</p>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+            </WorkspaceSwap>
           </ReplyInbox>
         ) : null}
       </div>

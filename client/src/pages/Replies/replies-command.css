@@ -234,6 +234,13 @@
   }
 }
 
+.replies-inbox-detail-swap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .replies-inbox-detail-inner {
   flex: 1;
   min-height: 0;
