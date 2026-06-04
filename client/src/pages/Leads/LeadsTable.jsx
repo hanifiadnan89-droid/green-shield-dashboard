@@ -11,7 +11,7 @@ import { createLeadsColumns, LEADS_INITIAL_SORTING } from '../leadsColumns.jsx';
 import { hasRealReply } from '../CRMPreview/mockData.js';
 import { isLeadPriority } from './leadsFilters.js';
 import { leadInitials } from './leadInitials.js';
-import LeadStatusLabel from './LeadStatusLabel.jsx';
+import LeadFieldText from './LeadFieldText.jsx';
 import LeadRowActions from './LeadRowActions.jsx';
 import LeadsPagination from './LeadsPagination.jsx';
 
@@ -81,7 +81,7 @@ export default function LeadsTable({
       onEdit,
       onMarkSold,
       actionLoading,
-      StatusPill: LeadStatusLabel,
+      StatusPill: LeadFieldText,
       RowActions: LeadRowActions,
       NameCell: LeadNameCell,
       formatSent,

@@ -73,13 +73,15 @@ export default function LeadsToolbar({
           </div>
         </div>
 
-        <div className="leads-kpi" aria-live="polite">
-          <p className="leads-kpi__label">Total Leads</p>
-          <AnimatedCount value={totalLeads} />
+        <div className="leads-kpi leads-kpi--inline" aria-live="polite">
+          <div className="leads-kpi__main">
+            <p className="leads-kpi__label">Total Leads</p>
+            <AnimatedCount value={totalLeads} />
+          </div>
           <svg
             className="leads-kpi__spark"
-            width="88"
-            height="28"
+            width="72"
+            height="22"
             viewBox="0 0 88 28"
             aria-hidden
           >

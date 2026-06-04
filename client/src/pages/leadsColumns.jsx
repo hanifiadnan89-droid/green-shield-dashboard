@@ -3,9 +3,9 @@ import {
   createDataTableColumns,
   columnMeta,
 } from '../components/DataTable/index.js';
-import StatusBadge from '../components/StatusBadge.jsx';
 import Spinner from '../components/Spinner.jsx';
 import { hasRealReply } from './CRMPreview/mockData.js';
+import LeadFieldText from './Leads/LeadFieldText.jsx';
 
 const col = createDataTableColumns();
 
@@ -34,7 +34,6 @@ export function createLeadsColumns({
   onEdit,
   onMarkSold,
   actionLoading,
-  StatusPill = StatusBadge,
   RowActions,
   NameCell,
   formatSent,
@@ -134,13 +133,13 @@ export function createLeadsColumns({
       header: 'Notes',
       enableSorting: true,
       meta: columnMeta({ minWidth: 'min-w-[4.5rem]' }),
-      cell: ({ getValue }) => <StatusPill value={getValue()} />,
+      cell: ({ getValue }) => <LeadFieldText value={getValue()} kind="note" />,
     }),
     col.accessor('status', {
       header: 'Status',
       enableSorting: true,
       meta: columnMeta({ minWidth: 'min-w-[5.5rem]' }),
-      cell: ({ getValue }) => <StatusPill value={getValue()} />,
+      cell: ({ getValue }) => <LeadFieldText value={getValue()} kind="status" />,
     }),
     col.accessor('sent', {
       header: 'Sent',
@@ -152,19 +151,19 @@ export function createLeadsColumns({
       header: 'Stop',
       enableSorting: true,
       meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
-      cell: ({ getValue }) => (getValue() === 'yes' ? <StatusPill value="Stop" /> : null),
+      cell: ({ getValue }) => <LeadFieldText value={getValue()} kind="stop" />,
     }),
     col.accessor('sms_reply', {
       header: 'SMS',
       enableSorting: true,
       meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
-      cell: ({ getValue }) => (hasRealReply(getValue()) ? <StatusPill value="Replied" /> : null),
+      cell: ({ getValue }) => (hasRealReply(getValue()) ? <LeadFieldText kind="flag" value="yes" /> : null),
     }),
     col.accessor('email_reply', {
       header: 'Email',
       enableSorting: true,
       meta: columnMeta({ align: 'center', minWidth: 'min-w-[3.5rem]' }),
-      cell: ({ getValue }) => (hasRealReply(getValue()) ? <StatusPill value="Replied" /> : null),
+      cell: ({ getValue }) => (hasRealReply(getValue()) ? <LeadFieldText kind="flag" value="yes" /> : null),
     }),
     col.accessor('error', {
       header: 'Error',
