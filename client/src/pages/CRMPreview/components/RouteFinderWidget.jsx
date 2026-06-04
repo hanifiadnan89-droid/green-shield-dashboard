@@ -553,7 +553,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     <div
       className={[
         'section-enter flex flex-col',
-        isPage ? 'rf-command rf-command-widget route-finder-widget--page flex-1 min-h-0 w-full' : 'p-card h-full',
+        isPage ? 'rf-command rf-command-widget route-finder-widget--page flex-1 min-h-0 w-full relative' : 'p-card h-full',
       ].filter(Boolean).join(' ')}
     >
       {/* Header */}
@@ -614,7 +614,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
 
         <RouteSection page={isPage}>
         {/* ── FieldRoutes auth status ── */}
-        <AuthStatusBanner authInfo={authInfo} onLoginRefreshStarted={handleLoginRefreshStarted} />
+        <AuthStatusBanner
+          authInfo={authInfo}
+          onLoginRefreshStarted={handleLoginRefreshStarted}
+          compact={isPage}
+        />
 
         {statusMountError && (
           <div
@@ -865,8 +869,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
 
             {timePref === 'specific' && (
               <div className="pt-0.5">
-                <p className="type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal">4-hour slots</p>
-                <div className="flex gap-[5px] mb-2">
+                <p className={isPage ? 'rf-section-label mb-2' : 'type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal'}>4-hour slots</p>
+                <div className="route-time-slots-row route-time-slots-row--four-hour mb-2">
                   {FOUR_HOUR_SLOTS.map(({ key, label }) => {
                     const active = specificSlot === key;
                     return (
@@ -884,7 +888,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                     );
                   })}
                 </div>
-                <p className="type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal">2-hour slots</p>
+                <p className={isPage ? 'rf-section-label mb-2' : 'type-label-sm text-gs-muted mb-[5px] font-normal tracking-normal'}>2-hour slots</p>
                 <div className="route-time-slots-row route-time-slots-row--two-hour">
                   {TWO_HOUR_SLOTS.map(({ key, label }) => {
                     const active = specificSlot === key;
@@ -940,7 +944,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         {/* ── Results ── */}
         {scoringStatus === 'done' && results && (
         <RouteSection page={isPage} className="route-finder-section--results">
-          <div className={isPage ? 'route-finder-results-panel' : undefined}>
+          <div className={isPage ? 'route-finder-results-panel route-finder-overlay-host' : undefined}>
             {/* Route area header (NH / Maine) */}
             {results.routeArea && results.routeArea !== 'general' && (
               <div
