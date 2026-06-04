@@ -12,7 +12,13 @@ function isDesktopViewport() {
  * Desktop: auto-selects first visible lead when none or stale.
  * Mobile: list-first until the user picks a thread; clears detail when filter/archive hides selection.
  */
-export function useReplySelection({ activeLeads, archivedLeads, showArchived, loading }) {
+export function useReplySelection({
+  activeLeads,
+  archivedLeads,
+  showArchived,
+  loading,
+  searchQuery = '',
+}) {
   const [selectedRowNumber, setSelectedRowNumber] = useState(null);
   const skipAutoSelectRef = useRef(false);
   const initialMobileListRef = useRef(true);
@@ -28,11 +34,17 @@ export function useReplySelection({ activeLeads, archivedLeads, showArchived, lo
     return null;
   }
 
+  const hasActiveSearch = Boolean(String(searchQuery || '').trim());
+
   useEffect(() => {
     if (loading) return;
 
     if (skipAutoSelectRef.current) {
       skipAutoSelectRef.current = false;
+      return;
+    }
+
+    if (hasActiveSearch && selectedRowNumber != null) {
       return;
     }
 
@@ -55,7 +67,15 @@ export function useReplySelection({ activeLeads, archivedLeads, showArchived, lo
 
     initialMobileListRef.current = false;
     setSelectedRowNumber(pickDefaultRowNumber());
-  }, [activeLeads, archivedLeads, showArchived, loading, allVisibleLeads, selectedRowNumber]);
+  }, [
+    activeLeads,
+    archivedLeads,
+    showArchived,
+    loading,
+    allVisibleLeads,
+    selectedRowNumber,
+    hasActiveSearch,
+  ]);
 
   function selectLead(rowNumber) {
     initialMobileListRef.current = false;

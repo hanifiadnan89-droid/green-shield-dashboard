@@ -1,6 +1,7 @@
-import { Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import Layout from './components/Layout.jsx';
+import { AnimatedOutlet, AnimatedPage } from './components/PageTransition.jsx';
 import TestModeBanner from './components/TestModeBanner.jsx';
 import CRMPreview from './pages/CRMPreview/index.jsx';
 import { api } from './api/client.js';
@@ -43,7 +44,7 @@ function AppShell({ testMode, credsMissing, googleCreds }) {
       )}
       {/* Suspense boundary: Layout renders immediately; page chunk loads on demand */}
       <Suspense fallback={null}>
-        <Outlet />
+        <AnimatedOutlet className="page-transition-outlet flex-1 flex flex-col min-h-0 overflow-hidden" />
       </Suspense>
     </Layout>
   );
@@ -67,7 +68,14 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<CRMPreview testMode={testMode} />} />
+      <Route
+        path="/"
+        element={(
+          <AnimatedPage className="flex h-screen overflow-hidden">
+            <CRMPreview testMode={testMode} />
+          </AnimatedPage>
+        )}
+      />
       <Route path="/dashboard-classic" element={<Navigate to="/" replace />} />
       <Route element={<AppShell testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} />}>
         <Route path="/leads" element={<Leads />} />

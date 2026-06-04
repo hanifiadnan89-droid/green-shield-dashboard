@@ -123,6 +123,48 @@ export function getConversationStatusTone(lead, messages) {
 
 export const archKey = l => `${l.row_number}:${l.sms_reply}`;
 
+/** Whether a lead matches the inbox search query (name, phone, replies, thread bodies). */
+export function leadMatchesConversationSearch(lead, query, messages = []) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return true;
+  const inThread = (messages || []).some(m => (m.body || '').toLowerCase().includes(q));
+  return (
+    (lead.name || '').toLowerCase().includes(q) ||
+    (lead.phone || '').includes(q) ||
+    (lead.sms_reply || '').toLowerCase().includes(q) ||
+    (lead.email_reply || '').toLowerCase().includes(q) ||
+    inThread
+  );
+}
+
+/**
+ * Partition leads for the Replies inbox list.
+ * Archived rows never appear unless showArchived is true (even when search matches them).
+ */
+export function partitionSearchedReplyLeads(sortedLeads, { search, threads, archived, showArchived }) {
+  const hasActiveSearch = Boolean(String(search || '').trim());
+  const archivedSet = archived instanceof Set ? archived : new Set(archived || []);
+
+  const pool = (sortedLeads || []).filter(lead => {
+    const isArchived = archivedSet.has(archKey(lead));
+    if (isArchived && !showArchived) return false;
+    const messages = threads?.[lead.row_number] || [];
+    return leadMatchesConversationSearch(lead, search, messages);
+  });
+
+  const activeLeads = pool.filter(lead => !archivedSet.has(archKey(lead)));
+  const archivedLeads = showArchived
+    ? pool.filter(lead => archivedSet.has(archKey(lead)))
+    : [];
+
+  return {
+    activeLeads,
+    archivedLeads,
+    hasActiveSearch,
+    matchCount: pool.length,
+  };
+}
+
 /** Stable fingerprint for inbound read cursor (matches server inboundReadKey). */
 export function inboundReadKey(message) {
   if (!message || message.direction !== 'inbound') return null;

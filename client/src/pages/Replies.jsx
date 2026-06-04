@@ -16,7 +16,12 @@ import { useReplyCardState } from './Replies/useReplyCardState.js';
 import { useReplySelection } from './Replies/useReplySelection.js';
 import { useConversationThreads } from './Replies/useConversationThreads.js';
 import { useUnreadReplies } from './Replies/useUnreadReplies.js';
-import { buildThread, archKey, getConversationSortTime } from './Replies/threadUtils.js';
+import {
+  buildThread,
+  archKey,
+  getConversationSortTime,
+  partitionSearchedReplyLeads,
+} from './Replies/threadUtils.js';
 import { buildLeadContext } from './Replies/buildLeadContext.js';
 
 import { hasConversationSignal } from './Replies/conversationLeadFilter.js';
@@ -69,23 +74,17 @@ export default function Replies() {
     });
   }, [leads, threads, meta]);
 
-  const searched = sortedLeads.filter(l => {
-    if (!showArchived && archived.has(archKey(l))) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    const msgs = threads[l.row_number] || [];
-    const inThread = msgs.some(m => (m.body || '').toLowerCase().includes(q));
-    return (
-      (l.name || '').toLowerCase().includes(q) ||
-      (l.phone || '').includes(q) ||
-      (l.sms_reply || '').toLowerCase().includes(q) ||
-      (l.email_reply || '').toLowerCase().includes(q) ||
-      inThread
-    );
-  });
+  const searchTrimmed = search.trim();
 
-  const activeLeads = searched.filter(l => !archived.has(archKey(l)));
-  const archivedLeads = searched.filter(l => archived.has(archKey(l)));
+  const { activeLeads, archivedLeads, hasActiveSearch } = useMemo(
+    () => partitionSearchedReplyLeads(sortedLeads, {
+      search: searchTrimmed,
+      threads,
+      archived,
+      showArchived,
+    }),
+    [sortedLeads, searchTrimmed, threads, archived, showArchived],
+  );
 
   const {
     selectedRowNumber,
@@ -94,7 +93,13 @@ export default function Replies() {
     selectAfterArchive,
     isArchivedLead,
     detailOpen,
-  } = useReplySelection({ activeLeads, archivedLeads, showArchived, loading });
+  } = useReplySelection({
+    activeLeads,
+    archivedLeads,
+    showArchived,
+    loading,
+    searchQuery: searchTrimmed,
+  });
 
   const selectedLead = leads.find(l => l.row_number === selectedRowNumber) ?? null;
   const selectedIsArchived = selectedLead ? isArchivedLead(selectedLead, archived) : false;
@@ -270,7 +275,9 @@ export default function Replies() {
     }
   }
 
-  const showInbox = !loading && leads.length > 0 && (activeLeads.length > 0 || (showArchived && archivedLeads.length > 0));
+  const showInbox = !loading && leads.length > 0;
+  const allArchivedHidden =
+    !hasActiveSearch && activeLeads.length === 0 && archivedCount > 0 && !showArchived;
 
   return (
     <div className="replies-command flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -322,17 +329,13 @@ export default function Replies() {
               desc="When customers reply via SMS or email, conversations will appear here"
             />
           </div>
-        ) : activeLeads.length === 0 && !showArchived ? (
+        ) : allArchivedHidden ? (
           <div className="rc-page-empty">
             <EmptyState
               icon={Archive}
               title="All chats archived"
               desc="Toggle archived in the header to view them"
             />
-          </div>
-        ) : searched.length === 0 ? (
-          <div className="rc-page-empty">
-            <EmptyState icon={MessageCircle} title="No matches" desc={`No replies match "${search}"`} />
           </div>
         ) : showInbox ? (
           <ReplyInbox
