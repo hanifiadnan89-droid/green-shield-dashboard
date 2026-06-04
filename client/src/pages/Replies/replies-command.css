@@ -1233,7 +1233,7 @@
 .rc-composer--compact .rc-composer__row {
   display: flex;
   align-items: flex-end;
-  gap: 0.65rem;
+  gap: 0.6rem;
 }
 
 .rc-composer__main {
@@ -1241,11 +1241,13 @@
   min-width: 0;
 }
 
-.rc-send-btn--stacked {
+.rc-send-btn--inline {
+  flex-shrink: 0;
   align-self: flex-end;
-  margin-bottom: 0.15rem;
-  min-height: 44px;
-  padding: 0.6rem 1.1rem;
+  min-height: 56px;
+  height: 56px;
+  padding: 0 1rem;
+  border-radius: 14px;
 }
 
 .rc-composer__label {
@@ -1268,6 +1270,7 @@
   line-height: 1.55;
   color: #f8fafc;
   resize: vertical;
+  box-sizing: border-box;
   background: linear-gradient(
     155deg,
     rgba(255, 255, 255, 0.06) 0%,
@@ -1275,7 +1278,8 @@
   );
   border: 1px solid rgba(255, 255, 255, 0.1);
   outline: none;
-  transition: border-color 0.25s, box-shadow 0.25s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color 0.22s, box-shadow 0.22s;
 }
 
 .rc-composer__textarea::placeholder {
@@ -1284,7 +1288,10 @@
 
 .rc-composer__textarea:focus {
   border-color: rgba(74, 222, 128, 0.4);
-  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 3px rgba(74, 222, 128, 0.1),
+    0 0 20px rgba(74, 222, 128, 0.08);
 }
 
 .rc-composer__footer {
@@ -1303,24 +1310,30 @@
 .rc-send-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 1.25rem;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.15rem;
   border-radius: 12px;
   font-size: 0.8125rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
   color: #022c15;
   background: linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%);
-  border: 1px solid rgba(0, 255, 136, 0.45);
+  border: 1px solid rgba(74, 222, 128, 0.45);
   cursor: pointer;
   box-shadow:
-    0 0 28px rgba(74, 222, 128, 0.35),
-    0 4px 16px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transition: box-shadow 0.25s, transform 0.2s;
+    0 0 22px rgba(74, 222, 128, 0.28),
+    0 2px 10px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition: box-shadow 0.22s, border-color 0.22s, transform 0.2s;
 }
 
 .rc-send-btn:hover:not(:disabled) {
-  box-shadow: 0 6px 28px rgba(74, 222, 128, 0.45);
+  border-color: rgba(74, 222, 128, 0.65);
+  box-shadow:
+    0 0 32px rgba(74, 222, 128, 0.4),
+    0 4px 14px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
 .rc-send-btn:disabled {
@@ -1348,41 +1361,60 @@
   word-break: break-word;
 }
 
-/* AI Assistant */
-.rc-ai-panel {
-  margin-top: 0.65rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: 16px;
-  border: 1px solid rgba(167, 139, 250, 0.25);
-  background: linear-gradient(
-    155deg,
-    rgba(167, 139, 250, 0.12) 0%,
-    rgba(0, 0, 0, 0.35) 55%,
-    rgba(74, 222, 128, 0.06) 100%
-  );
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+/* AI Assistant — integrated with composer (no outer box) */
+.rc-composer__ai {
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.rc-ai-panel__head {
+.rc-composer__ai-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.45rem;
 }
 
-.rc-ai-panel__title {
-  display: flex;
+.rc-composer__label--ai {
+  margin-bottom: 0;
+  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: rgba(196, 181, 253, 0.9);
-  margin: 0;
+  gap: 0.35rem;
+  color: rgba(74, 222, 128, 0.72);
+}
+
+.rc-composer__ai-field {
+  position: relative;
+}
+
+.rc-composer__ai-field .rc-composer__textarea {
+  min-height: 56px;
+  max-height: 140px;
+  resize: vertical;
+  padding-right: 2.25rem;
+}
+
+.rc-composer__ai-spinner {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #4ade80;
+  pointer-events: none;
+}
+
+@media (max-width: 540px) {
+  .rc-composer--compact .rc-composer__row {
+    flex-wrap: wrap;
+  }
+
+  .rc-send-btn--inline {
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    padding: 0.55rem 1rem;
+  }
 }
 
 .rc-ai-online {
@@ -1406,7 +1438,7 @@
 
 .rc-ai-thinking {
   font-size: 0.6875rem;
-  color: rgba(196, 181, 253, 0.8);
+  color: rgba(74, 222, 128, 0.75);
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -1416,78 +1448,31 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.45rem;
 }
 
 .rc-ai-action {
   font-size: 0.6875rem;
   font-weight: 600;
-  padding: 0.35rem 0.65rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 999px;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(167, 139, 250, 0.25);
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(74, 222, 128, 0.2);
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
 .rc-ai-action:hover:not(:disabled) {
   color: #f8fafc;
-  border-color: rgba(167, 139, 250, 0.5);
-  background: rgba(167, 139, 250, 0.15);
-  box-shadow: 0 0 16px rgba(167, 139, 250, 0.15);
+  border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.1);
+  box-shadow: 0 0 14px rgba(74, 222, 128, 0.12);
 }
 
 .rc-ai-action:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.rc-ai-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.5rem 0.65rem;
-  border-radius: 12px;
-  border: 1px solid rgba(167, 139, 250, 0.3);
-  background: rgba(0, 0, 0, 0.35);
-  transition: border-color 0.25s, box-shadow 0.25s;
-}
-
-.rc-ai-input-wrap:focus-within {
-  border-color: rgba(167, 139, 250, 0.55);
-  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
-}
-
-.rc-ai-input-wrap__icon {
-  flex-shrink: 0;
-  margin-top: 0.45rem;
-  color: rgba(196, 181, 253, 0.7);
-}
-
-.rc-ai-input {
-  flex: 1;
-  min-width: 0;
-  min-height: 52px;
-  resize: none;
-  border: none;
-  background: transparent;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: #f8fafc;
-  outline: none;
-}
-
-.rc-ai-input::placeholder {
-  color: rgba(255, 255, 255, 0.28);
-}
-
-.rc-ai-spinner {
-  position: absolute;
-  right: 0.75rem;
-  top: 0.65rem;
-  color: #c4b5fd;
 }
 
 .rc-ai-hint {

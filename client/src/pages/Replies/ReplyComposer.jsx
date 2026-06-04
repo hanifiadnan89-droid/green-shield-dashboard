@@ -46,9 +46,9 @@ export default function ReplyComposer({
           type="button"
           onClick={() => onSend(lead)}
           disabled={!cs.message?.trim() || cs.sending}
-          className="rc-send-btn rc-send-btn--stacked"
-          whileHover={{ scale: 1.04, boxShadow: '0 8px 36px rgba(0,255,136,0.35)' }}
-          whileTap={{ scale: 0.94 }}
+          className="rc-send-btn rc-send-btn--inline"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
         >
           {cs.sending ? (
             <>
