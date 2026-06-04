@@ -1,9 +1,7 @@
+import { motion } from 'motion/react';
 import ChatThread from './ChatThread.jsx';
 import ReplyComposer from './ReplyComposer.jsx';
 
-/**
- * Active conversation — full thread + compose.
- */
 export default function ReplyConversationView({
   lead,
   cardState: cs,
@@ -22,29 +20,29 @@ export default function ReplyConversationView({
   onAiAssist,
 }) {
   return (
-    <div className="replies-conversation-panel flex flex-col flex-1 min-h-0">
+    <div className="replies-conversation-panel">
       {isConfirming && (
-        <div className="reply-archive-confirm shrink-0">
-          <span className="type-body-sm text-gs-danger font-medium">
-            Archive this chat? It won&apos;t appear in your active list.
-          </span>
+        <motion.div
+          className="rc-archive-confirm"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+        >
+          <span>Archive this chat? It won&apos;t appear in your active list.</span>
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => onArchive(lead)}
-              className="type-label-sm font-semibold text-white bg-gs-danger rounded-md px-2.5 py-1 hover:opacity-90 transition-opacity cursor-pointer"
+              className="rc-send-btn text-xs py-1.5 px-3"
+              style={{ background: 'linear-gradient(135deg, #f87171, #ef4444)', color: '#fff', border: 'none' }}
             >
               Archive
             </button>
-            <button
-              type="button"
-              onClick={onCancelArchive}
-              className="type-label-sm font-medium text-gs-muted bg-transparent border border-gs-border rounded-md px-2.5 py-1 hover:text-gs-text transition-colors cursor-pointer"
-            >
+            <button type="button" onClick={onCancelArchive} className="rc-btn-ghost">
               Cancel
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
 
       <ChatThread

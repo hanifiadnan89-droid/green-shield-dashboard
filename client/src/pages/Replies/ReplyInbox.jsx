@@ -38,19 +38,19 @@ export default function ReplyInbox({
 
       <main className="replies-inbox-detail" aria-label="Conversation">
         {detailOpen && (
-          <div className="reply-inbox-detail-toolbar lg:hidden shrink-0">
+          <div className="rc-detail-toolbar lg:hidden">
             <motion.button
               type="button"
               onClick={onClearSelection}
-              className="reply-inbox-back btn-ghost text-xs gap-1.5"
+              className="rc-back-btn"
               whileTap={{ scale: 0.97 }}
             >
-              <ChevronLeft size={16} aria-hidden />
+              <ChevronLeft size={18} aria-hidden />
               Conversations
             </motion.button>
           </div>
         )}
-        <div className="replies-inbox-detail-inner flex flex-col flex-1 min-h-0">
+        <div className="replies-inbox-detail-inner">
           {children}
         </div>
       </main>

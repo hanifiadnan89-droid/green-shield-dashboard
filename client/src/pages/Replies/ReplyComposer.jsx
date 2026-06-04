@@ -4,6 +4,8 @@ import Spinner from '../../components/Spinner.jsx';
 import { formatTime } from './threadUtils.js';
 import AiResponseAssistant from './AiResponseAssistant.jsx';
 
+const SMS_MAX = 1600;
+
 export default function ReplyComposer({
   lead,
   cardState: cs,
@@ -14,17 +16,16 @@ export default function ReplyComposer({
   onAiPromptChange,
   onAiAssist,
 }) {
+  const charCount = (cs.message || '').length;
+
   return (
     <motion.div
-      className="replies-composer shrink-0"
-      initial={{ opacity: 0, y: 8 }}
+      className="rc-composer"
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, delay: 0.05 }}
+      transition={{ duration: 0.3, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
     >
-      <label
-        htmlFor={`reply-ta-${lead.row_number}`}
-        className="type-label-sm text-gs-muted uppercase tracking-wider block mb-2"
-      >
+      <label htmlFor={`reply-ta-${lead.row_number}`} className="rc-composer__label">
         Your reply
       </label>
 
@@ -32,7 +33,7 @@ export default function ReplyComposer({
         id={`reply-ta-${lead.row_number}`}
         ref={textareaRef}
         rows={4}
-        className="input resize-none type-body-sm leading-relaxed w-full"
+        className="rc-composer__textarea"
         placeholder="Type your reply… (Enter to send, Shift+Enter for new line)"
         value={cs.message}
         disabled={cs.sending}
@@ -48,48 +49,53 @@ export default function ReplyComposer({
       />
 
       {cs.reviewRequired && (
-        <div className="reply-alert-review mt-3">
-          <AlertTriangle size={14} className="text-gs-warn mt-0.5 shrink-0" />
+        <div className="rc-alert-review">
+          <AlertTriangle size={15} className="text-[#fcd34d] mt-0.5 shrink-0" aria-hidden />
           <div>
-            <p className="type-body-sm font-semibold text-amber-800 m-0 mb-0.5">
-              Human review recommended before sending
-            </p>
+            <p className="rc-alert-review__title">Human review recommended before sending</p>
             {cs.reviewReason && (
-              <p className="type-label-sm text-amber-900/90 m-0 leading-snug normal-case tracking-normal">
-                {cs.reviewReason}
-              </p>
+              <p className="rc-alert-review__body">{cs.reviewReason}</p>
             )}
           </div>
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 mt-3">
-        <div className="type-body-sm min-w-0">
+      <div className="rc-composer__footer">
+        <div className="min-w-0">
+          <span className="rc-composer__char" aria-live="polite">
+            {charCount} / {SMS_MAX}
+          </span>
           {cs.sent && !cs.error && (
-            <span className="flex items-center gap-1 text-gs-accent font-medium">
-              <CheckCircle2 size={13} className="shrink-0" />
-              SMS sent{cs.sentAt ? ` · ${formatTime(cs.sentAt)}` : ''}
-            </span>
+            <p className="rc-composer-status rc-composer-status--ok m-0 mt-1">
+              <CheckCircle2 size={13} className="shrink-0 inline" aria-hidden />
+              {' '}SMS sent{cs.sentAt ? ` · ${formatTime(cs.sentAt)}` : ''}
+            </p>
           )}
           {cs.error && (
-            <span className="flex items-center gap-1 text-gs-danger font-medium break-words">
-              <AlertCircle size={13} className="shrink-0" />
-              {cs.error}
-            </span>
+            <p className="rc-composer-status rc-composer-status--err m-0 mt-1">
+              <AlertCircle size={13} className="shrink-0 inline" aria-hidden />
+              {' '}{cs.error}
+            </p>
           )}
         </div>
         <motion.button
           type="button"
           onClick={() => onSend(lead)}
           disabled={!cs.message?.trim() || cs.sending}
-          className="btn-primary text-xs py-2 px-5 gap-1.5 shrink-0"
-          whileHover={{ scale: 1.02 }}
+          className="rc-send-btn"
+          whileHover={{ scale: 1.04, boxShadow: '0 8px 32px rgba(74,222,128,0.45)' }}
           whileTap={{ scale: 0.94 }}
         >
           {cs.sending ? (
-            <><Spinner size={12} />Sending…</>
+            <>
+              <Spinner size={14} />
+              Sending…
+            </>
           ) : (
-            <><Send size={12} />Send SMS</>
+            <>
+              <Send size={15} aria-hidden />
+              Send SMS
+            </>
           )}
         </motion.button>
       </div>
