@@ -59,9 +59,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ history }),
     }),
-    unreadCount: (leads) => request('/messages/unread-count', {
+    unreadCount: (leads, legacyViewedKeys = []) => request('/messages/unread-count', {
       method: 'POST',
-      body: JSON.stringify({ leads }),
+      body: JSON.stringify({
+        leads,
+        legacyViewedKeys: Array.isArray(legacyViewedKeys) ? legacyViewedKeys : [],
+      }),
     }),
     markRead: (rowNumber, inboundKey) => request(`/messages/${rowNumber}/read`, {
       method: 'POST',

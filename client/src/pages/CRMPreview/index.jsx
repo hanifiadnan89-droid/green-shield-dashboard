@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, startTransition } from 'reac
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client.js';
 import { filterConversationLeads } from '../Replies/conversationLeadFilter.js';
+import { loadLegacyViewedKeys } from '../Replies/legacyViewedKeys.js';
 import { deriveStats } from './mockData.js';
 import PremiumSidebar from './components/PremiumSidebar.jsx';
 import PipelineSummary from './components/PipelineSummary.jsx';
@@ -76,7 +77,7 @@ export default function CRMPreview({ testMode }) {
     }
 
     try {
-      const { count } = await api.messages.unreadCount(replyLeads);
+      const { count } = await api.messages.unreadCount(replyLeads, loadLegacyViewedKeys());
       setUnreadReplies(typeof count === 'number' ? count : 0);
     } catch {
       // Keep previous unread badge if unread count fails.

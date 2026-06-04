@@ -1,42 +1,14 @@
 import { motion } from 'motion/react';
 import { Mail, MessageSquare, CheckCheck } from 'lucide-react';
-import { formatThreadTime } from './threadUtils.js';
+import { formatThreadTime, isTemplateMessage } from './threadUtils.js';
 
 export default function MessageBubble({ msg, index = 0 }) {
-  const isOut = msg.dir === 'out';
+  if (isTemplateMessage(msg)) return null;
+
+  const isOut = msg.dir === 'out' || msg.direction === 'outbound';
   const timeStr = formatThreadTime(msg.ts);
   const ChannelIcon = msg.channel === 'email' ? Mail : MessageSquare;
-
-  if (msg.isTemplate) {
-    return (
-      <motion.div
-        className="rc-template-row"
-        initial={{ opacity: 0, y: 8, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.28, delay: Math.min(index * 0.03, 0.3), ease: [0.22, 1, 0.36, 1] }}
-      >
-        <div
-          className="rc-template-pill"
-          style={{
-            backgroundColor: `${msg.color}14`,
-            borderColor: `${msg.color}45`,
-          }}
-        >
-          <span
-            className="rc-template-pill__dot"
-            style={{ backgroundColor: msg.color }}
-            aria-hidden
-          />
-          <span className="rc-template-pill__text" style={{ color: msg.color }}>
-            {msg.text}
-          </span>
-          {timeStr && (
-            <span className="rc-template-pill__time">{timeStr}</span>
-          )}
-        </div>
-      </motion.div>
-    );
-  }
+  const body = msg.text ?? msg.body ?? '';
 
   const senderLabel = isOut
     ? `You · ${msg.channel === 'email' ? 'Email' : 'SMS'}`
@@ -63,7 +35,7 @@ export default function MessageBubble({ msg, index = 0 }) {
         whileHover={{ scale: 1.006, y: -1 }}
         transition={{ type: 'spring', stiffness: 420, damping: 28 }}
       >
-        <span className="rc-bubble__body">{msg.text}</span>
+        <span className="rc-bubble__body">{body}</span>
         {isOut && (
           <CheckCheck size={14} className="rc-bubble__read" aria-label="Sent" />
         )}

@@ -23,6 +23,8 @@ export function isInboundNewerThanRead(messages, metaForRow, readAtByRow, rowNum
   const readAt = metaForRow?.lastReadAt ?? readAtByRow?.[rowNumber];
   const readMs = parseTimeMs(readAt);
 
+  if (metaForRow?.unread === false) return false;
+
   if (readMs != null && inboundMs != null) {
     return inboundMs > readMs;
   }

@@ -88,7 +88,8 @@ export default function ConversationList({
                         hasDraft={!!(getCard(lead.row_number).message || '').trim()}
                         unread={isUnread(lead, messages, meta[lead.row_number])}
                         pulsing={pulseRows.has(lead.row_number)}
-                        messageCount={messages.length}
+                        messages={messages}
+                        meta={meta[lead.row_number]}
                         preview={previewFromMessages(messages, meta[lead.row_number], lead)}
                         lastAt={meta[lead.row_number]?.lastAt}
                         onSelect={onSelectLead}
@@ -123,7 +124,8 @@ export default function ConversationList({
                         hasDraft={false}
                         unread={false}
                         pulsing={false}
-                        messageCount={messages.length}
+                        messages={messages}
+                        meta={meta[lead.row_number]}
                         preview={previewFromMessages(messages, meta[lead.row_number], lead)}
                         lastAt={meta[lead.row_number]?.lastAt}
                         onSelect={onSelectLead}

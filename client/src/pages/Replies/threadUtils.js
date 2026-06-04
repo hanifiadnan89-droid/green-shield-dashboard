@@ -1,4 +1,11 @@
 import { TMPL_LABEL, TMPL_COLOR } from './constants.js';
+import {
+  formatDateMaine,
+  formatDateSeparatorMaine,
+  formatListTimeMaine,
+  formatThreadTimeMaine,
+  formatTimeMaine,
+} from './repliesTime.js';
 
 export function initials(name) {
   if (!name) return '?';
@@ -7,53 +14,50 @@ export function initials(name) {
 }
 
 export function formatSent(sent) {
-  if (!sent || sent === 'imported') return null;
-  const d = new Date(sent);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateMaine(sent);
 }
 
 export function formatTime(date) {
-  if (!date) return '';
-  return new Date(date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return formatTimeMaine(date);
 }
 
 export function formatThreadTime(ts) {
-  if (!ts) return null;
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return null;
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  if (d.toDateString() === today.toDateString()) return `Today · ${time}`;
-  if (d.toDateString() === yesterday.toDateString()) return `Yesterday · ${time}`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` · ${time}`;
+  return formatThreadTimeMaine(ts);
 }
 
-/** Date divider label for conversation timeline (Today / Yesterday / full date). */
 export function formatDateSeparator(ts) {
-  if (!ts) return null;
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return null;
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDateSeparatorMaine(ts);
 }
 
-/** Interleave date dividers with thread messages for timeline UI. */
+export function isTemplateMessage(m) {
+  return !!(m?.isTemplate || m?.meta?.isTemplate || m?.meta?.type === 'template');
+}
+
+/** UI-only: hide template/system event bubbles; server history unchanged. */
+export function filterDisplayThread(thread) {
+  return (thread || []).filter(m => !isTemplateMessage(m));
+}
+
+/** Interleave date dividers with display messages only (no template events). */
 export function buildThreadWithDateDividers(thread) {
+  const display = filterDisplayThread(thread);
   const items = [];
   let lastDateKey = null;
-  for (const msg of thread) {
-    const d = msg.ts ? new Date(msg.ts) : null;
-    const dateKey = d && !isNaN(d.getTime()) ? d.toDateString() : null;
+  for (const msg of display) {
+    if (!msg.ts) {
+      items.push({ type: 'message', msg });
+      continue;
+    }
+    const d = new Date(msg.ts);
+    if (Number.isNaN(d.getTime())) {
+      items.push({ type: 'message', msg });
+      continue;
+    }
+    const label = formatDateSeparator(msg.ts);
+    const dateKey = label || msg.ts;
     if (dateKey && dateKey !== lastDateKey) {
       lastDateKey = dateKey;
-      items.push({ type: 'date', id: `date-${dateKey}`, label: formatDateSeparator(msg.ts) });
+      items.push({ type: 'date', id: `date-${dateKey}-${msg.id}`, label });
     }
     items.push({ type: 'message', msg });
   }
@@ -61,14 +65,60 @@ export function buildThreadWithDateDividers(thread) {
 }
 
 export function formatListTime(ts) {
-  if (!ts) return '';
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return '';
-  const today = new Date();
-  if (d.toDateString() === today.toDateString()) {
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return formatListTimeMaine(ts);
+}
+
+const SERVICE_CODES = {
+  na: 'N/A',
+  ag: 'AG',
+  ch: 'CH',
+  iq: 'IQ',
+  tm: 'T/M',
+  rit: 'RIT',
+};
+
+export function formatServiceCode(lead) {
+  const key = (lead?.notes || '').toLowerCase().trim();
+  if (SERVICE_CODES[key]) return SERVICE_CODES[key];
+  const raw = (lead?.reason || lead?.notes || '').trim();
+  if (!raw) return null;
+  return raw.length > 12 ? `${raw.slice(0, 12)}…` : raw;
+}
+
+export function channelReplyLabel(lead) {
+  const sms = !!(lead?.sms_reply || '').trim();
+  const email = !!(lead?.email_reply || '').trim();
+  if (sms && email) return 'SMS & Email';
+  if (email) return 'Email Reply';
+  if (sms) return 'SMS Reply';
+  return null;
+}
+
+/** Inline header metadata: "Replied · IQ · SMS Reply" */
+export function buildConversationHeaderMeta(lead) {
+  const parts = [];
+  const hasReplied = !!(lead?.sms_reply?.trim() || lead?.email_reply?.trim());
+  if (hasReplied) parts.push('Replied');
+  const service = formatServiceCode(lead);
+  if (service) parts.push(service);
+  const channel = channelReplyLabel(lead);
+  if (channel) parts.push(channel);
+  return parts.join(' · ');
+}
+
+/**
+ * Green = customer spoke last (or has inbound on file).
+ * Red = rep spoke last / awaiting customer.
+ */
+export function getConversationStatusTone(lead, messages) {
+  const display = filterDisplayThread(messages);
+  const last = display.length ? display[display.length - 1] : null;
+  if (last) {
+    const isOut = last.dir === 'out' || last.direction === 'outbound';
+    return isOut ? 'red' : 'green';
   }
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const hasInbound = !!(lead?.sms_reply?.trim() || lead?.email_reply?.trim());
+  return hasInbound ? 'green' : 'red';
 }
 
 export const archKey = l => `${l.row_number}:${l.sms_reply}`;
