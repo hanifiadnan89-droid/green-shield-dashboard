@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react';
+import { Suspense } from 'react';
 import { useLocation, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
@@ -6,15 +7,65 @@ import {
   workspaceRouteKey,
   workspaceRouteVariants,
 } from '../motion/workspaceMotion.js';
+import PageTransitionFallback from './PageTransitionFallback.jsx';
 
 /**
- * Wraps a single page element (legacy — prefer AppShell + AnimatedOutlet).
+ * Route outlet transitions.
+ *
+ * IMPORTANT: mode must be "wait" — never "sync". Sync keeps the exiting AND
+ * entering pages fully mounted (duplicate intervals, API loads, Playwright hooks)
+ * which freezes the app during rapid sidebar navigation.
  */
+export function AnimatedOutlet({ className = 'page-transition-outlet' }) {
+  const location = useLocation();
+  const outlet = useOutlet();
+  const reduceMotion = useReducedMotion();
+  const prevPath = useRef(location.pathname);
+  const directionRef = useRef(1);
+
+  const routeKey = workspaceRouteKey(location.pathname);
+  directionRef.current = getWorkspaceSlideDirection(prevPath.current, location.pathname);
+
+  useEffect(() => {
+    prevPath.current = location.pathname;
+  }, [location.pathname]);
+
+  if (reduceMotion) {
+    return (
+      <div className={className}>
+        <Suspense fallback={<PageTransitionFallback />}>{outlet}</Suspense>
+      </div>
+    );
+  }
+
+  const variants = workspaceRouteVariants(directionRef.current);
+
+  return (
+    <div className={`workspace-stage ${className}`.trim()}>
+      <AnimatePresence initial={false} mode="wait">
+        <motion.div
+          key={routeKey}
+          className="workspace-stage__layer"
+          initial={variants.initial}
+          animate={variants.animate}
+          exit={variants.exit}
+        >
+          <Suspense fallback={<PageTransitionFallback />}>{outlet}</Suspense>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** @deprecated Use AnimatedOutlet inside AppShell */
 export function AnimatedPage({ children, className = '' }) {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
   const prevPath = useRef(location.pathname);
-  const direction = getWorkspaceSlideDirection(prevPath.current, location.pathname);
+  const directionRef = useRef(1);
+
+  const routeKey = workspaceRouteKey(location.pathname);
+  directionRef.current = getWorkspaceSlideDirection(prevPath.current, location.pathname);
 
   useEffect(() => {
     prevPath.current = location.pathname;
@@ -24,12 +75,11 @@ export function AnimatedPage({ children, className = '' }) {
     return <div className={className}>{children}</div>;
   }
 
-  const variants = workspaceRouteVariants(direction);
-  const routeKey = workspaceRouteKey(location.pathname, location.search);
+  const variants = workspaceRouteVariants(directionRef.current);
 
   return (
     <div className={`workspace-stage ${className}`.trim()}>
-      <AnimatePresence initial={false} mode="sync">
+      <AnimatePresence initial={false} mode="wait">
         <motion.div
           key={routeKey}
           className="workspace-stage__layer"
@@ -38,44 +88,6 @@ export function AnimatedPage({ children, className = '' }) {
           exit={variants.exit}
         >
           {children}
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/**
- * Animated React Router outlet inside Layout (sidebar stays fixed).
- */
-export function AnimatedOutlet({ className = 'page-transition-outlet' }) {
-  const location = useLocation();
-  const outlet = useOutlet();
-  const reduceMotion = useReducedMotion();
-  const prevPath = useRef(location.pathname);
-  const direction = getWorkspaceSlideDirection(prevPath.current, location.pathname);
-
-  useEffect(() => {
-    prevPath.current = location.pathname;
-  }, [location.pathname]);
-
-  if (reduceMotion) {
-    return <div className={className}>{outlet}</div>;
-  }
-
-  const variants = workspaceRouteVariants(direction);
-  const routeKey = workspaceRouteKey(location.pathname, location.search);
-
-  return (
-    <div className={`workspace-stage ${className}`.trim()}>
-      <AnimatePresence initial={false} mode="sync">
-        <motion.div
-          key={routeKey}
-          className="workspace-stage__layer"
-          initial={variants.initial}
-          animate={variants.animate}
-          exit={variants.exit}
-        >
-          {outlet}
         </motion.div>
       </AnimatePresence>
     </div>
