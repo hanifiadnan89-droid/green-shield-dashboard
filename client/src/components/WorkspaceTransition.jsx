@@ -1,8 +1,8 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { workspacePanelVariants, workspaceSwapVariants } from '../motion/workspaceMotion.js';
+import { WORKSPACE_EASE, WORKSPACE_DURATION, workspacePanelVariants } from '../motion/workspaceMotion.js';
 
 /**
- * Side panel (lead detail, etc.) — slides in as workspace extension, not a modal.
+ * Side panel (lead detail, etc.) — one panel at a time (wait).
  */
 export function WorkspacePanel({
   show,
@@ -19,9 +19,10 @@ export function WorkspacePanel({
   }
 
   return (
-    <AnimatePresence initial={false}>
-      {show && (
+    <AnimatePresence initial={false} mode="wait">
+      {show ? (
         <motion.div
+          key="panel"
           className={className}
           aria-label={ariaLabel}
           initial={variants.initial}
@@ -30,22 +31,17 @@ export function WorkspacePanel({
         >
           {children}
         </motion.div>
-      )}
+      ) : null}
     </AnimatePresence>
   );
 }
 
 /**
- * In-place content swap (conversation, tabs, filters) — soft fade + micro slide.
+ * In-place content swap — enter-only animation so previous view unmounts immediately.
+ * Avoids stacking two heavy trees (e.g. two reply conversation panels).
  */
-export function WorkspaceSwap({
-  swapKey,
-  children,
-  className = '',
-  mode = 'wait',
-}) {
+export function WorkspaceSwap({ swapKey, children, className = '' }) {
   const reduceMotion = useReducedMotion();
-  const variants = workspaceSwapVariants();
 
   if (reduceMotion) {
     return <div className={className}>{children}</div>;
@@ -53,17 +49,18 @@ export function WorkspaceSwap({
 
   return (
     <div className={`workspace-swap ${className}`.trim()}>
-      <AnimatePresence initial={false} mode={mode}>
-        <motion.div
-          key={swapKey}
-          className="workspace-swap__layer"
-          initial={variants.initial}
-          animate={variants.animate}
-          exit={variants.exit}
-        >
-          {children}
-        </motion.div>
-      </AnimatePresence>
+      <motion.div
+        key={swapKey}
+        className="workspace-swap__layer"
+        initial={{ opacity: 0, y: 5 }}
+        animate={{
+          opacity: 1,
+          y: 0,
+          transition: { duration: WORKSPACE_DURATION.swap, ease: WORKSPACE_EASE },
+        }}
+      >
+        {children}
+      </motion.div>
     </div>
   );
 }
