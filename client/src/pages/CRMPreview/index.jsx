@@ -13,7 +13,9 @@ function ErrorState({ onRetry, message }) {
   return (
     <div className="gs-command-error">
       <p className="gs-command-error__title">Could not load dashboard</p>
-      <p className="gs-command-error__msg">{message || 'Check API connection and try again.'}</p>
+      <p className="gs-command-error__msg">
+        {message || 'Check API connection and try again.'}
+      </p>
       <button type="button" className="pc-cta-outline" onClick={onRetry}>
         Retry
       </button>
@@ -33,6 +35,7 @@ export default function CRMPreview({ testMode }) {
     setLoading(true);
     setError(false);
     setErrorMessage('');
+
     try {
       const { leads: data } = await api.leads.list();
       setLeads(data || []);
@@ -44,28 +47,40 @@ export default function CRMPreview({ testMode }) {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
         const data = await api.leads.list();
-        startTransition(() => setLeads(data.leads || []));
-      } catch { /* background refresh */ }
+
+        startTransition(() => {
+          setLeads(data.leads || []);
+        });
+      } catch {
+        // Silent background refresh failure.
+      }
     }, 30000);
+
     return () => clearInterval(interval);
   }, []);
 
   const refreshUnreadReplies = useCallback(async (leadList) => {
     const replyLeads = filterConversationLeads(leadList);
+
     if (!replyLeads.length) {
       setUnreadReplies(0);
       return;
     }
+
     try {
       const { count } = await api.messages.unreadCount(replyLeads);
       setUnreadReplies(typeof count === 'number' ? count : 0);
-    } catch { /* keep badge */ }
+    } catch {
+      // Keep previous unread badge if unread count fails.
+    }
   }, []);
 
   useEffect(() => {

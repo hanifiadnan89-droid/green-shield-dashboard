@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LayoutGroup, motion } from 'motion/react';
+import { LayoutGroup } from 'motion/react';
 import { TrendingUp } from 'lucide-react';
 import AmbientBackground from './AmbientBackground.jsx';
 import { derivePipelineDashboard } from './derivePipelineDashboard.js';
@@ -41,6 +41,7 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
     return (
       <section className="pipeline-command pipeline-command--fullscreen">
         <AmbientBackground />
+
         <div className="pipeline-command__empty">
           <TrendingUp size={28} className="mx-auto mb-3 text-[#4ade80]" />
           <p className="font-semibold text-white/80">No lead data yet</p>
@@ -55,6 +56,7 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
   return (
     <section className="pipeline-command pipeline-command--fullscreen">
       <AmbientBackground />
+
       <LayoutGroup>
         <div className="pipeline-command__grid">
           <CommandHeader
@@ -81,17 +83,24 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
               list={data.followupsDueList}
               onNavigate={navigate}
             />
-            <TemplatePerformance templates={data.templatePerformance} max={data.maxTemplate} />
+
+            <TemplatePerformance
+              templates={data.templatePerformance}
+              max={data.maxTemplate}
+            />
+
             <RepliesOverTime
               series={data.repliesSeries}
               total={data.repliesTotal}
               trend={data.repliesTrend}
             />
+
             <PipelineHealth
               score={data.healthScore}
               checks={data.healthChecks}
               onNavigate={navigate}
             />
+
             <TodaysActivityFeed items={data.todayActivity} />
           </div>
 
