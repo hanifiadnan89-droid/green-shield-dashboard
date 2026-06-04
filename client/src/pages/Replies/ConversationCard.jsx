@@ -87,7 +87,7 @@ export default function ConversationCard({
           {hasReply && !isArchived && (
             <>
               <span className="mx-1 opacity-40">·</span>
-              <span className="rc-badge rc-badge--activity inline">Replied</span>
+              <span className="rc-badge rc-badge--replied">REPLIED</span>
             </>
           )}
         </p>

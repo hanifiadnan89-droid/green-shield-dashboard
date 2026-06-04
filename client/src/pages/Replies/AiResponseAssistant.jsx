@@ -33,12 +33,6 @@ export default function AiResponseAssistant({
     onSubmit(lead, prompt);
   }
 
-  const contextBits = [
-    lead.name && `Customer: ${lead.name}`,
-    lead.status && `Status: ${lead.status}`,
-    lead.phone && `Phone on file`,
-  ].filter(Boolean);
-
   return (
     <div className="rc-ai-panel">
       <div className="rc-ai-panel__head">
@@ -95,17 +89,6 @@ export default function AiResponseAssistant({
           </span>
         )}
       </div>
-
-      <p className="rc-ai-hint">
-        Press <kbd className="rc-ai-kbd">Enter</kbd> to generate ·{' '}
-        <kbd className="rc-ai-kbd">Shift</kbd>+<kbd className="rc-ai-kbd">Enter</kbd> for a new line
-      </p>
-
-      {contextBits.length > 0 && (
-        <p className="rc-ai-context">
-          <strong>Context:</strong> {contextBits.join(' · ')}
-        </p>
-      )}
 
       {cs.aiError && (
         <div className="rc-alert-error">
