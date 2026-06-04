@@ -1,6 +1,6 @@
 import { FlaskConical, Zap } from 'lucide-react';
 
-export default function TestModeBanner({ testMode }) {
+export default function TestModeBanner({ testMode, suppressLiveBanner = false }) {
   if (testMode === null) return null;
 
   if (testMode) {
@@ -12,6 +12,8 @@ export default function TestModeBanner({ testMode }) {
       </div>
     );
   }
+
+  if (suppressLiveBanner) return null;
 
   return (
     <div className="bg-green-50/80 border-b border-green-200/80 px-4 py-2 flex items-center gap-2 backdrop-blur-md">
