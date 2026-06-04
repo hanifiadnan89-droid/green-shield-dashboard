@@ -31,6 +31,35 @@ export function formatThreadTime(ts) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` · ${time}`;
 }
 
+/** Date divider label for conversation timeline (Today / Yesterday / full date). */
+export function formatDateSeparator(ts) {
+  if (!ts) return null;
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Interleave date dividers with thread messages for timeline UI. */
+export function buildThreadWithDateDividers(thread) {
+  const items = [];
+  let lastDateKey = null;
+  for (const msg of thread) {
+    const d = msg.ts ? new Date(msg.ts) : null;
+    const dateKey = d && !isNaN(d.getTime()) ? d.toDateString() : null;
+    if (dateKey && dateKey !== lastDateKey) {
+      lastDateKey = dateKey;
+      items.push({ type: 'date', id: `date-${dateKey}`, label: formatDateSeparator(msg.ts) });
+    }
+    items.push({ type: 'message', msg });
+  }
+  return items;
+}
+
 export function formatListTime(ts) {
   if (!ts) return '';
   const d = new Date(ts);

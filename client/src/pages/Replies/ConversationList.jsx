@@ -49,6 +49,9 @@ export default function ConversationList({
             onBlur={() => setSearchFocused(false)}
             aria-label="Search conversations"
           />
+          {!search && (
+            <kbd className="rc-search__kbd" aria-hidden>⌘K</kbd>
+          )}
           {search && (
             <button
               type="button"

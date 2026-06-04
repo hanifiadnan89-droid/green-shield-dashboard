@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Mail, MessageSquare } from 'lucide-react';
+import { Mail, MessageSquare, CheckCheck } from 'lucide-react';
 import { formatThreadTime } from './threadUtils.js';
 
 export default function MessageBubble({ msg, index = 0 }) {
@@ -10,28 +10,28 @@ export default function MessageBubble({ msg, index = 0 }) {
   if (msg.isTemplate) {
     return (
       <motion.div
-        className="flex justify-center my-3"
+        className="rc-template-row"
         initial={{ opacity: 0, y: 8, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.28, delay: Math.min(index * 0.04, 0.3), ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.28, delay: Math.min(index * 0.03, 0.3), ease: [0.22, 1, 0.36, 1] }}
       >
         <div
           className="rc-template-pill"
           style={{
-            backgroundColor: `${msg.color}18`,
-            borderColor: `${msg.color}40`,
+            backgroundColor: `${msg.color}14`,
+            borderColor: `${msg.color}45`,
           }}
         >
           <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
+            className="rc-template-pill__dot"
             style={{ backgroundColor: msg.color }}
             aria-hidden
           />
-          <span className="font-semibold leading-snug" style={{ color: msg.color }}>
+          <span className="rc-template-pill__text" style={{ color: msg.color }}>
             {msg.text}
           </span>
           {timeStr && (
-            <span className="text-[0.6875rem] opacity-60 shrink-0 ml-1">{timeStr}</span>
+            <span className="rc-template-pill__time">{timeStr}</span>
           )}
         </div>
       </motion.div>
@@ -49,7 +49,7 @@ export default function MessageBubble({ msg, index = 0 }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{
         duration: 0.28,
-        delay: Math.min(index * 0.04, 0.35),
+        delay: Math.min(index * 0.03, 0.35),
         ease: [0.22, 1, 0.36, 1],
       }}
     >
@@ -60,10 +60,13 @@ export default function MessageBubble({ msg, index = 0 }) {
       </div>
       <motion.div
         className={`rc-bubble ${isOut ? 'rc-bubble--out' : 'rc-bubble--in'}`}
-        whileHover={{ scale: 1.008, y: -1 }}
+        whileHover={{ scale: 1.006, y: -1 }}
         transition={{ type: 'spring', stiffness: 420, damping: 28 }}
       >
-        {msg.text}
+        <span className="rc-bubble__body">{msg.text}</span>
+        {isOut && (
+          <CheckCheck size={14} className="rc-bubble__read" aria-label="Sent" />
+        )}
       </motion.div>
       {msg.status && isOut && (
         <span className="rc-bubble-status">{msg.status}</span>
