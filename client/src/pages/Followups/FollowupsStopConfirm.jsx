@@ -22,15 +22,15 @@ export default function FollowupsStopConfirm({ lead, onConfirm, onCancel }) {
             aria-labelledby="followups-stop-title"
           >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-gs-danger/10 border border-gs-danger/25 flex items-center justify-center">
-                <StopCircle size={20} className="text-gs-danger" />
+              <div className="followups-confirm__icon">
+                <StopCircle size={20} />
               </div>
-              <h2 id="followups-stop-title" className="text-lg font-bold text-gs-text">
+              <h2 id="followups-stop-title">
                 Stop follow-ups?
               </h2>
             </div>
-            <p className="text-sm text-gs-muted leading-relaxed">
-              <strong className="text-gs-text">{lead.name}</strong> will no longer receive automated n8n messages.
+            <p>
+              <strong>{lead.name}</strong> will no longer receive automated n8n messages.
               You can still message them manually from Replies or Send Template.
             </p>
             <div className="flex justify-end gap-2 mt-6">
