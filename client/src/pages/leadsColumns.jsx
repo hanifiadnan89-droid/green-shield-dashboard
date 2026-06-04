@@ -1,4 +1,4 @@
-import { Send, StopCircle, PlayCircle, Edit3 } from 'lucide-react';
+import { Send, StopCircle, PlayCircle, Edit3, HeartHandshake } from 'lucide-react';
 import {
   createDataTableColumns,
   columnMeta,
@@ -32,6 +32,7 @@ export function createLeadsColumns({
   navigate,
   onStop,
   onEdit,
+  onMarkSold,
   actionLoading,
   StatusPill = StatusBadge,
   RowActions,
@@ -47,12 +48,14 @@ export function createLeadsColumns({
 
   const Actions = RowActions || function DefaultActions({ lead }) {
     const stopKey = `stop_${lead.row_number}`;
+    const soldKey = `sold_${lead.row_number}`;
+    const isSold = (lead.sold || '').toLowerCase() === 'yes';
     return (
-      <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()} role="presentation">
+      <div className="leads-actions" onClick={e => e.stopPropagation()} role="presentation">
         <button
           type="button"
           onClick={() => navigate('/send', { state: { lead } })}
-          className="p-1.5 rounded hover:bg-gs-accent/20 text-gs-accent cursor-pointer"
+          className="leads-action-btn leads-action-btn--send"
           title="Send template"
         >
           <Send size={13} />
@@ -61,7 +64,7 @@ export function createLeadsColumns({
           type="button"
           onClick={() => onStop(lead)}
           disabled={actionLoading[stopKey]}
-          className={`p-1.5 rounded cursor-pointer ${lead.stop === 'yes' ? 'hover:bg-gs-accent/20 text-gs-accent' : 'hover:bg-gs-danger/20 text-gs-danger'}`}
+          className="leads-action-btn"
           title={lead.stop === 'yes' ? 'Remove stop' : 'Set stop'}
         >
           {actionLoading[stopKey]
@@ -71,10 +74,19 @@ export function createLeadsColumns({
         <button
           type="button"
           onClick={() => onEdit(lead)}
-          className="p-1.5 rounded hover:bg-gs-border text-gs-muted cursor-pointer"
+          className="leads-action-btn"
           title="Edit"
         >
           <Edit3 size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={() => !isSold && onMarkSold?.(lead)}
+          disabled={isSold || actionLoading[soldKey]}
+          className="leads-action-btn"
+          title="Mark as Sold"
+        >
+          {actionLoading[soldKey] ? <Spinner size={13} /> : <HeartHandshake size={13} />}
         </button>
       </div>
     );
@@ -170,15 +182,16 @@ export function createLeadsColumns({
     }),
     col.display({
       id: 'actions',
-      header: '',
+      header: 'Actions',
       enableSorting: false,
-      meta: columnMeta({ align: 'right', minWidth: 'min-w-[7rem]' }),
+      meta: columnMeta({ align: 'right', minWidth: 'min-w-[8.5rem]' }),
       cell: ({ row }) => (
         <Actions
           lead={row.original}
           navigate={navigate}
           onStop={onStop}
           onEdit={onEdit}
+          onMarkSold={onMarkSold}
           actionLoading={actionLoading}
         />
       ),

@@ -1,8 +1,29 @@
 import { LayoutGroup, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
+import {
+  LayoutGrid,
+  Zap,
+  MessageSquare,
+  Send,
+  PhoneOff,
+  FileText,
+  Archive,
+  AlertCircle,
+} from 'lucide-react';
 import { QUICK_FILTERS } from './leadsFilters.js';
 
-export default function LeadsQuickFilters({ activeId, onChange, category, notesParam }) {
+const CHIP_ICONS = {
+  all: LayoutGrid,
+  active: Zap,
+  replied: MessageSquare,
+  sent: Send,
+  no_answer: PhoneOff,
+  agreement: FileText,
+  archived: Archive,
+  followup: AlertCircle,
+};
+
+export default function LeadsQuickFilters({ activeId, onChange, category, notesParam, counts = {} }) {
   const navigate = useNavigate();
 
   function handleChip(id) {
@@ -24,11 +45,6 @@ export default function LeadsQuickFilters({ activeId, onChange, category, notesP
       navigate(`/leads?notes=${chip.notes}`);
       return;
     }
-    if (chip.status) {
-      navigate('/leads');
-      return;
-    }
-
     navigate('/leads');
   }
 
@@ -44,6 +60,8 @@ export default function LeadsQuickFilters({ activeId, onChange, category, notesP
       <div className="leads-quick-filters" role="tablist" aria-label="Quick filters">
         {QUICK_FILTERS.map(chip => {
           const isActive = effectiveActive === chip.id;
+          const Icon = CHIP_ICONS[chip.id];
+          const count = counts[chip.id] ?? 0;
           return (
             <motion.button
               key={chip.id}
@@ -57,11 +75,13 @@ export default function LeadsQuickFilters({ activeId, onChange, category, notesP
               {isActive && (
                 <motion.span
                   layoutId="leads-chip-indicator"
-                  className="absolute inset-0 rounded-full border border-gs-accent/30 bg-gs-accent/10 -z-10"
+                  className="absolute inset-0 rounded-full border border-[rgba(74,222,128,0.35)] bg-[rgba(74,222,128,0.08)] -z-10"
                   transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                 />
               )}
+              {Icon && <Icon size={12} aria-hidden />}
               {chip.label}
+              <span className="leads-chip__count">{count}</span>
             </motion.button>
           );
         })}

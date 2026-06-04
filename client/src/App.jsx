@@ -28,11 +28,13 @@ function googleCredsBannerMessage(googleCreds) {
 function AppShell({ testMode, credsMissing, googleCreds }) {
   const { pathname } = useLocation();
   const hideGoogleBanner = pathname.startsWith('/tools/route-finder');
-  const onReplies = pathname === '/replies' || pathname.startsWith('/replies/');
+  const suppressLiveBanner =
+    pathname === '/replies' || pathname.startsWith('/replies/')
+    || pathname === '/leads' || pathname.startsWith('/leads/');
 
   return (
     <Layout testMode={testMode}>
-      <TestModeBanner testMode={testMode} suppressLiveBanner={onReplies} />
+      <TestModeBanner testMode={testMode} suppressLiveBanner={suppressLiveBanner} />
       {credsMissing && !hideGoogleBanner && (
         <div className="bg-gs-info/10 border-b border-gs-info/30 px-4 py-2 text-gs-info text-xs flex items-center gap-2">
           <span className="font-bold">Setup required:</span>

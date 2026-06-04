@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, RefreshCw, Filter, X } from 'lucide-react';
 import { STATUS_OPTIONS, NOTE_OPTIONS, BOOL_OPTIONS } from './leadsFilters.js';
 import LeadsQuickFilters from './LeadsQuickFilters.jsx';
+import { buildLeadSparkline, sparklinePath } from './leadsSparkline.js';
 
 function AnimatedCount({ value }) {
   return (
@@ -21,7 +22,8 @@ function AnimatedCount({ value }) {
 export default function LeadsToolbar({
   search,
   onSearchChange,
-  filteredCount,
+  totalLeads,
+  allLeads,
   loading,
   onRefresh,
   showFilters,
@@ -34,15 +36,18 @@ export default function LeadsToolbar({
   onQuickFilterChange,
   category,
   notesParam,
+  filterCounts,
 }) {
   const [searchFocused, setSearchFocused] = useState(false);
+  const sparkValues = useMemo(() => buildLeadSparkline(allLeads, 7), [allLeads]);
+  const sparkD = useMemo(() => sparklinePath(sparkValues), [sparkValues]);
 
   return (
     <div className="leads-toolbar">
       <div className="leads-toolbar__top">
         <div className="leads-search-wrap">
           <div className={`leads-search ${searchFocused ? 'leads-search--focused' : ''}`}>
-            <Search size={18} className="leads-search__icon" />
+            <Search size={18} className="leads-search__icon" aria-hidden />
             <input
               className="leads-search__input"
               placeholder="Search name, phone, email, notes, status..."
@@ -52,6 +57,9 @@ export default function LeadsToolbar({
               onBlur={() => setSearchFocused(false)}
               aria-label="Search leads"
             />
+            {!search && (
+              <kbd className="leads-search__kbd" aria-hidden>⌘K</kbd>
+            )}
             {search && (
               <button
                 type="button"
@@ -63,33 +71,36 @@ export default function LeadsToolbar({
               </button>
             )}
           </div>
-          <div className="leads-search__meta">
-            <span>
-              {filteredCount === 0
-                ? 'No matching leads'
-                : `${filteredCount.toLocaleString()} result${filteredCount === 1 ? '' : 's'}`}
-            </span>
-            {activeFilterCount > 0 && (
-              <span className="text-gs-accent font-medium">
-                · {activeFilterCount} advanced filter{activeFilterCount === 1 ? '' : 's'} active
-              </span>
-            )}
-          </div>
         </div>
 
         <div className="leads-kpi" aria-live="polite">
           <p className="leads-kpi__label">Total Leads</p>
-          <AnimatedCount value={filteredCount} />
+          <AnimatedCount value={totalLeads} />
+          <svg
+            className="leads-kpi__spark"
+            width="88"
+            height="28"
+            viewBox="0 0 88 28"
+            aria-hidden
+          >
+            <path d={sparkD} />
+          </svg>
         </div>
 
         <div className="leads-toolbar__actions">
           <button
             type="button"
             onClick={onToggleFilters}
-            className={`btn-ghost text-xs gap-1.5 h-10 px-3 rounded-xl ${activeFilterCount ? 'border-gs-accent text-gs-accent' : ''}`}
+            className={`lc-btn-filters ${activeFilterCount ? 'lc-btn-filters--active' : ''}`}
           >
-            <Filter size={14} />
-            Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+            <Filter size={14} aria-hidden />
+            Filters
+            {activeFilterCount > 0 && (
+              <>
+                <span className="lc-btn-filters__dot" aria-hidden />
+                <span>({activeFilterCount})</span>
+              </>
+            )}
           </button>
           <button
             type="button"
@@ -97,6 +108,7 @@ export default function LeadsToolbar({
             className="leads-btn-icon"
             title="Refresh leads"
             aria-label="Refresh"
+            disabled={loading}
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -108,6 +120,7 @@ export default function LeadsToolbar({
         onChange={onQuickFilterChange}
         category={category}
         notesParam={notesParam}
+        counts={filterCounts}
       />
 
       <AnimatePresence initial={false}>
@@ -128,9 +141,8 @@ export default function LeadsToolbar({
                 { key: 'email_reply', label: 'Email Reply', options: BOOL_OPTIONS },
               ].map(({ key, label, options }) => (
                 <div key={key} className="flex flex-col gap-1">
-                  <label className="label">{label}</label>
+                  <label>{label}</label>
                   <select
-                    className="select py-1.5 text-xs w-36 rounded-xl"
                     value={filters[key]}
                     onChange={e => onFiltersChange(p => ({ ...p, [key]: e.target.value }))}
                   >
@@ -141,7 +153,11 @@ export default function LeadsToolbar({
                 </div>
               ))}
               {activeFilterCount > 0 && (
-                <button type="button" onClick={onClearFilters} className="btn-ghost text-xs self-end">
+                <button
+                  type="button"
+                  onClick={onClearFilters}
+                  className="lc-btn-filters self-end"
+                >
                   Clear all
                 </button>
               )}

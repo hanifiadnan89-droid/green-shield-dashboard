@@ -14,8 +14,8 @@ export default function LeadsEmptyState({ search, categoryMeta }) {
       <div className="leads-empty__icon">
         <Icon size={28} strokeWidth={1.5} />
       </div>
-      <h3 className="text-lg font-semibold text-gs-text mb-1">No leads found</h3>
-      <p className="text-sm text-gs-muted max-w-sm">
+      <h2>No leads found</h2>
+      <p className="max-w-sm">
         {search
           ? 'Try adjusting your search or clearing filters to see more results.'
           : categoryMeta
