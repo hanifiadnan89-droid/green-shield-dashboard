@@ -1,22 +1,15 @@
-import { RefreshCw, Archive, Zap } from 'lucide-react';
+import { RefreshCw, Archive } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function ReplyPageHeader({
   loading,
-  leadsCount,
   archivedCount,
   showArchived,
   onToggleArchived,
   onRefresh,
 }) {
   return (
-    <header className="rc-header rc-header--workspace">
-      <div className="rc-header__actions rc-header__actions--start">
-        <span className="rc-live-mode" aria-live="polite">
-          <Zap size={12} className="rc-live-mode__icon" aria-hidden />
-          Live mode
-        </span>
-      </div>
+    <header className="rc-header rc-header--toolbar">
       <div className="rc-header__actions">
         {archivedCount > 0 && (
           <motion.button
