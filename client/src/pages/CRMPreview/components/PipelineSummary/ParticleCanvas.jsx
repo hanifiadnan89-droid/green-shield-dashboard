@@ -53,6 +53,12 @@ const ParticleCanvas = memo(function ParticleCanvas({ isScrollingRef }) {
     }
 
     function draw(now) {
+      if (document.hidden) {
+        lastTime = null;
+        animFrame = requestAnimationFrame(draw);
+        return;
+      }
+
       if (!lastTime) lastTime = now;
       const dt = Math.min((now - lastTime) / 1000, 0.05);
       lastTime = now;

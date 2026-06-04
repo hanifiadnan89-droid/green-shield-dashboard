@@ -46,19 +46,6 @@ export default function CRMPreview() {
     refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const data = await api.leads.list();
-        setLeads(data.leads || []);
-      } catch {
-        // Silent background refresh failure.
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const stats = useMemo(() => (leads ? deriveStats(leads) : null), [leads]);
 
   return (

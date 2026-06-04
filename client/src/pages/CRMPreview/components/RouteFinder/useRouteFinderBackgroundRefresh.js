@@ -3,6 +3,7 @@ import { api } from '../../../../api/client.js';
 
 /** Client tick interval — server re-scrapes routes when cache is older than 10 minutes. */
 export const ROUTE_FINDER_BACKGROUND_REFRESH_MS = 5 * 60 * 1000;
+const VISIBILITY_DEBOUNCE_MS = 800;
 
 function routeFinderDebug(label, detail) {
   if (import.meta.env.DEV) {
@@ -74,13 +75,17 @@ export function useRouteFinderBackgroundRefresh({
 
     intervalRef.current = setInterval(run, ROUTE_FINDER_BACKGROUND_REFRESH_MS);
 
+    let visibilityTimer = null;
     const onVisibility = () => {
-      if (!document.hidden) run();
+      if (document.hidden) return;
+      if (visibilityTimer) clearTimeout(visibilityTimer);
+      visibilityTimer = setTimeout(run, VISIBILITY_DEBOUNCE_MS);
     };
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (visibilityTimer) clearTimeout(visibilityTimer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
