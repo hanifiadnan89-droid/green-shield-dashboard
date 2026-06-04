@@ -10,8 +10,10 @@ import { ChevronDown, ChevronsUpDown, ChevronUp, MessageSquare, Mail, Phone } fr
 import { createLeadsColumns, LEADS_INITIAL_SORTING } from '../leadsColumns.jsx';
 import { hasRealReply } from '../CRMPreview/mockData.js';
 import { isLeadPriority } from './leadsFilters.js';
+import { leadInitials } from './leadInitials.js';
 import LeadStatusLabel from './LeadStatusLabel.jsx';
 import LeadRowActions from './LeadRowActions.jsx';
+import LeadsPagination from './LeadsPagination.jsx';
 
 const STAGGER_CAP = 40;
 const STAGGER_DELAY = 0.018;
@@ -24,24 +26,27 @@ function formatSent(sent) {
 
 function LeadNameCell({ lead, unread }) {
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      {unread && <span className="leads-cell-name__dot" aria-hidden />}
+    <div className="leads-name-cell">
+      <span className="lc-avatar" aria-hidden>{leadInitials(lead.name)}</span>
       <div className="min-w-0">
-        <p className="leads-cell-name truncate">{lead.name || '—'}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {unread && <span className="leads-cell-name__dot" aria-hidden />}
+          <p className="leads-cell-name">{lead.name || '—'}</p>
+        </div>
         <div className="leads-cell-meta">
           {lead.phone && (
-            <span className="inline-flex items-center gap-0.5">
-              <Phone size={9} /> SMS
+            <span className="leads-cell-meta__tag">
+              <Phone size={9} aria-hidden /> SMS
             </span>
           )}
           {lead.email && (
-            <span className="inline-flex items-center gap-0.5">
-              <Mail size={9} /> Email
+            <span className="leads-cell-meta__tag">
+              <Mail size={9} aria-hidden /> Email
             </span>
           )}
           {(hasRealReply(lead.sms_reply) || hasRealReply(lead.email_reply)) && (
-            <span className="inline-flex items-center gap-0.5 text-gs-accent">
-              <MessageSquare size={9} /> Reply
+            <span className="leads-cell-meta__tag leads-cell-meta__tag--reply">
+              <MessageSquare size={9} aria-hidden /> Reply
             </span>
           )}
         </div>
@@ -52,11 +57,17 @@ function LeadNameCell({ lead, unread }) {
 
 export default function LeadsTable({
   data,
+  totalCount,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
   selectedRowNumber,
   onRowClick,
   navigate,
   onStop,
   onEdit,
+  onMarkSold,
   actionLoading,
   isLeadUnread = () => false,
   pulseRows = new Set(),
@@ -68,6 +79,7 @@ export default function LeadsTable({
       navigate,
       onStop,
       onEdit,
+      onMarkSold,
       actionLoading,
       StatusPill: LeadStatusLabel,
       RowActions: LeadRowActions,
@@ -75,7 +87,7 @@ export default function LeadsTable({
       formatSent,
       isLeadUnread,
     }),
-    [navigate, onStop, onEdit, actionLoading, isLeadUnread]
+    [navigate, onStop, onEdit, onMarkSold, actionLoading, isLeadUnread]
   );
 
   const table = useReactTable({
@@ -91,6 +103,7 @@ export default function LeadsTable({
   const rows = table.getRowModel().rows;
 
   return (
+    <>
     <div className="leads-table-scroll">
       <table className="leads-table">
         <thead>
@@ -164,5 +177,13 @@ export default function LeadsTable({
         </tbody>
       </table>
     </div>
+    <LeadsPagination
+      page={page}
+      pageSize={pageSize}
+      total={totalCount}
+      onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
+    />
+    </>
   );
 }

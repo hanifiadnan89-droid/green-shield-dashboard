@@ -134,6 +134,17 @@ export function isLeadPriority(lead) {
   return (lead.status || '').toLowerCase() === 'active';
 }
 
+/** Per-chip counts for the filter pill row (computed from full lead list). */
+export function countQuickFilterLeads(leads) {
+  const list = leads || [];
+  const counts = { all: list.length };
+  for (const chip of QUICK_FILTERS) {
+    if (chip.id === 'all') continue;
+    counts[chip.id] = applyQuickFilter(list, chip.id).length;
+  }
+  return counts;
+}
+
 export function resolveQuickFilterId({ category, notesParam, filters }) {
   if (category === 'replies') return 'replied';
   if (category === 'sent') return 'sent';

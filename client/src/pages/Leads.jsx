@@ -3,12 +3,17 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
-import { CATEGORY_META, filterLeads } from './Leads/leadsFilters.js';
+import {
+  CATEGORY_META,
+  countQuickFilterLeads,
+  filterLeads,
+} from './Leads/leadsFilters.js';
 import LeadsToolbar from './Leads/LeadsToolbar.jsx';
 import LeadsTable from './Leads/LeadsTable.jsx';
 import LeadsEmptyState from './Leads/LeadsEmptyState.jsx';
 import EditLeadModal from './Leads/EditLeadModal.jsx';
 import LeadDetailWorkspace from './Leads/LeadDetailWorkspace.jsx';
+import LeadsAmbientBackground from './Leads/LeadsAmbientBackground.jsx';
 import { useLeadsUnreadState } from './Leads/useLeadsUnreadState.js';
 import { hasConversationSignal } from './Replies/conversationLeadFilter.js';
 import './Leads/leads.css';
@@ -32,6 +37,8 @@ export default function Leads() {
   const [actionLoading, setActionLoading] = useState({});
   const [toast, setToast] = useState(null);
   const [quickFilter, setQuickFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type });
@@ -61,13 +68,15 @@ export default function Leads() {
     });
   }, [leads, detailLead?.row_number]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, filters, category, notesParam, quickFilter]);
+
   const handleQuickFilter = useCallback((id) => {
     setQuickFilter(id);
     if (id === 'active') {
       setFilters({ ...EMPTY_FILTERS, status: 'active' });
-    } else if (id === 'archived') {
-      setFilters({ ...EMPTY_FILTERS });
-    } else if (id === 'all') {
+    } else if (id === 'all' || id === 'archived') {
       setFilters({ ...EMPTY_FILTERS });
     } else {
       setFilters({ ...EMPTY_FILTERS });
@@ -76,8 +85,20 @@ export default function Leads() {
 
   const filtered = useMemo(
     () => filterLeads(leads, { search, filters, category, notesParam, quickFilter }),
-    [leads, search, filters, category, notesParam, quickFilter]
+    [leads, search, filters, category, notesParam, quickFilter],
   );
+
+  const filterCounts = useMemo(() => countQuickFilterLeads(leads), [leads]);
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const handleStop = useCallback(async (lead) => {
     setActionLoading(p => ({ ...p, [`stop_${lead.row_number}`]: true }));
@@ -95,6 +116,21 @@ export default function Leads() {
       showToast(err.message, 'error');
     } finally {
       setActionLoading(p => ({ ...p, [`stop_${lead.row_number}`]: false }));
+    }
+  }, [load, showToast]);
+
+  const handleMarkSold = useCallback(async (lead) => {
+    if ((lead.sold || '').toLowerCase() === 'yes') return;
+    const key = `sold_${lead.row_number}`;
+    setActionLoading(p => ({ ...p, [key]: true }));
+    try {
+      await api.leads.update(lead.row_number, { ...lead, sold: 'yes' });
+      showToast(`${lead.name} marked as sold`);
+      await load();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setActionLoading(p => ({ ...p, [key]: false }));
     }
   }, [load, showToast]);
 
@@ -124,105 +160,116 @@ export default function Leads() {
   }, [detailLead?.row_number, markLeadRead]);
 
   return (
-    <motion.div
-      className="leads-page"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
-      {(categoryMeta || notesParam) && (
-        <div className="leads-banner">
-          <span className="w-1 h-7 rounded-full bg-gs-accent shrink-0" />
-          <div className="min-w-0">
-            <h1 className="text-sm font-semibold text-gs-text">
-              {categoryMeta?.label ?? (
-                <>Template: <span className="uppercase">{notesParam}</span></>
-              )}
-            </h1>
-            <p className="text-gs-muted text-xs truncate">
-              {categoryMeta?.desc ?? 'Showing leads with this template'}
-            </p>
-          </div>
-          <Link
-            to="/leads"
-            className="ml-auto text-xs text-gs-muted hover:text-gs-accent transition-colors shrink-0"
-          >
-            ← All leads
-          </Link>
+    <div className="leads-page">
+      <LeadsAmbientBackground />
+      <div className="leads-page__inner">
+        <div className="lc-live-bar">
+          <span className="lc-live" aria-live="polite">
+            <motion.span
+              className="lc-live__dot"
+              animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+            Live mode
+          </span>
         </div>
-      )}
 
-      <LeadsToolbar
-        search={search}
-        onSearchChange={setSearch}
-        filteredCount={filtered.length}
-        loading={loading}
-        onRefresh={load}
-        showFilters={showFilters}
-        onToggleFilters={() => setShowFilters(p => !p)}
-        filters={filters}
-        onFiltersChange={setFilters}
-        activeFilterCount={activeFilterCount}
-        onClearFilters={() => setFilters({ ...EMPTY_FILTERS })}
-        quickFilter={quickFilter}
-        onQuickFilterChange={handleQuickFilter}
-        category={category}
-        notesParam={notesParam}
-      />
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            className={`mx-6 mt-3 px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 ${
-              toast.type === 'error' ? 'bg-gs-danger/20 text-gs-danger' :
-              toast.type === 'warn' ? 'bg-gs-warn/20 text-gs-warn' :
-              'bg-gs-accent/20 text-gs-accent'
-            }`}
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            {toast.msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="leads-workspace-layout">
-        <div className="leads-main">
-          <div className="leads-table-shell leads-table-shell--split">
-            <div className="leads-table-panel">
-              {loading ? (
-                <div className="flex justify-center py-20">
-                  <Spinner />
-                </div>
-              ) : filtered.length === 0 ? (
-                <LeadsEmptyState search={search} categoryMeta={categoryMeta} />
-              ) : (
-                <LeadsTable
-                  data={filtered}
-                  selectedRowNumber={detailLead?.row_number ?? null}
-                  onRowClick={setDetailLead}
-                  navigate={navigate}
-                  onStop={handleStop}
-                  onEdit={setEditLead}
-                  actionLoading={actionLoading}
-                  isLeadUnread={isLeadUnread}
-                  pulseRows={pulseRows}
-                />
-              )}
+        {(categoryMeta || notesParam) && (
+          <div className="leads-banner">
+            <span className="w-1 h-7 rounded-full bg-[#4ade80] shrink-0" />
+            <div className="min-w-0">
+              <h1>
+                {categoryMeta?.label ?? (
+                  <>Template: <span className="uppercase">{notesParam}</span></>
+                )}
+              </h1>
+              <p>
+                {categoryMeta?.desc ?? 'Showing leads with this template'}
+              </p>
             </div>
+            <Link to="/leads">← All leads</Link>
           </div>
-        </div>
+        )}
+
+        <LeadsToolbar
+          search={search}
+          onSearchChange={setSearch}
+          totalLeads={leads.length}
+          allLeads={leads}
+          loading={loading}
+          onRefresh={load}
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(p => !p)}
+          filters={filters}
+          onFiltersChange={setFilters}
+          activeFilterCount={activeFilterCount}
+          onClearFilters={() => setFilters({ ...EMPTY_FILTERS })}
+          quickFilter={quickFilter}
+          onQuickFilterChange={handleQuickFilter}
+          category={category}
+          notesParam={notesParam}
+          filterCounts={filterCounts}
+        />
 
         <AnimatePresence>
-          {detailLead && (
-            <LeadDetailWorkspace
-              lead={detailLead}
-              onClose={() => setDetailLead(null)}
-              onLeadUpdated={load}
-            />
+          {toast && (
+            <motion.div
+              className={`leads-toast leads-toast--${toast.type === 'error' ? 'error' : toast.type === 'warn' ? 'warn' : 'success'}`}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+            >
+              {toast.msg}
+            </motion.div>
           )}
         </AnimatePresence>
+
+        <div className="leads-workspace-layout">
+          <div className="leads-main">
+            <div className="leads-table-shell leads-table-shell--split">
+              <div className="leads-table-panel">
+                {loading ? (
+                  <div className="flex justify-center py-20">
+                    <Spinner />
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <LeadsEmptyState search={search} categoryMeta={categoryMeta} />
+                ) : (
+                  <LeadsTable
+                    data={paginated}
+                    totalCount={filtered.length}
+                    page={page}
+                    pageSize={pageSize}
+                    onPageChange={setPage}
+                    onPageSizeChange={size => {
+                      setPageSize(size);
+                      setPage(1);
+                    }}
+                    selectedRowNumber={detailLead?.row_number ?? null}
+                    onRowClick={setDetailLead}
+                    navigate={navigate}
+                    onStop={handleStop}
+                    onEdit={setEditLead}
+                    onMarkSold={handleMarkSold}
+                    actionLoading={actionLoading}
+                    isLeadUnread={isLeadUnread}
+                    pulseRows={pulseRows}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {detailLead && (
+              <LeadDetailWorkspace
+                lead={detailLead}
+                onClose={() => setDetailLead(null)}
+                onLeadUpdated={load}
+              />
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -234,6 +281,6 @@ export default function Leads() {
           />
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
