@@ -4,9 +4,9 @@ import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLiveActivityFeed } from './useLiveActivityFeed.js';
 import { formatSyncAgo } from './useLiveClock.js';
 import {
-  Users, Send, MessageSquare, FileText, DollarSign, CheckCircle2,
+  Users, Send, MessageSquare, FileText, DollarSign,
   RefreshCw, ArrowUpRight, Activity, Bug, Rat, AlertTriangle,
-  TrendingUp, TrendingDown, Minus, Heart, Zap, Sheet,
+  TrendingUp, TrendingDown, Minus, Zap, Sheet, CheckCircle2,
 } from 'lucide-react';
 import AnimatedNumber from './AnimatedNumber.jsx';
 
@@ -363,63 +363,6 @@ export function PipelineFlow({ stages, conversionRate }) {
   );
 }
 
-export function ConversionTracker({ rate, trend }) {
-  const size = 140;
-  const stroke = 12;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const dash = (rate / 100) * c;
-
-  return (
-    <Panel title="Conversion Tracker" delay={0.22} className="pc-conversion">
-      <div className="pc-conversion__ring-wrap">
-        <motion.svg
-          width={size}
-          height={size}
-          viewBox={`0 0 ${size} ${size}`}
-          animate={{ rotate: [0, 2, 0, -2, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <defs>
-            <linearGradient id="pc-conv-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#4ade80" />
-              <stop offset="100%" stopColor="#a3e635" />
-            </linearGradient>
-          </defs>
-
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
-
-          <motion.circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke="url(#pc-conv-grad)"
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={`${dash} ${c}`}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            initial={{ strokeDasharray: `0 ${c}` }}
-            animate={{ strokeDasharray: `${dash} ${c}` }}
-            transition={{ duration: 1, ease: EASE }}
-            style={{ filter: 'drop-shadow(0 0 10px rgba(74,222,128,0.6))' }}
-          />
-        </motion.svg>
-
-        <div className="pc-conversion__center">
-          <AnimatedNumber value={rate} className="pc-conversion__pct" />
-          <span>%</span>
-          <p>CONVERSION RATE</p>
-        </div>
-      </div>
-
-      <p className={`pc-conversion__trend ${trend < 0 ? 'is-down' : ''}`}>
-        {trend < 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-        {Math.abs(trend)}% vs last 30 days
-      </p>
-    </Panel>
-  );
-}
 
 export function LeadActivityChart({ series }) {
   const { points, max, legend } = series;
@@ -540,7 +483,7 @@ export function FollowupsDue({ count, list, onNavigate }) {
   const dash = pct * c;
 
   return (
-    <Panel title="Follow-ups Due" delay={0.32} className="pc-followups-due">
+    <Panel title="Follow-ups Due" delay={0.22} className="pc-followups-due pc-followups-due--mid">
       <div className="pc-followups-due__top">
         <motion.svg
           width={size}
@@ -604,163 +547,6 @@ export function FollowupsDue({ count, list, onNavigate }) {
   );
 }
 
-export function TemplatePerformance({ templates, max }) {
-  return (
-    <Panel title="Templates Performance" delay={0.36}>
-      {templates.length === 0 ? (
-        <p className="pc-muted">No template sends yet</p>
-      ) : (
-        templates.slice(0, 5).map((t, i) => (
-          <div key={t.key} className="pc-tpl-row">
-            <span className="pc-tpl-row__label">{t.label}</span>
-
-            <div className="pc-tpl-row__track">
-              <motion.div
-                className="pc-tpl-row__fill"
-                style={{
-                  background: i === templates.length - 1 && t.count < max * 0.3
-                    ? 'linear-gradient(90deg,#f59e0b,#fb923c)'
-                    : `linear-gradient(90deg, ${t.color}99, ${t.color})`,
-                }}
-                initial={{ width: 0 }}
-                animate={{ width: `${(t.count / max) * 100}%` }}
-                transition={{ delay: 0.4 + i * 0.08, duration: 0.7, ease: EASE }}
-              />
-            </div>
-
-            <span className="pc-tpl-row__count">{t.count}</span>
-          </div>
-        ))
-      )}
-    </Panel>
-  );
-}
-
-export function RepliesOverTime({ series, total, trend }) {
-  const points = series.points;
-  const max = series.max;
-  const w = 200;
-  const h = 48;
-
-  const coords = points.map((p, i) => ({
-    x: (i / Math.max(points.length - 1, 1)) * w,
-    y: h - (p.count / max) * (h - 4),
-  }));
-
-  const lineD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
-  const areaD = `${lineD} L ${w} ${h} L 0 ${h} Z`;
-
-  return (
-    <Panel title="Replies Over Time" delay={0.4}>
-      <p className="pc-replies-total">
-        <AnimatedNumber value={total} /> <span>Total Replies</span>
-      </p>
-
-      <p className={`pc-replies-trend ${trend >= 0 ? 'is-up' : 'is-down'}`}>
-        {trend >= 0 ? '+' : ''}{trend}% vs last week
-      </p>
-
-      <svg viewBox={`0 0 ${w} ${h}`} className="pc-replies-chart">
-        <motion.path
-          d={areaD}
-          fill="rgba(74,222,128,0.2)"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-        />
-
-        <motion.path
-          d={lineD}
-          fill="none"
-          stroke="#4ade80"
-          strokeWidth="2"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1, ease: EASE }}
-          style={{ filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.5))' }}
-        />
-      </svg>
-    </Panel>
-  );
-}
-
-export function PipelineHealth({ score, checks, onNavigate }) {
-  return (
-    <Panel title="Pipeline Health" delay={0.44} floatOffset={1.2}>
-      <div className="pc-health__ring">
-        <svg className="pc-health__ecg" viewBox="0 0 120 32" preserveAspectRatio="none">
-          <motion.path
-            d="M0 16 L12 16 L18 8 L24 24 L30 16 L120 16"
-            fill="none"
-            stroke="#4ade80"
-            strokeWidth="2"
-            strokeLinecap="round"
-            initial={{ pathLength: 0, opacity: 0.4 }}
-            animate={{ pathLength: [0, 1, 1], opacity: [0.4, 1, 0.6] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
-            style={{ filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.6))' }}
-          />
-        </svg>
-
-        <motion.div
-          className="pc-health__heartbeat"
-          animate={{ scale: [1, 1.12, 1, 1.08, 1] }}
-          transition={{ duration: 1.1, repeat: Infinity }}
-        >
-          <Heart size={28} className="text-[#4ade80]" />
-        </motion.div>
-
-        <svg viewBox="0 0 80 80" className="pc-health__svg">
-          <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(74,222,128,0.15)" strokeWidth="4" />
-
-          <motion.circle
-            cx="40"
-            cy="40"
-            r="34"
-            fill="none"
-            stroke="#4ade80"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray={`${(score / 100) * 214} 214`}
-            transform="rotate(-90 40 40)"
-            animate={{
-              strokeDasharray: [
-                `${(score / 100) * 214} 214`,
-                `${(score / 100) * 200} 214`,
-                `${(score / 100) * 214} 214`,
-              ],
-            }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          />
-        </svg>
-      </div>
-
-      <ul className="pc-health__checks">
-        {checks.map((c, i) => (
-          <motion.li
-            key={c.id}
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5 + i * 0.06 }}
-          >
-            <CheckCircle2 size={14} className={c.ok ? 'text-[#4ade80]' : 'text-amber-400'} />
-            {c.label}
-          </motion.li>
-        ))}
-      </ul>
-
-      <motion.button
-        type="button"
-        className="pc-health__btn"
-        onClick={() => onNavigate('/leads')}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        View details
-      </motion.button>
-    </Panel>
-  );
-}
 
 const FEED_ICONS = {
   reply: MessageSquare,
@@ -778,16 +564,35 @@ const FEED_TONE = {
   error: 'danger',
 };
 
-export function TodaysActivityFeed({ items }) {
+export function TodaysActivityFeed({ items, count = 0 }) {
   const { visible, pulseId } = useLiveActivityFeed(items, 3200);
 
   return (
-    <Panel title="Today's Activity Feed" delay={0.48} className="pc-feed-panel" floatOffset={0.8}>
-      <div className="pc-feed">
+    <Panel
+      title="Today's Activity Feed"
+      delay={0.32}
+      className="pc-feed-panel pc-feed-panel--hero"
+      floatOffset={0.6}
+      action={
+        <motion.span
+          className="pc-feed-live-pill"
+          animate={{ opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <span className="pc-live__dot" />
+          Live
+        </motion.span>
+      }
+    >
+      <p className="pc-feed-hero__sub">
+        Real-time pipeline events · <strong>{count}</strong> recent {count === 1 ? 'update' : 'updates'}
+      </p>
+      <div className="pc-feed pc-feed--timeline">
+        <div className="pc-feed__rail" aria-hidden />
         <LayoutGroup>
           <AnimatePresence mode="popLayout">
             {visible.length === 0 ? (
-              <p className="pc-muted">No activity yet today</p>
+              <p className="pc-muted pc-feed__empty">No activity yet today</p>
             ) : (
               visible.map((item) => {
                 const Icon = FEED_ICONS[item.type] || Zap;
@@ -798,17 +603,20 @@ export function TodaysActivityFeed({ items }) {
                     key={item.id}
                     layout
                     className={`pc-feed__row pc-feed__row--${FEED_TONE[item.type] || 'info'}${isPulse ? ' pc-feed__row--pulse' : ''}`}
-                    initial={{ opacity: 0, x: 16 }}
+                    initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -12 }}
+                    exit={{ opacity: 0, x: -16 }}
                     transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                    whileHover={{ x: 6, backgroundColor: 'rgba(74,222,128,0.08)' }}
+                    whileHover={{ x: 8, backgroundColor: 'rgba(74,222,128,0.1)' }}
                   >
+                    <span className="pc-feed__node" />
                     <span className="pc-feed__icon">
-                      <Icon size={14} />
+                      <Icon size={16} />
                     </span>
-                    <span className="pc-feed__text">{item.text}</span>
-                    <span className="pc-feed__time">{item.time}</span>
+                    <div className="pc-feed__body">
+                      <span className="pc-feed__text">{item.text}</span>
+                      <span className="pc-feed__time">{item.time}</span>
+                    </div>
                   </motion.div>
                 );
               })

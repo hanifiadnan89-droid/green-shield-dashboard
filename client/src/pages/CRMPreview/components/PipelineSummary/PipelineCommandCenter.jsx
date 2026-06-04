@@ -10,12 +10,8 @@ import {
   KpiRow,
   ServicesSnapshot,
   PipelineFlow,
-  ConversionTracker,
   LeadActivityChart,
   FollowupsDue,
-  TemplatePerformance,
-  RepliesOverTime,
-  PipelineHealth,
   TodaysActivityFeed,
   SystemStatusStrip,
 } from './pipelineWidgets.jsx';
@@ -73,35 +69,19 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
 
           <div className="pc-mid-row">
             <PipelineFlow stages={data.pipelineFlow} conversionRate={data.conversionRate} />
-            <ConversionTracker rate={data.conversionRate} trend={data.conversionTrend} />
-            <LeadActivityChart series={data.leadActivity} />
-          </div>
-
-          <div className="pc-bottom-row">
             <FollowupsDue
               count={data.followupsDueCount}
               list={data.followupsDueList}
               onNavigate={navigate}
             />
+            <LeadActivityChart series={data.leadActivity} />
+          </div>
 
-            <TemplatePerformance
-              templates={data.templatePerformance}
-              max={data.maxTemplate}
+          <div className="pc-feed-section">
+            <TodaysActivityFeed
+              items={data.todayActivity}
+              count={data.todayActivity.length}
             />
-
-            <RepliesOverTime
-              series={data.repliesSeries}
-              total={data.repliesTotal}
-              trend={data.repliesTrend}
-            />
-
-            <PipelineHealth
-              score={data.healthScore}
-              checks={data.healthChecks}
-              onNavigate={navigate}
-            />
-
-            <TodaysActivityFeed items={data.todayActivity} />
           </div>
 
           <SystemStatusStrip />
