@@ -21,8 +21,6 @@
 
 .gs-command-main__scroll {
   scrollbar-color: rgba(74, 222, 128, 0.25) transparent;
-.gs-command-main__scroll {
-  scrollbar-color: rgba(74, 222, 128, 0.25) transparent;
   display: flex;
   flex-direction: column;
 }
@@ -1067,8 +1065,6 @@
 
 .pc-skel-mid {
   display: grid;
-.pc-skel-mid {
-  display: grid;
   grid-template-columns: 1.35fr 0.95fr 1.2fr;
   gap: 1rem;
 }
@@ -1081,6 +1077,7 @@
   height: min(440px, 42vh);
   width: 100%;
 }
+
 @media (max-width: 1199px) {
   .pc-skel-kpi-row { grid-template-columns: repeat(3, 1fr); }
   .pc-skel--services { grid-column: 1 / -1; }
