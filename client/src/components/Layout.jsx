@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '../api/client.js';
 import { filterConversationLeads } from '../pages/Replies/conversationLeadFilter.js';
+import { loadLegacyViewedKeys } from '../pages/Replies/legacyViewedKeys.js';
 import { deriveStats } from '../pages/CRMPreview/mockData.js';
 import AppSidebar from './AppSidebar.jsx';
 
@@ -18,7 +19,7 @@ export default function Layout({ children, testMode }) {
           setReplyBadge(0);
           return;
         }
-        const { count } = await api.messages.unreadCount(replyLeads);
+        const { count } = await api.messages.unreadCount(replyLeads, loadLegacyViewedKeys());
         setReplyBadge(count);
       } catch {
         /* keep previous badge/stats on transient errors */

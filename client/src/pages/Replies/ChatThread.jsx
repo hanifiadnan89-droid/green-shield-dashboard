@@ -2,20 +2,14 @@ import { useEffect, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Archive, Calendar, Activity } from 'lucide-react';
 import MessageBubble from './MessageBubble.jsx';
-import { initials, formatSent, formatThreadTime, buildThreadWithDateDividers } from './threadUtils.js';
-
-function replyStatusLabel(lead) {
-  if (lead.sms_reply?.trim() && lead.email_reply?.trim()) return 'SMS & email';
-  if (lead.email_reply?.trim()) return 'Email reply';
-  if (lead.sms_reply?.trim()) return 'SMS reply';
-  return 'Awaiting reply';
-}
-
-function serviceLabel(lead) {
-  const raw = (lead.reason || lead.notes || '').trim();
-  if (!raw) return 'Inbound';
-  return raw.length > 28 ? `${raw.slice(0, 28)}…` : raw;
-}
+import {
+  initials,
+  formatSent,
+  formatThreadTime,
+  buildThreadWithDateDividers,
+  filterDisplayThread,
+  buildConversationHeaderMeta,
+} from './threadUtils.js';
 
 export default function ChatThread({
   lead,
@@ -29,19 +23,21 @@ export default function ChatThread({
 }) {
   const scrollRef = useRef(null);
   const sentDate = formatSent(lead.sent);
-  const hasReplied = !!(lead.sms_reply?.trim() || lead.email_reply?.trim());
+  const headerMeta = buildConversationHeaderMeta(lead);
 
   const lastActivity = useMemo(() => {
-    const last = [...thread].reverse().find(m => m.ts);
+    const display = filterDisplayThread(thread);
+    const last = [...display].reverse().find(m => m.ts);
     return last ? formatThreadTime(last.ts) : null;
   }, [thread]);
 
   const timelineItems = useMemo(() => buildThreadWithDateDividers(thread), [thread]);
+  const displayCount = filterDisplayThread(thread).length;
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [lead.row_number, thread.length]);
+  }, [lead.row_number, displayCount]);
 
   return (
     <motion.div
@@ -67,19 +63,13 @@ export default function ChatThread({
             {lead.phone && (
               <span className="rc-chat-header__phone">{lead.phone}</span>
             )}
-          </div>
-
-          <div className="rc-chat-header__pills" role="list">
-            {hasReplied && (
-              <span className="rc-status-pill rc-status-pill--replied">REPLIED</span>
+            {headerMeta && (
+              <span className="rc-chat-header__meta-inline">{headerMeta}</span>
             )}
-            <span className="rc-status-pill rc-status-pill--service">{serviceLabel(lead)}</span>
-            {lead.status && (
-              <span className="rc-status-pill rc-status-pill--status capitalize">{lead.status}</span>
-            )}
-            <span className="rc-status-pill rc-status-pill--reply">{replyStatusLabel(lead)}</span>
             {isArchived && (
-              <span className="rc-status-pill rc-status-pill--archived">Archived</span>
+              <span className="rc-chat-header__meta-inline rc-chat-header__meta-inline--muted">
+                Archived
+              </span>
             )}
           </div>
         </div>
@@ -137,7 +127,7 @@ export default function ChatThread({
         <div ref={scrollRef} className="rc-messages-scroll">
           {loading ? (
             <p className="rc-list-empty py-10">Loading messages…</p>
-          ) : thread.length === 0 ? (
+          ) : displayCount === 0 ? (
             <p className="rc-list-empty py-10">No messages in this thread yet</p>
           ) : (
             <AnimatePresence initial={false}>

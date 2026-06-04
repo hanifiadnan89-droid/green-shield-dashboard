@@ -32,11 +32,13 @@ router.post('/sync', (req, res) => {
 
 router.post('/unread-count', (req, res) => {
   try {
-    const { leads } = req.body;
+    const { leads, legacyViewedKeys } = req.body;
     if (!Array.isArray(leads)) {
       return res.status(400).json({ error: 'leads array is required' });
     }
-    syncLeadsMessages(leads);
+    syncLeadsMessages(leads, {
+      legacyViewedKeys: Array.isArray(legacyViewedKeys) ? legacyViewedKeys : [],
+    });
     res.json(countUnreadForLeads(leads));
   } catch (err) {
     console.error('[messages] unread-count error:', err);

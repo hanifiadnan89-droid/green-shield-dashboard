@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
-import { initials, formatListTime, previewFromMessages } from './threadUtils.js';
-import UnreadPulseBadge from './UnreadPulseBadge.jsx';
+import { initials, previewFromMessages, getConversationStatusTone } from './threadUtils.js';
+import { formatListTimeMaine, resolveConversationListTime } from './repliesTime.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -11,15 +11,18 @@ export default function ConversationCard({
   hasDraft,
   unread,
   pulsing,
-  messageCount = 0,
+  messages = [],
+  meta,
   preview,
   lastAt,
   onSelect,
   index = 0,
 }) {
-  const previewText = preview ?? previewFromMessages(null, { preview }, lead);
-  const timeLabel = formatListTime(lastAt || lead.sent);
-  const hasReply = !!(lead.sms_reply?.trim() || lead.email_reply?.trim());
+  const previewText = preview ?? previewFromMessages(messages, meta, lead);
+  const listTimeSource = resolveConversationListTime(lead, messages, meta) || lastAt;
+  const timeLabel = formatListTimeMaine(listTimeSource);
+  const statusTone = getConversationStatusTone(lead, messages);
+  const showAttention = unread || pulsing;
 
   return (
     <motion.button
@@ -31,7 +34,7 @@ export default function ConversationCard({
         'rc-conv-card',
         selected ? 'rc-conv-card--selected' : '',
         isArchived ? 'rc-conv-card--archived' : '',
-        unread ? 'rc-conv-card--unread' : '',
+        showAttention ? 'rc-conv-card--unread' : '',
         pulsing ? 'rc-conv-card--pulse' : '',
       ].filter(Boolean).join(' ')}
       whileHover={{
@@ -47,53 +50,43 @@ export default function ConversationCard({
     >
       <span className="rc-conv-card__shimmer" aria-hidden />
 
-      <div className={`relative shrink-0 ${unread ? 'rc-conv-card__avatar-wrap--unread' : ''}`}>
+      <div className="rc-conv-card__avatar-wrap relative shrink-0">
         <div className={`rc-avatar ${isArchived ? 'rc-avatar--archived' : 'rc-avatar--active'}`}>
           {initials(lead.name)}
         </div>
-        <UnreadPulseBadge show={unread} />
+        <span
+          className={`rc-conv-status-dot rc-conv-status-dot--${statusTone}${
+            showAttention ? ' rc-conv-status-dot--attention' : ''
+          }`}
+          aria-label={
+            statusTone === 'green'
+              ? 'Customer has replied'
+              : 'Waiting on customer response'
+          }
+        />
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <p className="rc-conv-card__name">{lead.name || 'Unknown'}</p>
           <div className="flex items-center gap-1.5 shrink-0">
-            {selected && (
-              <motion.span
-                className="rc-selected-pulse"
-                animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.2, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity }}
-                aria-hidden
-              />
-            )}
             {hasDraft && <span className="rc-badge rc-badge--draft">Draft</span>}
-            {messageCount > 0 && (
-              <span className="rc-badge rc-badge--count">{messageCount}</span>
-            )}
             {timeLabel && (
-              <span className="rc-conv-card__time">{timeLabel}</span>
+              <span className={`rc-conv-card__time${showAttention ? ' rc-conv-card__time--unread' : ''}`}>
+                {timeLabel}
+              </span>
             )}
           </div>
         </div>
-        <p className="rc-conv-card__preview">{previewText}</p>
-        <p className="rc-conv-card__meta">
-          {lead.phone && <span className="font-mono">{lead.phone}</span>}
-          {lead.status && (
-            <>
-              {lead.phone && <span className="mx-1 opacity-40">·</span>}
-              <span className="capitalize">{lead.status}</span>
-            </>
-          )}
-          {hasReply && !isArchived && (
-            <>
-              <span className="mx-1 opacity-40">·</span>
-              <span className="rc-badge rc-badge--replied">REPLIED</span>
-            </>
-          )}
+        <p className={`rc-conv-card__preview${showAttention ? ' rc-conv-card__preview--unread' : ''}`}>
+          {previewText}
         </p>
+        {lead.phone && (
+          <p className="rc-conv-card__meta">
+            <span className="font-mono">{lead.phone}</span>
+          </p>
+        )}
       </div>
-
-      {unread && <span className="rc-unread-pill" aria-label="Unread" />}
     </motion.button>
   );
 }
