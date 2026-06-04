@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { WorkspacePanel } from '../components/WorkspaceTransition.jsx';
 import { api } from '../api/client.js';
 import Spinner from '../components/Spinner.jsx';
 import {
@@ -260,7 +261,12 @@ export default function Leads() {
             </div>
           </div>
 
-          <AnimatePresence>
+          <WorkspacePanel
+            show={!!detailLead}
+            className="lead-workspace-slot"
+            side="right"
+            ariaLabel={detailLead ? `Lead workspace: ${detailLead.name}` : undefined}
+          >
             {detailLead && (
               <LeadDetailWorkspace
                 lead={detailLead}
@@ -272,7 +278,7 @@ export default function Leads() {
                 actionLoading={actionLoading}
               />
             )}
-          </AnimatePresence>
+          </WorkspacePanel>
         </div>
       </div>
 

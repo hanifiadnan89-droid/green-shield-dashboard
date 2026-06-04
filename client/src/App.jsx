@@ -1,13 +1,12 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import Layout from './components/Layout.jsx';
-import { AnimatedOutlet, AnimatedPage } from './components/PageTransition.jsx';
+import { AnimatedOutlet } from './components/PageTransition.jsx';
+import PageTransitionFallback from './components/PageTransitionFallback.jsx';
 import TestModeBanner from './components/TestModeBanner.jsx';
 import CRMPreview from './pages/CRMPreview/index.jsx';
 import { api } from './api/client.js';
 
-// Non-root pages are lazy-loaded — only fetched when the user navigates to them.
-// CRMPreview at "/" is kept as an eager import (primary route, should be instant).
 const Leads            = lazy(() => import('./pages/Leads.jsx'));
 const SendTemplate     = lazy(() => import('./pages/SendTemplate.jsx'));
 const Replies          = lazy(() => import('./pages/Replies.jsx'));
@@ -46,8 +45,7 @@ function AppShell({ testMode, credsMissing, googleCreds }) {
           )}
         </div>
       )}
-      {/* Suspense boundary: Layout renders immediately; page chunk loads on demand */}
-      <Suspense fallback={null}>
+      <Suspense fallback={<PageTransitionFallback />}>
         <AnimatedOutlet className="page-transition-outlet flex-1 flex flex-col min-h-0 overflow-hidden" />
       </Suspense>
     </Layout>
@@ -72,16 +70,9 @@ export default function App() {
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={(
-          <AnimatedPage className="flex h-screen overflow-hidden">
-            <CRMPreview testMode={testMode} />
-          </AnimatedPage>
-        )}
-      />
       <Route path="/dashboard-classic" element={<Navigate to="/" replace />} />
       <Route element={<AppShell testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} />}>
+        <Route path="/" element={<CRMPreview />} />
         <Route path="/leads" element={<Leads />} />
         <Route path="/send" element={<SendTemplate testMode={testMode} />} />
         <Route path="/replies" element={<Replies />} />

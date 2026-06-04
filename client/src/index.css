@@ -441,10 +441,22 @@
   }
 }
 
-/* Route workspace transitions (sidebar stays fixed in AppShell) */
+/* Workspace transition stage (sidebar/header stay fixed; content morphs) */
+.workspace-stage,
 .page-transition,
 .page-transition-outlet {
+  position: relative;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.workspace-stage__layer {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -452,9 +464,52 @@
   will-change: opacity, transform;
 }
 
+.workspace-stage--loading {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+.workspace-stage__shimmer {
+  flex: 1;
+  margin: 1.5rem;
+  border-radius: 16px;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(74, 222, 128, 0.06) 45%,
+    rgba(255, 255, 255, 0.03) 90%
+  );
+  background-size: 220% 100%;
+  animation: workspace-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes workspace-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.workspace-swap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.workspace-swap__layer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .page-transition,
-  .page-transition-outlet {
+  .workspace-stage__layer {
     will-change: auto;
+  }
+
+  .workspace-stage__shimmer {
+    animation: none;
   }
 }

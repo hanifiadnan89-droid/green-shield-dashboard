@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'motion/react';
 import {
   X, Phone, Mail, Send, MessageSquare, Archive, ArchiveRestore,
   AlertCircle, Edit3, HeartHandshake, StopCircle, PlayCircle,
@@ -293,14 +292,7 @@ export default function LeadDetailWorkspace({
   }
 
   return (
-    <motion.aside
-      className="lead-workspace ldc-panel"
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 24 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-      aria-label={`Lead workspace: ${displayName || lead.name}`}
-    >
+    <aside className="lead-workspace ldc-panel h-full">
       <header className="ldc-panel__header">
         <div className="ldc-panel__identity">
           <span
@@ -454,6 +446,6 @@ export default function LeadDetailWorkspace({
           />
         )}
       </div>
-    </motion.aside>
+    </aside>
   );
 }
