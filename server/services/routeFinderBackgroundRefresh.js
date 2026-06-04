@@ -1,5 +1,6 @@
 import { preloadStaleWorkingDays, getStatus } from './fieldRoutesPreloader.js';
 import { checkAuthHealth } from './fieldRoutesAuth.js';
+import { isFieldRoutesScrapeInFlight } from './fieldRoutesScrapeLock.js';
 import {
   hasFieldRoutesCredentials,
   refreshFieldRoutesSessionWithCredentials,
@@ -13,6 +14,19 @@ const BACKGROUND_MAX_DATES_PER_TICK = 2;
  * Respects ROUTE_CACHE_TTL_MS (10 min) — scrapes capped per tick to limit FieldRoutes load.
  */
 export async function runRouteFinderBackgroundRefresh({ priorityDates = [] } = {}) {
+  if (isFieldRoutesScrapeInFlight()) {
+    const status = await getStatus();
+    console.log('[routes] Background refresh skipped — scrape already in flight');
+    return {
+      ok: status._auth?.status === 'ok',
+      authResult: status._auth?.status,
+      skipped: true,
+      reason: 'scrape_in_flight',
+      status,
+      startedAt: new Date().toISOString(),
+    };
+  }
+
   const startedAt = new Date().toISOString();
   const priority = [...new Set((priorityDates || []).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)))];
   console.log('[routes] Background refresh started', { priorityDates: priority });

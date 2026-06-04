@@ -10,6 +10,7 @@ import {
   isAuthStatusFresh,
 } from './fieldRoutesAuth.js';
 import { launchFieldRoutesChromium } from './playwrightRuntime.js';
+import { withFieldRoutesScrapeLock } from './fieldRoutesScrapeLock.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROUTES_DIR       = resolve(__dirname, '../../data/routes');
@@ -29,16 +30,17 @@ function fmtTime12h(isoStr) {
 }
 
 async function fetchRawPayload(date) {
-  let storageState;
-  try {
-    storageState = await getPlaywrightStorageState();
-  } catch {
-    throw new Error(
-      'needs_login: FieldRoutes auth state not found — paste session in Route Finder or run fieldRoutesLogin.mjs',
-    );
-  }
+  return withFieldRoutesScrapeLock(`fetchRawPayload:${date}`, async () => {
+    let storageState;
+    try {
+      storageState = await getPlaywrightStorageState();
+    } catch {
+      throw new Error(
+        'needs_login: FieldRoutes auth state not found — paste session in Route Finder or run fieldRoutesLogin.mjs',
+      );
+    }
 
-  const browser = await launchFieldRoutesChromium();
+    const browser = await launchFieldRoutesChromium();
 
   const context = await browser.newContext({
     storageState,
@@ -127,6 +129,7 @@ async function fetchRawPayload(date) {
     await context.close();
     await browser.close();
   }
+  });
 }
 
 function getLocalDateStr(offsetDays = 0) {
@@ -359,7 +362,10 @@ export async function preloadStaleWorkingDays({
   };
 }
 
-export async function preloadNextSixWorkingDays({ force = false } = {}) {
+/** Max dates scraped per POST /preload (avoids long Playwright runs on Render). */
+const PRELOAD_MAX_DATES_PER_RUN = 2;
+
+export async function preloadNextSixWorkingDays({ force = false, maxDates = PRELOAD_MAX_DATES_PER_RUN } = {}) {
   const auth = getAuthStatus();
   const dates = getNextSixWorkingDays();
   const meta  = await readMeta();
@@ -388,9 +394,10 @@ export async function preloadNextSixWorkingDays({ force = false } = {}) {
         await writeMeta(m);
       });
     }
-    return;
+    return { refreshed: [], remaining: dates.length };
   }
 
+  const stale = [];
   for (const date of dates) {
     if (!force) {
       if (await hasFreshNormalizedCache(date)) continue;
@@ -400,8 +407,17 @@ export async function preloadNextSixWorkingDays({ force = false } = {}) {
         if (ageMs < ROUTE_CACHE_TTL_MS) continue;
       }
     }
+    stale.push(date);
+  }
+
+  const cap = Math.max(1, maxDates);
+  const toRefresh = stale.slice(0, cap);
+  const refreshed = [];
+
+  for (const date of toRefresh) {
     try {
       await refreshDate(date);
+      refreshed.push(date);
     } catch (err) {
       if (err.message?.includes('needs_login')) {
         console.warn('[preloader] Auth expired mid-preload — stopping remaining dates.');
@@ -409,4 +425,9 @@ export async function preloadNextSixWorkingDays({ force = false } = {}) {
       }
     }
   }
+
+  return {
+    refreshed,
+    remaining: Math.max(0, stale.length - refreshed.length),
+  };
 }

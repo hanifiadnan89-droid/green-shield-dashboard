@@ -11,6 +11,7 @@ import {
 } from '../services/fieldRoutesPreloader.js';
 import {
   getAuthStatus,
+  setAuthStatus,
   checkAuthHealth,
   getAuthConfigDiagnostics,
   getAuthDiagnosticsWithHealthCheck,
@@ -23,6 +24,7 @@ import {
 import { getPlaywrightChromiumDiagnostics } from '../services/playwrightRuntime.js';
 import { runRouteFinderBackgroundRefresh } from '../services/routeFinderBackgroundRefresh.js';
 import { getTechnicianPhotoCatalog, refreshTechnicianPhotoCatalog } from '../services/technicianPhotoCatalog.js';
+import { isFieldRoutesScrapeInFlight } from '../services/fieldRoutesScrapeLock.js';
 
 function parseIncomingAuthBody(body) {
   if (!body) {
@@ -110,7 +112,9 @@ router.post('/auth-state', async (req, res) => {
   try {
     const state = parseIncomingAuthBody(req.body);
     await savePersistedAuthState(state);
-    const result = await checkAuthHealth();
+    setAuthStatus('checking', 'Validating FieldRoutes session…');
+
+    const result = await checkAuthHealth({ force: true });
     const auth = getAuthStatus();
     res.json({
       ok: true,
@@ -172,9 +176,26 @@ router.get('/auth-diagnostics', async (req, res) => {
 router.get('/status', async (req, res) => {
   try {
     const status = await getStatus();
+    status._server = {
+      scrapeInFlight: isFieldRoutesScrapeInFlight(),
+      render: !!process.env.RENDER,
+    };
     res.json(status);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[routes] GET /status failed:', err.message);
+    const auth = getAuthStatus();
+    res.status(200).json({
+      _auth: {
+        status: auth.status,
+        lastCheck: auth.lastCheck,
+        lastCheckFormatted: null,
+        message: auth.message || err.message,
+        lastRefresh: null,
+        lastRefreshFormatted: null,
+      },
+      _statusError: err.message,
+      _partial: true,
+    });
   }
 });
 
@@ -384,7 +405,10 @@ router.get('/technician-photos', async (req, res) => {
 // ?force=true bypasses route cache TTL and re-scrapes every date
 router.post('/preload', (req, res) => {
   const force = req.query.force === 'true';
-  res.json({ started: true, force });
+  if (isFieldRoutesScrapeInFlight()) {
+    return res.json({ started: false, skipped: true, reason: 'scrape_in_flight' });
+  }
+  res.json({ started: true, force, maxDates: 2 });
   preloadNextSixWorkingDays({ force }).catch(err => {
     console.error('[routes] preload failed:', err.message);
   });
