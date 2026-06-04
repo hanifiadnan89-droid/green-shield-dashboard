@@ -78,7 +78,10 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
           </div>
 
           <div className="pc-feed-section">
-            <TodaysActivityFeed items={data.todayActivity} count={data.todayActivity.length} />
+            <TodaysActivityFeed
+              items={data.todayActivity}
+              count={data.todayActivity.length}
+            />
           </div>
 
           <SystemStatusStrip />

@@ -363,6 +363,7 @@ export function PipelineFlow({ stages, conversionRate }) {
   );
 }
 
+
 export function LeadActivityChart({ series }) {
   const { points, max, legend } = series;
   const w = 400;
@@ -546,6 +547,7 @@ export function FollowupsDue({ count, list, onNavigate }) {
   );
 }
 
+
 const FEED_ICONS = {
   reply: MessageSquare,
   sent: Send,
@@ -595,6 +597,7 @@ export function TodaysActivityFeed({ items, count = 0 }) {
               visible.map((item) => {
                 const Icon = FEED_ICONS[item.type] || Zap;
                 const isPulse = item.id === pulseId;
+
                 return (
                   <motion.div
                     key={item.id}
