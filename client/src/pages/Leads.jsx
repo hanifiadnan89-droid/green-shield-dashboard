@@ -224,7 +224,7 @@ export default function Leads() {
           )}
         </AnimatePresence>
 
-        <div className="leads-workspace-layout">
+        <div className={`leads-workspace-layout ${detailLead ? 'leads-workspace-layout--open' : ''}`}>
           <div className="leads-main">
             <div className="leads-table-shell leads-table-shell--split">
               <div className="leads-table-panel">
@@ -266,6 +266,10 @@ export default function Leads() {
                 lead={detailLead}
                 onClose={() => setDetailLead(null)}
                 onLeadUpdated={load}
+                onEdit={setEditLead}
+                onMarkSold={handleMarkSold}
+                onStop={handleStop}
+                actionLoading={actionLoading}
               />
             )}
           </AnimatePresence>

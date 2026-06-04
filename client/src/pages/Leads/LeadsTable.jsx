@@ -11,6 +11,7 @@ import { createLeadsColumns, LEADS_INITIAL_SORTING } from '../leadsColumns.jsx';
 import { hasRealReply } from '../CRMPreview/mockData.js';
 import { isLeadPriority } from './leadsFilters.js';
 import { leadInitials } from './leadInitials.js';
+import { parseLeadName } from './parseLeadName.js';
 import LeadFieldText from './LeadFieldText.jsx';
 import LeadRowActions from './LeadRowActions.jsx';
 import LeadsPagination from './LeadsPagination.jsx';
@@ -25,13 +26,14 @@ function formatSent(sent) {
 }
 
 function LeadNameCell({ lead, unread }) {
+  const { displayName } = parseLeadName(lead.name);
   return (
     <div className="leads-name-cell">
-      <span className="lc-avatar" aria-hidden>{leadInitials(lead.name)}</span>
+      <span className="lc-avatar" aria-hidden>{leadInitials(displayName || lead.name)}</span>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 min-w-0">
           {unread && <span className="leads-cell-name__dot" aria-hidden />}
-          <p className="leads-cell-name">{lead.name || '—'}</p>
+          <p className="leads-cell-name">{displayName || lead.name || '—'}</p>
         </div>
         <div className="leads-cell-meta">
           {lead.phone && (

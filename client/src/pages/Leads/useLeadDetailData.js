@@ -3,6 +3,7 @@ import { api } from '../../api/client.js';
 import { buildThreadFromMessages } from '../Replies/threadUtils.js';
 import { deriveLeadInsights } from './deriveLeadInsights.js';
 import { isLeadArchived } from './leadsFilters.js';
+import { parseLeadName } from './parseLeadName.js';
 
 export function useLeadDetailData(lead) {
   const [loading, setLoading] = useState(true);
@@ -37,9 +38,12 @@ export function useLeadDetailData(lead) {
 
         if (cancelled) return;
 
+        const { displayName, rawName } = parseLeadName(lead.name);
+        const nameKeys = new Set(
+          [lead.name, rawName, displayName].filter(Boolean).map(n => n.toLowerCase())
+        );
         const log = (actRes.log || []).filter(
-          e => e.leadName && lead.name &&
-            e.leadName.toLowerCase() === lead.name.toLowerCase()
+          e => e.leadName && nameKeys.has(e.leadName.toLowerCase())
         );
 
         setActivity(log.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));

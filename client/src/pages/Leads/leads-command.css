@@ -400,15 +400,29 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  gap: 0;
 }
 
 .leads-main {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
   min-height: 0;
   padding: 0.75rem 1rem 1rem;
+  transition: flex 0.28s ease, max-width 0.28s ease;
+}
+
+.leads-workspace-layout--open .leads-main {
+  flex: 1 1 40%;
+  max-width: 48%;
+}
+
+@media (min-width: 1280px) {
+  .leads-workspace-layout--open .leads-main {
+    flex: 1 1 38%;
+    max-width: 45%;
+  }
 }
 
 .leads-table-shell--split {
@@ -830,24 +844,43 @@
   margin: 0;
 }
 
+/* Lead workspace — primary focus when a row is selected (~50–58% width) */
+.lead-workspace,
 .leads-detail-panel {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
-  width: min(100%, 520px);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(5, 8, 7, 0.92);
-  backdrop-filter: blur(16px);
-  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.45);
+  flex: 1 1 52%;
+  min-width: min(100%, 360px);
+  max-width: 62%;
+  min-height: 0;
+  border-left: 1px solid rgba(74, 222, 128, 0.12);
+  background: rgba(5, 8, 7, 0.94);
+  backdrop-filter: blur(20px);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.5), inset 1px 0 0 rgba(74, 222, 128, 0.06);
+}
+
+@media (min-width: 1280px) {
+  .lead-workspace,
+  .leads-detail-panel {
+    flex: 1 1 55%;
+    max-width: 58%;
+  }
 }
 
 @media (max-width: 1023px) {
+  .lead-workspace,
   .leads-detail-panel {
     position: fixed;
     inset: 0;
     z-index: 50;
     width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
     border-left: none;
+  }
+
+  .leads-workspace-layout--open .leads-main {
+    display: none;
   }
 }
 
@@ -915,14 +948,25 @@
   color: rgba(255, 255, 255, 0.25);
 }
 
+.ldc-panel__frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .ldc-panel__scroll {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.85rem 1rem 1.25rem;
+  overscroll-behavior: contain;
+  padding: 0.75rem 1rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.75rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ldc-panel__loading {
@@ -938,11 +982,212 @@
 }
 
 .ldc-panel__footer {
-  display: flex;
-  gap: 0.5rem;
+  display: none;
+}
+
+.ldc-panel__actions {
+  flex-shrink: 0;
   padding: 0.75rem 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(5, 8, 7, 0.95);
+  border-top: 1px solid rgba(74, 222, 128, 0.12);
+  background: rgba(5, 8, 7, 0.98);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.ldc-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+@media (min-width: 1100px) {
+  .ldc-actions-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ldc-actions__btn--span {
+  grid-column: 1 / -1;
+}
+
+.ldc-actions__btn--danger {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.ldc-actions__btn--danger:hover:not(:disabled) {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.ldc-panel__avatar--lg {
+  width: 3rem;
+  height: 3rem;
+  font-size: 0.8125rem;
+}
+
+.ldc-panel__account {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.ldc-panel__account-num {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.ldc-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.ldc-engagement--compact {
+  padding: 0.6rem 0.75rem;
+}
+
+.ldc-activity-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.ldc-activity-strip__item {
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ldc-activity-strip__label {
+  display: block;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.ldc-activity-strip__value {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.88);
+  line-height: 1.3;
+}
+
+.ldc-section--primary {
+  flex-shrink: 0;
+  min-height: min(42vh, 420px);
+  display: flex;
+  flex-direction: column;
+}
+
+.ldc-section--primary .ldc-section__body--scroll {
+  flex: 1;
+  min-height: 240px;
+  max-height: min(48vh, 480px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.65rem 0.75rem;
+}
+
+.ldc-section--timeline {
+  flex-shrink: 0;
+}
+
+.ldc-section--timeline .ldc-section__body--scroll {
+  max-height: min(32vh, 360px);
+  min-height: 160px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.65rem 0.75rem;
+}
+
+.ldc-overview-grid {
+  flex-shrink: 0;
+}
+
+.ldc-dl--compact .ldc-row {
+  padding: 0.35rem 0;
+}
+
+.ldc-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ldc-message {
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ldc-message--in {
+  background: rgba(255, 255, 255, 0.04);
+  margin-right: 0.5rem;
+}
+
+.ldc-message--out {
+  background: rgba(74, 222, 128, 0.07);
+  border-color: rgba(74, 222, 128, 0.15);
+  margin-left: 0.5rem;
+}
+
+.ldc-message__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.ldc-message__who {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.9);
+}
+
+.ldc-message__channel {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ldc-message__time {
+  margin-left: auto;
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.ldc-message__body {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgba(248, 250, 252, 0.9);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ldc-empty-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.ldc-timeline__content {
+  min-width: 0;
 }
 
 .ldc-engagement {
