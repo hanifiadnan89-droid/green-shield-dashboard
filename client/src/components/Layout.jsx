@@ -1,18 +1,26 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../api/client.js';
 import { filterConversationLeads } from '../pages/Replies/conversationLeadFilter.js';
 import { loadLegacyViewedKeys } from '../pages/Replies/legacyViewedKeys.js';
 import { deriveStats } from '../pages/CRMPreview/mockData.js';
 import AppSidebar from './AppSidebar.jsx';
 
+const SIDEBAR_REFRESH_MS = 45_000;
+
 export default function Layout({ children, testMode }) {
   const [replyBadge, setReplyBadge] = useState(0);
   const [stats, setStats] = useState(null);
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     const compute = async () => {
+      if (cancelled || document.hidden || inFlightRef.current) return;
+      inFlightRef.current = true;
       try {
         const { leads } = await api.leads.list();
+        if (cancelled) return;
         setStats(deriveStats(leads || []));
         const replyLeads = filterConversationLeads(leads);
         if (!replyLeads.length) {
@@ -20,14 +28,28 @@ export default function Layout({ children, testMode }) {
           return;
         }
         const { count } = await api.messages.unreadCount(replyLeads, loadLegacyViewedKeys());
-        setReplyBadge(count);
+        if (!cancelled) setReplyBadge(count);
       } catch {
         /* keep previous badge/stats on transient errors */
+      } finally {
+        inFlightRef.current = false;
       }
     };
+
     compute();
-    const id = setInterval(compute, 30000);
-    return () => clearInterval(id);
+
+    const intervalId = setInterval(compute, SIDEBAR_REFRESH_MS);
+
+    const onVisibility = () => {
+      if (!document.hidden) compute();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   useEffect(() => {
