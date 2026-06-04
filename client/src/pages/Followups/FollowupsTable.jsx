@@ -1,11 +1,55 @@
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, StopCircle, MessageSquare, ExternalLink } from 'lucide-react';
+import {
+  Send, StopCircle, MessageSquare, ExternalLink, Mail, Phone,
+} from 'lucide-react';
 import Spinner from '../../components/Spinner.jsx';
-import LeadStatusLabel from '../Leads/LeadStatusLabel.jsx';
+import { hasRealReply } from '../CRMPreview/mockData.js';
+import { leadInitials } from '../Leads/leadInitials.js';
+import { parseLeadName } from '../Leads/parseLeadName.js';
+import LeadsPagination from '../Leads/LeadsPagination.jsx';
 import FollowupDaysLabel from './FollowupDaysLabel.jsx';
 import FollowupStatusLabel from './FollowupStatusLabel.jsx';
-import { daysSince } from './followupsUtils.js';
+import { daysSince, templateCode } from './followupsUtils.js';
+
+function FollowupNameCell({ lead, onOpenLead }) {
+  const { displayName } = parseLeadName(lead.name);
+  const name = displayName || lead.name || '—';
+  const hasReply = hasRealReply(lead.sms_reply) || hasRealReply(lead.email_reply);
+
+  return (
+    <div className="fc-name-cell">
+      <span className="fc-avatar" aria-hidden>{leadInitials(name)}</span>
+      <div className="min-w-0">
+        <button
+          type="button"
+          className="fc-name-link"
+          onClick={(e) => { e.stopPropagation(); onOpenLead(lead); }}
+        >
+          {name}
+          <ExternalLink size={11} className="opacity-50" aria-hidden />
+        </button>
+        <div className="fc-name-meta">
+          {lead.phone && (
+            <span className="fc-name-meta__tag">
+              <Phone size={9} aria-hidden /> SMS
+            </span>
+          )}
+          {lead.email && (
+            <span className="fc-name-meta__tag">
+              <Mail size={9} aria-hidden /> Email
+            </span>
+          )}
+          {hasReply && (
+            <span className="fc-name-meta__tag fc-name-meta__tag--reply">
+              <MessageSquare size={9} aria-hidden /> Reply
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function RowActions({ lead, stopLoading, onStop, onSendAgain, onOpenConversation }) {
   const busy = stopLoading[lead.row_number];
@@ -16,17 +60,17 @@ function RowActions({ lead, stopLoading, onStop, onSendAgain, onOpenConversation
         className="followups-btn followups-btn--ghost"
         title="Open conversation"
         onClick={() => onOpenConversation(lead)}
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.96 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
       >
-        <MessageSquare size={12} />
+        <MessageSquare size={14} />
       </motion.button>
       <motion.button
         type="button"
         className="followups-btn followups-btn--send"
         onClick={() => onSendAgain(lead)}
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.96 }}
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
       >
         <Send size={12} />
         Send Again
@@ -36,8 +80,8 @@ function RowActions({ lead, stopLoading, onStop, onSendAgain, onOpenConversation
         className="followups-btn followups-btn--stop"
         onClick={() => onStop(lead)}
         disabled={busy}
-        whileHover={{ scale: busy ? 1 : 1.04 }}
-        whileTap={{ scale: busy ? 1 : 0.96 }}
+        whileHover={{ scale: busy ? 1 : 1.03 }}
+        whileTap={{ scale: busy ? 1 : 0.97 }}
       >
         {busy ? <Spinner size={12} /> : <StopCircle size={12} />}
         Stop
@@ -48,6 +92,11 @@ function RowActions({ lead, stopLoading, onStop, onSendAgain, onOpenConversation
 
 export default function FollowupsTable({
   leads,
+  totalCount,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
   selectedLead,
   onSelect,
   stopLoading,
@@ -87,6 +136,7 @@ export default function FollowupsTable({
                 const sentLabel = lead.sent && lead.sent !== 'imported'
                   ? new Date(lead.sent).toLocaleDateString()
                   : '—';
+                const code = templateCode(lead);
 
                 return (
                   <motion.tr
@@ -95,28 +145,32 @@ export default function FollowupsTable({
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    transition={{ delay: Math.min(i * 0.03, 0.35), duration: 0.28 }}
+                    transition={{ delay: Math.min(i * 0.025, 0.3), duration: 0.26 }}
                     className={`followups-row${selected ? ' followups-row--selected' : ''}`}
                     onClick={() => onSelect(lead)}
-                    whileHover={{ backgroundColor: 'rgba(22, 163, 74, 0.05)' }}
                   >
                     <td>
-                      <button
-                        type="button"
-                        className="followups-name text-left hover:text-gs-accent cursor-pointer bg-transparent border-0 p-0"
-                        onClick={(e) => { e.stopPropagation(); openLead(); }}
-                      >
-                        {lead.name || '—'}
-                        <ExternalLink size={11} className="inline ml-1 opacity-40" />
-                      </button>
+                      <FollowupNameCell lead={lead} onOpenLead={openLead} />
                     </td>
                     <td>
                       <span className="followups-phone">{lead.phone || '—'}</span>
                     </td>
                     <td>
-                      <LeadStatusLabel value={lead.notes} />
+                      {code ? (
+                        <span
+                          className="fc-template-link"
+                          onClick={e => e.stopPropagation()}
+                          role="presentation"
+                        >
+                          {code}
+                        </span>
+                      ) : (
+                        <span className="lc-field lc-field--empty">—</span>
+                      )}
                     </td>
-                    <td className="text-gs-muted text-xs">{sentLabel}</td>
+                    <td>
+                      <span className="fc-sent">{sentLabel}</span>
+                    </td>
                     <td>
                       <FollowupDaysLabel days={days} />
                     </td>
@@ -139,6 +193,14 @@ export default function FollowupsTable({
           </tbody>
         </table>
       </div>
+
+      <LeadsPagination
+        page={page}
+        pageSize={pageSize}
+        total={totalCount}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </div>
   );
 }

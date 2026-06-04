@@ -1,38 +1,89 @@
+import { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Clock, AlertTriangle, StopCircle, MessageSquare, Calendar } from 'lucide-react';
+import {
+  buildFollowupKpiSparkline,
+  formatKpiTrend,
+  sparklineWeekDelta,
+} from './followupsKpiAnalytics.js';
+import { sparklinePath } from '../Leads/leadsSparkline.js';
 
 const CARDS = [
-  { key: 'active', label: 'Active Follow-ups', icon: Clock, tone: '' },
-  { key: 'overdue', label: 'Overdue', icon: AlertTriangle, tone: 'warn' },
-  { key: 'stopped', label: 'Stopped', icon: StopCircle, tone: '' },
-  { key: 'replied', label: 'Replies Received', icon: MessageSquare, tone: '' },
-  { key: 'avgDays', label: 'Avg Days Since Sent', icon: Calendar, tone: '', suffix: 'd' },
+  { key: 'active', label: 'Active Follow-ups', accent: 'green', metric: 'active' },
+  { key: 'overdue', label: 'Overdue', accent: 'red', metric: 'overdue' },
+  { key: 'stopped', label: 'Stopped', accent: 'blue', metric: 'stopped' },
+  { key: 'replied', label: 'Replies Received', accent: 'purple', metric: 'replied' },
+  { key: 'avgDays', label: 'Avg Days Since Sent', accent: 'green', metric: 'avgDays', suffix: 'd' },
 ];
 
-export default function FollowupsKpiRow({ kpis, loading }) {
+function AnimatedValue({ value, suffix }) {
+  const display = suffix ? `${value}${suffix}` : String(value);
   return (
-    <div className="followups-kpi-grid">
+    <motion.p
+      key={display}
+      className="fc-kpi-card__value"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+    >
+      {display}
+    </motion.p>
+  );
+}
+
+export default function FollowupsKpiRow({ kpis, loading, allLeads, inFlightLeads }) {
+  const sparklines = useMemo(() => {
+    const out = {};
+    for (const card of CARDS) {
+      out[card.metric] = buildFollowupKpiSparkline(allLeads, inFlightLeads, card.metric, 7);
+    }
+    return out;
+  }, [allLeads, inFlightLeads]);
+
+  return (
+    <div className="fc-kpi-grid">
       {CARDS.map((card, i) => {
-        const Icon = card.icon;
         const raw = kpis[card.key];
-        const value = loading ? '—' : card.key === 'avgDays' ? raw : raw;
-        const display = loading ? '—' : card.suffix ? `${value}${card.suffix}` : value;
+        const values = sparklines[card.metric] || [];
+        const delta = sparklineWeekDelta(values);
+        const trend = formatKpiTrend(card.metric, delta, raw);
+        const sparkD = sparklinePath(values);
+
+        const displayValue = loading
+          ? '—'
+          : card.key === 'avgDays'
+            ? raw
+            : raw;
 
         return (
-          <motion.div
+          <motion.article
             key={card.key}
-            className={`followups-kpi${card.tone === 'warn' && !loading && raw > 0 ? ' followups-kpi--warn' : ''}${card.key === 'overdue' && !loading && raw > 0 ? ' followups-kpi--danger' : ''}`}
-            initial={{ opacity: 0, y: 12 }}
+            className={`fc-kpi-card fc-kpi-card--${card.accent}`}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 + i * 0.05, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            whileHover={{ y: -2, transition: { duration: 0.2 } }}
+            transition={{ delay: 0.04 + i * 0.05, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ y: -3, transition: { duration: 0.2 } }}
           >
-            <div className="flex items-center gap-2 mb-2">
-              <Icon size={14} className="text-gs-muted" />
-              <p className="followups-kpi__label">{card.label}</p>
+            <p className="fc-kpi-card__label">{card.label}</p>
+            {loading ? (
+              <p className="fc-kpi-card__value">—</p>
+            ) : (
+              <AnimatedValue value={displayValue} suffix={card.suffix} />
+            )}
+            <div className="fc-kpi-card__footer">
+              <span className={`fc-kpi-card__trend fc-kpi-card__trend--${trend.direction}`}>
+                {loading ? '…' : trend.text}
+              </span>
+              <svg
+                className="fc-kpi-card__spark"
+                width="72"
+                height="22"
+                viewBox="0 0 88 28"
+                aria-hidden
+              >
+                <path d={sparkD} />
+              </svg>
             </div>
-            <p className="followups-kpi__value">{display}</p>
-          </motion.div>
+          </motion.article>
         );
       })}
     </div>

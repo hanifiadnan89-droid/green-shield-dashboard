@@ -227,7 +227,7 @@ export default function FollowupsDetailPanel({
         )}
       </div>
 
-      <div className="shrink-0 p-4 border-t border-gs-border/50 flex flex-wrap gap-2 bg-white/80">
+      <div className="followups-detail__footer">
         <motion.button
           type="button"
           className="followups-btn followups-btn--send flex-1 justify-center py-2"
