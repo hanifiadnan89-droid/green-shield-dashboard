@@ -48,7 +48,7 @@ const STATUS = {
   },
 };
 
-function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
+function AuthStatusBanner({ authInfo, onLoginRefreshStarted, compact = false }) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -69,7 +69,7 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
         setActionError(statusData?._auth?.message || 'Could not connect to FieldRoutes. Try again.');
       }
     } catch (err) {
-      setActionError(err?.message || 'Login failed.');
+      setActionError(err.message || 'Login failed.');
     } finally {
       setBusy(false);
     }
@@ -86,7 +86,7 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       }
       await onLoginRefreshStarted?.();
     } catch (err) {
-      setActionError(err?.message || 'Refresh failed.');
+      setActionError(err.message || 'Refresh failed.');
     } finally {
       setBusy(false);
     }
@@ -109,7 +109,7 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
       setPasteJson('');
       setShowAdvanced(false);
     } catch (err) {
-      setActionError(err?.message || 'Could not apply session.');
+      setActionError(err.message || 'Could not apply session.');
     } finally {
       setBusy(false);
     }
@@ -120,6 +120,76 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted }) {
     : isConnected
       ? 'Refresh'
       : 'Log Back In';
+
+  if (compact) {
+    const disconnected = !isConnected && !busy;
+    const statusLabel = busy
+      ? 'Checking…'
+      : isConnected
+        ? 'FieldRoutes Connected'
+        : 'FieldRoutes Disconnected';
+
+    return (
+      <div className="rf-fr-status">
+        <div className={`rf-fr-status__pill ${isConnected ? 'rf-fr-status__pill--ok' : disconnected ? 'rf-fr-status__pill--off' : 'rf-fr-status__pill--pending'}`}>
+          <span className="rf-fr-status__dot" aria-hidden />
+          <span className="rf-fr-status__label">{statusLabel}</span>
+          {checkedLabel && isConnected && (
+            <span className="rf-fr-status__meta">{checkedLabel}</span>
+          )}
+        </div>
+
+        <motion.button
+          type="button"
+          onClick={handlePrimary}
+          disabled={busy}
+          className="rf-fr-status__btn"
+          whileHover={busy ? undefined : { scale: 1.02 }}
+          whileTap={busy ? undefined : { scale: 0.97 }}
+          aria-busy={busy}
+        >
+          {busy && <Loader2 size={12} className="animate-spin shrink-0" aria-hidden />}
+          {isConnected ? 'Refresh' : 'Log in'}
+        </motion.button>
+
+        {actionError && (
+          <p className="rf-fr-status__error" role="alert">{actionError}</p>
+        )}
+
+        {!isConnected && !busy && (
+          <button
+            type="button"
+            className="rf-fr-status__advanced"
+            onClick={() => setShowAdvanced(v => !v)}
+            aria-expanded={showAdvanced}
+          >
+            {showAdvanced ? 'Hide session paste' : 'Paste session'}
+          </button>
+        )}
+
+        {showAdvanced && (
+          <div className="rf-fr-status__paste">
+            <textarea
+              className="rf-fr-status__paste-input"
+              rows={2}
+              value={pasteJson}
+              onChange={e => setPasteJson(e.target.value)}
+              placeholder='{"cookies":[...]}'
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              className="rf-fr-status__btn rf-fr-status__btn--secondary"
+              disabled={busy || !pasteJson.trim()}
+              onClick={handleApplyPastedAuth}
+            >
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="route-auth-bar mb-0">
