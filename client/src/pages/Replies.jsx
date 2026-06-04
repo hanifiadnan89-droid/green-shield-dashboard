@@ -278,7 +278,6 @@ export default function Replies() {
       <div className="replies-command__inner">
       <ReplyPageHeader
         loading={loading}
-        leadsCount={leads.length}
         archivedCount={archivedCount}
         showArchived={showArchived}
         onToggleArchived={() => {
