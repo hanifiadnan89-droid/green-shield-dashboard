@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/client.js';
 import { filterConversationLeads, hasConversationSignal } from '../Replies/conversationLeadFilter.js';
+import { loadLegacyViewedKeys } from '../Replies/legacyViewedKeys.js';
 import { getLatestInbound, inboundReadKey } from '../Replies/threadUtils.js';
 
 /**
@@ -22,7 +23,7 @@ export function useLeadsUnreadState(leads) {
       return;
     }
     try {
-      const { rowNumbers, count } = await api.messages.unreadCount(replyLeads);
+      const { rowNumbers, count } = await api.messages.unreadCount(replyLeads, loadLegacyViewedKeys());
       const rows = Array.isArray(rowNumbers) ? rowNumbers : [];
       setUnreadRows(new Set(rows));
       window.dispatchEvent(new CustomEvent('replies-unread-count', {

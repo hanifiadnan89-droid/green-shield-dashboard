@@ -1,14 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { api } from '../../api/client.js';
-import { HISTORY_KEY, VIEWED_KEY } from './constants.js';
-
-function loadLegacyViewedKeys() {
-  try {
-    return JSON.parse(localStorage.getItem(VIEWED_KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
+import { HISTORY_KEY } from './constants.js';
+import { loadLegacyViewedKeys } from './legacyViewedKeys.js';
 
 /**
  * Server-backed message threads with one-time localStorage migration.

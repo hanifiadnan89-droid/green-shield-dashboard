@@ -501,8 +501,74 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.rc-conv-card__avatar-wrap--unread .rc-avatar--active {
-  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.35), 0 0 20px rgba(74, 222, 128, 0.2);
+.rc-conv-card__avatar-wrap {
+  position: relative;
+}
+
+.rc-conv-status-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid #050807;
+  z-index: 2;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.45);
+}
+
+.rc-conv-status-dot--green {
+  background: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.65);
+}
+
+.rc-conv-status-dot--red {
+  background: #f87171;
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.45);
+}
+
+.rc-conv-status-dot--attention {
+  animation: rc-status-dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes rc-status-dot-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 16px rgba(74, 222, 128, 0.9);
+  }
+}
+
+.rc-conv-card--unread {
+  box-shadow:
+    0 0 0 1px rgba(74, 222, 128, 0.12),
+    inset 0 0 24px rgba(74, 222, 128, 0.04);
+}
+
+.rc-conv-card--pulse {
+  animation: rc-conv-attention 2.2s ease-in-out infinite;
+}
+
+@keyframes rc-conv-attention {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(74, 222, 128, 0.14);
+  }
+}
+
+.rc-conv-card__time--unread {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.rc-conv-card__preview--unread {
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 500;
 }
 
 .rc-unread-glow {
@@ -779,10 +845,11 @@
 
 .rc-chat-header__identity {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.35rem 0.65rem;
   min-width: 0;
-  flex-shrink: 0;
+  flex: 1;
 }
 
 .rc-chat-header__name {
@@ -799,12 +866,16 @@
   white-space: nowrap;
 }
 
-.rc-chat-header__pills {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  min-width: 0;
+.rc-chat-header__meta-inline {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.48);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.rc-chat-header__meta-inline--muted {
+  color: rgba(196, 181, 253, 0.75);
 }
 
 .rc-chat-header__aside {
