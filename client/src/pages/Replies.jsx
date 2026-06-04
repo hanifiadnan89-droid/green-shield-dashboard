@@ -3,12 +3,14 @@ import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { MessageCircle, CheckCircle2, AlertCircle, Archive } from 'lucide-react';
 import { api } from '../api/client.js';
-import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import ReplyPageHeader from './Replies/ReplyPageHeader.jsx';
 import ReplyInbox from './Replies/ReplyInbox.jsx';
 import ReplyConversationView from './Replies/ReplyConversationView.jsx';
 import ReplyArchivedDetail from './Replies/ReplyArchivedDetail.jsx';
+import RepliesAmbientBackground from './Replies/RepliesAmbientBackground.jsx';
+import RepliesLoadingSkeleton from './Replies/RepliesLoadingSkeleton.jsx';
+import './Replies/replies-command.css';
 import { useReplyArchive } from './Replies/useReplyArchive.js';
 import { useReplyCardState } from './Replies/useReplyCardState.js';
 import { useReplySelection } from './Replies/useReplySelection.js';
@@ -233,9 +235,13 @@ export default function Replies() {
     updateCard(rowNumber, { aiPrompt: value, aiError: null });
   }
 
-  async function handleAIAssist(lead) {
-    const prompt = (getCard(lead.row_number).aiPrompt || '').trim();
+  async function handleAIAssist(lead, promptOverride) {
+    const prompt = (promptOverride ?? getCard(lead.row_number).aiPrompt ?? '').trim();
     if (!prompt) return;
+
+    if (promptOverride != null) {
+      updateCard(lead.row_number, { aiPrompt: promptOverride, aiError: null });
+    }
 
     const messages = getMessages(lead.row_number);
     const leadContext = buildLeadContext(lead, messages, { archived });
@@ -267,7 +273,9 @@ export default function Replies() {
   const showInbox = !loading && leads.length > 0 && (activeLeads.length > 0 || (showArchived && archivedLeads.length > 0));
 
   return (
-    <div className="replies-page flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="replies-command flex-1 flex flex-col min-h-0 overflow-hidden">
+      <RepliesAmbientBackground />
+      <div className="replies-command__inner">
       <ReplyPageHeader
         loading={loading}
         leadsCount={leads.length}
@@ -306,9 +314,9 @@ export default function Replies() {
 
       <div className="flex-1 min-h-0 flex flex-col">
         {loading ? (
-          <div className="flex justify-center py-20"><Spinner size={28} /></div>
+          <RepliesLoadingSkeleton />
         ) : leads.length === 0 ? (
-          <div className="px-6 py-5">
+          <div className="rc-page-empty">
             <EmptyState
               icon={MessageCircle}
               title="No replies yet"
@@ -316,7 +324,7 @@ export default function Replies() {
             />
           </div>
         ) : activeLeads.length === 0 && !showArchived ? (
-          <div className="px-6 py-5">
+          <div className="rc-page-empty">
             <EmptyState
               icon={Archive}
               title="All chats archived"
@@ -324,7 +332,7 @@ export default function Replies() {
             />
           </div>
         ) : searched.length === 0 ? (
-          <div className="px-6 py-5">
+          <div className="rc-page-empty">
             <EmptyState icon={MessageCircle} title="No matches" desc={`No replies match "${search}"`} />
           </div>
         ) : showInbox ? (
@@ -378,18 +386,21 @@ export default function Replies() {
                   />
                 )
               ) : (
-                <motion.p
+                <motion.div
                   key="empty"
                   className="replies-inbox-empty-detail"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
                 >
-                  Select a conversation to view the full thread
-                </motion.p>
+                  <MessageCircle size={40} className="rc-empty-hint__icon mx-auto" aria-hidden />
+                  <p className="m-0">Select a conversation</p>
+                  <p className="m-0 text-sm opacity-60">Your AI communications workspace will open here</p>
+                </motion.div>
               )}
             </AnimatePresence>
           </ReplyInbox>
         ) : null}
+      </div>
       </div>
     </div>
   );
