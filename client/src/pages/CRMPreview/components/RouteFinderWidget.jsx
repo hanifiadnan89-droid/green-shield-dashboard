@@ -756,8 +756,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                 onKeyDown={handleAddressKey}
                 placeholder="Start typing an address…"
                 className={[
-                  'route-address-input w-full box-border py-2 pl-7 pr-9 rounded-[10px] text-xs text-gs-text bg-slate-50 outline-none',
-                  isPage ? 'route-address-input--page' : '',
+                  'route-address-input w-full box-border py-2 pl-7 pr-9 rounded-[10px] text-xs text-gs-text outline-none',
+                  isPage ? 'route-address-input--page' : 'bg-slate-50',
                   geocodeStatus === 'error' ? 'route-address-input--error' : '',
                 ].filter(Boolean).join(' ')}
                 onFocus={() => {
@@ -879,7 +879,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                         type="button"
                         onClick={() => handleSpecificSlotSelect(key)}
                         className={[
-                          'route-time-slot-btn flex-1 py-1.5 px-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all duration-150',
+                          'route-time-slot-btn route-time-slot-btn--four-hour py-1.5 px-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-all duration-150',
                           active ? 'route-time-slot-btn--active' : '',
                         ].filter(Boolean).join(' ')}
                       >

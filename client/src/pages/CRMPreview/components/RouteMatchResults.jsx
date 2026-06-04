@@ -2,20 +2,19 @@ import { useState, useCallback } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import RouteResultCard from './RouteResultCard.jsx';
 import RouteMatchDetailWorkspace from './RouteMatchDetailWorkspace.jsx';
-import RouteMatchMapWorkspace from './RouteMatchMapWorkspace.jsx';
-import { isGoogleMapsEnabled } from './RouteFinder/useGoogleMapsLoader.js';
+import { useTechnicianPhotos } from './RouteFinder/useTechnicianPhotos.js';
 import { matchLayoutId } from './RouteFinder/routeMatchCardConfig.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 const LAYOUT_TRANSITION = { duration: 0.42, ease: EASE };
 
 /**
- * view: grid | detail | map
+ * view: grid | detail
  */
 export default function RouteMatchResults({ matches, routeArea }) {
   const [view, setView] = useState('grid');
   const [activeRouteId, setActiveRouteId] = useState(null);
-  const mapsEnabled = isGoogleMapsEnabled();
+  const { getPhotoUrl } = useTechnicianPhotos();
 
   const activeMatch = activeRouteId
     ? matches.find(m => m.routeId === activeRouteId)
@@ -31,19 +30,11 @@ export default function RouteMatchResults({ matches, routeArea }) {
     setActiveRouteId(null);
   }, []);
 
-  const backToDetail = useCallback(() => {
-    setView('detail');
-  }, []);
-
-  const openFullMap = useCallback(() => {
-    if (mapsEnabled) setView('map');
-  }, [mapsEnabled]);
-
   const handleSelectTechnician = useCallback(() => {
     backToGrid();
   }, [backToGrid]);
 
-  const gridDimmed = view === 'detail' || view === 'map';
+  const gridDimmed = view === 'detail';
 
   return (
     <LayoutGroup id="route-match-results">
@@ -82,20 +73,10 @@ export default function RouteMatchResults({ matches, routeArea }) {
             match={activeMatch}
             rank={activeMatch.rank}
             routeArea={routeArea}
+            photoUrl={getPhotoUrl(activeMatch.techName)}
             onBack={backToGrid}
             onSelectTechnician={handleSelectTechnician}
-            onOpenFullMap={openFullMap}
             layoutTransition={LAYOUT_TRANSITION}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {mapsEnabled && view === 'map' && activeMatch && (
-          <RouteMatchMapWorkspace
-            key={`map-${activeMatch.routeId}`}
-            match={activeMatch}
-            onBack={backToDetail}
           />
         )}
       </AnimatePresence>

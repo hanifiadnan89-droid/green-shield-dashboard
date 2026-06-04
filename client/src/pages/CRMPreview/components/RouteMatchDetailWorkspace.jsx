@@ -5,6 +5,7 @@ import { ArrowLeft, X } from 'lucide-react';
 import RouteMatchCardContent from './RouteMatchCardContent.jsx';
 import RouteMatchScoreBreakdown from './RouteMatchScoreBreakdown.jsx';
 import RouteGoogleMap from './RouteGoogleMap.jsx';
+import TechnicianPhoto from './TechnicianPhoto.jsx';
 import { isGoogleMapsEnabled } from './RouteFinder/useGoogleMapsLoader.js';
 import { useRouteMatchPortalRoot } from './RouteFinder/useRouteMatchPortalRoot.js';
 
@@ -15,9 +16,9 @@ export default function RouteMatchDetailWorkspace({
   match,
   rank,
   routeArea,
+  photoUrl,
   onBack,
   onSelectTechnician,
-  onOpenFullMap,
   layoutTransition = { duration: 0.42, ease: EASE },
 }) {
   const panelRef = useRef(null);
@@ -109,6 +110,18 @@ export default function RouteMatchDetailWorkspace({
           transition={{ duration: 0.3, ease: EASE, delay: 0.1 }}
         >
           <section className="route-match-detail__col route-match-detail__col--summary">
+            <div className="route-match-detail__hero">
+              <TechnicianPhoto
+                techName={match.techName}
+                photoUrl={photoUrl}
+                size="detail"
+                className="route-match-detail__photo"
+              />
+              <div className="route-match-detail__hero-meta">
+                <p className="route-match-detail__hero-rank m-0">Rank #{rank}</p>
+                <p className="route-match-detail__hero-name m-0">{match.techName}</p>
+              </div>
+            </div>
             <RouteMatchCardContent match={match} rank={rank} routeArea={routeArea} compact={false} />
             <div className="route-match-detail__actions">
               <button
@@ -116,17 +129,8 @@ export default function RouteMatchDetailWorkspace({
                 className="route-match-detail__btn route-match-detail__btn--primary"
                 onClick={onSelectTechnician}
               >
-                Select This Technician
+                Select Technician
               </button>
-              {mapsEnabled && (
-                <button
-                  type="button"
-                  className="route-match-detail__btn route-match-detail__btn--secondary"
-                  onClick={onOpenFullMap}
-                >
-                  View Full Route
-                </button>
-              )}
             </div>
           </section>
 
@@ -203,7 +207,6 @@ export default function RouteMatchDetailWorkspace({
                   compact
                   showControls={false}
                   interactive={false}
-                  onExpand={onOpenFullMap}
                 />
               </>
             )}
