@@ -19,7 +19,7 @@ export default function RouteResultCard({ match, rank, routeArea, onSelect, layo
         isTop ? 'route-match-card--top' : '',
         'text-left w-full cursor-pointer',
       ].filter(Boolean).join(' ')}
-      whileHover={layout ? { y: -2, boxShadow: '0 8px 24px rgba(15,23,42,0.08)' } : undefined}
+      whileHover={layout ? { y: -4, transition: { duration: 0.2 } } : undefined}
       whileTap={layout ? { scale: 0.99 } : undefined}
       transition={{
         layout: { duration: 0.42, ease: EASE },

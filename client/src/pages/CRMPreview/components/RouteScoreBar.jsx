@@ -1,18 +1,26 @@
-// ---------------------------------------------------------------------------
-// Score bar — extracted from RouteFinderWidget.jsx (Phase 11 step 1)
-// ---------------------------------------------------------------------------
+import { motion } from 'motion/react';
+
+function scoreTier(score) {
+  if (score >= 70) return 'high';
+  if (score >= 45) return 'mid';
+  return 'low';
+}
+
 function ScoreBar({ score, max = 100 }) {
   const pct = Math.min(100, Math.max(0, (score / max) * 100));
-  const color = score >= 70 ? '#16A34A' : score >= 45 ? '#F59E0B' : '#94A3B8';
+  const tier = scoreTier(score);
+
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex-1 h-1 rounded overflow-hidden bg-black/[0.06]">
-        <div
-          className="h-full rounded transition-[width] duration-[400ms] ease-out"
-          style={{ width: `${pct}%`, background: color }}
+    <div className="rf-score-bar">
+      <div className="rf-score-bar__track">
+        <motion.div
+          className={`rf-score-bar__fill rf-score-bar__fill--${tier}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         />
       </div>
-      <span className="type-label-md font-bold min-w-6 text-right" style={{ color }}>{score}</span>
+      <span className={`rf-score-bar__value rf-score-bar__value--${tier}`}>{score}</span>
     </div>
   );
 }

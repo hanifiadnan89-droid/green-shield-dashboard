@@ -1,5 +1,7 @@
+import { motion } from 'motion/react';
 import RouteFinderWidget from '../CRMPreview/components/RouteFinderWidget.jsx';
-import '../CRMPreview/preview.css';
+import LeadsAmbientBackground from '../Leads/LeadsAmbientBackground.jsx';
+import './route-finder-command.css';
 
 /**
  * Full-workspace Route Finder (Tools → Route Finder).
@@ -7,8 +9,21 @@ import '../CRMPreview/preview.css';
  */
 export default function RouteFinderPage() {
   return (
-    <div className="crm-preview route-finder-page flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-hidden bg-gs-bg">
-      <RouteFinderWidget variant="page" />
+    <div className="rf-command-page">
+      <LeadsAmbientBackground />
+      <div className="rf-command-page__inner">
+        <div className="lc-live-bar">
+          <span className="lc-live" aria-live="polite">
+            <motion.span
+              className="lc-live__dot"
+              animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+            Live mode
+          </span>
+        </div>
+        <RouteFinderWidget variant="page" />
+      </div>
     </div>
   );
 }

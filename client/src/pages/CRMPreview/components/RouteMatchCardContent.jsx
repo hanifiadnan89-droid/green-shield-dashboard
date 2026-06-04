@@ -66,17 +66,14 @@ export default function RouteMatchCardContent({ match, rank, routeArea, compact 
       </div>
 
       {ins?.suggestedWindow && (
-        <div className={compact ? 'mb-1.5' : 'mb-2'}>
-          <span
-            className="type-label-sm uppercase tracking-[0.05em] font-bold"
-            style={{ color: rank === 1 ? '#16A34A' : '#64748B' }}
-          >
+        <div className={`rf-recommendation${rank === 1 ? ' rf-recommendation--top' : ''} ${compact ? 'mb-1.5' : 'mb-2'}`}>
+          <span className="rf-recommendation__label">
             {rank === 1 ? 'Recommended: ' : 'Suggested: '}
           </span>
-          <span className={`font-bold text-gs-text ${compact ? 'text-[11px]' : 'text-sm'}`}>
+          <span className={`rf-recommendation__window ${compact ? 'text-[11px]' : 'text-sm'}`}>
             {ins.suggestedWindow}
           </span>
-          <span className="type-label-sm text-slate-400 ml-[5px] font-normal tracking-normal">
+          <span className="rf-recommendation__arrival">
             (arrives {ins.estimatedArrivalTime})
           </span>
         </div>
@@ -146,19 +143,15 @@ export default function RouteMatchCardContent({ match, rank, routeArea, compact 
         </p>
       )}
 
-      <div className={`flex gap-1.5 pt-[5px] border-t border-black/[0.04] ${compact ? 'mt-1.5' : 'mt-2'}`}>
+      <div className={`rf-mini-kpis ${compact ? 'mt-1.5' : 'mt-2'}`}>
         {['geographic', 'travelEfficiency', 'timeWindow', 'capacity', 'insertionProximity'].map(k => {
           const labels = { geographic: 'Geo', travelEfficiency: 'Drive', timeWindow: 'Win', capacity: 'Cap', insertionProximity: 'Ins' };
           const v = match.scores[k] ?? 0;
+          const tier = v >= 70 ? 'high' : v >= 45 ? 'mid' : 'low';
           return (
-            <div key={k} className="text-center flex-1">
-              <div
-                className="type-label-sm font-bold tracking-normal"
-                style={{ color: v >= 70 ? '#16A34A' : v >= 45 ? '#F59E0B' : '#CBD5E1' }}
-              >
-                {v}
-              </div>
-              <div className="text-[9px] text-slate-400 mt-px">{labels[k]}</div>
+            <div key={k} className={`rf-mini-kpi rf-mini-kpi--${tier}`}>
+              <div className="rf-mini-kpi__value">{v}</div>
+              <div className="rf-mini-kpi__label">{labels[k]}</div>
             </div>
           );
         })}

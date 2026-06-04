@@ -31,7 +31,8 @@ function AppShell({ testMode, credsMissing, googleCreds }) {
   const suppressLiveBanner =
     pathname === '/replies' || pathname.startsWith('/replies/')
     || pathname === '/leads' || pathname.startsWith('/leads/')
-    || pathname === '/followups' || pathname.startsWith('/followups/');
+    || pathname === '/followups' || pathname.startsWith('/followups/')
+    || pathname.startsWith('/tools/route-finder');
 
   return (
     <Layout testMode={testMode}>
