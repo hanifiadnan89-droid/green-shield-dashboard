@@ -22,6 +22,7 @@ import {
 } from '../services/fieldRoutesHeadlessLogin.js';
 import { getPlaywrightChromiumDiagnostics } from '../services/playwrightRuntime.js';
 import { runRouteFinderBackgroundRefresh } from '../services/routeFinderBackgroundRefresh.js';
+import { getTechnicianPhotoCatalog, refreshTechnicianPhotoCatalog } from '../services/technicianPhotoCatalog.js';
 
 function parseIncomingAuthBody(body) {
   if (!body) {
@@ -357,6 +358,24 @@ router.post('/background-refresh', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[routes] background-refresh error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/routes/technician-photos — cached headshots from gshieldpest.com/about
+router.get('/technician-photos', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const catalog = force
+      ? await refreshTechnicianPhotoCatalog({ force: true })
+      : await getTechnicianPhotoCatalog();
+    res.json({
+      fetchedAt: catalog.fetchedAt,
+      source: catalog.source,
+      byName: catalog.byName,
+    });
+  } catch (err) {
+    console.error('[routes] technician-photos error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

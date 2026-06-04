@@ -125,6 +125,8 @@ export const api = {
       body: JSON.stringify({ priorityDates }),
     }),
     loginRefresh: () => request('/routes/login-refresh', { method: 'POST' }),
+    technicianPhotos: (refresh = false) =>
+      request(`/routes/technician-photos${refresh ? '?refresh=true' : ''}`),
   },
 
   ai: {
