@@ -752,11 +752,16 @@
   }
 }
 
-/* Compact toolbar (archived + refresh only) */
+/* Compact toolbar — dark live pill + actions */
 .rc-header--toolbar {
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   padding: 0.55rem 1rem;
   min-height: auto;
+}
+
+.rc-header__actions--start {
+  flex: 1;
 }
 
 .rc-search__kbd {

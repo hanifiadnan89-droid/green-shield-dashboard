@@ -10,6 +10,16 @@ export default function ReplyPageHeader({
 }) {
   return (
     <header className="rc-header rc-header--toolbar">
+      <div className="rc-header__actions rc-header__actions--start">
+        <span className="rc-live" aria-live="polite">
+          <motion.span
+            className="rc-live__dot"
+            animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+          Live
+        </span>
+      </div>
       <div className="rc-header__actions">
         {archivedCount > 0 && (
           <motion.button
