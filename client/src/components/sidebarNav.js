@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Users, Send, Workflow, Clock, Activity,
+  LayoutDashboard, Users, Send, Clock, Activity,
   MessageSquare, AlertCircle, StopCircle, Navigation,
 } from 'lucide-react';
 
@@ -27,7 +27,6 @@ export const SIDEBAR_NAV = [
     items: [
       { type: 'link', to: '/tools/route-finder', icon: Navigation, label: 'Route Finder' },
       { type: 'link', to: '/send', icon: Send, label: 'Send Template' },
-      { type: 'link', to: '/workflows', icon: Workflow, label: 'Workflows' },
       { type: 'link', to: '/activity', icon: Activity, label: 'Activity Log' },
     ],
   },
