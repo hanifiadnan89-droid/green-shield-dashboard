@@ -567,17 +567,7 @@ const FEED_TONE = {
 
 export function TodaysActivityFeed({ items, count = 0 }) {
   const navigate = useNavigate();
-  const [feedPaused, setFeedPaused] = useState(false);
-  const { visible, pulseId } = useLiveActivityFeed(items, 3200, feedPaused);
-
-  const pauseFeed = useCallback(() => setFeedPaused(true), []);
-  const resumeFeed = useCallback(() => setFeedPaused(false), []);
-
-  const handleFeedBlur = useCallback((event) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) {
-      resumeFeed();
-    }
-  }, [resumeFeed]);
+  const { visible, pulseId } = useLiveActivityFeed(items, 3200);
 
   const handleActivityClick = useCallback((item) => {
     const dest = getActivityFeedDestination(item);
@@ -592,49 +582,42 @@ export function TodaysActivityFeed({ items, count = 0 }) {
   }, [handleActivityClick]);
 
   return (
-    <div
-      className={`pc-feed-zone${feedPaused ? ' pc-feed-zone--paused' : ''}`}
-      onMouseEnter={pauseFeed}
-      onMouseLeave={resumeFeed}
-      onFocusCapture={pauseFeed}
-      onBlurCapture={handleFeedBlur}
+    <Panel
+      title="Today's Activity Feed"
+      delay={0.32}
+      className="pc-feed-panel pc-feed-panel--hero"
+      floatOffset={0.6}
+      action={
+        <motion.span
+          className="pc-feed-live-pill"
+          animate={{ opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <span className="pc-live__dot" />
+          Live
+        </motion.span>
+      }
     >
-      <Panel
-        title="Today's Activity Feed"
-        delay={0.32}
-        className="pc-feed-panel pc-feed-panel--hero"
-        floatOffset={0.6}
-        action={
-          <motion.span
-            className="pc-feed-live-pill"
-            animate={feedPaused ? { opacity: 1 } : { opacity: [0.7, 1, 0.7] }}
-            transition={feedPaused ? { duration: 0.15 } : { duration: 2, repeat: Infinity }}
-          >
-            <span className="pc-live__dot" />
-            Live
-          </motion.span>
-        }
-      >
-        <p className="pc-feed-hero__sub">
-          Real-time pipeline events · <strong>{count}</strong> recent {count === 1 ? 'update' : 'updates'}
-        </p>
-        <div className="pc-feed pc-feed--timeline">
-          <div className="pc-feed__rail" aria-hidden />
-          <LayoutGroup>
-            <AnimatePresence mode="popLayout">
-              {visible.length === 0 ? (
-                <p className="pc-muted pc-feed__empty">No activity yet today</p>
-              ) : (
-                visible.map((item) => {
-                  const Icon = FEED_ICONS[item.type] || Zap;
-                  const isPulse = !feedPaused && item.id === pulseId;
+      <p className="pc-feed-hero__sub">
+        Real-time pipeline events · <strong>{count}</strong> recent {count === 1 ? 'update' : 'updates'}
+      </p>
+      <div className="pc-feed pc-feed--timeline">
+        <div className="pc-feed__rail" aria-hidden />
+        <LayoutGroup>
+          <AnimatePresence mode="popLayout">
+            {visible.length === 0 ? (
+              <p className="pc-muted pc-feed__empty">No activity yet today</p>
+            ) : (
+              visible.map((item) => {
+                const Icon = FEED_ICONS[item.type] || Zap;
+                const isPulse = item.id === pulseId;
 
-                  return (
-                    <motion.button
-                      key={item.id}
-                      type="button"
-                      layout={!feedPaused}
-                      className={`pc-feed__row pc-feed__row--actionable pc-feed__row--${FEED_TONE[item.type] || 'info'}${isPulse ? ' pc-feed__row--pulse' : ''}`}
+                return (
+                  <motion.button
+                    key={item.id}
+                    type="button"
+                    layout
+                    className={`pc-feed__row pc-feed__row--actionable pc-feed__row--${FEED_TONE[item.type] || 'info'}${isPulse ? ' pc-feed__row--pulse' : ''}`}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -16 }}
@@ -656,12 +639,11 @@ export function TodaysActivityFeed({ items, count = 0 }) {
                   </motion.button>
                 );
               })
-              )}
-            </AnimatePresence>
-          </LayoutGroup>
-        </div>
-      </Panel>
-    </div>
+            )}
+          </AnimatePresence>
+        </LayoutGroup>
+      </div>
+    </Panel>
   );
 }
 
