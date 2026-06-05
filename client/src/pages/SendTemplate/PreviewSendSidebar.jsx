@@ -197,7 +197,7 @@ export default function PreviewSendSidebar({
         <div className="flex gap-2">
           <motion.button
             type="button"
-            className="btn-ghost shrink-0"
+            className="send-command-ghost shrink-0"
             onClick={onBack}
             whileTap={{ scale: 0.98 }}
           >

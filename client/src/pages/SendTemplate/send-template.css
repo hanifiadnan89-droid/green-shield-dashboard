@@ -1,7 +1,10 @@
-/* Send Template — premium pick-lead workspace */
+/* Send Template — command-center outreach launcher */
+@import './send-template-command.css';
 
 .send-template-page {
-  @apply flex flex-col flex-1 min-h-0 bg-[#f3f7f1];
+  @apply flex flex-col flex-1 min-h-0 relative overflow-hidden;
+  background: #050807;
+  color: #f8fafc;
 }
 
 .send-template-stepper {

@@ -7,6 +7,7 @@ import SendResultScreen from './SendTemplate/SendResultScreen.jsx';
 import StepPickLead from './SendTemplate/StepPickLead.jsx';
 import StepChooseTemplate from './SendTemplate/StepChooseTemplate.jsx';
 import StepPreviewSend from './SendTemplate/StepPreviewSend.jsx';
+import LeadsAmbientBackground from './Leads/LeadsAmbientBackground.jsx';
 import './SendTemplate/send-template.css';
 
 const EASE = [0.22, 1, 0.36, 1];
@@ -100,20 +101,33 @@ export default function SendTemplate({ testMode }) {
   }
 
   if (result) {
-    return <SendResultScreen result={result} onReset={reset} />;
+    return (
+      <div className="send-template-page">
+        <div className="send-template-page__ambient" aria-hidden>
+          <LeadsAmbientBackground />
+        </div>
+        <div className="send-template-page__inner">
+          <SendResultScreen result={result} onReset={reset} />
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="send-template-page">
-      <SendTemplateStepper step={step} />
+      <div className="send-template-page__ambient" aria-hidden>
+        <LeadsAmbientBackground />
+      </div>
+      <div className="send-template-page__inner">
+        <SendTemplateStepper step={step} />
 
-      <motion.div
-        key={step}
-        className="send-template-page__body"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: EASE }}
-      >
+        <motion.div
+          key={step}
+          className="send-template-page__body"
+          initial={{ opacity: 0.94, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.24, ease: EASE }}
+        >
         {step === 1 && (
           <StepPickLead
             search={search}
@@ -154,7 +168,8 @@ export default function SendTemplate({ testMode }) {
             onSend={handleSend}
           />
         )}
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }

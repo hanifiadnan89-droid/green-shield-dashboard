@@ -129,10 +129,10 @@ function TemplatePreviewContent({ template, lead, stopBlocked, onContinue }) {
         )}
         <motion.button
           type="button"
-          className="btn-primary w-full flex items-center justify-center gap-2"
+          className="send-launch-cta"
           disabled={stopBlocked}
           onClick={() => onContinue(t)}
-          whileHover={stopBlocked ? {} : { y: -1 }}
+          whileHover={stopBlocked ? {} : { y: -2, boxShadow: '0 0 32px rgba(74, 222, 128, 0.4)' }}
           whileTap={stopBlocked ? {} : { scale: 0.98 }}
         >
           Continue to Preview &amp; Send

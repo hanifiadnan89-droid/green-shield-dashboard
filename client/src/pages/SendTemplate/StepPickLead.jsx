@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import Spinner from '../../components/Spinner.jsx';
 import LeadSearchPanel from './LeadSearchPanel.jsx';
 import LeadCard from './LeadCard.jsx';
 import LeadPreviewPanel from './LeadPreviewPanel.jsx';
@@ -83,9 +82,11 @@ export default function StepPickLead({
           />
 
           {leadsLoading ? (
-            <div className="send-pick-lead__loading flex-1">
-              <Spinner size={28} />
-              <p className="type-label-sm text-gs-muted">Loading leads…</p>
+            <div className="send-pick-lead__loading flex-1 p-3">
+              {[1, 2, 3, 4, 5, 6].map(n => (
+                <div key={n} className="send-skeleton-row" />
+              ))}
+              <p className="type-label-sm text-center mt-4">Loading leads…</p>
             </div>
           ) : allLeadsCount === 0 ? (
             <EmptyLeadListState />

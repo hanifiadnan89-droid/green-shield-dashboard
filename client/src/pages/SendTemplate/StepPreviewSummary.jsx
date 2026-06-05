@@ -1,18 +1,18 @@
 export default function StepPreviewSummary({ selectedLead, selectedTemplate }) {
   return (
     <div className="max-w-3xl grid grid-cols-2 gap-4">
-      <div className="card p-4">
-        <p className="type-label-sm text-gs-muted mb-1 font-normal tracking-normal">Lead</p>
-        <p className="type-body-sm font-semibold text-gs-text">{selectedLead.name}</p>
-        <p className="type-label-sm text-gs-muted font-normal tracking-normal">{selectedLead.phone}</p>
+      <div className="send-command-panel">
+        <p className="send-command-panel__label mb-1">Lead</p>
+        <p className="type-body-sm font-semibold text-white/90">{selectedLead.name}</p>
+        <p className="type-label-sm text-white/45 font-normal tracking-normal">{selectedLead.phone}</p>
         {selectedLead.email && (
-          <p className="type-label-sm text-gs-muted font-normal tracking-normal">{selectedLead.email}</p>
+          <p className="type-label-sm text-white/45 font-normal tracking-normal">{selectedLead.email}</p>
         )}
       </div>
-      <div className={`card p-4 ${selectedTemplate.activeBg}`}>
-        <p className="type-label-sm text-gs-muted mb-1 font-normal tracking-normal">Template</p>
+      <div className="send-command-panel">
+        <p className="send-command-panel__label mb-1">Template</p>
         <p className={`type-body-sm font-semibold ${selectedTemplate.accentText}`}>{selectedTemplate.label}</p>
-        <p className="type-label-sm text-gs-muted mt-0.5 font-normal tracking-normal">{selectedTemplate.description}</p>
+        <p className="type-label-sm text-white/45 mt-0.5 font-normal tracking-normal">{selectedTemplate.description}</p>
       </div>
     </div>
   );

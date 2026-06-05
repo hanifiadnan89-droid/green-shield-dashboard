@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -7,6 +8,8 @@ export default function LeadSearchPanel({
   resultCount,
   totalCount,
 }) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <div className="send-pick-lead__list-header">
       <div className="flex items-start justify-between gap-3">
@@ -20,7 +23,7 @@ export default function LeadSearchPanel({
         </div>
       </div>
 
-      <div className="send-lead-search">
+      <div className={`send-lead-search ${focused ? 'send-lead-search--focused' : ''}`}>
         <Search size={16} className="send-lead-search__icon" aria-hidden />
         <input
           type="search"
@@ -28,12 +31,14 @@ export default function LeadSearchPanel({
           placeholder="Search name, phone, or email…"
           value={search}
           onChange={e => onSearchChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           aria-label="Search leads"
         />
         {search && (
           <motion.button
             type="button"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-gs-muted hover:text-gs-text hover:bg-gs-border/40"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-gs-muted hover:text-gs-text hover:bg-white/10"
             onClick={() => onSearchChange('')}
             aria-label="Clear search"
             whileHover={{ scale: 1.05 }}
