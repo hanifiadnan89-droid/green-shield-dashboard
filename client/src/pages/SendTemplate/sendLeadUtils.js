@@ -63,3 +63,25 @@ export function formatLeadSent(sent) {
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
+
+export function daysSinceTouch(sent) {
+  if (!sent || sent === 'imported') return null;
+  const d = new Date(sent);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+export function getPreferredChannel(lead) {
+  const hasPhone = !!(lead?.phone || '').trim();
+  const hasEmail = !!(lead?.email || '').trim();
+  if (hasPhone && hasEmail) return 'SMS + Email';
+  if (hasPhone) return 'SMS';
+  if (hasEmail) return 'Email';
+  return '—';
+}
+
+export function hasReplySignal(lead) {
+  const sms = (lead?.sms_reply || '').trim();
+  const email = (lead?.email_reply || '').trim();
+  return !!(sms && sms.length > 2) || !!(email && email.length > 2);
+}

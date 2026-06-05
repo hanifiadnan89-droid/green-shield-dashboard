@@ -100,22 +100,26 @@ export default function QuoteDocumentsSection({
   return (
     <div className={shellClass}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gs-border flex items-center gap-2">
+      <div className="send-doc-panel__header px-4 py-3 border-b border-gs-border flex items-center gap-2">
         <div className="p-1.5 rounded-lg bg-gs-accent/12 border border-gs-accent/20">
           <FileText size={14} className="text-gs-accent" />
         </div>
         <div>
-          <p className="text-gs-text font-semibold text-sm">Quote Documents</p>
-          <p className="text-gs-muted text-xs">~/Desktop/Quotes</p>
+          <p className="send-doc-panel__title font-semibold text-sm">Quote Documents</p>
+          <p className="send-doc-panel__subtitle text-xs">~/Desktop/Quotes</p>
         </div>
       </div>
 
       <div className="px-4 py-3 space-y-3 flex-1">
         {/* File list */}
         {loading ? (
-          <div className="flex justify-center py-4"><Spinner /></div>
+          <div className="space-y-2 py-2" aria-busy="true" aria-label="Loading quote documents">
+            <div className="send-doc-skeleton" />
+            <div className="send-doc-skeleton" />
+            <div className="send-doc-skeleton" />
+          </div>
         ) : missing ? (
-          <div className="text-gs-warn text-xs bg-gs-warn/10 border border-gs-warn/20 rounded-lg px-3 py-2 flex items-center gap-2">
+          <div className="send-command-alert send-command-alert--warn text-xs flex items-center gap-2">
             <AlertTriangle size={12} /> Folder not found: ~/Desktop/Quotes
           </div>
         ) : files?.length === 0 ? (
@@ -186,13 +190,13 @@ export default function QuoteDocumentsSection({
           </p>
           <div className="space-y-2">
             <input
-              className="input text-sm"
+              className="send-command-input text-sm"
               placeholder="Street address"
               value={address.street}
               onChange={e => setAddress(p => ({ ...p, street: e.target.value }))}
             />
             <input
-              className="input text-sm"
+              className="send-command-input text-sm"
               placeholder="City, State ZIP"
               value={address.cityState}
               onChange={e => setAddress(p => ({ ...p, cityState: e.target.value }))}
@@ -215,7 +219,7 @@ export default function QuoteDocumentsSection({
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted text-sm">$</span>
                   <input
-                    className="input pl-7 text-sm"
+                    className="send-command-input send-command-input--money text-sm"
                     placeholder="0"
                     value={pricing[key]}
                     onChange={e => setPricing(p => ({ ...p, [key]: e.target.value }))}
@@ -237,7 +241,7 @@ export default function QuoteDocumentsSection({
             Notes (bottom-right of quote)
           </label>
           <textarea
-            className="input text-xs resize-none"
+            className="send-command-input text-xs resize-none"
             rows={3}
             placeholder="Add custom notes for this customer's quote..."
             value={notes}
@@ -247,26 +251,24 @@ export default function QuoteDocumentsSection({
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-gs-border space-y-2">
+      <div className="send-doc-panel__footer px-4 py-3 border-t border-gs-border space-y-2">
         {genError && (
-          <p className="text-gs-danger text-xs bg-red-50 border border-red-200 rounded px-2 py-1">{genError}</p>
+          <p className="send-command-alert send-command-alert--error">{genError}</p>
         )}
         {emailResult && (
           emailResult.ok
-            ? <p className="text-gs-accent text-xs bg-green-50 border border-green-200 rounded px-2 py-1 flex items-center gap-1.5">
+            ? <p className="send-command-alert send-command-alert--success flex items-center gap-1.5">
                 <CheckCircle size={11} /> Quote sent to {emailResult.to}
               </p>
-            : <p className="text-gs-danger text-xs bg-red-50 border border-red-200 rounded px-2 py-1">{emailResult.error}</p>
+            : <p className="send-command-alert send-command-alert--error">{emailResult.error}</p>
         )}
 
         {/* Download */}
         <button
           onClick={handleGenerate}
           disabled={!selected || generating || emailing}
-          className={`btn w-full justify-center text-xs ${
-            selected && !generating && !emailing
-              ? 'btn-ghost'
-              : 'bg-slate-100 text-gs-muted border border-gs-border cursor-not-allowed'
+          className={`send-command-secondary ${
+            !selected || generating || emailing ? 'send-command-secondary--disabled' : ''
           }`}
         >
           {generating ? <><Spinner size={12} /> Generating...</> : <><FileText size={12} /> Download PDF</>}
@@ -277,10 +279,8 @@ export default function QuoteDocumentsSection({
           onClick={handleEmail}
           disabled={!selected || !lead?.email || emailing || generating}
           title={!lead?.email ? 'No email address on this lead' : ''}
-          className={`btn w-full justify-center text-xs ${
-            selected && lead?.email && !emailing && !generating
-              ? 'btn-primary'
-              : 'bg-slate-100 text-gs-muted border border-gs-border cursor-not-allowed'
+          className={`send-launch-cta text-xs ${
+            !selected || !lead?.email || emailing || generating ? 'opacity-40 cursor-not-allowed' : ''
           }`}
         >
           {emailing

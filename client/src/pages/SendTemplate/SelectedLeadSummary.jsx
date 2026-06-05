@@ -44,7 +44,7 @@ export default function SelectedLeadSummary({ lead, preselected, onChangeLead })
           {!preselected && (
             <motion.button
               type="button"
-              className="btn-ghost text-xs shrink-0"
+              className="send-command-ghost text-xs shrink-0"
               onClick={onChangeLead}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

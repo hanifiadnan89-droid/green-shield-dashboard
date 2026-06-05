@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle, FileText, BookOpen, Check, AlertTriangle, Image } from 'lucide-react';
 import { api } from '../../api/client.js';
-import Spinner from '../../components/Spinner.jsx';
-
 /* ── Prep Guides Section ── */
 export default function PrepGuidesSection({ selected, onToggle, variant = 'default' }) {
   const [files, setFiles]   = useState(null);
@@ -22,21 +20,24 @@ export default function PrepGuidesSection({ selected, onToggle, variant = 'defau
   return (
     <div className={shellClass}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gs-border flex items-center gap-2">
+      <div className="send-doc-panel__header px-4 py-3 border-b border-gs-border flex items-center gap-2">
         <div className="p-1.5 rounded-lg bg-gs-info/12 border border-gs-info/20">
           <BookOpen size={14} className="text-gs-info" />
         </div>
         <div>
-          <p className="text-gs-text font-semibold text-sm">Prep Guides</p>
-          <p className="text-gs-muted text-xs">~/Desktop/Prep Guide</p>
+          <p className="send-doc-panel__title font-semibold text-sm">Prep Guides</p>
+          <p className="send-doc-panel__subtitle text-xs">~/Desktop/Prep Guide</p>
         </div>
       </div>
 
       <div className="px-4 py-3 space-y-3 flex-1">
         {loading ? (
-          <div className="flex justify-center py-4"><Spinner /></div>
+          <div className="space-y-2 py-2" aria-busy="true" aria-label="Loading prep guides">
+            <div className="send-doc-skeleton" />
+            <div className="send-doc-skeleton" />
+          </div>
         ) : missing ? (
-          <div className="text-gs-warn text-xs bg-gs-warn/10 border border-gs-warn/20 rounded-lg px-3 py-2 flex items-center gap-2">
+          <div className="send-command-alert send-command-alert--warn text-xs flex items-center gap-2">
             <AlertTriangle size={12} /> Folder not found: ~/Desktop/Prep Guide
           </div>
         ) : files?.length === 0 ? (
