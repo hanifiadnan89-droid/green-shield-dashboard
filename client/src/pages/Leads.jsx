@@ -27,6 +27,8 @@ export default function Leads() {
   const category = searchParams.get('category') || '';
   const categoryMeta = CATEGORY_META[category] || null;
   const notesParam = searchParams.get('notes') || '';
+  const rowParam = searchParams.get('row') || '';
+  const quickParam = searchParams.get('quick') || '';
 
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,19 @@ export default function Leads() {
       setFilters({ ...EMPTY_FILTERS });
     }
   }, []);
+
+  useEffect(() => {
+    if (!quickParam) return;
+    handleQuickFilter(quickParam);
+  }, [quickParam, handleQuickFilter]);
+
+  useEffect(() => {
+    if (!rowParam || loading) return;
+    const row = Number(rowParam);
+    if (!Number.isFinite(row)) return;
+    const lead = leads.find((l) => l.row_number === row);
+    if (lead) setDetailLead(lead);
+  }, [rowParam, loading, leads]);
 
   const filtered = useMemo(
     () => filterLeads(leads, { search, filters, category, notesParam, quickFilter }),
