@@ -439,18 +439,16 @@
 /* Main layout + table */
 .followups-main {
   display: flex;
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
   gap: 0.75rem;
-  align-items: stretch;
+  align-items: flex-start;
 }
 
 .followups-table-shell {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
-  min-height: 0;
   border-radius: 16px;
   border: 1px solid rgba(74, 222, 128, 0.18);
   background: rgba(8, 12, 10, 0.72);
@@ -469,11 +467,13 @@
   background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.5), transparent);
 }
 
+/* Horizontal scroll only — vertical scroll lives on .followups-scroll so wheel
+   events over rows propagate instead of getting trapped here. */
 .followups-table-wrap {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
 }
 
 .followups-table {
