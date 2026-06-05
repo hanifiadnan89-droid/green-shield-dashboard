@@ -393,17 +393,50 @@ function buildLeadActivitySeries(leads, days) {
   return { points, max, legend };
 }
 
+function templateMetaForLead(lead) {
+  const raw = (lead.notes || '').toLowerCase().trim();
+  const key = raw === 't/m' ? 'tm' : raw;
+  return TEMPLATE_META[key] || null;
+}
+
+function sentActivityLabel(lead) {
+  const meta = templateMetaForLead(lead);
+  const code = (lead.notes || '').toLowerCase().trim();
+  if (code === 'ag') return `Agreement Sent – ${lead.name}`;
+  if (code === 'iq') return `Quote Created – ${lead.name}`;
+  if (meta?.fullLabel) return `${meta.fullLabel} – ${lead.name}`;
+  return `Template Sent – ${lead.name}`;
+}
+
+function replyActivityLabel(lead) {
+  const email = hasRealReply(lead.email_reply);
+  const sms = hasRealReply(lead.sms_reply);
+  if (email && !sms) return `Email Reply – ${lead.name}`;
+  if (sms) return `Customer Replied – ${lead.name}`;
+  return `Customer Replied – ${lead.name}`;
+}
+
+function activityBase(lead, type, text, ts = lead.sent) {
+  return {
+    id: `${type}-${lead.row_number}`,
+    type,
+    text,
+    time: ts ? relativeTime(ts) : 'Today',
+    ts,
+    rowNumber: lead.row_number,
+    leadName: lead.name,
+    notes: (lead.notes || '').toLowerCase().trim(),
+    replyChannel: type === 'reply'
+      ? (hasRealReply(lead.email_reply) && !hasRealReply(lead.sms_reply) ? 'email' : 'sms')
+      : null,
+  };
+}
+
 function buildTodayActivity(leads, priority) {
   const items = [];
 
   for (const lead of priority.replied.slice(0, 2)) {
-    items.push({
-      id: `r-${lead.row_number}`,
-      type: 'reply',
-      text: `${lead.name} replied`,
-      time: relativeTime(lead.sent),
-      ts: lead.sent,
-    });
+    items.push(activityBase(lead, 'reply', replyActivityLabel(lead)));
   }
 
   const recentSent = [...leads]
@@ -412,45 +445,19 @@ function buildTodayActivity(leads, priority) {
     .slice(0, 2);
 
   for (const lead of recentSent) {
-    const tpl = (lead.notes || '').toUpperCase() || 'Template';
-
-    items.push({
-      id: `s-${lead.row_number}`,
-      type: 'sent',
-      text: `${tpl} sent to ${lead.name}`,
-      time: relativeTime(lead.sent),
-      ts: lead.sent,
-    });
+    items.push(activityBase(lead, 'sent', sentActivityLabel(lead)));
   }
 
   for (const lead of priority.inSequence.slice(0, 1)) {
-    items.push({
-      id: `f-${lead.row_number}`,
-      type: 'overdue',
-      text: `${lead.name} — follow-up overdue`,
-      time: relativeTime(lead.sent),
-      ts: lead.sent,
-    });
+    items.push(activityBase(lead, 'overdue', `Follow-up Due – ${lead.name}`));
   }
 
   for (const lead of leads.filter((l) => !_hasSent(l)).slice(0, 1)) {
-    items.push({
-      id: `n-${lead.row_number}`,
-      type: 'new',
-      text: `New lead · ${lead.name}`,
-      time: 'Today',
-      ts: null,
-    });
+    items.push(activityBase(lead, 'new', `New Lead Added – ${lead.name}`, null));
   }
 
   for (const lead of priority.errors.slice(0, 1)) {
-    items.push({
-      id: `e-${lead.row_number}`,
-      type: 'error',
-      text: `Send issue · ${lead.name}`,
-      time: relativeTime(lead.sent),
-      ts: lead.sent,
-    });
+    items.push(activityBase(lead, 'error', `Send Issue – ${lead.name}`));
   }
 
   const moreSent = [...leads]
@@ -459,13 +466,7 @@ function buildTodayActivity(leads, priority) {
     .slice(2, 5);
 
   for (const lead of moreSent) {
-    items.push({
-      id: `sent2-${lead.row_number}`,
-      type: 'sent',
-      text: `${(lead.notes || '').toUpperCase()} outreach · ${lead.name}`,
-      time: relativeTime(lead.sent),
-      ts: lead.sent,
-    });
+    items.push(activityBase(lead, 'sent', sentActivityLabel(lead)));
   }
 
   return items

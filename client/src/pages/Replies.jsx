@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { WorkspaceSwap } from '../components/WorkspaceTransition.jsx';
 import { MessageCircle, CheckCircle2, AlertCircle, Archive } from 'lucide-react';
@@ -29,6 +29,8 @@ import { hasConversationSignal } from './Replies/conversationLeadFilter.js';
 
 export default function Replies() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const rowFromUrl = searchParams.get('row');
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -179,17 +181,20 @@ export default function Replies() {
     if (lead) void markReadWithMeta(lead, getMessages(rowNumber));
   }, [selectLeadBase, leads, getMessages, markReadWithMeta]);
 
-  const deepLinkRowRef = useRef(location.state?.selectRowNumber);
+  const deepLinkRowRef = useRef(
+    location.state?.selectRowNumber
+    ?? (rowFromUrl ? Number(rowFromUrl) : null),
+  );
 
   useEffect(() => {
     const row = deepLinkRowRef.current;
-    if (row == null || loading || !leads.length) return;
+    if (row == null || Number.isNaN(row) || loading || !leads.length) return;
     const lead = leads.find(l => l.row_number === row);
     if (!lead) return;
     if (archived.has(archKey(lead))) setShowArchived(true);
     selectLead(row);
     deepLinkRowRef.current = null;
-  }, [loading, leads, archived, selectLead, setShowArchived]);
+  }, [loading, leads, archived, selectLead, setShowArchived, rowFromUrl]);
 
   function archiveLead(lead) {
     const rowNumber = lead.row_number;

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
+import { getActivityFeedDestination } from './activityFeedNavigation.js';
 import { useLiveActivityFeed } from './useLiveActivityFeed.js';
 import { formatSyncAgo } from './useLiveClock.js';
 import {
@@ -565,7 +566,20 @@ const FEED_TONE = {
 };
 
 export function TodaysActivityFeed({ items, count = 0 }) {
+  const navigate = useNavigate();
   const { visible, pulseId } = useLiveActivityFeed(items, 3200);
+
+  const handleActivityClick = useCallback((item) => {
+    const dest = getActivityFeedDestination(item);
+    navigate(dest.pathname + (dest.search || ''), { state: dest.state });
+  }, [navigate]);
+
+  const handleActivityKeyDown = useCallback((event, item) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleActivityClick(item);
+    }
+  }, [handleActivityClick]);
 
   return (
     <Panel
@@ -599,25 +613,33 @@ export function TodaysActivityFeed({ items, count = 0 }) {
                 const isPulse = item.id === pulseId;
 
                 return (
-                  <motion.div
+                  <motion.button
                     key={item.id}
+                    type="button"
                     layout
-                    className={`pc-feed__row pc-feed__row--${FEED_TONE[item.type] || 'info'}${isPulse ? ' pc-feed__row--pulse' : ''}`}
+                    className={`pc-feed__row pc-feed__row--actionable pc-feed__row--${FEED_TONE[item.type] || 'info'}${isPulse ? ' pc-feed__row--pulse' : ''}`}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -16 }}
                     transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                    whileHover={{ x: 8, backgroundColor: 'rgba(74,222,128,0.1)' }}
+                    whileHover={{ x: 6, backgroundColor: 'rgba(74,222,128,0.12)' }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={() => handleActivityClick(item)}
+                    onKeyDown={(e) => handleActivityKeyDown(e, item)}
+                    aria-label={`Open ${item.text} in CRM`}
                   >
-                    <span className="pc-feed__node" />
-                    <span className="pc-feed__icon">
+                    <span className="pc-feed__node" aria-hidden />
+                    <span className="pc-feed__icon" aria-hidden>
                       <Icon size={16} />
                     </span>
                     <div className="pc-feed__body">
                       <span className="pc-feed__text">{item.text}</span>
                       <span className="pc-feed__time">{item.time}</span>
                     </div>
-                  </motion.div>
+                    <span className="pc-feed__go" aria-hidden>
+                      <ArrowUpRight size={14} />
+                    </span>
+                  </motion.button>
                 );
               })
             )}

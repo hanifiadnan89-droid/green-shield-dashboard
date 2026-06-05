@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import Spinner from '../../components/Spinner.jsx';
 import LeadsAmbientBackground from '../Leads/LeadsAmbientBackground.jsx';
@@ -35,6 +35,9 @@ function filterBySearch(leads, query) {
 
 export default function FollowupsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const filterParam = searchParams.get('filter') || '';
+  const rowParam = searchParams.get('row') || '';
   const [search, setSearch] = useState('');
   const [showFiltersHint, setShowFiltersHint] = useState(false);
   const [page, setPage] = useState(1);
@@ -75,6 +78,18 @@ export default function FollowupsPage() {
   useEffect(() => {
     setPage(1);
   }, [search, quickFilter]);
+
+  useEffect(() => {
+    if (filterParam) setQuickFilter(filterParam);
+  }, [filterParam, setQuickFilter]);
+
+  useEffect(() => {
+    if (!rowParam || loading) return;
+    const row = Number(rowParam);
+    if (!Number.isFinite(row)) return;
+    const lead = allLeads.find((l) => l.row_number === row);
+    if (lead) setSelectedLead(lead);
+  }, [rowParam, loading, allLeads, setSelectedLead]);
 
   const totalPages = Math.max(1, Math.ceil(searchedLeads.length / pageSize));
   useEffect(() => {
