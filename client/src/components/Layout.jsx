@@ -65,14 +65,14 @@ export default function Layout({ children, testMode }) {
   const sidebarStats = useMemo(() => stats, [stats]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gs-bg">
+    <div className="flex h-screen overflow-hidden app-shell">
       <AppSidebar
         stats={sidebarStats}
         testMode={testMode}
         unreadReplies={replyBadge}
       />
 
-      <div className="flex-1 flex flex-col overflow-hidden bg-gs-bg min-w-0 w-full">
+      <div className="flex-1 flex flex-col overflow-hidden app-shell__main min-w-0 w-full">
         {children}
       </div>
     </div>

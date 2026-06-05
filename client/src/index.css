@@ -22,14 +22,19 @@
 
 @layer base {
   html {
-    background: var(--gs-bg-app);
+    background: #050807;
   }
+
   body {
-    @apply bg-gs-bg text-gs-text font-sans antialiased;
+    @apply text-gs-text font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    background:
-      linear-gradient(135deg, rgba(248,252,247,0.98) 0%, rgba(239,247,237,0.96) 44%, rgba(232,241,231,0.98) 100%),
-      repeating-linear-gradient(90deg, rgba(15,42,20,0.018) 0 1px, transparent 1px 28px);
+    background: #050807;
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+    background: #050807;
   }
   h1, h2, h3 { font-family: 'Poppins', 'Inter', system-ui, sans-serif; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -441,6 +446,16 @@
   }
 }
 
+/* App shell — persistent dark canvas (visible during route swaps / lazy load) */
+.app-shell {
+  background: #050807;
+  color: #f8fafc;
+}
+
+.app-shell__main {
+  background: #050807;
+}
+
 /* Workspace transition stage (sidebar/header stay fixed; content morphs) */
 .workspace-stage,
 .page-transition,
@@ -452,6 +467,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  background: #050807;
 }
 
 .workspace-route {
@@ -465,8 +481,8 @@
 
 @keyframes workspace-route-enter {
   from {
-    opacity: 0;
-    transform: translate3d(8px, 0, 0);
+    opacity: 0.94;
+    transform: translate3d(var(--workspace-enter-x, 10px), 0, 0);
   }
   to {
     opacity: 1;
@@ -475,11 +491,14 @@
 }
 
 .workspace-route--enter {
-  animation: workspace-route-enter 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --workspace-enter-x: 10px;
+  animation: workspace-route-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .workspace-stage--loading {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.35) 100%);
+  flex: 1;
+  min-height: 0;
+  background: #050807;
 }
 
 .workspace-stage__shimmer {

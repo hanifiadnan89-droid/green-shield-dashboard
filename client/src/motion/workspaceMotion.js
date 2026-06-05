@@ -3,7 +3,7 @@
 export const WORKSPACE_EASE = [0.22, 1, 0.36, 1];
 
 export const WORKSPACE_DURATION = {
-  route: 0.24,
+  route: 0.22,
   panel: 0.22,
   swap: 0.18,
 };
