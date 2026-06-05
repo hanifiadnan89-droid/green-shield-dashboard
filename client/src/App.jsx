@@ -2,7 +2,6 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import Layout from './components/Layout.jsx';
 import { AnimatedOutlet } from './components/PageTransition.jsx';
-import PageTransitionFallback from './components/PageTransitionFallback.jsx';
 import TestModeBanner from './components/TestModeBanner.jsx';
 import CRMPreview from './pages/CRMPreview/index.jsx';
 import { api } from './api/client.js';
@@ -45,9 +44,7 @@ function AppShell({ testMode, credsMissing, googleCreds }) {
           )}
         </div>
       )}
-      <Suspense fallback={<PageTransitionFallback />}>
-        <AnimatedOutlet className="page-transition-outlet flex-1 flex flex-col min-h-0 overflow-hidden" />
-      </Suspense>
+      <AnimatedOutlet className="page-transition-outlet flex-1 flex flex-col min-h-0 overflow-hidden" />
     </Layout>
   );
 }

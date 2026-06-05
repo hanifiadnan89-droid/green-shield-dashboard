@@ -3,9 +3,9 @@
 export const WORKSPACE_EASE = [0.22, 1, 0.36, 1];
 
 export const WORKSPACE_DURATION = {
-  route: 0.32,
-  panel: 0.28,
-  swap: 0.24,
+  route: 0.24,
+  panel: 0.22,
+  swap: 0.18,
 };
 
 /** Sidebar route order — used for subtle L/R slide direction */
@@ -21,14 +21,9 @@ export const WORKSPACE_ROUTE_ORDER = [
   '/component-preview',
 ];
 
-export function workspaceRouteKey(pathname, search = '') {
-  const base = WORKSPACE_ROUTE_ORDER.find(
-    p => pathname === p || (p !== '/' && pathname.startsWith(`${p}/`)),
-  );
-  if (base === '/leads') {
-    return `${pathname}${search}`;
-  }
-  return pathname;
+/** One key per route path — query changes (e.g. leads filters) must not remount the page. */
+export function workspaceRouteKey(pathname) {
+  return pathname || '/';
 }
 
 function routeIndex(pathname) {
@@ -63,8 +58,9 @@ export function workspaceRouteVariants(direction = 1) {
     exit: {
       opacity: 0,
       x: exitX,
+      pointerEvents: 'none',
       transition: {
-        duration: WORKSPACE_DURATION.route * 0.85,
+        duration: WORKSPACE_DURATION.route * 0.8,
         ease: WORKSPACE_EASE,
       },
     },

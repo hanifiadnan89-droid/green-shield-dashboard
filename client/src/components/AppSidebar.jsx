@@ -2,6 +2,7 @@ import { useState, useEffect, memo } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Shield, Menu, X } from 'lucide-react';
 import { SIDEBAR_NAV } from './sidebarNav.js';
+import { prefetchRoute } from '../utils/routePrefetch.js';
 import './app-sidebar.css';
 
 function itemIsActive(item, activeFilter, pathname, leadsCategory) {
@@ -192,6 +193,8 @@ function AppSidebar({
                         to={to}
                         className={`${baseClass} no-underline`}
                         onClick={closeMobile}
+                        onMouseEnter={() => prefetchRoute(to)}
+                        onFocus={() => prefetchRoute(to)}
                       >
                         {itemContent}
                       </Link>
@@ -221,6 +224,8 @@ function AppSidebar({
                         to="/"
                         className={`${baseClass} no-underline`}
                         onClick={closeMobile}
+                        onMouseEnter={() => prefetchRoute('/')}
+                        onFocus={() => prefetchRoute('/')}
                       >
                         {itemContent}
                       </Link>
@@ -250,6 +255,8 @@ function AppSidebar({
                         to={`/leads?category=${filterKey}`}
                         className={`${baseClass} no-underline`}
                         onClick={closeMobile}
+                        onMouseEnter={() => prefetchRoute('/leads')}
+                        onFocus={() => prefetchRoute('/leads')}
                       >
                         {itemContent}
                       </Link>
