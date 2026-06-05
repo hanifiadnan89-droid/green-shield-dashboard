@@ -50,7 +50,7 @@ export default function CRMPreview() {
 
   return (
     <div className="crm-preview crm-preview--command flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">
-      <main className="gs-command-main__scroll flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+      <main className="gs-command-main__scroll gs-command-main__scroll--fit flex-1 overflow-hidden overflow-x-hidden min-h-0">
         {error ? (
           <ErrorState onRetry={refresh} message={errorMessage} />
         ) : loading ? (
