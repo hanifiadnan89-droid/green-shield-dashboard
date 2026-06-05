@@ -7,10 +7,9 @@
   color: #f8fafc;
 }
 
+/* Stepper layout only — dark theme in send-template-command.css */
 .send-template-stepper {
-  @apply shrink-0 px-5 sm:px-8 py-5 sm:py-6 border-b border-gs-border/80;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(243, 247, 241, 0.88) 100%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  @apply shrink-0 px-5 sm:px-8 py-5 sm:py-6;
 }
 
 .send-template-stepper__track {
@@ -24,20 +23,6 @@
 .send-template-stepper__node {
   @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0;
   transition: box-shadow 0.25s ease, background-color 0.25s ease, border-color 0.25s ease;
-}
-
-.send-template-stepper__node--done {
-  @apply bg-gs-accent text-black;
-  box-shadow: 0 2px 10px rgba(22, 163, 74, 0.35);
-}
-
-.send-template-stepper__node--active {
-  @apply bg-white border-2 border-gs-accent text-gs-accent;
-  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
-}
-
-.send-template-stepper__node--pending {
-  @apply bg-white/60 border border-gs-border text-gs-muted;
 }
 
 .send-template-stepper__label {

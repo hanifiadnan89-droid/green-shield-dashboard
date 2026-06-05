@@ -18,12 +18,39 @@
 
 /* ── Mission control stepper ── */
 .send-template-stepper {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  border-bottom: 1px solid rgba(74, 222, 128, 0.12) !important;
   background:
-    linear-gradient(180deg, rgba(74, 222, 128, 0.06) 0%, transparent 42%),
-    rgba(5, 8, 7, 0.92);
-  backdrop-filter: blur(12px);
-  box-shadow: none;
+    linear-gradient(180deg, rgba(74, 222, 128, 0.08) 0%, rgba(74, 222, 128, 0.02) 28%, transparent 55%),
+    linear-gradient(180deg, rgba(8, 12, 10, 0.95) 0%, rgba(5, 8, 7, 0.88) 100%) !important;
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 1px 0 rgba(74, 222, 128, 0.08) inset,
+    0 8px 32px rgba(0, 0, 0, 0.35) !important;
+}
+
+.send-template-stepper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.45), transparent);
+  pointer-events: none;
+}
+
+.send-template-stepper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 12% -20%, rgba(74, 222, 128, 0.12), transparent 55%);
+  pointer-events: none;
+}
+
+.send-template-stepper > * {
+  position: relative;
+  z-index: 1;
 }
 
 .send-template-stepper__title {
