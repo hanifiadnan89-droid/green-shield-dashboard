@@ -86,14 +86,14 @@
 
 .send-template-stepper__track {
   position: relative;
-  padding-bottom: 0.25rem;
+  padding-bottom: 0.625rem;
 }
 
 .send-template-stepper__beam {
   position: absolute;
   left: 1rem;
   right: 1rem;
-  top: 1rem;
+  bottom: 0;
   height: 2px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
