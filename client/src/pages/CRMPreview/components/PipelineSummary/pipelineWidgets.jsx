@@ -636,9 +636,6 @@ export function TodaysActivityFeed({ items, count = 0 }) {
                       <span className="pc-feed__text">{item.text}</span>
                       <span className="pc-feed__time">{item.time}</span>
                     </div>
-                    <span className="pc-feed__go" aria-hidden>
-                      <ArrowUpRight size={14} />
-                    </span>
                   </motion.button>
                 );
               })
