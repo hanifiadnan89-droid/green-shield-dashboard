@@ -86,6 +86,11 @@ export const api = {
     clear: () => request('/activity', { method: 'DELETE' })
   },
 
+  activityErrors: {
+    list: () => request('/activity-errors'),
+    complete: (rowNumber) => request(`/activity-errors/${rowNumber}/complete`, { method: 'POST' }),
+  },
+
   drive: {
     quotes: () => request('/drive/quotes')
   },
