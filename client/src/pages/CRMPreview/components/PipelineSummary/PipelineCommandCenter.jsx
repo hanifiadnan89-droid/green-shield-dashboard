@@ -35,7 +35,7 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
 
   if (data.statusTotal === 0) {
     return (
-      <section className="pipeline-command pipeline-command--fullscreen">
+      <section className="pipeline-command pipeline-command--fullscreen pipeline-command--viewport-fit">
         <AmbientBackground />
 
         <div className="pipeline-command__empty">
@@ -50,11 +50,11 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
   }
 
   return (
-    <section className="pipeline-command pipeline-command--fullscreen">
+    <section className="pipeline-command pipeline-command--fullscreen pipeline-command--viewport-fit">
       <AmbientBackground />
 
       <LayoutGroup>
-        <div className="pipeline-command__grid">
+        <div className="pipeline-command__grid pipeline-command__grid--fit">
           <CommandHeader
             lastSync={lastSync}
             now={now}
@@ -67,21 +67,23 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
             <ServicesSnapshot services={data.services} />
           </div>
 
-          <div className="pc-mid-row">
-            <PipelineFlow stages={data.pipelineFlow} conversionRate={data.conversionRate} />
-            <FollowupsDue
-              count={data.followupsDueCount}
-              list={data.followupsDueList}
-              onNavigate={navigate}
-            />
-            <LeadActivityChart series={data.leadActivity} />
-          </div>
+          <div className="pc-body-stack">
+            <div className="pc-mid-row">
+              <PipelineFlow stages={data.pipelineFlow} conversionRate={data.conversionRate} />
+              <FollowupsDue
+                count={data.followupsDueCount}
+                list={data.followupsDueList}
+                onNavigate={navigate}
+              />
+              <LeadActivityChart series={data.leadActivity} />
+            </div>
 
-          <div className="pc-feed-section">
-            <TodaysActivityFeed
-              items={data.todayActivity}
-              count={data.todayActivity.length}
-            />
+            <div className="pc-feed-section">
+              <TodaysActivityFeed
+                items={data.todayActivity}
+                count={data.todayActivity.length}
+              />
+            </div>
           </div>
 
           <SystemStatusStrip />
