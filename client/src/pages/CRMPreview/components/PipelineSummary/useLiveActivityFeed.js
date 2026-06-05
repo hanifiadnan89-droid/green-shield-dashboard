@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react';
 
-/** Rotate first item to end — used by the live ticker interval */
-export function rotateFeedOrder(prev) {
-  if (prev.length <= 1) return prev;
-  const next = [...prev];
-  const first = next.shift();
-  next.push(first);
-  return next;
-}
-
 /** Cycles highlight + subtle reorder so the feed feels live */
-export function useLiveActivityFeed(items, intervalMs = 3500, paused = false) {
+export function useLiveActivityFeed(items, intervalMs = 3500) {
   const [visible, setVisible] = useState(items);
   const [pulseId, setPulseId] = useState(null);
 
@@ -19,15 +10,19 @@ export function useLiveActivityFeed(items, intervalMs = 3500, paused = false) {
   }, [items]);
 
   useEffect(() => {
-    if (!items.length || paused) return undefined;
-
+    if (!items.length) return undefined;
     const id = setInterval(() => {
       setPulseId(items[Math.floor(Math.random() * items.length)]?.id ?? null);
-      setVisible((prev) => rotateFeedOrder(prev));
+      setVisible(prev => {
+        if (prev.length <= 1) return prev;
+        const next = [...prev];
+        const first = next.shift();
+        next.push(first);
+        return next;
+      });
     }, intervalMs);
+    return () => clearInterval(id);
+  }, [items, intervalMs]);
 
-    return () => clearInterval(interval);
-  }, [items, intervalMs, paused]);
-
-  return { visible, pulseId, paused };
+  return { visible, pulseId };
 }

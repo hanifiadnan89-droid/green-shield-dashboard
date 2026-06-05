@@ -598,25 +598,6 @@
 }
 
 /* Full-width activity section */
-.pc-feed-zone {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.pc-feed-zone > .pc-feed-panel {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.pc-feed-zone--paused .pc-feed-live-pill .pc-live__dot {
-  animation: none;
-}
-
 .pc-feed-section {
   flex: 1;
   min-height: 0;
