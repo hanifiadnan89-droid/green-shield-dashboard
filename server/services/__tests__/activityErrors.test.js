@@ -40,4 +40,20 @@ describe('activityErrors', () => {
     expect(isOpenDashboardStatus('complete')).toBe(false);
     expect(isOpenDashboardStatus('')).toBe(true);
   });
+
+  it('hides locally completed row numbers', () => {
+    const rows = padRows([
+      ['Date Added', 'Added By', 'Sales Rep', 'Customer ID', 'Customer Name', 'Cus Card Tab Error'],
+      ['', '', 'AH', '27191', 'Acme', 'UNPAID IS/OTS'],
+      ['', '', 'AH', '27194', 'Beta', 'UNPAID IS/OTS'],
+    ]);
+
+    const { items } = parseErrorListRows(rows, {
+      assignee: 'AH',
+      headerRowNumber: 11,
+      completedRowSet: new Set([12]),
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].rowNumber).toBe(13);
+  });
 });

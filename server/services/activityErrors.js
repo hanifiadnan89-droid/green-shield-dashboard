@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { loadGoogleCredentials } from './googleCredentials.js';
+import { getCompletedRowSet, markCompleted } from './activityErrorCompletions.js';
 
 const ERROR_LIST_SHEET_ID =
   process.env.ERROR_LIST_SHEET_ID
@@ -59,7 +60,11 @@ export function resolveStatusColumn(headerRow = []) {
 
 export function parseErrorListRows(
   allRows,
-  { assignee = ERROR_LIST_ASSIGNEE, headerRowNumber = ERROR_LIST_HEADER_ROW } = {},
+  {
+    assignee = ERROR_LIST_ASSIGNEE,
+    headerRowNumber = ERROR_LIST_HEADER_ROW,
+    completedRowSet = new Set(),
+  } = {},
 ) {
   const empty = {
     items: [],
@@ -92,7 +97,7 @@ export function parseErrorListRows(
     if (!isOpenDashboardStatus(dashboardStatus)) continue;
 
     const rowNumber = i + 1;
-    if (seen.has(rowNumber)) continue;
+    if (seen.has(rowNumber) || completedRowSet.has(rowNumber)) continue;
     seen.add(rowNumber);
 
     items.push({
@@ -133,7 +138,8 @@ async function readErrorListRows() {
 
 export async function getActivityErrors() {
   const rows = await readErrorListRows();
-  const { items, statusColumn, hasStatusHeader } = parseErrorListRows(rows);
+  const completedRowSet = getCompletedRowSet(ERROR_LIST_SHEET_ID);
+  const { items, statusColumn, hasStatusHeader } = parseErrorListRows(rows, { completedRowSet });
   return {
     items,
     count: items.length,
@@ -143,6 +149,8 @@ export async function getActivityErrors() {
     headerRow: ERROR_LIST_HEADER_ROW,
     statusColumn,
     hasStatusHeader,
+    readOnly: true,
+    completionStorage: 'local',
   };
 }
 
@@ -153,24 +161,21 @@ export async function completeActivityError(rowNumber) {
     throw new Error('Invalid row number');
   }
 
-  if (process.env.TEST_MODE === 'true') {
-    return { completed: true, rowNumber: parsedRow, testMode: true };
+  const rows = await readErrorListRows();
+  const completedRowSet = getCompletedRowSet(ERROR_LIST_SHEET_ID);
+  const { items } = parseErrorListRows(rows, { completedRowSet });
+  const match = items.find(item => item.rowNumber === parsedRow);
+  if (!match) {
+    throw new Error('Error task not found or already completed');
   }
 
-  const rows = await readErrorListRows();
-  const headerIdx = ERROR_LIST_HEADER_ROW - 1;
-  const { statusColumn } = resolveStatusColumn(rows[headerIdx] || []);
-  const auth = getAuth();
-  const sheets = google.sheets({ version: 'v4', auth });
-
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: ERROR_LIST_SHEET_ID,
-    range: `'${ERROR_LIST_SHEET_NAME}'!${statusColumn}${parsedRow}`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [['complete']] },
+  // Read-only sheet access — persist completion locally (does not modify Google Sheet).
+  return markCompleted({
+    sheetId: ERROR_LIST_SHEET_ID,
+    rowNumber: parsedRow,
+    customerId: match.customerId,
+    reason: match.reason,
   });
-
-  return { completed: true, rowNumber: parsedRow, dashboardStatus: 'complete' };
 }
 
 export {
