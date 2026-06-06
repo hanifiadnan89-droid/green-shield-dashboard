@@ -1,7 +1,12 @@
-import { AlertCircle } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
+import { motion } from 'motion/react';
 import Spinner from '../../components/Spinner.jsx';
 import FloatingErrorCard from './FloatingErrorCard.jsx';
 import useFloatingMotion from './useFloatingMotion.js';
+import useEnteringItemIds from './useEnteringItemIds.js';
+import useReducedMotion from './useReducedMotion.js';
+
+const EASE = [0.22, 1, 0.36, 1];
 
 export default function ActivityFloatingArena({
   items,
@@ -9,13 +14,17 @@ export default function ActivityFloatingArena({
   error,
   paused,
   onSelect,
+  onComplete,
   onRetry,
 }) {
+  const reducedMotion = useReducedMotion();
+  const enteringIds = useEnteringItemIds(items);
   const {
     containerRef,
     positions,
     setHovered,
     registerSize,
+    hoveredId,
   } = useFloatingMotion(items, { paused });
 
   return (
@@ -36,13 +45,18 @@ export default function ActivityFloatingArena({
           </button>
         </div>
       ) : items.length === 0 ? (
-        <div className="activity-board-empty">
-          <div className="activity-board-empty__icon">
-            <AlertCircle size={22} />
+        <motion.div
+          className="activity-board-empty"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reducedMotion ? 0.15 : 0.35, ease: EASE }}
+        >
+          <div className="activity-board-empty__icon activity-board-empty__icon--success">
+            <CheckCircle2 size={24} />
           </div>
-          <h3>No open errors assigned to AH.</h3>
-          <p>Active items from Action/Error Lists will float here when available.</p>
-        </div>
+          <h3>All caught up.</h3>
+          <p>No open issues assigned to you.</p>
+        </motion.div>
       ) : (
         <div ref={containerRef} className="absolute inset-0">
           {items.map(item => (
@@ -50,9 +64,13 @@ export default function ActivityFloatingArena({
               key={item.id}
               item={item}
               position={positions[item.id]}
+              isEntering={enteringIds.has(item.id)}
+              isHovered={hoveredId === item.id}
+              reducedMotion={reducedMotion}
               onSelect={onSelect}
               onHoverStart={setHovered}
               onHoverEnd={() => setHovered(null)}
+              onComplete={onComplete}
               registerSize={registerSize}
             />
           ))}
