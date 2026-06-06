@@ -25,6 +25,8 @@ export default function FloatingErrorCard({
   const y = position?.y ?? 24;
   const isOpen = !item.isComplete;
   const statusLabel = isOpen ? 'OPEN' : 'COMPLETE';
+  const originalLabel = item.originalPriceLabel || item.priceLabel || 'No price listed';
+  const valueLabel = item.contractValueLabel || 'No price listed';
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -35,6 +37,7 @@ export default function FloatingErrorCard({
     item.id,
     item.customerId,
     item.errorType,
+    item.originalPriceLabel,
     item.contractValueLabel,
     actionsOpen,
     phase,
@@ -125,17 +128,21 @@ export default function FloatingErrorCard({
               {statusLabel}
             </span>
           </div>
+
+          {item.customerName ? (
+            <p className="activity-floating-card__name">{item.customerName}</p>
+          ) : null}
+
           <p className="activity-floating-card__reason">
             {item.errorType || item.reasonRaw || item.reason || 'Error'}
           </p>
-          <div className="activity-floating-card__footer">
-            {item.customerName ? (
-              <p className="activity-floating-card__name">{item.customerName}</p>
-            ) : (
-              <span />
-            )}
+
+          <div className="activity-floating-card__pricing">
+            <span className="activity-floating-card__original">
+              Original: {originalLabel}
+            </span>
             <span className="activity-floating-card__value">
-              {item.contractValueLabel || 'No price listed'}
+              Value: {valueLabel}
             </span>
           </div>
         </div>

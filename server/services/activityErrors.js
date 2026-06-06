@@ -125,7 +125,7 @@ export function parseErrorListRows(
       rowNumber,
       customerId,
       customerName,
-      reason: reason || notes,
+      reason,
       notes,
       dateAdded: (row[COL_DATE_ADDED] ?? '').toString().trim(),
       addedBy: (row[COL_ADDED_BY] ?? '').toString().trim(),

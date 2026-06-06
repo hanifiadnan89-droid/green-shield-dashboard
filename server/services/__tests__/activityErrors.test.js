@@ -41,6 +41,26 @@ describe('activityErrors', () => {
     expect(isOpenDashboardStatus('')).toBe(true);
   });
 
+  it('derives contract value from Column G notes', () => {
+    const rows = padRows([
+      ['Date Added', 'Added By', 'Sales Rep', 'Customer ID', 'Customer Name', 'Cus Card Tab Error', 'Notes'],
+      ['', '', 'AH', '27194', 'SRA Varieties', 'UNPAID IS/OTS', '5/22 $449 IS'],
+    ]);
+
+    const { items } = parseErrorListRows(rows, { assignee: 'AH', headerRowNumber: 11 });
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      customerId: '27194',
+      reason: 'UNPAID IS/OTS',
+      notes: '5/22 $449 IS',
+      errorType: 'Unpaid Initial',
+      serviceType: 'IS',
+      originalPriceLabel: '$449 IS',
+      contractValue: 1164,
+      contractValueLabel: '$1,164',
+    });
+  });
+
   it('hides locally completed row numbers', () => {
     const rows = padRows([
       ['Date Added', 'Added By', 'Sales Rep', 'Customer ID', 'Customer Name', 'Cus Card Tab Error'],

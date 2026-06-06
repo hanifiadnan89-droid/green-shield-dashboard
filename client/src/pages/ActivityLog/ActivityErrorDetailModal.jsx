@@ -63,7 +63,9 @@ export default function ActivityErrorDetailModal({
               <DetailRow label="Customer name" value={item.customerName} />
               <DetailRow label="Account number" value={item.customerId} />
               <DetailRow label="Error type" value={item.errorType} />
+              <DetailRow label="Notes (Column G)" value={item.notesText || item.notes} />
               <DetailRow label="Full reason" value={item.reasonRaw || item.reason} />
+              <DetailRow label="Service type" value={item.serviceType} />
               <DetailRow label="Original price" value={item.originalPriceLabel} />
               <DetailRow label="Contract value" value={item.contractValueLabel} />
               <DetailRow label="Date added" value={item.dateAdded} />
