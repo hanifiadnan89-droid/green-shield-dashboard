@@ -11,6 +11,9 @@ const IS_CONTRACT_VALUE_BY_PRICE = {
   399: 1048,
 };
 
+const NO_CONTRACT_VALUE_LABEL = 'No contract value found';
+const TMM_TREATMENTS_PER_SEASON = 6;
+
 export function parsePriceAmount(price) {
   if (!price) return null;
   const match = price.toString().match(/[\d,]+(?:\.\d{2})?/);
@@ -29,10 +32,16 @@ export function extractPrice(text = '') {
   return match ? `$${match[1].replace(/,/g, '')}` : null;
 }
 
+export function isTmmNotes(text = '') {
+  return /\bTMM\b/i.test(text.toString());
+}
+
 export function extractServiceType(text = '') {
   const raw = text.toString().trim();
   if (!raw) return null;
   const upper = raw.toUpperCase();
+
+  if (isTmmNotes(raw)) return 'TMM';
 
   const priceAdjacent = raw.match(/\$\s*[\d,]+(?:\.\d{2})?\s*(IS|OTS)\b/i);
   if (priceAdjacent) return priceAdjacent[1].toUpperCase();
@@ -59,7 +68,6 @@ export function buildOriginalPriceLabel(price, serviceType) {
 
 export function classifyErrorType({ notesText = '', reasonText = '', serviceType = null } = {}) {
   const notesUpper = notesText.toUpperCase();
-  const reasonUpper = reasonText.toUpperCase();
   const combined = `${notesText} ${reasonText}`.trim().toUpperCase();
 
   if (/LINE BUSY|\bLVM\b|LEFT VOICEMAIL|VOICEMAIL/.test(combined)) {
@@ -75,6 +83,10 @@ export function classifyErrorType({ notesText = '', reasonText = '', serviceType
   const resolvedService = serviceType
     || extractServiceType(notesText)
     || extractServiceType(reasonText);
+
+  if (/\bTMM\b/.test(combined)) {
+    return { category: ERROR_CATEGORIES.other, errorType: 'TMM' };
+  }
 
   if (hasPending && (resolvedService === 'OTS' || /\bOTS\b/.test(combined))) {
     return { category: ERROR_CATEGORIES.pending, errorType: 'OTS Pending' };
@@ -115,53 +127,96 @@ export function classifyErrorType({ notesText = '', reasonText = '', serviceType
 export function calculateContractValue({
   price,
   serviceType = null,
-  category = ERROR_CATEGORIES.other,
+  notesText = '',
+  reasonText = '',
 } = {}) {
+  const sourceText = `${notesText} ${reasonText}`.trim();
   const originalPrice = price || null;
   const priceAmount = parsePriceAmount(price);
-  const originalPriceLabel = buildOriginalPriceLabel(price, serviceType);
+  const hasTmm = isTmmNotes(notesText) || isTmmNotes(reasonText);
+  const resolvedService = hasTmm ? 'TMM' : serviceType;
+  const originalPriceLabel = buildOriginalPriceLabel(price, resolvedService);
 
-  let resolvedService = serviceType;
-  if (!resolvedService && category === ERROR_CATEGORIES.unpaid && priceAmount != null) {
-    resolvedService = 'IS';
-  }
-
-  if (resolvedService === 'IS' && priceAmount != null) {
-    const mapped = IS_CONTRACT_VALUE_BY_PRICE[priceAmount];
-    if (mapped != null) {
-      return {
-        contractValue: mapped,
-        contractValueLabel: formatUsd(mapped),
-        originalPrice,
-        originalPriceLabel,
-        serviceType: resolvedService,
-      };
-    }
-  }
-
-  if (resolvedService === 'OTS' && priceAmount != null) {
+  if (priceAmount == null) {
     return {
-      contractValue: priceAmount,
-      contractValueLabel: formatUsd(priceAmount),
+      contractValue: null,
+      contractValueLabel: NO_CONTRACT_VALUE_LABEL,
       originalPrice,
       originalPriceLabel,
       serviceType: resolvedService,
     };
   }
 
-  if (category === ERROR_CATEGORIES.pending && priceAmount != null) {
+  // 1. TMM → price × 6 (full Apr–Sep season)
+  if (hasTmm) {
+    const contractValue = priceAmount * TMM_TREATMENTS_PER_SEASON;
+    return {
+      contractValue,
+      contractValueLabel: formatUsd(contractValue),
+      originalPrice,
+      originalPriceLabel,
+      serviceType: 'TMM',
+    };
+  }
+
+  // 2. OTS → listed price only
+  if (serviceType === 'OTS') {
     return {
       contractValue: priceAmount,
       contractValueLabel: formatUsd(priceAmount),
       originalPrice,
       originalPriceLabel,
-      serviceType: resolvedService,
+      serviceType: 'OTS',
+    };
+  }
+
+  // 3. IS $449 → $1,164
+  if (serviceType === 'IS' && priceAmount === 449) {
+    return {
+      contractValue: IS_CONTRACT_VALUE_BY_PRICE[449],
+      contractValueLabel: formatUsd(IS_CONTRACT_VALUE_BY_PRICE[449]),
+      originalPrice,
+      originalPriceLabel,
+      serviceType: 'IS',
+    };
+  }
+
+  // 4. IS $399 → $1,048
+  if (serviceType === 'IS' && priceAmount === 399) {
+    return {
+      contractValue: IS_CONTRACT_VALUE_BY_PRICE[399],
+      contractValueLabel: formatUsd(IS_CONTRACT_VALUE_BY_PRICE[399]),
+      originalPrice,
+      originalPriceLabel,
+      serviceType: 'IS',
+    };
+  }
+
+  // 5. No IS/OTS label but $449 → $1,164
+  if (!serviceType && priceAmount === 449) {
+    return {
+      contractValue: IS_CONTRACT_VALUE_BY_PRICE[449],
+      contractValueLabel: formatUsd(IS_CONTRACT_VALUE_BY_PRICE[449]),
+      originalPrice,
+      originalPriceLabel,
+      serviceType: null,
+    };
+  }
+
+  // 6. No IS/OTS label but $399 → $1,048
+  if (!serviceType && priceAmount === 399) {
+    return {
+      contractValue: IS_CONTRACT_VALUE_BY_PRICE[399],
+      contractValueLabel: formatUsd(IS_CONTRACT_VALUE_BY_PRICE[399]),
+      originalPrice,
+      originalPriceLabel,
+      serviceType: null,
     };
   }
 
   return {
     contractValue: null,
-    contractValueLabel: 'No price listed',
+    contractValueLabel: NO_CONTRACT_VALUE_LABEL,
     originalPrice,
     originalPriceLabel,
     serviceType: resolvedService,
@@ -176,9 +231,15 @@ export function parseActivityErrorFields({ notes = '', reason = '' } = {}) {
   const price = extractPrice(notesText) || extractPrice(reasonText);
   const serviceType = extractServiceType(notesText) || extractServiceType(reasonText);
   const { category, errorType } = classifyErrorType({ notesText, reasonText, serviceType });
-  const contract = calculateContractValue({ price, serviceType, category });
+  const contract = calculateContractValue({
+    price,
+    serviceType: serviceType === 'TMM' ? null : serviceType,
+    notesText,
+    reasonText,
+  });
 
   const sourceText = notesText || reasonText;
+  const resolvedServiceType = contract.serviceType ?? serviceType;
 
   return {
     notesText,
@@ -189,7 +250,7 @@ export function parseActivityErrorFields({ notes = '', reason = '' } = {}) {
     errorType,
     price,
     priceLabel: price || 'No price listed',
-    serviceType: contract.serviceType ?? serviceType,
+    serviceType: resolvedServiceType,
     sourceText,
     ...contract,
   };
@@ -209,7 +270,7 @@ export function buildFloatingTitle({
   return [
     customerName || 'Unknown',
     errorType || 'Error',
-    contractValueLabel || 'No price listed',
+    contractValueLabel || NO_CONTRACT_VALUE_LABEL,
     customerId || '—',
   ].join(' - ');
 }
