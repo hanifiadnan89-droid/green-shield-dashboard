@@ -62,12 +62,18 @@ export default function ActivityErrorDetailModal({
             <div className="activity-error-modal__body">
               <DetailRow label="Customer name" value={item.customerName} />
               <DetailRow label="Account number" value={item.customerId} />
-              <DetailRow label="Error type" value={item.errorType} />
+              <DetailRow label="Reason (Column F)" value={item.reasonDisplay || item.reasonRaw || item.reason} />
               <DetailRow label="Notes (Column G)" value={item.notesText || item.notes} />
-              <DetailRow label="Full reason" value={item.reasonRaw || item.reason} />
-              <DetailRow label="Service type" value={item.serviceType} />
+              <DetailRow label="Detected service" value={item.detectedServiceLabel || item.detectedServiceType} />
+              <DetailRow label="Detected error type" value={item.detectedErrorType || item.errorType} />
               <DetailRow label="Original price" value={item.originalPriceLabel} />
-              <DetailRow label="Contract value" value={item.contractValueLabel} />
+              <DetailRow
+                label="Estimated contract value"
+                value={item.isEstimated
+                  ? `${item.contractValueLabel} (estimated)`
+                  : item.contractValueLabel}
+              />
+              <DetailRow label="Summary" value={item.cardSummary} />
               <DetailRow label="Date added" value={item.dateAdded} />
               <DetailRow label="Added by" value={item.addedBy} />
               <DetailRow label="Sales rep" value={item.initials} />
