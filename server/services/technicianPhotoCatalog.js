@@ -104,5 +104,12 @@ export async function refreshTechnicianPhotoCatalog({ force = false } = {}) {
 export async function getTechnicianPhotoCatalog() {
   const cached = readCache();
   if (cached) return cached;
-  return refreshTechnicianPhotoCatalog();
+  try {
+    return await refreshTechnicianPhotoCatalog();
+  } catch (err) {
+    console.error('[technician-photos] refresh failed:', err.message);
+    const stale = readCache();
+    if (stale) return stale;
+    return { fetchedAt: Date.now(), source: ABOUT_URL, byName: {} };
+  }
 }

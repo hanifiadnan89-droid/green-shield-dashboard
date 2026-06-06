@@ -5,6 +5,7 @@
 
 import { launchFieldRoutesChromium } from './playwrightRuntime.js';
 import { savePersistedAuthState, getFieldRoutesBaseUrl } from './fieldRoutesAuth.js';
+import { withFieldRoutesScrapeLock } from './fieldRoutesScrapeLock.js';
 
 const LOGIN_TIMEOUT_MS = 90 * 1000;
 
@@ -64,29 +65,31 @@ export async function refreshFieldRoutesSessionWithCredentials() {
     throw new Error('FIELDROUTES_USERNAME and FIELDROUTES_PASSWORD must be set in the environment.');
   }
 
-  const username = process.env.FIELDROUTES_USERNAME.trim();
-  const password = process.env.FIELDROUTES_PASSWORD.trim();
-  const baseUrl = getFieldRoutesBaseUrl();
+  return withFieldRoutesScrapeLock('headlessLogin', async () => {
+    const username = process.env.FIELDROUTES_USERNAME.trim();
+    const password = process.env.FIELDROUTES_PASSWORD.trim();
+    const baseUrl = getFieldRoutesBaseUrl();
 
-  const browser = await launchFieldRoutesChromium();
-  try {
-    const context = await browser.newContext();
-    const page = await context.newPage();
+    const browser = await launchFieldRoutesChromium();
+    try {
+      const context = await browser.newContext();
+      const page = await context.newPage();
 
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    await fillLoginForm(page, username, password);
-    await clickLoginSubmit(page);
-    await waitForLoginSuccess(page);
+      await fillLoginForm(page, username, password);
+      await clickLoginSubmit(page);
+      await waitForLoginSuccess(page);
 
-    const state = await context.storageState();
-    await savePersistedAuthState(state);
-    console.log('[auth] Headless FieldRoutes login succeeded — session saved on server');
-    return state;
-  } catch (err) {
-    const msg = err.message || String(err);
-    throw new Error(`FieldRoutes headless login failed: ${msg}`);
-  } finally {
-    await browser.close();
-  }
+      const state = await context.storageState();
+      await savePersistedAuthState(state);
+      console.log('[auth] Headless FieldRoutes login succeeded — session saved on server');
+      return state;
+    } catch (err) {
+      const msg = err.message || String(err);
+      throw new Error(`FieldRoutes headless login failed: ${msg}`);
+    } finally {
+      await browser.close();
+    }
+  });
 }

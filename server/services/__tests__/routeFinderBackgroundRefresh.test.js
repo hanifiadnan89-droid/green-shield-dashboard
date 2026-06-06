@@ -20,6 +20,10 @@ vi.mock('../fieldRoutesHeadlessLogin.js', () => ({
   refreshFieldRoutesSessionWithCredentials,
 }));
 
+vi.mock('../fieldRoutesScrapeLock.js', () => ({
+  isFieldRoutesScrapeInFlight: vi.fn(() => false),
+}));
+
 describe('runRouteFinderBackgroundRefresh', () => {
   let runRouteFinderBackgroundRefresh;
 

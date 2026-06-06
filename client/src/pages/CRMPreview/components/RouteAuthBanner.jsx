@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { api } from '../../../api/client.js';
@@ -53,6 +53,17 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted, compact = false }) 
   const [actionError, setActionError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [pasteJson, setPasteJson] = useState('');
+  const [serverLoginAvailable, setServerLoginAvailable] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.routes.authDiagnostics()
+      .then((diag) => {
+        if (!cancelled) setServerLoginAvailable(!!diag?.credentialsConfigured);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const uiStatus = busy ? 'checking' : (authInfo.status || 'unknown');
   const theme = STATUS[uiStatus] || STATUS.unknown;
@@ -94,8 +105,16 @@ function AuthStatusBanner({ authInfo, onLoginRefreshStarted, compact = false }) 
 
   const handlePrimary = () => {
     if (busy) return;
-    if (isConnected) runRefreshSession();
-    else runServerLogin();
+    if (isConnected) {
+      runRefreshSession();
+      return;
+    }
+    if (serverLoginAvailable) {
+      runServerLogin();
+      return;
+    }
+    setShowAdvanced(true);
+    setActionError('Paste exported session JSON below, then click Apply.');
   };
 
   async function handleApplyPastedAuth() {

@@ -91,7 +91,13 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   // Helper: splits _auth out of the status response and applies both
   // ---------------------------------------------------------------------------
   const applyStatusData = useCallback((statusData) => {
-    const { _auth, ...dateStatuses } = statusData;
+    const {
+      _auth,
+      _partial,
+      _statusError,
+      _server,
+      ...dateStatuses
+    } = statusData || {};
     setDateStatus(dateStatuses);
     if (_auth) setAuthInfo(_auth);
   }, []);
@@ -117,10 +123,26 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     }, 3000);
   }, [applyStatusData]);
 
-  const refreshRouteStatus = useCallback(async () => {
-    const statusData = await api.routes.status();
-    applyStatusData(statusData);
-    return statusData;
+  const refreshRouteStatus = useCallback(async (retries = 3) => {
+    let lastErr;
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const statusData = await api.routes.status();
+        applyStatusData(statusData);
+        if (statusData?._partial && statusData?._statusError) {
+          setStatusMountError(statusData._statusError);
+        } else {
+          setStatusMountError(null);
+        }
+        return statusData;
+      } catch (err) {
+        lastErr = err;
+        const retryable = err.httpStatus === 502 || err.isNetworkError;
+        if (!retryable || attempt >= retries - 1) break;
+        await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+      }
+    }
+    throw lastErr;
   }, [applyStatusData]);
 
   const handleLoginRefreshStarted = useCallback(async () => {
@@ -194,9 +216,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         console.warn('[RouteFinder] auth status read failed:', authErr?.message);
       }
 
-      const statusData = await api.routes.status();
-      applyStatusData(statusData);
-      setStatusMountError(null);
+      const statusData = await refreshRouteStatus(1);
 
       const needsLoad = DATE_KEYS.some(d => {
         const s = statusData[d]?.status;
@@ -222,7 +242,12 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         if (anyRefreshing) startPolling();
       }
     } catch (err) {
-      setStatusMountError(err?.message || 'Route status unavailable');
+      const is502 = err?.httpStatus === 502 || /502/.test(err?.message || '');
+      setStatusMountError(
+        is502
+          ? 'Server temporarily unavailable (often during route sync). Wait a few seconds and retry.'
+          : (err?.message || 'Route status unavailable'),
+      );
       try {
         const auth = await api.routes.authStatus();
         if (auth?.status) {
@@ -231,11 +256,14 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             status: auth.status,
             lastCheck: auth.lastCheck,
             message: auth.message,
+            lastCheckFormatted: auth.lastCheck
+              ? new Date(auth.lastCheck).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+              : prev.lastCheckFormatted,
           }));
         }
       } catch { /* ignore */ }
     }
-  }, [DATE_KEYS, applyStatusData, startPolling]);
+  }, [DATE_KEYS, applyStatusData, startPolling, refreshRouteStatus]);
 
   useEffect(() => {
     loadInitialRouteStatus();
