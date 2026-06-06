@@ -1,14 +1,17 @@
 import { google } from 'googleapis';
 import { loadGoogleCredentials } from './googleCredentials.js';
 
-const SHEET_ID = process.env.SHEET_ID || '1hneyXzxNqHDM-AfNs5-c1Qp7jqBeHfpKKsYbf_62obk';
+const ERROR_LIST_SHEET_ID =
+  process.env.ERROR_LIST_SHEET_ID
+  || '1faT6OQJ1we6RkjfmqQFhcQk9OO5ohoFa4_JkwtoiDH0';
 const ERROR_LIST_SHEET_NAME = process.env.ERROR_LIST_SHEET_NAME || 'Action/Error Lists';
 const ERROR_LIST_ASSIGNEE = process.env.ERROR_LIST_ASSIGNEE || 'AH';
-const DEFAULT_STATUS_COLUMN = process.env.ERROR_LIST_STATUS_COLUMN || 'G';
+const ERROR_LIST_HEADER_ROW = parseInt(process.env.ERROR_LIST_HEADER_ROW || '11', 10);
+const DEFAULT_STATUS_COLUMN = process.env.ERROR_LIST_STATUS_COLUMN || 'L';
 
-const COL_INITIALS = 2;   // C
+const COL_INITIALS = 2;   // C — Sales Rep
 const COL_CUSTOMER_ID = 3; // D
-const COL_REASON = 5;      // F
+const COL_REASON = 5;      // F — Cus Card Tab Error
 
 export function columnIndexToLetter(index) {
   let n = index;
@@ -44,26 +47,40 @@ export function resolveStatusColumn(headerRow = []) {
     return {
       statusColIdx: statusIdx,
       statusColumn: columnIndexToLetter(statusIdx),
+      hasStatusHeader: true,
     };
   }
   return {
     statusColIdx: columnLetterToIndex(DEFAULT_STATUS_COLUMN),
     statusColumn: DEFAULT_STATUS_COLUMN.toUpperCase(),
+    hasStatusHeader: false,
   };
 }
 
-export function parseErrorListRows(rows, { assignee = ERROR_LIST_ASSIGNEE } = {}) {
-  if (!rows?.length) {
-    return { items: [], statusColumn: DEFAULT_STATUS_COLUMN.toUpperCase(), statusColIdx: columnLetterToIndex(DEFAULT_STATUS_COLUMN) };
-  }
+export function parseErrorListRows(
+  allRows,
+  { assignee = ERROR_LIST_ASSIGNEE, headerRowNumber = ERROR_LIST_HEADER_ROW } = {},
+) {
+  const empty = {
+    items: [],
+    statusColumn: DEFAULT_STATUS_COLUMN.toUpperCase(),
+    statusColIdx: columnLetterToIndex(DEFAULT_STATUS_COLUMN),
+    hasStatusHeader: false,
+  };
 
-  const { statusColumn, statusColIdx } = resolveStatusColumn(rows[0]);
+  if (!allRows?.length) return empty;
+
+  const headerIdx = Math.max(0, headerRowNumber - 1);
+  if (headerIdx >= allRows.length) return empty;
+
+  const headerRow = allRows[headerIdx];
+  const { statusColumn, statusColIdx, hasStatusHeader } = resolveStatusColumn(headerRow);
   const seen = new Set();
   const items = [];
   const assigneeNorm = (assignee ?? '').toString().trim().toUpperCase();
 
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i] || [];
+  for (let i = headerIdx + 1; i < allRows.length; i++) {
+    const row = allRows[i] || [];
     const initials = (row[COL_INITIALS] ?? '').toString().trim();
     if (initials.toUpperCase() !== assigneeNorm) continue;
 
@@ -90,7 +107,7 @@ export function parseErrorListRows(rows, { assignee = ERROR_LIST_ASSIGNEE } = {}
   }
 
   items.sort((a, b) => a.rowNumber - b.rowNumber);
-  return { items, statusColumn, statusColIdx };
+  return { items, statusColumn, statusColIdx, hasStatusHeader };
 }
 
 function getAuth() {
@@ -108,7 +125,7 @@ async function readErrorListRows() {
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId: ERROR_LIST_SHEET_ID,
     range: `'${ERROR_LIST_SHEET_NAME}'!A:Z`,
   });
   return res.data.values || [];
@@ -116,19 +133,23 @@ async function readErrorListRows() {
 
 export async function getActivityErrors() {
   const rows = await readErrorListRows();
-  const { items, statusColumn } = parseErrorListRows(rows);
+  const { items, statusColumn, hasStatusHeader } = parseErrorListRows(rows);
   return {
     items,
     count: items.length,
+    sheetId: ERROR_LIST_SHEET_ID,
     sheetName: ERROR_LIST_SHEET_NAME,
     assignee: ERROR_LIST_ASSIGNEE,
+    headerRow: ERROR_LIST_HEADER_ROW,
     statusColumn,
+    hasStatusHeader,
   };
 }
 
 export async function completeActivityError(rowNumber) {
   const parsedRow = parseInt(rowNumber, 10);
-  if (!Number.isFinite(parsedRow) || parsedRow < 2) {
+  const minRow = ERROR_LIST_HEADER_ROW + 1;
+  if (!Number.isFinite(parsedRow) || parsedRow < minRow) {
     throw new Error('Invalid row number');
   }
 
@@ -137,12 +158,13 @@ export async function completeActivityError(rowNumber) {
   }
 
   const rows = await readErrorListRows();
-  const { statusColumn } = resolveStatusColumn(rows[0] || []);
+  const headerIdx = ERROR_LIST_HEADER_ROW - 1;
+  const { statusColumn } = resolveStatusColumn(rows[headerIdx] || []);
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
 
   await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId: ERROR_LIST_SHEET_ID,
     range: `'${ERROR_LIST_SHEET_NAME}'!${statusColumn}${parsedRow}`,
     valueInputOption: 'RAW',
     requestBody: { values: [['complete']] },
@@ -152,6 +174,8 @@ export async function completeActivityError(rowNumber) {
 }
 
 export {
+  ERROR_LIST_SHEET_ID,
   ERROR_LIST_SHEET_NAME,
   ERROR_LIST_ASSIGNEE,
+  ERROR_LIST_HEADER_ROW,
 };
