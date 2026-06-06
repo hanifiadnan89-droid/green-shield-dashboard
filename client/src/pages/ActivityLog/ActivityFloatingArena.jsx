@@ -1,4 +1,4 @@
-import { CheckCircle2, Lightbulb } from 'lucide-react';
+import { CheckCircle2, Lightbulb, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import Spinner from '../../components/Spinner.jsx';
 import FloatingErrorCard from './FloatingErrorCard.jsx';
@@ -13,8 +13,9 @@ export default function ActivityFloatingArena({
   loading,
   error,
   paused,
+  allResolved,
   onSelect,
-  onComplete,
+  onRecover,
   onRetry,
 }) {
   const reducedMotion = useReducedMotion();
@@ -46,16 +47,20 @@ export default function ActivityFloatingArena({
         </div>
       ) : items.length === 0 ? (
         <motion.div
-          className="activity-board-empty"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: reducedMotion ? 0.15 : 0.35, ease: EASE }}
+          className={`activity-board-empty ${allResolved ? 'activity-board-empty--victory' : ''}`}
+          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: reducedMotion ? 0.15 : 0.5, ease: EASE }}
         >
           <div className="activity-board-empty__icon activity-board-empty__icon--success">
-            <CheckCircle2 size={24} />
+            {allResolved ? <Sparkles size={24} /> : <CheckCircle2 size={24} />}
           </div>
-          <h3>All caught up.</h3>
-          <p>No open issues assigned to you.</p>
+          <h3>{allResolved ? 'All Errors Resolved' : 'All caught up.'}</h3>
+          <p>
+            {allResolved
+              ? 'No revenue at risk. The board is clear.'
+              : 'No open issues assigned to you.'}
+          </p>
         </motion.div>
       ) : (
         <div ref={containerRef} className="activity-floating-arena__stage">
@@ -70,7 +75,7 @@ export default function ActivityFloatingArena({
               onSelect={onSelect}
               onHoverStart={setHovered}
               onHoverEnd={() => setHovered(null)}
-              onComplete={onComplete}
+              onRecover={onRecover}
               registerSize={registerSize}
             />
           ))}
@@ -80,7 +85,7 @@ export default function ActivityFloatingArena({
       {items.length > 0 ? (
         <div className="activity-board-helper" role="note">
           <Lightbulb size={14} aria-hidden />
-          <span>Click any item to view details, update status, or mark as complete.</span>
+          <span>Resolve errors to recover lost contract value and clear the board.</span>
         </div>
       ) : null}
     </section>
