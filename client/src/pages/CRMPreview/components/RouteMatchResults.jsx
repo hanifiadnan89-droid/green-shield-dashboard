@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import RouteResultCard from './RouteResultCard.jsx';
 import RouteMatchDetailWorkspace from './RouteMatchDetailWorkspace.jsx';
 import { useTechnicianPhotos } from './RouteFinder/useTechnicianPhotos.js';
@@ -11,23 +12,37 @@ const LAYOUT_TRANSITION = { duration: 0.42, ease: EASE };
 /**
  * view: grid | detail
  */
-export default function RouteMatchResults({ matches, routeArea }) {
+function matchKey(match) {
+  return match.matchId ?? match.routeId;
+}
+
+export default function RouteMatchResults({
+  matches,
+  additionalMatches = [],
+  routeArea,
+  multiDay = false,
+}) {
   const [view, setView] = useState('grid');
-  const [activeRouteId, setActiveRouteId] = useState(null);
+  const [activeMatchKey, setActiveMatchKey] = useState(null);
+  const [showAdditional, setShowAdditional] = useState(false);
   const { getPhotoUrl } = useTechnicianPhotos();
 
-  const activeMatch = activeRouteId
-    ? matches.find(m => m.routeId === activeRouteId)
+  const allVisible = showAdditional
+    ? [...matches, ...additionalMatches]
+    : matches;
+
+  const activeMatch = activeMatchKey
+    ? allVisible.find(m => matchKey(m) === activeMatchKey)
     : null;
 
   const openDetail = useCallback((match) => {
-    setActiveRouteId(match.routeId);
+    setActiveMatchKey(matchKey(match));
     setView('detail');
   }, []);
 
   const backToGrid = useCallback(() => {
     setView('grid');
-    setActiveRouteId(null);
+    setActiveMatchKey(null);
   }, []);
 
   const handleSelectTechnician = useCallback(() => {
@@ -49,30 +64,65 @@ export default function RouteMatchResults({ matches, routeArea }) {
         aria-hidden={gridDimmed}
       >
         {matches.map(match => {
-          const isOpening = view === 'detail' && activeRouteId === match.routeId;
+          const key = matchKey(match);
+          const isOpening = view === 'detail' && activeMatchKey === key;
           if (isOpening) return null;
 
           return (
             <RouteResultCard
-              key={match.routeId}
+              key={key}
               match={match}
               rank={match.rank}
               routeArea={routeArea}
+              multiDay={multiDay}
               onSelect={openDetail}
               layout={view === 'grid'}
             />
           );
         })}
+
+        {additionalMatches.length > 0 && (
+          <div className="route-finder-more-results">
+            <button
+              type="button"
+              className="route-finder-more-results__toggle"
+              onClick={() => setShowAdditional(v => !v)}
+            >
+              {showAdditional ? (
+                <><ChevronUp size={12} /> Hide additional options</>
+              ) : (
+                <><ChevronDown size={12} /> Show {additionalMatches.length} more option{additionalMatches.length === 1 ? '' : 's'}</>
+              )}
+            </button>
+            {showAdditional && additionalMatches.map(match => {
+              const key = matchKey(match);
+              const isOpening = view === 'detail' && activeMatchKey === key;
+              if (isOpening) return null;
+              return (
+                <RouteResultCard
+                  key={key}
+                  match={match}
+                  rank={match.rank}
+                  routeArea={routeArea}
+                  multiDay={multiDay}
+                  onSelect={openDetail}
+                  layout={view === 'grid'}
+                />
+              );
+            })}
+          </div>
+        )}
       </motion.div>
 
       <AnimatePresence>
         {view === 'detail' && activeMatch && (
           <RouteMatchDetailWorkspace
-            key={`detail-${activeMatch.routeId}`}
+            key={`detail-${matchKey(activeMatch)}`}
             layoutId={matchLayoutId(activeMatch)}
             match={activeMatch}
             rank={activeMatch.rank}
             routeArea={routeArea}
+            multiDay={multiDay}
             photoUrl={getPhotoUrl(activeMatch.techName)}
             onBack={backToGrid}
             onSelectTechnician={handleSelectTechnician}

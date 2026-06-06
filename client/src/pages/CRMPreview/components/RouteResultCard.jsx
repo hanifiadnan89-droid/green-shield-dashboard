@@ -4,7 +4,7 @@ import { matchLayoutId } from './RouteFinder/routeMatchCardConfig.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
-export default function RouteResultCard({ match, rank, routeArea, onSelect, layout = true }) {
+export default function RouteResultCard({ match, rank, routeArea, multiDay = false, onSelect, layout = true }) {
   const layoutId = layout ? matchLayoutId(match) : undefined;
   const isTop = rank === 1;
 
@@ -28,7 +28,7 @@ export default function RouteResultCard({ match, rank, routeArea, onSelect, layo
       }}
       aria-label={`View details for ${match.techName}, rank ${rank}`}
     >
-      <RouteMatchCardContent match={match} rank={rank} routeArea={routeArea} compact />
+      <RouteMatchCardContent match={match} rank={rank} routeArea={routeArea} multiDay={multiDay} compact />
       <p className="route-match-card__hint type-label-sm text-gs-muted m-0 mt-2 text-center">
         Click for full details
       </p>

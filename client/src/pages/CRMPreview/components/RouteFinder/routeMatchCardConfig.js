@@ -43,5 +43,5 @@ export const SCORE_BREAKDOWN = [
 ];
 
 export function matchLayoutId(match) {
-  return `route-match-${match.routeId}`;
+  return `route-match-${match.matchId ?? match.routeId}`;
 }

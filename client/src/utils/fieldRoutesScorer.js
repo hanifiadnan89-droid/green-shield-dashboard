@@ -9,6 +9,12 @@
  *                             quality, start/end fit, and rich output fields
  */
 
+import {
+  haversineMiles as haversine,
+  travelMinutesFromMiles as travelMin,
+  defaultTravelProvider,
+} from './routeTravelTimeProvider.js';
+
 // ---------------------------------------------------------------------------
 // SCORER_CONFIG — single source of truth for all weights, thresholds, and
 // business rules. Centralised here so callers (tests, future A/B) can
@@ -161,31 +167,8 @@ export function getDefaultDuration(serviceType) {
 }
 
 // ---------------------------------------------------------------------------
-// Core math utilities
+// Core math utilities (distance/drive via routeTravelTimeProvider)
 // ---------------------------------------------------------------------------
-
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 3958.8;
-  const r = d => (d * Math.PI) / 180;
-  const dLat = r(lat2 - lat1);
-  const dLng = r(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-// Distance-based speed heuristic: urban < 2 mi, suburban 2–8 mi, highway > 8 mi
-function pickSpeed(miles) {
-  const { profiles } = SCORER_CONFIG.speed;
-  if (miles < 2) return profiles.urban;    // 22 mph
-  if (miles < 8) return profiles.suburban; // 30 mph
-  return profiles.highway;                 // 45 mph
-}
-
-function travelMin(miles) {
-  return (miles / pickSpeed(miles)) * 60;
-}
 
 // Compass bearing (degrees 0–360) from point A to point B
 function bearing(lat1, lng1, lat2, lng2) {
@@ -1049,9 +1032,17 @@ function getRouteSmoothness(insertion) {
 
 function buildReason({
   insertion, clusterData, techName, totalStops, homeProximity,
-  wasOptimized, startEndFit, routeDirectionBearing,
+  wasOptimized, startEndFit, routeDirectionBearing, lead, routeDateLabel,
 }) {
   const parts = [];
+  const dayPrefix = routeDateLabel ? `${routeDateLabel}: ` : '';
+  const travelNote = defaultTravelProvider.getProviderAccuracy() === 'estimated'
+    ? ' Drive time is estimated from straight-line distance.'
+    : '';
+
+  if (lead?.customerName) {
+    parts.push(`${techName} is the best fit${routeDateLabel ? ` for ${routeDateLabel}` : ''} for ${lead.customerName}`);
+  }
 
   // Closest stop proximity
   if (insertion.localProximityMiles <= CLUSTER_RADIUS_MILES) {
@@ -1121,10 +1112,18 @@ function buildReason({
     parts.push(startEndFit.toLowerCase());
   }
 
-  return parts
+  let text = parts
     .map((p, i) => i === 0 ? p.charAt(0).toUpperCase() + p.slice(1) : p)
     .join('. ')
-    .replace(/\.\s*$/, '') + '.';
+    .replace(/\.\s*$/, '');
+
+  if (lead?.durationConfidence === 'custom' || lead?.durationConfidence === 'estimated') {
+    text += `. Service duration (${lead.durationMinutes} min) is ${lead.durationConfidence === 'custom' ? 'custom' : 'estimated'}`;
+  }
+
+  if (travelNote) text += `.${travelNote}`;
+
+  return (dayPrefix + text).replace(/^\s+/, '') + (text.endsWith('.') ? '' : '.');
 }
 
 // ---------------------------------------------------------------------------
@@ -1308,6 +1307,10 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
       : null,
   } : null;
 
+  const routeDateLabel = lead.date
+    ? new Date(`${lead.date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long' })
+    : null;
+
   const reason = buildReason({
     insertion,
     clusterData: insertionCluster,
@@ -1317,6 +1320,8 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     wasOptimized,
     startEndFit,
     routeDirectionBearing,
+    lead,
+    routeDateLabel,
   });
 
   // EOD label — informational only, not a rejection
