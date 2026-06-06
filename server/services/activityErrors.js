@@ -93,8 +93,10 @@ export function parseErrorListRows(
     const reason = (row[COL_REASON] ?? '').toString().trim();
     if (!customerId && !reason) continue;
 
-    const dashboardStatus = (row[statusColIdx] ?? '').toString().trim();
-    if (!isOpenDashboardStatus(dashboardStatus)) continue;
+    const dashboardStatus = hasStatusHeader
+      ? (row[statusColIdx] ?? '').toString().trim()
+      : '';
+    if (hasStatusHeader && !isOpenDashboardStatus(dashboardStatus)) continue;
 
     const rowNumber = i + 1;
     if (seen.has(rowNumber) || completedRowSet.has(rowNumber)) continue;
@@ -126,14 +128,74 @@ function getAuth() {
   });
 }
 
+function formatSheetsError(err) {
+  const msg = err?.message || 'Failed to read error list sheet';
+  const code = err?.code || err?.response?.status;
+  const wrapped = new Error(msg);
+  wrapped.cause = err;
+
+  if (code === 403 || /permission|forbidden/i.test(msg)) {
+    wrapped.message = 'Google Sheets permission denied for the error list workbook.';
+    wrapped.hint =
+      'Share spreadsheet 01_Leads and Resources with your dashboard service account email as Viewer (read-only is enough). Leads access on a different sheet does not grant access to this workbook.';
+    wrapped.code = 'sheets_permission';
+    return wrapped;
+  }
+
+  if (code === 404 || /not found/i.test(msg)) {
+    wrapped.message = 'Error list spreadsheet was not found.';
+    wrapped.hint = `Check ERROR_LIST_SHEET_ID (${ERROR_LIST_SHEET_ID}) and that the tab is named "${ERROR_LIST_SHEET_NAME}".`;
+    wrapped.code = 'sheets_not_found';
+    return wrapped;
+  }
+
+  if (/unable to parse range/i.test(msg)) {
+    wrapped.message = `Could not read tab "${ERROR_LIST_SHEET_NAME}".`;
+    wrapped.hint =
+      `Confirm the tab exists in spreadsheet ${ERROR_LIST_SHEET_ID}, or set ERROR_LIST_SHEET_NAME to the exact tab name.`;
+    wrapped.code = 'sheets_range';
+    return wrapped;
+  }
+
+  wrapped.code = 'sheets_error';
+  return wrapped;
+}
+
+async function listSheetTabNames() {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: 'v4', auth });
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: ERROR_LIST_SHEET_ID,
+    fields: 'sheets.properties.title',
+  });
+  return (meta.data.sheets || [])
+    .map(sheet => sheet.properties?.title)
+    .filter(Boolean);
+}
+
 async function readErrorListRows() {
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: ERROR_LIST_SHEET_ID,
-    range: `'${ERROR_LIST_SHEET_NAME}'!A:Z`,
-  });
-  return res.data.values || [];
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: ERROR_LIST_SHEET_ID,
+      range: `'${ERROR_LIST_SHEET_NAME}'!A:Z`,
+    });
+    return res.data.values || [];
+  } catch (err) {
+    const formatted = formatSheetsError(err);
+    if (formatted.code === 'sheets_range' || formatted.code === 'sheets_not_found') {
+      try {
+        const tabs = await listSheetTabNames();
+        if (tabs.length) {
+          formatted.hint += ` Available tabs: ${tabs.join(', ')}.`;
+        }
+      } catch {
+        // ignore secondary failure
+      }
+    }
+    throw formatted;
+  }
 }
 
 export async function getActivityErrors() {

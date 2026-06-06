@@ -19,7 +19,8 @@ export default function useActivityErrors() {
       setItems(data.items || []);
     } catch (err) {
       if (!mountedRef.current) return;
-      setError(err.message || 'Failed to load error tasks');
+      const detail = [err.message, err.hint].filter(Boolean).join(' ');
+      setError(detail || 'Failed to load error tasks');
       if (!silent) setItems([]);
     } finally {
       if (mountedRef.current && !silent) setLoading(false);
