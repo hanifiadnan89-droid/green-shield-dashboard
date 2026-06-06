@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isOpenDashboardStatus,
+  isWithinActivityLogRowLimit,
   parseErrorListRows,
   resolveStatusColumn,
 } from '../activityErrors.js';
@@ -59,6 +60,23 @@ describe('activityErrors', () => {
       contractValue: 1164,
       contractValueLabel: '$1,164',
     });
+  });
+
+  it('only includes sheet rows 1 through 60', () => {
+    expect(isWithinActivityLogRowLimit(60)).toBe(true);
+    expect(isWithinActivityLogRowLimit(61)).toBe(false);
+
+    const rows = Array.from({ length: 65 }, (_, idx) => {
+      if (idx === 10) {
+        return ['Date Added', 'Added By', 'Sales Rep', 'Customer ID', 'Customer Name', 'Reason'];
+      }
+      return ['', '', 'AH', `ID-${idx + 1}`, `Name ${idx + 1}`, 'UNPAID IS/OTS'];
+    });
+
+    const { items } = parseErrorListRows(rows, { assignee: 'AH', headerRowNumber: 11 });
+    expect(items.every(item => item.rowNumber <= 60)).toBe(true);
+    expect(items.some(item => item.rowNumber === 60)).toBe(true);
+    expect(items.some(item => item.rowNumber === 61)).toBe(false);
   });
 
   it('hides locally completed row numbers', () => {

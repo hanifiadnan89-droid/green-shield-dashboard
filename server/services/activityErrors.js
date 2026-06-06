@@ -9,7 +9,14 @@ const ERROR_LIST_SHEET_ID =
 const ERROR_LIST_SHEET_NAME = process.env.ERROR_LIST_SHEET_NAME || 'Action/Error Lists';
 const ERROR_LIST_ASSIGNEE = process.env.ERROR_LIST_ASSIGNEE || 'AH';
 const ERROR_LIST_HEADER_ROW = parseInt(process.env.ERROR_LIST_HEADER_ROW || '11', 10);
+const ERROR_LIST_MAX_ROW = parseInt(process.env.ERROR_LIST_MAX_ROW || '60', 10);
 const DEFAULT_STATUS_COLUMN = process.env.ERROR_LIST_STATUS_COLUMN || 'L';
+
+export function isWithinActivityLogRowLimit(rowNumber) {
+  const row = Number.parseInt(rowNumber, 10);
+  if (!Number.isFinite(row)) return false;
+  return row >= 1 && row <= ERROR_LIST_MAX_ROW;
+}
 
 const COL_DATE_ADDED = 0;    // A
 const COL_ADDED_BY = 1;      // B
@@ -117,6 +124,7 @@ export function parseErrorListRows(
     if (hasStatusHeader && !isOpenDashboardStatus(dashboardStatus)) continue;
 
     const rowNumber = i + 1;
+    if (!isWithinActivityLogRowLimit(rowNumber)) continue;
     if (seen.has(rowNumber) || completedRowSet.has(rowNumber)) continue;
     seen.add(rowNumber);
 
@@ -244,7 +252,7 @@ export async function getActivityErrors() {
 export async function completeActivityError(rowNumber) {
   const parsedRow = parseInt(rowNumber, 10);
   const minRow = ERROR_LIST_HEADER_ROW + 1;
-  if (!Number.isFinite(parsedRow) || parsedRow < minRow) {
+  if (!Number.isFinite(parsedRow) || parsedRow < minRow || !isWithinActivityLogRowLimit(parsedRow)) {
     throw new Error('Invalid row number');
   }
 
@@ -270,4 +278,6 @@ export {
   ERROR_LIST_SHEET_NAME,
   ERROR_LIST_ASSIGNEE,
   ERROR_LIST_HEADER_ROW,
+  ERROR_LIST_MAX_ROW,
+  isWithinActivityLogRowLimit,
 };
