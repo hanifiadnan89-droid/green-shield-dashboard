@@ -48,6 +48,7 @@ export default function ActivityLog() {
           error={error}
           paused={!!selectedItem}
           onSelect={setSelectedItem}
+          onComplete={handleComplete}
           onRetry={load}
         />
       </div>

@@ -9,10 +9,12 @@ export default function useFloatingMotion(items, { paused = false } = {}) {
   const bodiesRef = useRef(new Map());
   const sizesRef = useRef(new Map());
   const hoveredRef = useRef(null);
+  const [hoveredId, setHoveredId] = useState(null);
   const rafRef = useRef(0);
 
   const setHovered = useCallback((id) => {
     hoveredRef.current = id;
+    setHoveredId(id);
   }, []);
 
   const registerSize = useCallback((id, width, height) => {
@@ -102,5 +104,6 @@ export default function useFloatingMotion(items, { paused = false } = {}) {
     positions,
     setHovered,
     registerSize,
+    hoveredId,
   };
 }
