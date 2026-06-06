@@ -1,4 +1,4 @@
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Lightbulb } from 'lucide-react';
 import { motion } from 'motion/react';
 import Spinner from '../../components/Spinner.jsx';
 import FloatingErrorCard from './FloatingErrorCard.jsx';
@@ -58,7 +58,7 @@ export default function ActivityFloatingArena({
           <p>No open issues assigned to you.</p>
         </motion.div>
       ) : (
-        <div ref={containerRef} className="absolute inset-0">
+        <div ref={containerRef} className="activity-floating-arena__stage">
           {items.map(item => (
             <FloatingErrorCard
               key={item.id}
@@ -76,6 +76,13 @@ export default function ActivityFloatingArena({
           ))}
         </div>
       )}
+
+      {items.length > 0 ? (
+        <div className="activity-board-helper" role="note">
+          <Lightbulb size={14} aria-hidden />
+          <span>Click any item to view details, update status, or mark as complete.</span>
+        </div>
+      ) : null}
     </section>
   );
 }

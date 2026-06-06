@@ -6,7 +6,7 @@ import Spinner from '../../components/Spinner.jsx';
 const EASE = [0.22, 1, 0.36, 1];
 
 function DetailRow({ label, value }) {
-  if (!value) return null;
+  if (value == null || value === '') return null;
   return (
     <div className="activity-error-modal__row">
       <span className="activity-error-modal__label">{label}</span>
@@ -60,16 +60,21 @@ export default function ActivityErrorDetailModal({
             </header>
 
             <div className="activity-error-modal__body">
-              <DetailRow label="Account" value={item.customerId} />
+              <DetailRow label="Customer name" value={item.customerName} />
+              <DetailRow label="Account number" value={item.customerId} />
               <DetailRow label="Error type" value={item.errorType} />
               <DetailRow label="Full reason" value={item.reasonRaw || item.reason} />
-              <DetailRow label="Notes" value={item.notes} />
-              <DetailRow label="Price / cost" value={item.priceLabel} />
+              <DetailRow label="Original price" value={item.originalPriceLabel} />
+              <DetailRow label="Contract value" value={item.contractValueLabel} />
               <DetailRow label="Date added" value={item.dateAdded} />
               <DetailRow label="Added by" value={item.addedBy} />
               <DetailRow label="Sales rep" value={item.initials} />
               <DetailRow label="Date addressed" value={item.dateAddressed} />
-              <DetailRow label="Loss / impact" value={item.loss} />
+              <DetailRow label="Loss" value={item.loss} />
+              <DetailRow
+                label="Status"
+                value={item.isComplete ? 'Complete' : 'Not Complete'}
+              />
             </div>
 
             <footer className="activity-error-modal__footer">
@@ -85,7 +90,7 @@ export default function ActivityErrorDetailModal({
               </button>
               <button type="button" className="activity-error-modal__ghost" onClick={onClose}>
                 <X size={15} />
-                Keep Not Complete
+                Close
               </button>
             </footer>
           </motion.div>

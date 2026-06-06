@@ -2,12 +2,12 @@ export const BOARD_FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'unpaid', label: 'Unpaid Initial' },
   { id: 'pending', label: 'Pending' },
-  { id: 'line_busy', label: 'Line Busy' },
-  { id: 'invoice', label: 'Invoice' },
-  { id: 'other', label: 'Other' },
 ];
 
+const BOARD_VISIBLE_CATEGORIES = new Set(['unpaid', 'pending']);
+
 export function filterErrorBoardItems(items, category) {
-  if (!category || category === 'all') return items;
-  return items.filter(item => item.category === category);
+  const boardItems = items.filter(item => BOARD_VISIBLE_CATEGORIES.has(item.category));
+  if (!category || category === 'all') return boardItems;
+  return boardItems.filter(item => item.category === category);
 }

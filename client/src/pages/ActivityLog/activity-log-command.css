@@ -20,15 +20,19 @@
   min-height: 0;
 }
 
-.activity-board-header {
+.activity-board-top {
   flex-shrink: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem 1.5rem 0.75rem;
+  padding: 1.25rem 1.5rem 0.85rem;
   border-bottom: 1px solid rgba(74, 222, 128, 0.1);
   background: linear-gradient(180deg, rgba(74, 222, 128, 0.06), transparent);
+}
+
+.activity-board-header {
+  flex-shrink: 0;
 }
 
 .activity-board-header__title {
@@ -38,39 +42,70 @@
   color: #f8fafc;
 }
 
-.activity-board-header__sub {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.42);
-  margin-top: 0.25rem;
-}
-
-.activity-board-header__live {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.625rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #4ade80;
-  margin-top: 0.45rem;
-}
-
-.activity-board-header__live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 10px #4ade80;
-}
-
 .activity-board-controls {
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem 1rem;
+  margin-left: auto;
+}
+
+.activity-cash-metric {
+  position: relative;
+  flex-shrink: 0;
+  width: min(100%, 42rem);
+  margin: 0.85rem auto 0.5rem;
+  padding: 1.15rem 1.5rem 1.05rem;
+  border-radius: 18px;
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  background:
+    radial-gradient(ellipse 80% 120% at 50% 0%, rgba(74, 222, 128, 0.14), transparent 62%),
+    rgba(8, 12, 10, 0.82);
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 0 48px rgba(74, 222, 128, 0.14),
+    0 0 0 1px rgba(74, 222, 128, 0.06) inset;
+  text-align: center;
+}
+
+.activity-cash-metric__icon {
+  width: 2rem;
+  height: 2rem;
+  margin: 0 auto 0.55rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  box-shadow: 0 0 18px rgba(74, 222, 128, 0.2);
+}
+
+.activity-cash-metric__label {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(74, 222, 128, 0.82);
+}
+
+.activity-cash-metric__amount {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.75rem, 4.2vh, 2.35rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-cash-metric__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.42);
 }
 
 .activity-board-filter {
@@ -139,6 +174,38 @@
     inset 0 1px 0 rgba(74, 222, 128, 0.08),
     0 24px 48px rgba(0, 0, 0, 0.45);
   overflow: hidden;
+}
+
+.activity-floating-arena__stage {
+  position: absolute;
+  inset: 0 0 3.25rem;
+}
+
+.activity-board-helper {
+  position: absolute;
+  left: 50%;
+  bottom: 0.85rem;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: calc(100% - 2rem);
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 222, 128, 0.18);
+  background: rgba(8, 12, 10, 0.82);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.08);
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.activity-board-helper svg {
+  flex-shrink: 0;
+  color: rgba(74, 222, 128, 0.75);
 }
 
 .activity-floating-arena__grid {
@@ -320,21 +387,44 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.activity-floating-card__status--open {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.08);
+}
+
 .activity-floating-card__reason {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.8125rem;
+  font-weight: 700;
   line-height: 1.35;
-  color: rgba(248, 250, 252, 0.92);
-  margin: 0;
+  color: #4ade80;
+  margin: 0.15rem 0 0;
+}
+
+.activity-floating-card__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
 }
 
 .activity-floating-card__name {
   font-size: 0.6875rem;
   color: rgba(255, 255, 255, 0.42);
-  margin: 0.2rem 0 0;
+  margin: 0;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.activity-floating-card__value {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #4ade80;
+  font-variant-numeric: tabular-nums;
 }
 
 .activity-floating-card__actions {

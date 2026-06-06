@@ -23,13 +23,23 @@ export default function FloatingErrorCard({
   const ageTier = getItemAgeTier(item.dateAdded);
   const x = position?.x ?? 24;
   const y = position?.y ?? 24;
+  const isOpen = !item.isComplete;
+  const statusLabel = isOpen ? 'OPEN' : 'COMPLETE';
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const { width, height } = el.getBoundingClientRect();
     registerSize(item.id, width, height);
-  }, [item.id, item.customerId, item.errorType, actionsOpen, phase, registerSize]);
+  }, [
+    item.id,
+    item.customerId,
+    item.errorType,
+    item.contractValueLabel,
+    actionsOpen,
+    phase,
+    registerSize,
+  ]);
 
   function handlePointerEnter() {
     onHoverStart(item.id);
@@ -109,14 +119,25 @@ export default function FloatingErrorCard({
         <div className="activity-floating-card__body">
           <div className="activity-floating-card__row">
             <span className="activity-floating-card__id">{item.customerId || '—'}</span>
-            <span className="activity-floating-card__status">{item.status || 'Open'}</span>
+            <span
+              className={`activity-floating-card__status ${isOpen ? 'activity-floating-card__status--open' : ''}`}
+            >
+              {statusLabel}
+            </span>
           </div>
           <p className="activity-floating-card__reason">
             {item.errorType || item.reasonRaw || item.reason || 'Error'}
           </p>
-          {item.customerName ? (
-            <p className="activity-floating-card__name">{item.customerName}</p>
-          ) : null}
+          <div className="activity-floating-card__footer">
+            {item.customerName ? (
+              <p className="activity-floating-card__name">{item.customerName}</p>
+            ) : (
+              <span />
+            )}
+            <span className="activity-floating-card__value">
+              {item.contractValueLabel || 'No price listed'}
+            </span>
+          </div>
         </div>
 
         <div
