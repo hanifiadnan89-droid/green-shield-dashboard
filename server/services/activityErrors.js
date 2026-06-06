@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { loadGoogleCredentials } from './googleCredentials.js';
 import { getCompletedRowSet, markCompleted } from './activityErrorCompletions.js';
+import { enrichErrorItem } from './parseErrorReason.js';
 
 const ERROR_LIST_SHEET_ID =
   process.env.ERROR_LIST_SHEET_ID
@@ -10,9 +11,23 @@ const ERROR_LIST_ASSIGNEE = process.env.ERROR_LIST_ASSIGNEE || 'AH';
 const ERROR_LIST_HEADER_ROW = parseInt(process.env.ERROR_LIST_HEADER_ROW || '11', 10);
 const DEFAULT_STATUS_COLUMN = process.env.ERROR_LIST_STATUS_COLUMN || 'L';
 
-const COL_INITIALS = 2;   // C — Sales Rep
-const COL_CUSTOMER_ID = 3; // D
-const COL_REASON = 5;      // F — Cus Card Tab Error
+const COL_DATE_ADDED = 0;    // A
+const COL_ADDED_BY = 1;      // B
+const COL_INITIALS = 2;      // C — Sales Rep
+const COL_CUSTOMER_ID = 3;   // D
+const COL_CUSTOMER_NAME = 4; // E
+const COL_REASON = 5;        // F — Cus Card Tab Error
+const COL_NOTES = 6;         // G
+const COL_LOSS = 10;         // K
+
+function findHeaderColumn(headerRow, matchers) {
+  const header = headerRow.map(cell => (cell ?? '').toString().trim().toLowerCase());
+  for (const matcher of matchers) {
+    const idx = header.findIndex(name => name.includes(matcher));
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
 
 export function columnIndexToLetter(index) {
   let n = index;
@@ -80,6 +95,7 @@ export function parseErrorListRows(
 
   const headerRow = allRows[headerIdx];
   const { statusColumn, statusColIdx, hasStatusHeader } = resolveStatusColumn(headerRow);
+  const dateAddressedIdx = findHeaderColumn(headerRow, ['date addressed', 'addressed date']);
   const seen = new Set();
   const items = [];
   const assigneeNorm = (assignee ?? '').toString().trim().toUpperCase();
@@ -90,8 +106,10 @@ export function parseErrorListRows(
     if (initials.toUpperCase() !== assigneeNorm) continue;
 
     const customerId = (row[COL_CUSTOMER_ID] ?? '').toString().trim();
+    const customerName = (row[COL_CUSTOMER_NAME] ?? '').toString().trim();
     const reason = (row[COL_REASON] ?? '').toString().trim();
-    if (!customerId && !reason) continue;
+    const notes = (row[COL_NOTES] ?? '').toString().trim();
+    if (!customerId && !customerName && !reason && !notes) continue;
 
     const dashboardStatus = hasStatusHeader
       ? (row[statusColIdx] ?? '').toString().trim()
@@ -102,15 +120,22 @@ export function parseErrorListRows(
     if (seen.has(rowNumber) || completedRowSet.has(rowNumber)) continue;
     seen.add(rowNumber);
 
-    items.push({
+    items.push(enrichErrorItem({
       id: `error-row-${rowNumber}`,
       rowNumber,
       customerId,
-      reason,
-      label: `${customerId || '—'} — ${reason || '—'}`,
+      customerName,
+      reason: reason || notes,
+      notes,
+      dateAdded: (row[COL_DATE_ADDED] ?? '').toString().trim(),
+      addedBy: (row[COL_ADDED_BY] ?? '').toString().trim(),
       initials,
+      loss: (row[COL_LOSS] ?? '').toString().trim(),
+      dateAddressed: dateAddressedIdx >= 0
+        ? (row[dateAddressedIdx] ?? '').toString().trim()
+        : '',
       dashboardStatus: dashboardStatus || 'open',
-    });
+    }));
   }
 
   items.sort((a, b) => a.rowNumber - b.rowNumber);

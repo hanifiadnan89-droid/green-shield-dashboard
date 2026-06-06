@@ -1,56 +1,62 @@
-import ActivityLogHeader from './ActivityLog/ActivityLogHeader.jsx';
-import ActivityLogView from './ActivityLog/ActivityLogView.jsx';
-import useActivityLog from './ActivityLog/useActivityLog.js';
+import { useMemo, useState } from 'react';
+import LeadsAmbientBackground from './Leads/LeadsAmbientBackground.jsx';
+import ActivityBoardHeader from './ActivityLog/ActivityBoardHeader.jsx';
+import ActivityBoardControls from './ActivityLog/ActivityBoardControls.jsx';
+import ActivityFloatingArena from './ActivityLog/ActivityFloatingArena.jsx';
+import ActivityErrorDetailModal from './ActivityLog/ActivityErrorDetailModal.jsx';
 import useActivityErrors from './ActivityLog/useActivityErrors.js';
+import { filterErrorBoardItems } from './ActivityLog/filterErrorBoard.js';
+import './ActivityLog/activity-log-command.css';
 
 export default function ActivityLog() {
   const {
-    log,
-    total,
+    items,
     loading,
-    clearing,
-    filter,
-    setFilter,
-    load,
-    handleClear,
-  } = useActivityLog();
-
-  const {
-    items: errorTasks,
-    loading: errorsLoading,
-    error: errorsError,
+    error,
     completingRow,
-    load: loadErrors,
-    complete: completeError,
+    load,
+    complete,
   } = useActivityErrors();
 
-  function handleRefreshAll() {
-    load();
-    loadErrors();
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  const filteredItems = useMemo(
+    () => filterErrorBoardItems(items, activeFilter),
+    [items, activeFilter],
+  );
+
+  async function handleComplete(item) {
+    await complete(item.rowNumber);
+    setSelectedItem(null);
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <ActivityLogHeader
-        total={total}
-        errorTaskCount={errorTasks.length}
-        filter={filter}
-        onFilterChange={setFilter}
-        loading={loading || errorsLoading}
-        onRefresh={handleRefreshAll}
-        clearing={clearing}
-        onClear={handleClear}
-      />
-      <ActivityLogView
-        log={log}
-        filter={filter}
-        loading={loading}
-        errorTasks={errorTasks}
-        errorsLoading={errorsLoading}
-        errorsError={errorsError}
-        completingRow={completingRow}
-        onRefreshErrors={loadErrors}
-        onCompleteError={completeError}
+    <div className="activity-board-page">
+      <LeadsAmbientBackground />
+      <div className="activity-board-page__inner">
+        <ActivityBoardHeader count={filteredItems.length} loading={loading} />
+        <ActivityBoardControls
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          onSync={load}
+          loading={loading}
+        />
+        <ActivityFloatingArena
+          items={filteredItems}
+          loading={loading}
+          error={error}
+          paused={!!selectedItem}
+          onSelect={setSelectedItem}
+          onRetry={load}
+        />
+      </div>
+
+      <ActivityErrorDetailModal
+        item={selectedItem}
+        completing={selectedItem && completingRow === selectedItem.rowNumber}
+        onClose={() => setSelectedItem(null)}
+        onComplete={handleComplete}
       />
     </div>
   );
