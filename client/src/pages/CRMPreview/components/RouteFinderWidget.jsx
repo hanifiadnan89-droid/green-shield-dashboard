@@ -3,16 +3,23 @@ import { motion } from 'motion/react';
 import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw, Route } from 'lucide-react';
 import RouteFinderScoringSkeleton from './RouteFinderCommandSkeleton.jsx';
 import { api } from '../../../api/client.js';
-import { scoreRoutes, detectRouteArea } from '../../../utils/fieldRoutesScorer.js';
 import StatusBadge from './RouteStatusBadge.jsx';
 import RouteMatchResults from './RouteMatchResults.jsx';
 import AuthStatusBanner from './RouteAuthBanner.jsx';
+import RouteFinderJobDetails from './RouteFinder/RouteFinderJobDetails.jsx';
 import { buildDateMetas } from './RouteFinder/routeFinderDates.js';
 import { TIME_PREFS, FOUR_HOUR_SLOTS, TWO_HOUR_SLOTS } from './RouteFinder/routeFinderConstants.js';
 import { getDatePillTitle } from './RouteFinder/getDatePillTitle.js';
 import { buildRouteDateHelperText } from './RouteFinder/buildRouteDateHelperText.js';
 import { resolveTimeWindowPref } from './RouteFinder/resolveTimeWindowPref.js';
 import { useRouteFinderBackgroundRefresh } from './RouteFinder/useRouteFinderBackgroundRefresh.js';
+import {
+  SCORING_MODES,
+  buildRouteFinderLead,
+  detectRouteArea,
+  scoreSingleDate,
+  scoreBestAvailable,
+} from '../../../utils/routeFinderScoring.js';
 
 function routeFinderDebug(label, detail) {
   if (import.meta.env.DEV) {
@@ -64,6 +71,17 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const [suggestions, setSuggestions]         = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+
+  // Scoring mode
+  const [scoringMode, setScoringMode] = useState(SCORING_MODES.SINGLE_DATE);
+
+  // Job details
+  const [serviceTypeId, setServiceTypeId] = useState('');
+  const [customDurationMinutes, setCustomDurationMinutes] = useState('45');
+  const [customerName, setCustomerName] = useState('');
+  const [jobNotes, setJobNotes] = useState('');
+  const [callAheadRequired, setCallAheadRequired] = useState(false);
+  const [jobValidationErrors, setJobValidationErrors] = useState([]);
 
   // Time preference
   const [timePref, setTimePref]         = useState(null);
@@ -447,35 +465,74 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   // ---------------------------------------------------------------------------
   // Scoring
   // ---------------------------------------------------------------------------
-  const runScore = useCallback(async (techList, latLng, prefStr) => {
-    if (!techList?.length || !latLng || !prefStr) return;
+  const buildLeadForScoring = useCallback((latLng, prefStr, date) => {
+    const routeArea = detectRouteArea(latLng.full || latLng.display || '');
+    const built = buildRouteFinderLead({
+      lat: latLng.lat,
+      lng: latLng.lng,
+      address: latLng.full || latLng.display || '',
+      customerName,
+      notes: jobNotes,
+      callAheadRequired,
+      serviceTypeId,
+      customDurationMinutes: serviceTypeId === 'custom-duration' ? customDurationMinutes : null,
+      timeWindowPreference: prefStr,
+      routeArea,
+      date: date ?? null,
+    });
+    if (!built.valid) {
+      setJobValidationErrors(built.errors);
+      return null;
+    }
+    setJobValidationErrors([]);
+    return built.lead;
+  }, [
+    customerName,
+    jobNotes,
+    callAheadRequired,
+    serviceTypeId,
+    customDurationMinutes,
+  ]);
+
+  const runScore = useCallback(async () => {
+    const pref = resolveTimeWindowPref(timePref, specificSlot);
+    if (!geocode || !pref || !serviceTypeId) return;
+
     const requestId = ++scoreRequestRef.current;
     setScoringStatus('loading');
     setScoringError('');
-    routeFinderDebug('search started', {
-      date: activeDateRef.current,
-      address: latLng.full || latLng.display,
-      timeWindow: prefStr,
-      technicians: techList.length,
-    });
+
     try {
-      const routeArea = detectRouteArea(latLng.full || latLng.display || '');
-      const lead = {
-        lat: latLng.lat,
-        lng: latLng.lng,
-        address: latLng.full || latLng.display || '',
-        serviceType: 'Regular Service',
-        durationMinutes: 30,
-        timeWindowPreference: prefStr,
-        routeArea,
-        date: activeDateRef.current,
-      };
-      const scored = scoreRoutes(techList, lead, 3);
-      if (requestId !== scoreRequestRef.current) return;
-      routeFinderDebug('matches returned', {
-        count: scored?.topMatches?.length ?? 0,
-        noSafeRoute: scored?.noSafeRoute ?? false,
+      if (scoringMode === SCORING_MODES.SINGLE_DATE) {
+        if (!activeTechnicians?.length) return;
+        const lead = buildLeadForScoring(geocode, pref, activeDateRef.current);
+        if (!lead) {
+          setScoringStatus('idle');
+          return;
+        }
+        routeFinderDebug('single-date search started', { date: activeDateRef.current, lead });
+        const scored = scoreSingleDate(activeTechnicians, lead, 3);
+        if (requestId !== scoreRequestRef.current) return;
+        setResults(scored);
+        setScoringStatus('done');
+        return;
+      }
+
+      const leadBase = buildLeadForScoring(geocode, pref, null);
+      if (!leadBase) {
+        setScoringStatus('idle');
+        return;
+      }
+      routeFinderDebug('best-available search started', { lead: leadBase });
+      const scored = await scoreBestAvailable({
+        leadBase,
+        dateMetas: DATE_METAS,
+        dateStatus,
+        fetchPayload: (date) => api.routes.payload(date),
+        topN: 3,
+        maxExtra: 5,
       });
+      if (requestId !== scoreRequestRef.current) return;
       setResults(scored);
       setScoringStatus('done');
     } catch (err) {
@@ -484,25 +541,40 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setScoringError(err.message || 'Scoring failed');
       routeFinderDebug('search failed', err.message);
     }
-  }, []);
+  }, [
+    geocode,
+    timePref,
+    specificSlot,
+    serviceTypeId,
+    scoringMode,
+    activeTechnicians,
+    buildLeadForScoring,
+    DATE_METAS,
+    dateStatus,
+  ]);
 
   const timeWindowPref = resolveTimeWindowPref(timePref, specificSlot);
 
   const maybeRunScore = useCallback(() => {
     const pref = resolveTimeWindowPref(timePref, specificSlot);
+    const hasJob = geocodeStatus === 'success' && geocode && serviceTypeId && pref;
+    const singleReady = scoringMode === SCORING_MODES.SINGLE_DATE
+      && activeDate && activeTechnicians?.length;
+    const bestReady = scoringMode === SCORING_MODES.BEST_AVAILABLE
+      && DATE_KEYS.some(d => dateStatus[d]?.status === 'cached');
+
     routeFinderDebug('search check', {
+      mode: scoringMode,
       date: activeDate,
-      address: geocode?.full || geocode?.display || null,
-      timeWindow: pref,
-      technicians: activeTechnicians?.length ?? 0,
-      ready: Boolean(
-        activeDate && geocodeStatus === 'success' && geocode && activeTechnicians?.length && pref,
-      ),
+      hasJob,
+      singleReady,
+      bestReady,
     });
-    if (!activeDate || geocodeStatus !== 'success' || !geocode || !activeTechnicians?.length || !pref) {
-      return;
-    }
-    runScore(activeTechnicians, geocode, pref);
+
+    if (!hasJob) return;
+    if (scoringMode === SCORING_MODES.SINGLE_DATE && !singleReady) return;
+    if (scoringMode === SCORING_MODES.BEST_AVAILABLE && !bestReady) return;
+    runScore();
   }, [
     activeDate,
     geocodeStatus,
@@ -510,6 +582,10 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     activeTechnicians,
     timePref,
     specificSlot,
+    serviceTypeId,
+    scoringMode,
+    dateStatus,
+    DATE_KEYS,
     runScore,
   ]);
 
@@ -536,6 +612,12 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setGeocodeStatus('idle');
     setGeocodeError('');
     setIsEditing(false);
+    setServiceTypeId('');
+    setCustomDurationMinutes('45');
+    setCustomerName('');
+    setJobNotes('');
+    setCallAheadRequired(false);
+    setJobValidationErrors([]);
     setTimePref(null);
     setSpecificSlot(null);
     setResults(null);
@@ -545,6 +627,12 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setActiveSuggestion(-1);
     if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
   };
+
+  const handleScoringModeChange = useCallback((mode) => {
+    setScoringMode(mode);
+    setResults(null);
+    setScoringStatus('idle');
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -641,10 +729,40 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         </RouteSection>
 
         <RouteSection page={isPage}>
+        {/* ── Scoring mode ── */}
+        <div className={isPage ? 'mb-3' : 'mb-3'}>
+          <label className={isPage ? 'rf-section-label' : 'type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5'}>
+            Search Mode
+          </label>
+          <div className="rf-mode-toggle">
+            <button
+              type="button"
+              className={['rf-mode-toggle__btn', scoringMode === SCORING_MODES.SINGLE_DATE ? 'rf-mode-toggle__btn--active' : ''].filter(Boolean).join(' ')}
+              onClick={() => handleScoringModeChange(SCORING_MODES.SINGLE_DATE)}
+            >
+              Single Date
+            </button>
+            <button
+              type="button"
+              className={['rf-mode-toggle__btn', scoringMode === SCORING_MODES.BEST_AVAILABLE ? 'rf-mode-toggle__btn--active' : ''].filter(Boolean).join(' ')}
+              onClick={() => handleScoringModeChange(SCORING_MODES.BEST_AVAILABLE)}
+            >
+              Best Available
+            </button>
+          </div>
+          <p className="route-finder-helper type-label-sm text-gs-muted mb-0 mt-1.5 font-normal tracking-normal leading-snug">
+            {scoringMode === SCORING_MODES.BEST_AVAILABLE
+              ? 'Compares all cached upcoming dates and ranks the best technician + day combinations.'
+              : 'Scores routes for one selected date.'}
+          </p>
+        </div>
+        </RouteSection>
+
+        <RouteSection page={isPage}>
         {/* ── Date picker ── */}
         <div className={isPage ? 'mb-0' : 'mb-3.5'}>
           <label className={isPage ? 'rf-section-label' : 'type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5'}>
-            Route Date
+            {scoringMode === SCORING_MODES.BEST_AVAILABLE ? 'Cached Route Dates' : 'Route Date'}
           </label>
           {routeDateHelperText && (
             <p className="route-finder-helper type-label-sm text-gs-muted mb-2 font-normal tracking-normal leading-snug m-0">
@@ -663,8 +781,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                 <div key={key} className="route-date-pill-cell">
                   <motion.button
                     type="button"
-                    onClick={() => isCached && handleDateSelect(key)}
-                    disabled={!isCached}
+                    onClick={() => isCached && scoringMode === SCORING_MODES.SINGLE_DATE && handleDateSelect(key)}
+                    disabled={!isCached || scoringMode === SCORING_MODES.BEST_AVAILABLE}
                     aria-disabled={!isCached}
                     title={pillTitle}
                     whileHover={isCached && !isActive ? { scale: 1.02 } : undefined}
@@ -837,13 +955,38 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
           )}
         </div>
 
-        {geocodeStatus === 'success' && activeDate && !timeWindowPref && (
+        {geocodeStatus === 'success' && (
+          <RouteFinderJobDetails
+            isPage={isPage}
+            serviceTypeId={serviceTypeId}
+            onServiceTypeChange={(id) => {
+              setServiceTypeId(id);
+              setResults(null);
+              setScoringStatus('idle');
+            }}
+            customDurationMinutes={customDurationMinutes}
+            onCustomDurationChange={(v) => {
+              setCustomDurationMinutes(v);
+              setResults(null);
+              setScoringStatus('idle');
+            }}
+            customerName={customerName}
+            onCustomerNameChange={setCustomerName}
+            notes={jobNotes}
+            onNotesChange={setJobNotes}
+            callAheadRequired={callAheadRequired}
+            onCallAheadChange={setCallAheadRequired}
+            validationErrors={jobValidationErrors}
+          />
+        )}
+
+        {geocodeStatus === 'success' && serviceTypeId && !timeWindowPref && (
           <p className="route-finder-hint type-label-sm text-gs-muted text-center mt-3 mb-0 font-normal tracking-normal">
             Select a time window to find technician matches
           </p>
         )}
 
-        {geocodeStatus === 'success' && (
+        {geocodeStatus === 'success' && serviceTypeId && (
           <div className="route-time-prefs mt-3 mb-3">
             <div className={`flex gap-2 ${timePref === 'specific' ? 'mb-2.5' : 'mb-0'}`}>
               {TIME_PREFS.map(({ key, label, sub }) => {
@@ -913,9 +1056,14 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         )}
 
         {/* ── No date selected hint ── */}
-        {!activeDate && geocodeStatus === 'success' && (
+        {scoringMode === SCORING_MODES.SINGLE_DATE && !activeDate && geocodeStatus === 'success' && serviceTypeId && (
           <p className="route-finder-hint type-label-sm text-gs-muted text-center mb-2.5 font-normal tracking-normal m-0">
             Select a cached date above to see recommendations
+          </p>
+        )}
+        {scoringMode === SCORING_MODES.BEST_AVAILABLE && geocodeStatus === 'success' && serviceTypeId && !hasCachedDate && (
+          <p className="route-finder-hint type-label-sm text-gs-muted text-center mb-2.5 font-normal tracking-normal m-0">
+            Waiting for cached route data — refresh dates when FieldRoutes auth is connected
           </p>
         )}
         </RouteSection>
@@ -973,15 +1121,14 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
               <>
                 <div className="route-finder-results-head">
                   <p className="route-finder-results-head__title">
-                    Top {results.topMatches.length} Matches
+                    {results.mode === SCORING_MODES.BEST_AVAILABLE
+                      ? `Best ${results.topMatches.length} Across ${results.datesScored ?? 0} Day${(results.datesScored ?? 0) === 1 ? '' : 's'}`
+                      : `Top ${results.topMatches.length} Matches`}
                   </p>
                   <button
                     type="button"
                     disabled={scoringStatus === 'loading'}
-                    onClick={() => {
-                      const pref = resolveTimeWindowPref(timePref, specificSlot);
-                      if (pref) runScore(activeTechnicians, geocode, pref);
-                    }}
+                    onClick={() => runScore()}
                     className="route-finder-rescore type-label-sm text-gs-muted bg-transparent border-0 cursor-pointer font-normal tracking-normal disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Run scoring again with current settings"
                   >
@@ -994,11 +1141,17 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                 >
                   <RouteMatchResults
                     matches={results.topMatches}
+                    additionalMatches={results.additionalMatches ?? []}
                     routeArea={results.routeArea}
+                    multiDay={results.mode === SCORING_MODES.BEST_AVAILABLE}
                   />
                 </div>
                 <p className={isPage ? 'route-finder-footer-summary' : 'type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal'}>
-                  {results.totalRoutesScored} routes scored · {results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}
+                  {results.totalRoutesScored} routes scored
+                  {results.prefWindow
+                    ? ` · ${results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}`
+                    : ''}
+                  {results.travelProvider ? ` · ${results.travelProvider} travel estimate` : ''}
                 </p>
               </>
             )}

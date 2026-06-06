@@ -16,6 +16,7 @@ export default function RouteMatchDetailWorkspace({
   match,
   rank,
   routeArea,
+  multiDay = false,
   photoUrl,
   onBack,
   onSelectTechnician,
@@ -122,7 +123,22 @@ export default function RouteMatchDetailWorkspace({
                 <p className="route-match-detail__hero-name m-0">{match.techName}</p>
               </div>
             </div>
-            <RouteMatchCardContent match={match} rank={rank} routeArea={routeArea} compact={false} />
+            <RouteMatchCardContent match={match} rank={rank} routeArea={routeArea} multiDay={multiDay} compact={false} />
+
+            {match.trustWarnings?.length > 0 && (
+              <div className="rf-detail-warnings">
+                <h2 className="route-match-detail__section-title">Reliability notes</h2>
+                <ul className="rf-detail-warnings__list">
+                  {match.trustWarnings.map(w => (
+                    <li key={w.code} className={`rf-detail-warnings__item rf-detail-warnings__item--${w.severity}`}>
+                      <strong>{w.badge}</strong>
+                      <span>{w.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="route-match-detail__actions">
               <button
                 type="button"

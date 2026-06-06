@@ -104,7 +104,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: beforeFirstInsertion
     },
     "nearestStopMiles": 0.7,
     "rank": 1,
-    "reason": "Mike Torres will be near Afternoon Stop 1 (0.7 mi away) when this stop would be served. placed before the first stop — adds 0 mi. moderate cluster — 3 stops within 5 mi, 1.7 mi spread. no backtracking. no timed appointments affected. strong am fit — 0.7 mi from tech start location.",
+    "reason": "Tuesday: Mike Torres will be near Afternoon Stop 1 (0.7 mi away) when this stop would be served. placed before the first stop — adds 0 mi. moderate cluster — 3 stops within 5 mi, 1.7 mi spread. no backtracking. no timed appointments affected. strong am fit — 0.7 mi from tech start location. Drive time is estimated from straight-line distance.",
     "routeId": "R-BF01",
     "routeSmoothness": "Smooth fit",
     "routeStops": [
@@ -242,7 +242,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: beforeFirstInsertion
       },
       "nearestStopMiles": 0.7,
       "rank": 1,
-      "reason": "Mike Torres will be near Afternoon Stop 1 (0.7 mi away) when this stop would be served. placed before the first stop — adds 0 mi. moderate cluster — 3 stops within 5 mi, 1.7 mi spread. no backtracking. no timed appointments affected. strong am fit — 0.7 mi from tech start location.",
+      "reason": "Tuesday: Mike Torres will be near Afternoon Stop 1 (0.7 mi away) when this stop would be served. placed before the first stop — adds 0 mi. moderate cluster — 3 stops within 5 mi, 1.7 mi spread. no backtracking. no timed appointments affected. strong am fit — 0.7 mi from tech start location. Drive time is estimated from straight-line distance.",
       "routeId": "R-BF01",
       "routeSmoothness": "Smooth fit",
       "routeStops": [
@@ -410,7 +410,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: endOfRouteCluster 1`
     },
     "nearestStopMiles": 0.2,
     "rank": 1,
-    "reason": "Nina Park will be near Cluster Near 1 (0.9 mi away) when this stop would be served. placed after the last stop — mid-route cluster exists but timing or geometry prevented insertion there; adds 1.8 mi from route end. moderate cluster — 3 stops within 5 mi, 1.2 mi spread. no backtracking. no timed appointments affected. route was internally optimized before this recommendation — this placement should remain valid once the office optimizes the day.",
+    "reason": "Tuesday: Nina Park will be near Cluster Near 1 (0.9 mi away) when this stop would be served. placed after the last stop — mid-route cluster exists but timing or geometry prevented insertion there; adds 1.8 mi from route end. moderate cluster — 3 stops within 5 mi, 1.2 mi spread. no backtracking. no timed appointments affected. route was internally optimized before this recommendation — this placement should remain valid once the office optimizes the day. Drive time is estimated from straight-line distance.",
     "routeId": "R-EC01",
     "routeSmoothness": "Smooth fit",
     "routeStops": [
@@ -567,7 +567,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: endOfRouteCluster 1`
       },
       "nearestStopMiles": 0.2,
       "rank": 1,
-      "reason": "Nina Park will be near Cluster Near 1 (0.9 mi away) when this stop would be served. placed after the last stop — mid-route cluster exists but timing or geometry prevented insertion there; adds 1.8 mi from route end. moderate cluster — 3 stops within 5 mi, 1.2 mi spread. no backtracking. no timed appointments affected. route was internally optimized before this recommendation — this placement should remain valid once the office optimizes the day.",
+      "reason": "Tuesday: Nina Park will be near Cluster Near 1 (0.9 mi away) when this stop would be served. placed after the last stop — mid-route cluster exists but timing or geometry prevented insertion there; adds 1.8 mi from route end. moderate cluster — 3 stops within 5 mi, 1.2 mi spread. no backtracking. no timed appointments affected. route was internally optimized before this recommendation — this placement should remain valid once the office optimizes the day. Drive time is estimated from straight-line distance.",
       "routeId": "R-EC01",
       "routeSmoothness": "Smooth fit",
       "routeStops": [
@@ -786,7 +786,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: fullyBookedTech 1`] 
     },
     "nearestStopMiles": 0.9,
     "rank": 1,
-    "reason": "Sarah Lee will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected.",
+    "reason": "Tuesday: Sarah Lee will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. Drive time is estimated from straight-line distance.",
     "routeId": "R-FB01",
     "routeSmoothness": "Smooth fit",
     "routeStops": [
@@ -949,7 +949,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: fullyBookedTech 1`] 
       },
       "nearestStopMiles": 0.9,
       "rank": 1,
-      "reason": "Sarah Lee will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected.",
+      "reason": "Tuesday: Sarah Lee will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. Drive time is estimated from straight-line distance.",
       "routeId": "R-FB01",
       "routeSmoothness": "Smooth fit",
       "routeStops": [
@@ -1143,7 +1143,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: generalHappyPath 1`]
     },
     "nearestStopMiles": 0.9,
     "rank": 1,
-    "reason": "Alex Smith will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 4.4 mi from tech start location.",
+    "reason": "Tuesday: Alex Smith will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 4.4 mi from tech start location. Drive time is estimated from straight-line distance.",
     "routeId": "R-GP01",
     "routeSmoothness": "Smooth fit",
     "routeStops": [
@@ -1306,7 +1306,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: generalHappyPath 1`]
       },
       "nearestStopMiles": 0.9,
       "rank": 1,
-      "reason": "Alex Smith will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 4.4 mi from tech start location.",
+      "reason": "Tuesday: Alex Smith will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 4.4 mi from tech start location. Drive time is estimated from straight-line distance.",
       "routeId": "R-GP01",
       "routeSmoothness": "Smooth fit",
       "routeStops": [
@@ -1500,7 +1500,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: maineMwfCluster 1`] 
     },
     "nearestStopMiles": 0.9,
     "rank": 1,
-    "reason": "Chris Adams will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 4.4 mi from tech start location.",
+    "reason": "Monday: Chris Adams will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 4.4 mi from tech start location. Drive time is estimated from straight-line distance.",
     "routeId": "R-ME01",
     "routeSmoothness": "Smooth fit",
     "routeStops": [
@@ -1663,7 +1663,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: maineMwfCluster 1`] 
       },
       "nearestStopMiles": 0.9,
       "rank": 1,
-      "reason": "Chris Adams will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 4.4 mi from tech start location.",
+      "reason": "Monday: Chris Adams will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 4.4 mi from tech start location. Drive time is estimated from straight-line distance.",
       "routeId": "R-ME01",
       "routeSmoothness": "Smooth fit",
       "routeStops": [
@@ -1857,7 +1857,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: missingCapacity 1`] 
     },
     "nearestStopMiles": 0.9,
     "rank": 1,
-    "reason": "Tom Harris will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected.",
+    "reason": "Tuesday: Tom Harris will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. Drive time is estimated from straight-line distance.",
     "routeId": "R-MC01",
     "routeSmoothness": "Smooth fit",
     "routeStops": [
@@ -2020,7 +2020,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: missingCapacity 1`] 
       },
       "nearestStopMiles": 0.9,
       "rank": 1,
-      "reason": "Tom Harris will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected.",
+      "reason": "Tuesday: Tom Harris will be near Baker Home (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 3.6 mi spread (contiguous). no backtracking. no timed appointments affected. Drive time is estimated from straight-line distance.",
       "routeId": "R-MC01",
       "routeSmoothness": "Smooth fit",
       "routeStops": [
@@ -2214,7 +2214,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: nhApprovedTech 1`] =
     },
     "nearestStopMiles": 0.9,
     "rank": 1,
-    "reason": "Alex Gray will be near Seacoast Home 2 (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 4 — adds 0 mi and 0 min drive. strong cluster — 4 stops within 5 mi, 2.8 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 3.7 mi from tech start location.",
+    "reason": "Monday: Alex Gray will be near Seacoast Home 2 (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 4 — adds 0 mi and 0 min drive. strong cluster — 4 stops within 5 mi, 2.8 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 3.7 mi from tech start location. Drive time is estimated from straight-line distance.",
     "routeId": "R-NH01",
     "routeSmoothness": "Smooth fit",
     "routeStops": [
@@ -2367,7 +2367,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: nhApprovedTech 1`] =
       },
       "nearestStopMiles": 0.9,
       "rank": 1,
-      "reason": "Alex Gray will be near Seacoast Home 2 (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 4 — adds 0 mi and 0 min drive. strong cluster — 4 stops within 5 mi, 2.8 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 3.7 mi from tech start location.",
+      "reason": "Monday: Alex Gray will be near Seacoast Home 2 (0.9 mi away) when this stop would be served. fits between stop 2 and stop 3 of 4 — adds 0 mi and 0 min drive. strong cluster — 4 stops within 5 mi, 2.8 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 3.7 mi from tech start location. Drive time is estimated from straight-line distance.",
       "routeId": "R-NH01",
       "routeSmoothness": "Smooth fit",
       "routeStops": [
@@ -2578,7 +2578,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: twoTimedAnchors 1`] 
     },
     "nearestStopMiles": 0.4,
     "rank": 1,
-    "reason": "Dave Wilson will be near Timed Anchor 1 (0.4 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 2.5 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 3 mi from tech start location.",
+    "reason": "Tuesday: Dave Wilson will be near Timed Anchor 1 (0.4 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 2.5 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 3 mi from tech start location. Drive time is estimated from straight-line distance.",
     "routeId": "R-TM01",
     "routeSmoothness": "Smooth fit",
     "routeStops": [
@@ -2741,7 +2741,7 @@ exports[`Golden snapshots — scoreRoutes output > fixture: twoTimedAnchors 1`] 
       },
       "nearestStopMiles": 0.4,
       "rank": 1,
-      "reason": "Dave Wilson will be near Timed Anchor 1 (0.4 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 2.5 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 3 mi from tech start location.",
+      "reason": "Tuesday: Dave Wilson will be near Timed Anchor 1 (0.4 mi away) when this stop would be served. fits between stop 2 and stop 3 of 5 — adds 0 mi and 0 min drive. strong cluster — 5 stops within 5 mi, 2.5 mi spread (contiguous). no backtracking. no timed appointments affected. strong am fit — 3 mi from tech start location. Drive time is estimated from straight-line distance.",
       "routeId": "R-TM01",
       "routeSmoothness": "Smooth fit",
       "routeStops": [

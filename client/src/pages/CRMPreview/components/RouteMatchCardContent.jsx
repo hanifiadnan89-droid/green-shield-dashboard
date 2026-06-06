@@ -1,4 +1,6 @@
 import ScoreBar from './RouteScoreBar.jsx';
+import RouteFinderTrustBadges from './RouteFinder/RouteFinderTrustBadges.jsx';
+import RouteFinderCostImpact from './RouteFinder/RouteFinderCostImpact.jsx';
 import {
   ROUTE_AREA_LABELS,
   RANK_COLORS,
@@ -8,7 +10,7 @@ import {
   CONF_CFG,
 } from './RouteFinder/routeMatchCardConfig.js';
 
-export default function RouteMatchCardContent({ match, rank, routeArea, compact = true }) {
+export default function RouteMatchCardContent({ match, rank, routeArea, multiDay = false, compact = true }) {
   const color = RANK_COLORS[rank - 1] || '#94A3B8';
   const ins = match.bestInsertion;
   const areaLabel = ROUTE_AREA_LABELS[routeArea];
@@ -17,11 +19,19 @@ export default function RouteMatchCardContent({ match, rank, routeArea, compact 
     : ins?.timedRisk === 'medium' || ins?.timedRisk === 'low' ? '#F59E0B'
     : '#16A34A';
   const btCfg = BT_RISK_CFG[ins?.backtrackingRisk] ?? BT_RISK_CFG.None;
-  const confCfg = CONF_CFG[ins?.optimizationConfidence] ?? CONF_CFG.Low;
+  const confCfg = CONF_CFG[match.confidenceLabel ?? ins?.optimizationConfidence] ?? CONF_CFG.Low;
   const clusterLabel = match.clusterDetail?.label || match.clusterLabel;
 
   return (
     <>
+      {multiDay && match.dayOfWeekLabel && (
+        <p className="rf-match-date-label">{match.dayOfWeekLabel}</p>
+      )}
+
+      {rank === 1 && (
+        <p className="rf-best-match-label">Best Match</p>
+      )}
+
       {areaLabel && (
         <div className={compact ? 'mb-1.5' : 'mb-2'}>
           <span
@@ -43,9 +53,9 @@ export default function RouteMatchCardContent({ match, rank, routeArea, compact 
             {match.wasOptimized && (
               <span className="route-match-tag route-match-tag--blue">optimized</span>
             )}
-            {ins?.optimizationConfidence && (
+            {(match.confidenceLabel || ins?.optimizationConfidence) && (
               <span className="route-match-tag" style={{ color: confCfg.color }}>
-                {ins.optimizationConfidence} conf
+                {match.confidenceLabel || ins.optimizationConfidence} conf
               </span>
             )}
           </div>
@@ -80,6 +90,9 @@ export default function RouteMatchCardContent({ match, rank, routeArea, compact 
       )}
 
       <ScoreBar score={match.scores.total} />
+
+      <RouteFinderTrustBadges badges={match.trustBadges} compact={compact} />
+      <RouteFinderCostImpact costImpact={match.costImpact} compact={compact} />
 
       {ins && (ins.prevStop || ins.nextStop) && (
         <div className="mt-1.5 type-label-sm text-gs-muted font-normal tracking-normal flex items-center gap-1 flex-wrap">
