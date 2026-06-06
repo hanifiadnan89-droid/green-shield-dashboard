@@ -279,5 +279,4 @@ export {
   ERROR_LIST_ASSIGNEE,
   ERROR_LIST_HEADER_ROW,
   ERROR_LIST_MAX_ROW,
-  isWithinActivityLogRowLimit,
 };
