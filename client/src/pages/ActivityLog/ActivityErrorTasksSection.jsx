@@ -38,7 +38,7 @@ export default function ActivityErrorTasksSection({
       ) : error && items.length === 0 ? (
         <div className="rounded-xl border border-gs-danger/25 bg-gs-danger/8 p-4">
           <p className="text-gs-danger text-sm font-semibold">Could not load error tasks</p>
-          <p className="text-gs-muted text-xs mt-1">{error}</p>
+          <p className="text-gs-muted text-xs mt-1 leading-relaxed whitespace-pre-wrap">{error}</p>
           <button type="button" onClick={onRefresh} className="btn-ghost text-xs mt-3">
             Try again
           </button>

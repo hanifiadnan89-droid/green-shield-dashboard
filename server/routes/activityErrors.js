@@ -12,7 +12,8 @@ function sheetsErrorResponse(res, err) {
     || /invalid JSON|parse/i.test(msg);
   res.status(isConfig ? 503 : 500).json({
     error: msg,
-    code: isConfig ? 'google_credentials' : 'sheets_error',
+    code: err.code || (isConfig ? 'google_credentials' : 'sheets_error'),
+    hint: err.hint || null,
   });
 }
 
