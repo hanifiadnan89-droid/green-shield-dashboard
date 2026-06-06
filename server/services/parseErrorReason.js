@@ -6,7 +6,7 @@ export const ERROR_CATEGORIES = {
   other: 'other',
 };
 
-const UNPAID_CONTRACT_VALUE_BY_PRICE = {
+const IS_CONTRACT_VALUE_BY_PRICE = {
   449: 1164,
   399: 1048,
 };
@@ -24,34 +24,128 @@ export function formatUsd(amount) {
   return `$${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
-export function isOtsOnlyReason(raw = '') {
-  const upper = raw.toString().toUpperCase();
-  if (!/\bOTS\b/.test(upper)) return false;
-  return !/UNPAID|IS\/OTS|\bINITIAL\b/.test(upper);
+export function extractPrice(text = '') {
+  const match = text.toString().match(/\$\s*([\d,]+(?:\.\d{2})?)/);
+  return match ? `$${match[1].replace(/,/g, '')}` : null;
 }
 
-export function calculateContractValue({ category, price, reasonRaw = '' }) {
+export function extractServiceType(text = '') {
+  const raw = text.toString().trim();
+  if (!raw) return null;
+  const upper = raw.toUpperCase();
+
+  const priceAdjacent = raw.match(/\$\s*[\d,]+(?:\.\d{2})?\s*(IS|OTS)\b/i);
+  if (priceAdjacent) return priceAdjacent[1].toUpperCase();
+
+  const datedPrice = raw.match(/\d{1,2}\/\d{1,2}\s+\$\s*[\d,]+(?:\.\d{2})?\s*(IS|OTS)\b/i);
+  if (datedPrice) return datedPrice[1].toUpperCase();
+
+  if (/\bOTS PENDING\b/i.test(raw) || (/\bPENDING\b/i.test(raw) && /\bOTS\b/.test(upper))) {
+    return 'OTS';
+  }
+
+  if (/\bOTS\b/.test(upper) && !/\bIS\/OTS\b/.test(upper)) return 'OTS';
+
+  if (/\bIS\b/.test(upper) && !/\bIS\/OTS\b/.test(upper)) return 'IS';
+
+  return null;
+}
+
+export function buildOriginalPriceLabel(price, serviceType) {
+  if (!price) return 'No price listed';
+  if (serviceType) return `${price} ${serviceType}`;
+  return price;
+}
+
+export function classifyErrorType({ notesText = '', reasonText = '', serviceType = null } = {}) {
+  const notesUpper = notesText.toUpperCase();
+  const reasonUpper = reasonText.toUpperCase();
+  const combined = `${notesText} ${reasonText}`.trim().toUpperCase();
+
+  if (/LINE BUSY|\bLVM\b|LEFT VOICEMAIL|VOICEMAIL/.test(combined)) {
+    return { category: ERROR_CATEGORIES.line_busy, errorType: 'Line Busy' };
+  }
+
+  if (/INVOICE|REQUESTED INVOICE/.test(combined)) {
+    return { category: ERROR_CATEGORIES.invoice, errorType: 'Invoice' };
+  }
+
+  const hasUnpaid = /UNPAID|IS\/OTS|\bINITIAL\b/.test(combined);
+  const hasPending = /\bPENDING\b/.test(combined);
+  const resolvedService = serviceType
+    || extractServiceType(notesText)
+    || extractServiceType(reasonText);
+
+  if (hasPending && (resolvedService === 'OTS' || /\bOTS\b/.test(combined))) {
+    return { category: ERROR_CATEGORIES.pending, errorType: 'OTS Pending' };
+  }
+
+  if (resolvedService === 'IS'
+    || (/UNPAID/.test(combined) && resolvedService === 'IS')
+    || (hasUnpaid && (resolvedService === 'IS' || (!resolvedService && /UNPAID|IS\/OTS/.test(combined))))) {
+    return { category: ERROR_CATEGORIES.unpaid, errorType: 'Unpaid Initial' };
+  }
+
+  if (hasPending && !/UNPAID/.test(combined)) {
+    return { category: ERROR_CATEGORIES.pending, errorType: 'Pending' };
+  }
+
+  if (resolvedService === 'OTS') {
+    return { category: ERROR_CATEGORIES.pending, errorType: 'OTS' };
+  }
+
+  if (/NO SALE/.test(combined)) {
+    return { category: ERROR_CATEGORIES.other, errorType: 'No Sale' };
+  }
+
+  if (/SUBSCRIPTION/.test(combined)) {
+    return { category: ERROR_CATEGORIES.other, errorType: 'Subscription' };
+  }
+
+  const source = notesText || reasonText;
+  if (source) {
+    const short = source.split(/\s{2,}|—|-/)[0].trim();
+    const errorType = short.length > 42 ? `${short.slice(0, 39)}…` : short;
+    return { category: ERROR_CATEGORIES.other, errorType };
+  }
+
+  return { category: ERROR_CATEGORIES.other, errorType: 'Error' };
+}
+
+export function calculateContractValue({
+  price,
+  serviceType = null,
+  category = ERROR_CATEGORIES.other,
+} = {}) {
   const originalPrice = price || null;
   const priceAmount = parsePriceAmount(price);
+  const originalPriceLabel = buildOriginalPriceLabel(price, serviceType);
 
-  if (category === ERROR_CATEGORIES.unpaid && priceAmount != null) {
-    const mapped = UNPAID_CONTRACT_VALUE_BY_PRICE[priceAmount];
+  let resolvedService = serviceType;
+  if (!resolvedService && category === ERROR_CATEGORIES.unpaid && priceAmount != null) {
+    resolvedService = 'IS';
+  }
+
+  if (resolvedService === 'IS' && priceAmount != null) {
+    const mapped = IS_CONTRACT_VALUE_BY_PRICE[priceAmount];
     if (mapped != null) {
       return {
         contractValue: mapped,
         contractValueLabel: formatUsd(mapped),
         originalPrice,
-        originalPriceLabel: originalPrice || 'No price listed',
+        originalPriceLabel,
+        serviceType: resolvedService,
       };
     }
   }
 
-  if (isOtsOnlyReason(reasonRaw) && priceAmount != null) {
+  if (resolvedService === 'OTS' && priceAmount != null) {
     return {
       contractValue: priceAmount,
       contractValueLabel: formatUsd(priceAmount),
       originalPrice,
-      originalPriceLabel: originalPrice || 'No price listed',
+      originalPriceLabel,
+      serviceType: resolvedService,
     };
   }
 
@@ -60,7 +154,8 @@ export function calculateContractValue({ category, price, reasonRaw = '' }) {
       contractValue: priceAmount,
       contractValueLabel: formatUsd(priceAmount),
       originalPrice,
-      originalPriceLabel: originalPrice || 'No price listed',
+      originalPriceLabel,
+      serviceType: resolvedService,
     };
   }
 
@@ -68,59 +163,49 @@ export function calculateContractValue({ category, price, reasonRaw = '' }) {
     contractValue: null,
     contractValueLabel: 'No price listed',
     originalPrice,
-    originalPriceLabel: originalPrice || 'No price listed',
+    originalPriceLabel,
+    serviceType: resolvedService,
   };
 }
 
-export function classifyAndParseReason(raw = '') {
-  const text = (raw ?? '').toString().trim();
-  const upper = text.toUpperCase();
+export function parseActivityErrorFields({ notes = '', reason = '' } = {}) {
+  const notesText = (notes ?? '').toString().trim();
+  const reasonText = (reason ?? '').toString().trim();
+  const parsedFromNotes = Boolean(notesText);
 
-  const priceMatch = text.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
-  const price = priceMatch ? `$${priceMatch[1].replace(/,/g, '')}` : null;
+  const price = extractPrice(notesText) || extractPrice(reasonText);
+  const serviceType = extractServiceType(notesText) || extractServiceType(reasonText);
+  const { category, errorType } = classifyErrorType({ notesText, reasonText, serviceType });
+  const contract = calculateContractValue({ price, serviceType, category });
 
-  let category = ERROR_CATEGORIES.other;
-  let errorType = text || 'Error';
-
-  if (/UNPAID|IS\/OTS|\bINITIAL\b/.test(upper)) {
-    category = ERROR_CATEGORIES.unpaid;
-    errorType = 'Unpaid Initial';
-  } else if (/\bOTS\b.*PENDING|PENDING.*\bOTS\b|\bOTS PENDING\b/.test(upper)) {
-    category = ERROR_CATEGORIES.pending;
-    errorType = 'OTS Pending';
-  } else if (/\bPENDING\b/.test(upper) && !/UNPAID/.test(upper)) {
-    category = ERROR_CATEGORIES.pending;
-    errorType = 'Pending';
-  } else if (/LINE BUSY|\bLVM\b|LEFT VOICEMAIL|VOICEMAIL/.test(upper)) {
-    category = ERROR_CATEGORIES.line_busy;
-    errorType = 'Line Busy';
-  } else if (/INVOICE|REQUESTED INVOICE/.test(upper)) {
-    category = ERROR_CATEGORIES.invoice;
-    errorType = 'Invoice';
-  } else if (/NO SALE/.test(upper)) {
-    category = ERROR_CATEGORIES.other;
-    errorType = 'No Sale';
-  } else if (/SUBSCRIPTION/.test(upper)) {
-    category = ERROR_CATEGORIES.other;
-    errorType = 'Subscription';
-  } else if (isOtsOnlyReason(text)) {
-    category = ERROR_CATEGORIES.pending;
-    errorType = 'OTS';
-  } else if (text) {
-    const short = text.split(/\s{2,}|—|-/)[0].trim();
-    errorType = short.length > 42 ? `${short.slice(0, 39)}…` : short;
-  }
+  const sourceText = notesText || reasonText;
 
   return {
-    reasonRaw: text,
+    notesText,
+    reasonRaw: reasonText,
+    reasonText,
+    parsedFromNotes,
     category,
     errorType,
     price,
     priceLabel: price || 'No price listed',
+    serviceType: contract.serviceType ?? serviceType,
+    sourceText,
+    ...contract,
   };
 }
 
-export function buildFloatingTitle({ customerName, errorType, contractValueLabel, customerId }) {
+/** @deprecated Use parseActivityErrorFields */
+export function classifyAndParseReason(raw = '') {
+  return parseActivityErrorFields({ notes: raw, reason: '' });
+}
+
+export function buildFloatingTitle({
+  customerName,
+  errorType,
+  contractValueLabel,
+  customerId,
+}) {
   return [
     customerName || 'Unknown',
     errorType || 'Error',
@@ -130,16 +215,14 @@ export function buildFloatingTitle({ customerName, errorType, contractValueLabel
 }
 
 export function enrichErrorItem(item) {
-  const parsed = classifyAndParseReason(item.reason || item.notes);
-  const contract = calculateContractValue({
-    category: parsed.category,
-    price: parsed.price,
-    reasonRaw: parsed.reasonRaw,
+  const parsed = parseActivityErrorFields({
+    notes: item.notes,
+    reason: item.reason,
   });
   const floatingTitle = buildFloatingTitle({
     customerName: item.customerName,
     errorType: parsed.errorType,
-    contractValueLabel: contract.contractValueLabel,
+    contractValueLabel: parsed.contractValueLabel,
     customerId: item.customerId,
   });
 
@@ -148,7 +231,6 @@ export function enrichErrorItem(item) {
   return {
     ...item,
     ...parsed,
-    ...contract,
     floatingTitle,
     label: floatingTitle,
     status: isComplete ? 'Complete' : 'Open',
