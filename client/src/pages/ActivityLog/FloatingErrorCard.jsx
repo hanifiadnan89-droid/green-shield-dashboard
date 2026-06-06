@@ -26,7 +26,7 @@ export default function FloatingErrorCard({
   const isOpen = !item.isComplete;
   const statusLabel = isOpen ? 'OPEN' : 'COMPLETE';
   const originalLabel = item.originalPriceLabel || item.priceLabel || 'No price listed';
-  const valueLabel = item.contractValueLabel || 'No price listed';
+  const valueLabel = item.contractValueLabel || 'No contract value found';
 
   useLayoutEffect(() => {
     const el = wrapRef.current;

@@ -49,6 +49,47 @@ describe('parseErrorReason', () => {
     expect(result.originalPriceLabel).toBe('$399 OTS');
   });
 
+  it('calculates TMM contract value as price × 6', () => {
+    const examples = [
+      { notes: '$139 TMM', expected: 834 },
+      { notes: '$169 TMM', expected: 1014 },
+      { notes: '$199 TMM', expected: 1194 },
+    ];
+
+    for (const { notes, expected } of examples) {
+      const result = parseActivityErrorFields({ notes, reason: '' });
+      expect(result.serviceType).toBe('TMM');
+      expect(result.errorType).toBe('TMM');
+      expect(result.contractValue).toBe(expected);
+      expect(result.contractValueLabel).toBe(`$${expected.toLocaleString('en-US')}`);
+      expect(result.originalPriceLabel).toBe(notes);
+    }
+  });
+
+  it('prioritizes TMM over IS/OTS when TMM is present', () => {
+    const result = calculateContractValue({
+      price: '$139',
+      serviceType: 'IS',
+      notesText: '$139 TMM',
+      reasonText: '',
+    });
+    expect(result.contractValue).toBe(834);
+    expect(result.serviceType).toBe('TMM');
+  });
+
+  it('uses unlabeled $449 and $399 fallback contract values', () => {
+    expect(parseActivityErrorFields({ notes: '5/22 $449', reason: '' })).toMatchObject({
+      contractValue: 1164,
+      contractValueLabel: '$1,164',
+      serviceType: null,
+    });
+    expect(parseActivityErrorFields({ notes: '6/1 $399', reason: '' })).toMatchObject({
+      contractValue: 1048,
+      contractValueLabel: '$1,048',
+      serviceType: null,
+    });
+  });
+
   it('falls back to reason when notes are empty', () => {
     const result = parseActivityErrorFields({
       notes: '',
@@ -84,7 +125,7 @@ describe('parseErrorReason', () => {
     const result = calculateContractValue({
       price: '$449',
       serviceType: 'IS',
-      category: 'unpaid',
+      notesText: '$449 IS',
     });
     expect(result.contractValue).toBe(1164);
     expect(result.contractValueLabel).toBe('$1,164');
@@ -95,7 +136,7 @@ describe('parseErrorReason', () => {
     const result = calculateContractValue({
       price: '$399',
       serviceType: 'IS',
-      category: 'unpaid',
+      notesText: '$399 IS',
     });
     expect(result.contractValue).toBe(1048);
     expect(result.contractValueLabel).toBe('$1,048');
@@ -105,7 +146,7 @@ describe('parseErrorReason', () => {
     const result = calculateContractValue({
       price: '$399',
       serviceType: 'OTS',
-      category: 'pending',
+      notesText: '$399 OTS',
     });
     expect(result.contractValue).toBe(399);
     expect(result.contractValueLabel).toBe('$399');
@@ -116,15 +157,26 @@ describe('parseErrorReason', () => {
     const result = calculateContractValue({
       price: null,
       serviceType: 'IS',
-      category: 'unpaid',
+      notesText: 'UNPAID IS/OTS',
     });
     expect(result.contractValue).toBeNull();
-    expect(result.contractValueLabel).toBe('No price listed');
+    expect(result.contractValueLabel).toBe('No contract value found');
+  });
+
+  it('returns no contract value for unmapped IS price', () => {
+    const result = calculateContractValue({
+      price: '$499',
+      serviceType: 'IS',
+      notesText: '$499 IS',
+    });
+    expect(result.contractValue).toBeNull();
+    expect(result.contractValueLabel).toBe('No contract value found');
   });
 
   it('extracts service type from dated notes', () => {
     expect(extractServiceType('5/22 $449 IS')).toBe('IS');
     expect(extractServiceType('$399 OTS')).toBe('OTS');
+    expect(extractServiceType('$139 TMM')).toBe('TMM');
   });
 
   it('builds floating title from notes-driven enrichment', () => {
@@ -146,5 +198,6 @@ describe('parseErrorReason', () => {
     expect(result.category).toBe('unpaid');
     expect(result.errorType).toBe('Unpaid Initial');
     expect(result.price).toBe('$499');
+    expect(result.contractValueLabel).toBe('No contract value found');
   });
 });
