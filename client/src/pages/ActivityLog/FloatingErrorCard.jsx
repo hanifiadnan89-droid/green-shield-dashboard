@@ -2,7 +2,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { getItemAgeTier } from './errorItemAge.js';
 
-const COMPLETE_MS = 520;
+const RESOLVED_MS = 420;
+const FADE_MS = 280;
 
 export default function FloatingErrorCard({
   item,
@@ -13,10 +14,11 @@ export default function FloatingErrorCard({
   onSelect,
   onHoverStart,
   onHoverEnd,
-  onComplete,
+  onRecover,
   registerSize,
 }) {
   const wrapRef = useRef(null);
+  const valueRef = useRef(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [phase, setPhase] = useState('idle');
 
@@ -24,9 +26,14 @@ export default function FloatingErrorCard({
   const x = position?.x ?? 24;
   const y = position?.y ?? 24;
   const isOpen = !item.isComplete;
-  const statusLabel = isOpen ? 'OPEN' : 'COMPLETE';
+  const statusLabel = phase === 'resolved' || phase === 'recovering'
+    ? 'RESOLVED'
+    : isOpen
+      ? 'OPEN'
+      : 'COMPLETE';
   const originalLabel = item.originalPriceLabel || item.priceLabel || 'No price listed';
   const valueLabel = item.contractValueLabel || 'No contract value found';
+  const recoverableAmount = Number.isFinite(item.contractValue) ? item.contractValue : null;
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -45,6 +52,7 @@ export default function FloatingErrorCard({
   ]);
 
   function handlePointerEnter() {
+    if (phase !== 'idle') return;
     onHoverStart(item.id);
     setActionsOpen(true);
   }
@@ -59,18 +67,34 @@ export default function FloatingErrorCard({
     setActionsOpen(false);
   }
 
-  async function handleCompleteClick(e) {
+  function handleCompleteClick(e) {
     e.stopPropagation();
     if (phase !== 'idle') return;
 
-    setPhase('confirming');
-    const confirmMs = reducedMotion ? 80 : 220;
-    const exitMs = reducedMotion ? 120 : 300;
+    setPhase('resolved');
+    setActionsOpen(false);
 
-    window.setTimeout(() => setPhase('exiting'), confirmMs);
-    window.setTimeout(async () => {
-      await onComplete(item);
-    }, confirmMs + exitMs);
+    const resolvedMs = reducedMotion ? 120 : RESOLVED_MS;
+    const fadeMs = reducedMotion ? 80 : FADE_MS;
+
+    window.setTimeout(() => {
+      setPhase('recovering');
+      const fromRect = valueRef.current?.getBoundingClientRect()
+        ?? wrapRef.current?.getBoundingClientRect();
+
+      onRecover?.({
+        item,
+        amount: recoverableAmount,
+        label: recoverableAmount != null
+          ? `+$${recoverableAmount.toLocaleString('en-US')}`
+          : valueLabel,
+        fromRect,
+      });
+    }, resolvedMs);
+
+    window.setTimeout(() => {
+      setPhase('done');
+    }, resolvedMs + fadeMs);
   }
 
   function handleCardClick() {
@@ -82,12 +106,14 @@ export default function FloatingErrorCard({
     'activity-floating-card',
     `activity-floating-card--age-${ageTier}`,
     isEntering && !reducedMotion ? 'activity-floating-card--enter' : '',
-    isHovered ? 'activity-floating-card--hover' : '',
+    isHovered && phase === 'idle' ? 'activity-floating-card--hover' : '',
     actionsOpen ? 'activity-floating-card--actions' : '',
-    phase === 'confirming' ? 'activity-floating-card--confirming' : '',
-    phase === 'exiting' ? 'activity-floating-card--exiting' : '',
+    phase === 'resolved' ? 'activity-floating-card--resolved' : '',
+    phase === 'recovering' || phase === 'done' ? 'activity-floating-card--recovering' : '',
     reducedMotion ? 'activity-floating-card--reduced' : '',
   ].filter(Boolean).join(' ');
+
+  const hideValue = phase === 'recovering' || phase === 'done';
 
   return (
     <div
@@ -102,7 +128,7 @@ export default function FloatingErrorCard({
       <div
         className={cardClass}
         role="button"
-        tabIndex={0}
+        tabIndex={phase === 'idle' ? 0 : -1}
         onClick={handleCardClick}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -113,9 +139,10 @@ export default function FloatingErrorCard({
       >
         <span className="activity-floating-card__dot" aria-hidden />
 
-        {phase === 'confirming' || phase === 'exiting' ? (
-          <span className="activity-floating-card__check" aria-hidden>
-            <Check size={16} strokeWidth={3} />
+        {phase === 'resolved' ? (
+          <span className="activity-floating-card__resolved-badge" aria-hidden>
+            <Check size={14} strokeWidth={3} />
+            Resolved
           </span>
         ) : null}
 
@@ -123,7 +150,14 @@ export default function FloatingErrorCard({
           <div className="activity-floating-card__row">
             <span className="activity-floating-card__id">{item.customerId || '—'}</span>
             <span
-              className={`activity-floating-card__status ${isOpen ? 'activity-floating-card__status--open' : ''}`}
+              className={[
+                'activity-floating-card__status',
+                phase === 'resolved' || phase === 'recovering'
+                  ? 'activity-floating-card__status--resolved'
+                  : isOpen
+                    ? 'activity-floating-card__status--open'
+                    : '',
+              ].filter(Boolean).join(' ')}
             >
               {statusLabel}
             </span>
@@ -141,7 +175,10 @@ export default function FloatingErrorCard({
             <span className="activity-floating-card__original">
               Original: {originalLabel}
             </span>
-            <span className="activity-floating-card__value">
+            <span
+              ref={valueRef}
+              className={`activity-floating-card__value ${hideValue ? 'activity-floating-card__value--hidden' : ''}`}
+            >
               Value: {valueLabel}
             </span>
           </div>
@@ -172,5 +209,3 @@ export default function FloatingErrorCard({
     </div>
   );
 }
-
-export { COMPLETE_MS };
