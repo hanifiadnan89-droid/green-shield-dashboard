@@ -30,7 +30,11 @@ import {
   fetchAddressSuggestions,
   lookupAddress,
   describeGeocodeError,
+  geocodeFromSuggestion,
+  resolveFromSuggestCache,
 } from '../../../utils/geocodeClient.js';
+
+const SUGGEST_DEBOUNCE_MS = 900;
 
 function RouteSection({ page, children, className = '' }) {
   if (!page) return children;
@@ -402,7 +406,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   // ---------------------------------------------------------------------------
   // Geocode
   // ---------------------------------------------------------------------------
-  const doGeocode = useCallback(async (addr) => {
+  const doGeocode = useCallback(async (addr, suggestionOverride = null) => {
     const trimmed = addr.trim();
     if (!trimmed) return;
     if (geocodeCacheRef.current[trimmed]) {
@@ -415,6 +419,24 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setIsEditing(false);
       return;
     }
+
+    const fromSuggestion = suggestionOverride
+      ? geocodeFromSuggestion(suggestionOverride)
+      : resolveFromSuggestCache(trimmed, suggestCacheRef.current, suggestions);
+    if (fromSuggestion) {
+      geocodeCacheRef.current[trimmed] = fromSuggestion;
+      setGeocode(fromSuggestion);
+      setGeocodeStatus('success');
+      setResults(null);
+      setScoringStatus('idle');
+      setTimePref(null);
+      setSpecificSlot(null);
+      setIsEditing(false);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
     setGeocodeStatus('loading');
     setGeocodeError('');
     setSuggestError('');
@@ -433,7 +455,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setGeocodeStatus('error');
       setGeocodeError(describeGeocodeError(err));
     }
-  }, []);
+  }, [suggestions]);
 
   const handleAddressKey = (e) => {
     if (showSuggestions && suggestions.length > 0) {
@@ -865,7 +887,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   setActiveSuggestion(-1);
                   if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
                   if (val.trim().length >= 4) {
-                    suggestDebounceRef.current = setTimeout(() => fetchSuggestions(val), 500);
+                    suggestDebounceRef.current = setTimeout(() => fetchSuggestions(val), SUGGEST_DEBOUNCE_MS);
                   } else {
                     setSuggestions([]);
                     setShowSuggestions(false);

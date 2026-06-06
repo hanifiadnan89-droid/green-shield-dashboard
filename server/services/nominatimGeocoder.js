@@ -12,8 +12,10 @@ const USER_AGENT = process.env.NOMINATIM_USER_AGENT
   || 'GreenShieldDashboard/1.0 (route-finder; contact: support@greenshieldpestsolutions.com)';
 
 const ME_VIEWBOX = '-73.0,42.5,-69.5,47.5';
-const MIN_INTERVAL_MS = 1100;
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const MIN_INTERVAL_MS = 1500;
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const MAX_RATE_LIMIT_RETRIES = 3;
+const RATE_LIMIT_BASE_MS = 2500;
 
 /** @type {Promise<unknown>} */
 let requestQueue = Promise.resolve();
@@ -45,45 +47,64 @@ function enqueueNominatim(task) {
   return run;
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function nominatimFetch(pathAndQuery) {
   return enqueueNominatim(async () => {
-    const waitMs = Math.max(0, MIN_INTERVAL_MS - (Date.now() - lastFetchCompletedAt));
-    if (waitMs > 0) {
-      await new Promise((r) => setTimeout(r, waitMs));
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+      const waitMs = Math.max(0, MIN_INTERVAL_MS - (Date.now() - lastFetchCompletedAt));
+      if (waitMs > 0) {
+        await sleep(waitMs);
+      }
+
+      if (attempt > 0) {
+        const backoffMs = RATE_LIMIT_BASE_MS * (2 ** (attempt - 1));
+        await sleep(backoffMs);
+      }
+
+      const url = `${NOMINATIM_BASE}${pathAndQuery}`;
+      let resp;
+      try {
+        resp = await fetch(url, {
+          headers: {
+            'User-Agent': USER_AGENT,
+            Accept: 'application/json',
+          },
+          signal: AbortSignal.timeout(15000),
+        });
+      } catch (err) {
+        const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+        const e = new Error(isTimeout ? 'Geocoding request timed out (15s)' : `Geocoding network error: ${err.message}`);
+        e.code = 'GEOCODE_NETWORK';
+        throw e;
+      } finally {
+        lastFetchCompletedAt = Date.now();
+      }
+
+      if (resp.status === 429) {
+        lastError = new Error('Geocoding rate limit — wait a moment and try again');
+        lastError.code = 'GEOCODE_RATE_LIMIT';
+        if (attempt < MAX_RATE_LIMIT_RETRIES) {
+          console.warn(`[geocode] Nominatim 429 — retry ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES}`);
+          continue;
+        }
+        throw lastError;
+      }
+
+      if (!resp.ok) {
+        const e = new Error(`Geocoding service returned HTTP ${resp.status}`);
+        e.code = 'GEOCODE_HTTP';
+        throw e;
+      }
+
+      return resp.json();
     }
 
-    const url = `${NOMINATIM_BASE}${pathAndQuery}`;
-    let resp;
-    try {
-      resp = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(15000),
-      });
-    } catch (err) {
-      const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-      const e = new Error(isTimeout ? 'Geocoding request timed out (15s)' : `Geocoding network error: ${err.message}`);
-      e.code = 'GEOCODE_NETWORK';
-      throw e;
-    } finally {
-      lastFetchCompletedAt = Date.now();
-    }
-
-    if (resp.status === 429) {
-      const e = new Error('Geocoding rate limit — wait a moment and try again');
-      e.code = 'GEOCODE_RATE_LIMIT';
-      throw e;
-    }
-
-    if (!resp.ok) {
-      const e = new Error(`Geocoding service returned HTTP ${resp.status}`);
-      e.code = 'GEOCODE_HTTP';
-      throw e;
-    }
-
-    return resp.json();
+    throw lastError ?? new Error('Geocoding failed');
   });
 }
 
