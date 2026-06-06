@@ -31,9 +31,11 @@ export default function FloatingErrorCard({
     : isOpen
       ? 'OPEN'
       : 'COMPLETE';
-  const originalLabel = item.originalPriceLabel || item.priceLabel || 'No price listed';
   const valueLabel = item.contractValueLabel || 'No contract value found';
   const recoverableAmount = Number.isFinite(item.contractValue) ? item.contractValue : null;
+  const reasonLabel = item.reasonDisplay || item.reasonRaw || item.reason || '—';
+  const serviceLabel = item.detectedServiceLabel || item.detectedServiceType || '—';
+  const errorLabel = item.detectedErrorType || item.errorType || 'Error';
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -43,8 +45,8 @@ export default function FloatingErrorCard({
   }, [
     item.id,
     item.customerId,
-    item.errorType,
-    item.originalPriceLabel,
+    item.detectedErrorType,
+    item.detectedServiceType,
     item.contractValueLabel,
     actionsOpen,
     phase,
@@ -167,21 +169,30 @@ export default function FloatingErrorCard({
             <p className="activity-floating-card__name">{item.customerName}</p>
           ) : null}
 
-          <p className="activity-floating-card__reason">
-            {item.errorType || item.reasonRaw || item.reason || 'Error'}
-          </p>
-
-          <div className="activity-floating-card__pricing">
-            <span className="activity-floating-card__original">
-              Original: {originalLabel}
-            </span>
-            <span
-              ref={valueRef}
-              className={`activity-floating-card__value ${hideValue ? 'activity-floating-card__value--hidden' : ''}`}
-            >
-              Value: {valueLabel}
-            </span>
-          </div>
+          <dl className="activity-floating-card__meta">
+            <div className="activity-floating-card__meta-row">
+              <dt>Reason</dt>
+              <dd>{reasonLabel}</dd>
+            </div>
+            <div className="activity-floating-card__meta-row">
+              <dt>Service</dt>
+              <dd>{serviceLabel}</dd>
+            </div>
+            <div className="activity-floating-card__meta-row activity-floating-card__meta-row--highlight">
+              <dt>Error</dt>
+              <dd>{errorLabel}</dd>
+            </div>
+            <div className="activity-floating-card__meta-row activity-floating-card__meta-row--value">
+              <dt>Est. Value</dt>
+              <dd
+                ref={valueRef}
+                className={hideValue ? 'activity-floating-card__value--hidden' : ''}
+              >
+                {valueLabel}
+                {item.isEstimated ? <span className="activity-floating-card__estimated"> (est.)</span> : null}
+              </dd>
+            </div>
+          </dl>
         </div>
 
         <div
