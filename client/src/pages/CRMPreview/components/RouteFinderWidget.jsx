@@ -18,11 +18,9 @@ import {
   shouldSkipAutoRouteSearch,
 } from './RouteFinder/routeFinderSearchFingerprint.js';
 import {
-  SCORING_MODES,
   buildRouteFinderLead,
   detectRouteArea,
   scoreSingleDate,
-  scoreBestAvailable,
 } from '../../../utils/routeFinderScoring.js';
 
 function routeFinderDebug(label, detail) {
@@ -79,9 +77,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const [suggestions, setSuggestions]         = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
-
-  // Scoring mode
-  const [scoringMode, setScoringMode] = useState(SCORING_MODES.SINGLE_DATE);
 
   // Service selection
   const [serviceTypeId, setServiceTypeId] = useState('');
@@ -546,35 +541,14 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setScoringError('');
 
     try {
-      if (scoringMode === SCORING_MODES.SINGLE_DATE) {
-        if (!activeTechnicians?.length) return;
-        const lead = buildLeadForScoring(geocode, pref, activeDateRef.current);
-        if (!lead) {
-          setScoringStatus('idle');
-          return;
-        }
-        routeFinderDebug('single-date search started', { date: activeDateRef.current, lead });
-        const scored = await scoreSingleDate(activeTechnicians, lead, 3);
-        if (requestId !== scoreRequestRef.current) return;
-        setResults(scored);
-        setScoringStatus('done');
-        return;
-      }
-
-      const leadBase = buildLeadForScoring(geocode, pref, null);
-      if (!leadBase) {
+      if (!activeTechnicians?.length) return;
+      const lead = buildLeadForScoring(geocode, pref, activeDateRef.current);
+      if (!lead) {
         setScoringStatus('idle');
         return;
       }
-      routeFinderDebug('best-available search started', { lead: leadBase });
-      const scored = await scoreBestAvailable({
-        leadBase,
-        dateMetas: DATE_METAS,
-        dateStatus,
-        fetchPayload: (date) => api.routes.payload(date),
-        topN: 3,
-        maxExtra: 5,
-      });
+      routeFinderDebug('single-date search started', { date: activeDateRef.current, lead });
+      const scored = await scoreSingleDate(activeTechnicians, lead, 3);
       if (requestId !== scoreRequestRef.current) return;
       setResults(scored);
       setScoringStatus('done');
@@ -589,11 +563,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     timePref,
     specificSlot,
     serviceTypeId,
-    scoringMode,
     activeTechnicians,
     buildLeadForScoring,
-    DATE_METAS,
-    dateStatus,
   ]);
 
   const timeWindowPref = resolveTimeWindowPref(timePref, specificSlot);
@@ -605,30 +576,21 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       timeWindowPreference: pref,
       serviceTypeId,
       commercialDurationMinutes,
-      scoringMode,
       activeDate,
-      dateStatus,
-      dateKeys: DATE_KEYS,
     });
 
     const hasJob = geocodeStatus === 'success' && geocode && serviceTypeId && pref;
-    const singleReady = scoringMode === SCORING_MODES.SINGLE_DATE
-      && activeDate && activeTechnicians?.length;
-    const bestReady = scoringMode === SCORING_MODES.BEST_AVAILABLE
-      && DATE_KEYS.some(d => dateStatus[d]?.status === 'cached');
+    const dateReady = activeDate && activeTechnicians?.length;
 
     routeFinderDebug('search check', {
-      mode: scoringMode,
       date: activeDate,
       hasJob,
-      singleReady,
-      bestReady,
+      dateReady,
       fingerprint,
     });
 
     if (!hasJob) return;
-    if (scoringMode === SCORING_MODES.SINGLE_DATE && !singleReady) return;
-    if (scoringMode === SCORING_MODES.BEST_AVAILABLE && !bestReady) return;
+    if (!dateReady) return;
 
     if (shouldSkipAutoRouteSearch({
       fingerprint,
@@ -651,9 +613,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     specificSlot,
     serviceTypeId,
     commercialDurationMinutes,
-    scoringMode,
-    dateStatus,
-    DATE_KEYS,
     scoringStatus,
     results,
     runScore,
@@ -693,12 +652,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setActiveSuggestion(-1);
     if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
   };
-
-  const handleScoringModeChange = useCallback((mode) => {
-    setScoringMode(mode);
-    setResults(null);
-    setScoringStatus('idle');
-  }, []);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -795,40 +748,10 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         </RouteSection>
 
         <RouteSection page={isPage}>
-        {/* ── Scoring mode ── */}
-        <div className={isPage ? 'mb-3' : 'mb-3'}>
-          <label className={isPage ? 'rf-section-label' : 'type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5'}>
-            Search Mode
-          </label>
-          <div className="rf-mode-toggle">
-            <button
-              type="button"
-              className={['rf-mode-toggle__btn', scoringMode === SCORING_MODES.SINGLE_DATE ? 'rf-mode-toggle__btn--active' : ''].filter(Boolean).join(' ')}
-              onClick={() => handleScoringModeChange(SCORING_MODES.SINGLE_DATE)}
-            >
-              Single Date
-            </button>
-            <button
-              type="button"
-              className={['rf-mode-toggle__btn', scoringMode === SCORING_MODES.BEST_AVAILABLE ? 'rf-mode-toggle__btn--active' : ''].filter(Boolean).join(' ')}
-              onClick={() => handleScoringModeChange(SCORING_MODES.BEST_AVAILABLE)}
-            >
-              Best Available
-            </button>
-          </div>
-          <p className="route-finder-helper type-label-sm text-gs-muted mb-0 mt-1.5 font-normal tracking-normal leading-snug">
-            {scoringMode === SCORING_MODES.BEST_AVAILABLE
-              ? 'Compares all cached upcoming dates and ranks the best technician + day combinations.'
-              : 'Scores routes for one selected date.'}
-          </p>
-        </div>
-        </RouteSection>
-
-        <RouteSection page={isPage}>
         {/* ── Date picker ── */}
         <div className={isPage ? 'mb-0' : 'mb-3.5'}>
           <label className={isPage ? 'rf-section-label' : 'type-label-sm uppercase tracking-[0.06em] text-gs-muted block mb-1.5'}>
-            {scoringMode === SCORING_MODES.BEST_AVAILABLE ? 'Cached Route Dates' : 'Route Date'}
+            Route Date
           </label>
           {routeDateHelperText && (
             <p className="route-finder-helper type-label-sm text-gs-muted mb-2 font-normal tracking-normal leading-snug m-0">
@@ -847,8 +770,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                 <div key={key} className="route-date-pill-cell">
                   <motion.button
                     type="button"
-                    onClick={() => isCached && scoringMode === SCORING_MODES.SINGLE_DATE && handleDateSelect(key)}
-                    disabled={!isCached || scoringMode === SCORING_MODES.BEST_AVAILABLE}
+                    onClick={() => isCached && handleDateSelect(key)}
+                    disabled={!isCached}
                     aria-disabled={!isCached}
                     title={pillTitle}
                     whileHover={isCached && !isActive ? { scale: 1.02 } : undefined}
@@ -977,7 +900,12 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
 
               {/* Autocomplete dropdown */}
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-[200] bg-white rounded-[10px] mt-1 border border-black/10 shadow-[0_6px_20px_rgba(0,0,0,0.1)] overflow-hidden">
+                <div
+                  className={[
+                    'route-suggest-dropdown absolute top-full left-0 right-0 z-[200] rounded-[10px] mt-1 overflow-hidden',
+                    isPage ? 'route-suggest-dropdown--command' : 'route-suggest-dropdown--embedded',
+                  ].join(' ')}
+                >
                   {suggestions.map((s, i) => (
                     <div
                       key={i}
@@ -985,7 +913,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                       onMouseEnter={() => setActiveSuggestion(i)}
                       className={[
                         'route-suggest-item py-[7px] px-[11px] cursor-pointer flex items-start gap-2 transition-colors duration-100',
-                        i < suggestions.length - 1 ? 'border-b border-black/[0.05]' : '',
+                        i < suggestions.length - 1 ? 'route-suggest-item__divider' : '',
                         i === activeSuggestion ? 'route-suggest-item--active' : '',
                       ].filter(Boolean).join(' ')}
                     >
@@ -1117,14 +1045,9 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         )}
 
         {/* ── No date selected hint ── */}
-        {scoringMode === SCORING_MODES.SINGLE_DATE && !activeDate && geocodeStatus === 'success' && serviceTypeId && (
+        {!activeDate && geocodeStatus === 'success' && serviceTypeId && (
           <p className="route-finder-hint type-label-sm text-gs-muted text-center mb-2.5 font-normal tracking-normal m-0">
             Select a cached date above to see recommendations
-          </p>
-        )}
-        {scoringMode === SCORING_MODES.BEST_AVAILABLE && geocodeStatus === 'success' && serviceTypeId && !hasCachedDate && (
-          <p className="route-finder-hint type-label-sm text-gs-muted text-center mb-2.5 font-normal tracking-normal m-0">
-            Waiting for cached route data — refresh dates when FieldRoutes auth is connected
           </p>
         )}
         </RouteSection>
@@ -1182,9 +1105,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
               <>
                 <div className="route-finder-results-head">
                   <p className="route-finder-results-head__title">
-                    {results.mode === SCORING_MODES.BEST_AVAILABLE
-                      ? `Best ${results.topMatches.length} Across ${results.datesScored ?? 0} Day${(results.datesScored ?? 0) === 1 ? '' : 's'}`
-                      : `Top ${results.topMatches.length} Matches`}
+                    Top {results.topMatches.length} Matches
                   </p>
                   <button
                     type="button"
@@ -1204,7 +1125,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                     matches={results.topMatches}
                     additionalMatches={results.additionalMatches ?? []}
                     routeArea={results.routeArea}
-                    multiDay={results.mode === SCORING_MODES.BEST_AVAILABLE}
+                    multiDay={false}
                   />
                 </div>
                 <p className={isPage ? 'route-finder-footer-summary' : 'type-label-sm text-slate-400 text-center mt-1 font-normal tracking-normal'}>
