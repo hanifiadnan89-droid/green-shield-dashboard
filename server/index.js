@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import twilio from 'twilio';
-import helmet from 'helmet';
+import { createHelmetMiddleware } from './security/contentSecurityPolicy.js';
 import rateLimit from 'express-rate-limit';
 
 const twilioClient = twilio(
@@ -83,7 +83,7 @@ app.use(cors({
     'http://127.0.0.1:5173'
   ]
 }));
-app.use(helmet());
+app.use(createHelmetMiddleware());
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
