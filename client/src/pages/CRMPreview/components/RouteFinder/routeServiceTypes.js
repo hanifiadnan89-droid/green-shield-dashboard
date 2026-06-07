@@ -3,9 +3,78 @@
  */
 
 export const CUSTOM_DURATION_ID = 'custom-duration';
+export const COMMERCIAL_SERVICE_CARD_ID = 'commercial';
 
 export const DURATION_MIN_LIMIT = 10;
 export const DURATION_MAX_LIMIT = 240;
+
+export const COMMERCIAL_DURATION_OPTIONS = [60, 90, 120];
+
+/**
+ * Sales-rep service cards shown in Route Finder (replaces legacy job-details dropdown).
+ * @typedef {Object} RouteFinderServiceCard
+ * @property {string} id
+ * @property {string} code
+ * @property {string} title
+ * @property {number} [durationMinutes]
+ * @property {string} [durationRangeLabel]
+ * @property {string} description
+ * @property {string} serviceLabel
+ * @property {DurationConfidence} durationConfidence
+ * @property {boolean} [isCommercial]
+ */
+
+/** @type {RouteFinderServiceCard[]} */
+export const ROUTE_FINDER_SERVICE_CARDS = [
+  {
+    id: 'it',
+    code: 'IT',
+    title: 'Insect Triannual',
+    durationMinutes: 60,
+    description: 'Adds 60 minutes to the route',
+    serviceLabel: 'IT / Insect Triannual',
+    durationConfidence: 'standard',
+  },
+  {
+    id: 'iq',
+    code: 'IQ',
+    title: 'Insect Quarterly',
+    durationMinutes: 60,
+    description: 'Adds 60 minutes to the route',
+    serviceLabel: 'IQ / Insect Quarterly',
+    durationConfidence: 'standard',
+  },
+  {
+    id: 'tick-mosquito',
+    code: 'T/M',
+    title: 'Tick & Mosquito',
+    durationMinutes: 30,
+    description: 'Adds 30 minutes to the route',
+    serviceLabel: 'Tick & Mosquito',
+    durationConfidence: 'standard',
+  },
+  {
+    id: 'bed-bugs',
+    code: 'BB',
+    title: 'Bed Bug Service',
+    durationMinutes: 60,
+    description: 'Adds 60 minutes to the route',
+    serviceLabel: 'Bed Bug Service',
+    durationConfidence: 'standard',
+  },
+  {
+    id: COMMERCIAL_SERVICE_CARD_ID,
+    code: 'COM',
+    title: 'Commercial Service',
+    durationRangeLabel: '60–120 min route time',
+    description: 'Commercial services usually add 1–2 hours',
+    serviceLabel: 'Commercial Service',
+    durationConfidence: 'selected',
+    isCommercial: true,
+  },
+];
+
+const SERVICE_CARD_BY_ID = new Map(ROUTE_FINDER_SERVICE_CARDS.map(c => [c.id, c]));
 
 /** @typedef {'standard' | 'estimated' | 'custom' | 'inferred' | 'fallback'} DurationConfidence */
 
@@ -134,6 +203,59 @@ export function getServiceTypeById(id) {
   return BY_ID.get(id) ?? null;
 }
 
+export function getServiceCardById(id) {
+  return SERVICE_CARD_BY_ID.get(id) ?? null;
+}
+
+export function isServiceCardId(id) {
+  return SERVICE_CARD_BY_ID.has(id);
+}
+
+/**
+ * Resolve duration from a Route Finder service card selection.
+ * @param {string} serviceCardId
+ * @param {number} [commercialDurationMinutes]
+ */
+export function resolveServiceCardSelection(serviceCardId, commercialDurationMinutes = 60) {
+  const card = getServiceCardById(serviceCardId);
+  if (!card) {
+    return { valid: false, error: 'Select a service type before finding routes.' };
+  }
+
+  if (card.isCommercial) {
+    const mins = Number(commercialDurationMinutes);
+    if (!COMMERCIAL_DURATION_OPTIONS.includes(mins)) {
+      return {
+        valid: false,
+        error: 'Select a commercial duration (60, 90, or 120 minutes).',
+      };
+    }
+    return {
+      valid: true,
+      durationMinutes: mins,
+      durationConfidence: 'selected',
+      durationSource: 'service-card-commercial',
+      serviceType: card.serviceLabel,
+      serviceLabel: card.serviceLabel,
+      isInitial: false,
+      isRecurring: false,
+      isReservice: false,
+    };
+  }
+
+  return {
+    valid: true,
+    durationMinutes: card.durationMinutes,
+    durationConfidence: card.durationConfidence,
+    durationSource: 'service-card',
+    serviceType: card.serviceLabel,
+    serviceLabel: card.serviceLabel,
+    isInitial: card.id === 'it' || card.id === 'iq' || card.id === 'bed-bugs',
+    isRecurring: card.id === 'iq',
+    isReservice: false,
+  };
+}
+
 /**
  * Resolve duration minutes and confidence from service selection.
  * @param {string} serviceTypeId
@@ -191,6 +313,7 @@ export function buildRouteFinderLead({
   callAheadRequired = false,
   serviceTypeId,
   customDurationMinutes,
+  commercialDurationMinutes = 60,
   timeWindowPreference,
   routeArea,
   date,
@@ -201,12 +324,14 @@ export function buildRouteFinderLead({
     errors.push('A verified address with coordinates is required.');
   }
   if (!serviceTypeId) {
-    errors.push('Service type is required.');
+    errors.push('Select a service type before finding routes.');
   }
 
   const duration = serviceTypeId
-    ? resolveServiceDuration(serviceTypeId, customDurationMinutes)
-    : { valid: false, error: 'Service type is required.' };
+    ? (isServiceCardId(serviceTypeId)
+      ? resolveServiceCardSelection(serviceTypeId, commercialDurationMinutes)
+      : resolveServiceDuration(serviceTypeId, customDurationMinutes))
+    : { valid: false, error: 'Select a service type before finding routes.' };
 
   if (!duration.valid) {
     errors.push(duration.error);
