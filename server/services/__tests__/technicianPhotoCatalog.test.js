@@ -4,7 +4,8 @@ import {
   extractTechnicianNames,
   buildTechnicianCatalog,
   TECHNICIAN_SECTION_MARKERS,
-} from '../technicianPhotoCatalog.js';
+} from '../technicianPhotoScrape.js';
+import { buildLocalTechnicianPhotoCatalog } from '../technicianPhotoLocal.js';
 
 const SAMPLE_HTML = `
   <h3>Meet the Team</h3>
@@ -35,6 +36,16 @@ describe('technicianPhotoCatalog', () => {
     expect(technicians[technicians.length - 1]).toBe(TECHNICIAN_SECTION_MARKERS.end);
     expect(technicians).not.toContain('Adnan');
     expect(technicians).not.toContain('Spencer');
+  });
+
+  it('loads all bundled local technician image paths', () => {
+    const catalog = buildLocalTechnicianPhotoCatalog();
+    expect(catalog.technicians).toContain('Lee G');
+    expect(catalog.technicians).toContain('Lee P');
+    expect(catalog.byName['Lee G']).toBe('/technicians/lee_g.jpeg');
+    expect(catalog.byName['Lee P']).toBe('/technicians/lee_p.jpeg');
+    expect(catalog.byName.Mike).toBe('/technicians/mike.jpg');
+    expect(catalog.unmatched).toEqual([]);
   });
 
   it('maps technicians by global About-page order, not entire staff list', () => {
