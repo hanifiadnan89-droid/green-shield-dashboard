@@ -118,6 +118,26 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     if (_auth) setAuthInfo(_auth);
   }, []);
 
+  const reloadActiveDatePayload = useCallback(async (statusData) => {
+    const date = activeDateRef.current;
+    if (!date || !statusData) return;
+    if (statusData[date]?.status !== 'cached') return;
+    const requestId = ++payloadRequestRef.current;
+    try {
+      const data = await api.routes.payload(date);
+      if (requestId !== payloadRequestRef.current) return;
+      setActiveTechnicians(data.technicians || []);
+      setDateLoadStatus('idle');
+      setDateLoadError('');
+      routeFinderDebug('active date payload reloaded', { date, techs: data.technicians?.length ?? 0 });
+    } catch (err) {
+      if (requestId !== payloadRequestRef.current) return;
+      setDateLoadStatus('error');
+      setDateLoadError(err?.message || 'Failed to load route data');
+      console.warn('[RouteFinder] payload reload failed:', err?.message);
+    }
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Polling
   // ---------------------------------------------------------------------------
@@ -131,13 +151,14 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         if (!anyRefreshing) {
           clearInterval(pollRef.current);
           pollRef.current = null;
+          await reloadActiveDatePayload(statusData);
         }
       } catch {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
     }, 3000);
-  }, [applyStatusData]);
+  }, [applyStatusData, reloadActiveDatePayload]);
 
   const refreshRouteStatus = useCallback(async () => {
     const statusData = await api.routes.status();
@@ -171,21 +192,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   }, [DATE_KEYS, refreshRouteStatus, startPolling]);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
-
-  const reloadActiveDatePayload = useCallback(async (statusData) => {
-    const date = activeDateRef.current;
-    if (!date || !statusData) return;
-    if (statusData[date]?.status !== 'cached') return;
-    const requestId = ++payloadRequestRef.current;
-    try {
-      const data = await api.routes.payload(date);
-      if (requestId !== payloadRequestRef.current) return;
-      setActiveTechnicians(data.technicians || []);
-      routeFinderDebug('active date payload reloaded', { date, techs: data.technicians?.length ?? 0 });
-    } catch (err) {
-      console.warn('[RouteFinder] silent payload reload failed:', err?.message);
-    }
-  }, []);
 
   useRouteFinderBackgroundRefresh({
     applyStatusData,
@@ -286,13 +292,31 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setDateLoadError('');
     } catch (err) {
       if (requestId !== payloadRequestRef.current) return;
+      if (err?.httpStatus === 404) {
+        setDateLoadStatus('loading');
+        setDateLoadError('');
+        setActiveTechnicians(null);
+        try {
+          await refreshRouteStatus();
+          setDateStatus(prev => ({
+            ...prev,
+            [date]: { ...(prev[date] || {}), status: 'refreshing' },
+          }));
+          await api.routes.refresh(date);
+          startPolling();
+        } catch (refreshErr) {
+          setDateLoadStatus('error');
+          setDateLoadError(refreshErr?.message || 'Could not refresh schedule data for this date');
+        }
+        return;
+      }
       setDateLoadStatus('error');
       setActiveTechnicians(null);
       const message = err?.message || 'Failed to load route data';
       setDateLoadError(message);
       console.warn('[RouteFinderWidget] payload load failed:', message);
     }
-  }, []);
+  }, [refreshRouteStatus, startPolling]);
 
   const handleRefresh = useCallback(async (date) => {
     try {
