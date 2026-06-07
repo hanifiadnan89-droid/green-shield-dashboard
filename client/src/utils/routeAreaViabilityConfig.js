@@ -1,0 +1,25 @@
+/** Defaults for route area viability — override in tests via SCORER_CONFIG.areaViability */
+export const ROUTE_AREA_VIABILITY_DEFAULTS = {
+  strongAreaRadiusMiles: 8,
+  acceptableAreaRadiusMiles: 15,
+  weakAreaRadiusMiles: 25,
+  outOfAreaRadiusMiles: 35,
+  maxHomeToJobMilesWithoutRouteFit: 35,
+  maxCentroidToJobMiles: 30,
+  maxNearestStopMilesForNormalRecommendation: 15,
+  maxAddedDriveMinutesNormal: 35,
+  corridorOnRouteMiles: 5,
+  corridorNearRouteMiles: 10,
+  corridorOffRouteMiles: 20,
+  sameHomeLocationMiles: 0.05,
+  scoreBonusStrong: 12,
+  scoreBonusAcceptable: 5,
+  scorePenaltyWeak: 18,
+  scorePenaltyOutOfArea: 45,
+  corridorBonus: {
+    on_route: 8,
+    near_route: 3,
+    off_route: -10,
+    far_off_route: -25,
+  },
+};

@@ -149,6 +149,24 @@ export function buildTrustWarnings(match, lead, ctx = {}) {
     });
   }
 
+  if (match.areaFallbackOnly || match.areaViability?.areaViability === 'out_of_area') {
+    warnings.push({
+      code: 'area_fallback',
+      badge: 'Fallback only — outside normal route area.',
+      message: match.areaViability?.outOfAreaReason
+        || 'This route is outside the technician\'s normal service area for this appointment.',
+      severity: 'caution',
+    });
+  } else if (match.areaViability?.areaViability === 'weak') {
+    warnings.push({
+      code: 'weak_area_fit',
+      badge: 'Marginal area fit',
+      message: match.areaViability.outOfAreaReason
+        || 'This appointment is a stretch for the technician\'s route geography.',
+      severity: 'info',
+    });
+  }
+
   return warnings;
 }
 
