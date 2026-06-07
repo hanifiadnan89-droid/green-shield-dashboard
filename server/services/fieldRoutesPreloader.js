@@ -198,29 +198,61 @@ async function hasFreshNormalizedCache(date) {
   }
 }
 
+const REFRESH_STALE_MS = 5 * 60 * 1000;
+
+function buildCachedEntry(date, base, mtime) {
+  return {
+    status: 'cached',
+    timestamp: mtime.toISOString(),
+    techCount: base.techCount,
+    stopCount: base.stopCount,
+  };
+}
+
+function buildMissingEntry(base) {
+  return {
+    status: 'missing',
+    techCount: base.techCount,
+    stopCount: base.stopCount,
+  };
+}
+
 async function reconcileDateEntry(date, entry) {
   const base = entry || { status: 'missing' };
-  if (base.status === 'cached' && base.timestamp) {
+
+  if (base.status === 'refreshing' && base.timestamp) {
     const ageMs = Date.now() - new Date(base.timestamp).getTime();
-    if (ageMs < ROUTE_CACHE_TTL_MS && (await hasFreshNormalizedCache(date))) {
-      return base;
+    if (ageMs > REFRESH_STALE_MS && !(await hasFreshNormalizedCache(date))) {
+      return {
+        ...base,
+        status: 'failed',
+        error: 'Refresh timed out — try again with the ↻ button.',
+      };
     }
   }
+
   if (await hasFreshNormalizedCache(date)) {
     try {
       const normPath = resolve(ROUTES_DIR, `${date}.normalized.json`);
       const stat = await fs.stat(normPath);
-      return {
-        status: 'cached',
-        timestamp: stat.mtime.toISOString(),
-        techCount: base.techCount,
-        stopCount: base.stopCount,
-      };
+      return buildCachedEntry(date, base, stat.mtime);
     } catch {
-      return base;
+      // fall through — treat as missing below
     }
   }
-  return base;
+
+  if (base.status === 'cached') {
+    return buildMissingEntry(base);
+  }
+
+  return base.status ? base : { status: 'missing' };
+}
+
+function shouldPersistReconciledMeta(previous, reconciled) {
+  const prevStatus = previous?.status ?? 'missing';
+  if (prevStatus !== reconciled.status) return true;
+  if (reconciled.status === 'cached' && previous?.timestamp !== reconciled.timestamp) return true;
+  return false;
 }
 
 export async function refreshDate(date) {
@@ -266,8 +298,22 @@ export async function getStatus() {
   const dates = getNextSixWorkingDays();
   const meta  = await readMeta();
   const result = {};
+  const repairs = [];
   for (const date of dates) {
-    result[date] = await reconcileDateEntry(date, meta[date]);
+    const reconciled = await reconcileDateEntry(date, meta[date]);
+    result[date] = reconciled;
+    if (shouldPersistReconciledMeta(meta[date], reconciled)) {
+      repairs.push({ date, entry: reconciled });
+    }
+  }
+  if (repairs.length > 0) {
+    await withMetaLock(async () => {
+      const nextMeta = await readMeta();
+      for (const { date, entry } of repairs) {
+        nextMeta[date] = entry;
+      }
+      await writeMeta(nextMeta);
+    });
   }
 
   const lastRefresh = Object.values(meta)
@@ -299,14 +345,7 @@ export async function getNormalizedForDate(date) {
 }
 
 export async function isDateCacheStale(date) {
-  if (await hasFreshNormalizedCache(date)) return false;
-  const meta = await readMeta();
-  const entry = meta[date];
-  if (entry?.status === 'cached' && entry?.timestamp) {
-    const ageMs = Date.now() - new Date(entry.timestamp).getTime();
-    if (ageMs < ROUTE_CACHE_TTL_MS) return false;
-  }
-  return true;
+  return !(await hasFreshNormalizedCache(date));
 }
 
 /**
@@ -392,14 +431,7 @@ export async function preloadNextSixWorkingDays({ force = false } = {}) {
   }
 
   for (const date of dates) {
-    if (!force) {
-      if (await hasFreshNormalizedCache(date)) continue;
-      const entry = meta[date];
-      if (entry?.status === 'cached' && entry?.timestamp) {
-        const ageMs = Date.now() - new Date(entry.timestamp).getTime();
-        if (ageMs < ROUTE_CACHE_TTL_MS) continue;
-      }
-    }
+    if (!force && (await hasFreshNormalizedCache(date))) continue;
     try {
       await refreshDate(date);
     } catch (err) {
