@@ -370,9 +370,12 @@ router.get('/technician-photos', async (req, res) => {
       ? await refreshTechnicianPhotoCatalog({ force: true })
       : await getTechnicianPhotoCatalog();
     res.json({
+      cacheVersion: catalog.cacheVersion,
       fetchedAt: catalog.fetchedAt,
       source: catalog.source,
+      technicians: catalog.technicians || [],
       byName: catalog.byName,
+      unmatched: catalog.unmatched || [],
     });
   } catch (err) {
     console.error('[routes] technician-photos error:', err.message);
