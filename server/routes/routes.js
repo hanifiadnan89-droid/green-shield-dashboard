@@ -387,14 +387,18 @@ router.get('/technician-photos', async (req, res) => {
 router.post('/travel-legs', async (req, res) => {
   try {
     const { computeTravelLegs } = await import('../services/googleRoutesTravelTime.js');
-    const { legs = [], context = {}, trafficAware = false } = req.body || {};
+    const { legs = [], context = {}, trafficAware = false, budget: bodyBudget } = req.body || {};
     if (!Array.isArray(legs) || legs.length === 0) {
       return res.status(400).json({ error: 'legs array is required' });
     }
     if (legs.length > 200) {
       return res.status(400).json({ error: 'Too many legs requested (max 200)' });
     }
-    const result = await computeTravelLegs({ legs, context, trafficAware });
+    const result = await computeTravelLegs({
+      legs,
+      context: { ...context, budget: bodyBudget || context.budget },
+      trafficAware,
+    });
     res.json(result);
   } catch (err) {
     console.error('[routes] travel-legs error:', err.message);
@@ -419,7 +423,11 @@ router.post('/road-polyline', async (req, res) => {
     if (stops.length > 30) {
       return res.status(400).json({ error: 'Too many stops for road polyline (max 30)' });
     }
-    const result = await computeRoadPolyline({ stops, context, trafficAware });
+    const result = await computeRoadPolyline({
+      stops,
+      context: { ...context, detailView: context.detailView === true },
+      trafficAware,
+    });
     res.json(result);
   } catch (err) {
     console.error('[routes] road-polyline error:', err.message);

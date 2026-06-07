@@ -3,7 +3,8 @@
  */
 
 import { scoreRoutesAsync, detectRouteArea } from './fieldRoutesScorer.js';
-import { prefetchTravelContext } from './routeTravelContext.js';
+import { getRoutesApiConfig, createSearchElementBudget } from './routesApiConfig.js';
+import { stagedScoreRoutes } from './stagedRouteScoring.js';
 
 function buildPrefWindowMeta(lead) {
   const pref = lead?.timeWindowPreference || 'AT';
@@ -62,7 +63,9 @@ function travelProviderFromMatch(match) {
 
 function attachMatchMeta(match, { date, technicians, lead, rank, travelDiagnostics }) {
   const tech = techByRouteId(technicians, match.routeId);
-  const diagnostics = match.travelDiagnostics || travelDiagnostics || null;
+  const diagnostics = travelDiagnostics
+    ? { ...match.travelDiagnostics, ...travelDiagnostics }
+    : (match.travelDiagnostics || null);
   const enriched = enrichMatchWithTrustAndCost(match, lead, {
     tech,
     travelProvider: travelProviderFromMatch(match),
@@ -121,10 +124,30 @@ function enrichSingleDateResult(result, technicians, lead, travelCtx) {
  * Score one date (existing behavior + enrichment).
  */
 export async function scoreSingleDate(technicians, lead, topN = 3, options = {}) {
-  const travelCtx = options.travelCtx
-    ?? (options.prefetchTravel === false ? null : await prefetchTravelContext(technicians, lead, options));
-  const raw = await scoreRoutesAsync(technicians, lead, topN, { ...options, travelCtx });
-  return enrichSingleDateResult(raw, technicians, lead, travelCtx);
+  let travelCtx = options.travelCtx ?? null;
+  let raw;
+  let stagingDiagnostics = null;
+
+  if (travelCtx) {
+    raw = await scoreRoutesAsync(technicians, lead, topN, { ...options, travelCtx, prefetchTravel: false });
+  } else if (options.prefetchTravel === false) {
+    raw = await scoreRoutesAsync(technicians, lead, topN, { ...options, prefetchTravel: false });
+  } else {
+    const staged = await stagedScoreRoutes(technicians, lead, topN, options);
+    raw = staged.result;
+    travelCtx = staged.travelCtx;
+    stagingDiagnostics = staged.stagingDiagnostics;
+  }
+
+  const enriched = enrichSingleDateResult(raw, technicians, lead, travelCtx);
+  if (stagingDiagnostics) {
+    enriched.stagingDiagnostics = stagingDiagnostics;
+    enriched.travelDiagnostics = {
+      ...(enriched.travelDiagnostics || {}),
+      ...stagingDiagnostics,
+    };
+  }
+  return enriched;
 }
 
 /**
@@ -147,10 +170,13 @@ export async function scoreBestAvailable({
   maxExtra = 5,
   prefetchTravel = true,
 }) {
+  const config = getRoutesApiConfig();
+  const searchBudget = createSearchElementBudget(config);
   const allMatches = [];
   const skippedDates = [];
   let datesScored = 0;
   let lastTravelDiagnostics = null;
+  const dateCandidates = [];
 
   for (const { key: date } of dateMetas) {
     const status = dateStatus[date]?.status;
@@ -174,26 +200,85 @@ export async function scoreBestAvailable({
     }
 
     const lead = { ...leadBase, date };
-    const travelCtx = prefetchTravel
-      ? await prefetchTravelContext(technicians, lead)
-      : null;
-    const result = await scoreRoutesAsync(technicians, lead, technicians.length, { travelCtx });
+    const haversineResult = await scoreRoutesAsync(technicians, lead, technicians.length, {
+      prefetchTravel: false,
+      travelCtx: null,
+    });
     datesScored += 1;
-    if (travelCtx?.travelDiagnostics) lastTravelDiagnostics = travelCtx.travelDiagnostics;
 
-    if (result.noSafeRoute) continue;
+    if (haversineResult.noSafeRoute) continue;
 
-    for (const match of result.topMatches ?? []) {
-      allMatches.push(
-        attachMatchMeta(match, {
-          date,
-          technicians,
-          lead,
-          rank: 0,
-          travelDiagnostics: match.travelDiagnostics || travelCtx?.travelDiagnostics,
-        }),
-      );
+    for (const match of haversineResult.topMatches ?? []) {
+      dateCandidates.push({
+        date,
+        technicians,
+        lead,
+        match,
+        estimatedScore: match.scores?.total ?? 0,
+      });
     }
+  }
+
+  dateCandidates.sort((a, b) => b.estimatedScore - a.estimatedScore);
+
+  const prefilterCount = Math.min(config.prefilterTopRoutes, dateCandidates.length);
+  const roadCandidates = prefetchTravel && searchBudget.remainingSearchElements > 0
+    ? dateCandidates.slice(0, prefilterCount)
+    : [];
+
+  const roadScoredKeys = new Set();
+
+  for (const candidate of roadCandidates) {
+    if (searchBudget.remainingSearchElements <= 0) break;
+
+    const { date, technicians, lead, match } = candidate;
+    const tech = technicians.find(t => String(t.routeId) === String(match.routeId));
+    if (!tech) continue;
+
+    const staged = await stagedScoreRoutes([tech], lead, 1, {
+      budget: searchBudget,
+      prefetchTravel: true,
+    });
+
+    roadScoredKeys.add(`${date}::${match.routeId}`);
+    const roadMatch = staged.result.topMatches?.[0] ?? match;
+    const diagnostics = staged.travelCtx?.travelDiagnostics || staged.stagingDiagnostics;
+
+    allMatches.push(
+      attachMatchMeta(roadMatch, {
+        date,
+        technicians,
+        lead,
+        rank: 0,
+        travelDiagnostics: diagnostics,
+      }),
+    );
+
+    if (diagnostics) lastTravelDiagnostics = diagnostics;
+  }
+
+  for (const candidate of dateCandidates) {
+    const key = `${candidate.date}::${candidate.match.routeId}`;
+    if (roadScoredKeys.has(key)) continue;
+
+    allMatches.push(
+      attachMatchMeta(candidate.match, {
+        date: candidate.date,
+        technicians: candidate.technicians,
+        lead: candidate.lead,
+        rank: 0,
+        travelDiagnostics: {
+          travelProvider: 'haversine',
+          travelAccuracy: 'estimated',
+          roadTimingUsed: false,
+          fallbackUsed: true,
+          fallbackReason: roadScoredKeys.size > 0
+            ? 'Road timing skipped to control API usage; estimated timing used.'
+            : 'estimated_prefilter',
+          routesEstimatedOnly: 1,
+        },
+      }),
+    );
   }
 
   allMatches.sort((a, b) => (b.scores?.total ?? 0) - (a.scores?.total ?? 0));

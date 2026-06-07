@@ -50,7 +50,7 @@ export function useRoadPolyline({ stops, routeId, routeDate, enabled = true }) {
       try {
         const result = await api.routes.roadPolyline({
           stops: payloadStops,
-          context: { routeId, date: routeDate },
+          context: { routeId, date: routeDate, detailView: true },
         });
         if (requestId !== requestRef.current) return;
         setState({
