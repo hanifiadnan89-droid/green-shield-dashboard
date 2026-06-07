@@ -137,6 +137,10 @@ export const api = {
       body: JSON.stringify(body),
     }),
     travelStatus: () => request('/routes/travel-status'),
+    roadPolyline: (body) => request('/routes/road-polyline', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   },
 
   ai: {

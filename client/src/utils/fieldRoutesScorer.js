@@ -1457,8 +1457,20 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     },
     workload,
     routeFeasibility,
-    travelProvider: travelCtx?.getProviderName?.() || defaultTravelProvider.getProviderName(),
-    travelAccuracy: travelCtx?.getProviderAccuracy?.() || defaultTravelProvider.getProviderAccuracy(),
+    travelProvider: travelCtx?.travelDiagnostics?.travelProvider
+      || travelCtx?.getProviderName?.()
+      || defaultTravelProvider.getProviderName(),
+    travelAccuracy: travelCtx?.travelDiagnostics?.travelAccuracy
+      || travelCtx?.getProviderAccuracy?.()
+      || defaultTravelProvider.getProviderAccuracy(),
+    travelDiagnostics: travelCtx?.travelDiagnostics || {
+      travelProvider: travelCtx?.getProviderName?.() || 'haversine',
+      travelAccuracy: travelCtx?.getProviderAccuracy?.() || 'estimated',
+      fallbackUsed: !travelCtx || travelCtx.getProviderName?.() === 'haversine',
+      fallbackReason: !travelCtx ? 'no_travel_context' : null,
+      matrixElementsRequested: travelCtx?.diagnostics?.matrixElementsRequested ?? 0,
+      cacheHit: Boolean(travelCtx?.diagnostics?.cacheHit),
+    },
     scores: {
       geographic:         Math.round(geoScore),
       travelEfficiency:   Math.round(travelScore),

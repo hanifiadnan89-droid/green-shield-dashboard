@@ -182,6 +182,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: beforeFirstInsertion
     "techId": 6,
     "techName": "Mike Torres",
     "travelAccuracy": "estimated",
+    "travelDiagnostics": {
+      "cacheHit": false,
+      "fallbackReason": "no_travel_context",
+      "fallbackUsed": true,
+      "matrixElementsRequested": 0,
+      "travelAccuracy": "estimated",
+      "travelProvider": "haversine",
+    },
     "travelProvider": "haversine",
     "wasOptimized": false,
     "workload": {
@@ -403,6 +411,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: beforeFirstInsertion
       "techId": 6,
       "techName": "Mike Torres",
       "travelAccuracy": "estimated",
+      "travelDiagnostics": {
+        "cacheHit": false,
+        "fallbackReason": "no_travel_context",
+        "fallbackUsed": true,
+        "matrixElementsRequested": 0,
+        "travelAccuracy": "estimated",
+        "travelProvider": "haversine",
+      },
       "travelProvider": "haversine",
       "wasOptimized": false,
       "workload": {
@@ -674,6 +690,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: endOfRouteCluster 1`
     "techId": 5,
     "techName": "Nina Park",
     "travelAccuracy": "estimated",
+    "travelDiagnostics": {
+      "cacheHit": false,
+      "fallbackReason": "no_travel_context",
+      "fallbackUsed": true,
+      "matrixElementsRequested": 0,
+      "travelAccuracy": "estimated",
+      "travelProvider": "haversine",
+    },
     "travelProvider": "haversine",
     "wasOptimized": true,
     "workload": {
@@ -946,6 +970,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: endOfRouteCluster 1`
       "techId": 5,
       "techName": "Nina Park",
       "travelAccuracy": "estimated",
+      "travelDiagnostics": {
+        "cacheHit": false,
+        "fallbackReason": "no_travel_context",
+        "fallbackUsed": true,
+        "matrixElementsRequested": 0,
+        "travelAccuracy": "estimated",
+        "travelProvider": "haversine",
+      },
       "travelProvider": "haversine",
       "wasOptimized": true,
       "workload": {
@@ -1280,6 +1312,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: fullyBookedTech 1`] 
     "techId": 3,
     "techName": "Sarah Lee",
     "travelAccuracy": "estimated",
+    "travelDiagnostics": {
+      "cacheHit": false,
+      "fallbackReason": "no_travel_context",
+      "fallbackUsed": true,
+      "matrixElementsRequested": 0,
+      "travelAccuracy": "estimated",
+      "travelProvider": "haversine",
+    },
     "travelProvider": "haversine",
     "wasOptimized": false,
     "workload": {
@@ -1558,6 +1598,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: fullyBookedTech 1`] 
       "techId": 3,
       "techName": "Sarah Lee",
       "travelAccuracy": "estimated",
+      "travelDiagnostics": {
+        "cacheHit": false,
+        "fallbackReason": "no_travel_context",
+        "fallbackUsed": true,
+        "matrixElementsRequested": 0,
+        "travelAccuracy": "estimated",
+        "travelProvider": "haversine",
+      },
       "travelProvider": "haversine",
       "wasOptimized": false,
       "workload": {
@@ -1867,6 +1915,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: generalHappyPath 1`]
     "techId": 99,
     "techName": "Alex Smith",
     "travelAccuracy": "estimated",
+    "travelDiagnostics": {
+      "cacheHit": false,
+      "fallbackReason": "no_travel_context",
+      "fallbackUsed": true,
+      "matrixElementsRequested": 0,
+      "travelAccuracy": "estimated",
+      "travelProvider": "haversine",
+    },
     "travelProvider": "haversine",
     "wasOptimized": false,
     "workload": {
@@ -2145,6 +2201,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: generalHappyPath 1`]
       "techId": 99,
       "techName": "Alex Smith",
       "travelAccuracy": "estimated",
+      "travelDiagnostics": {
+        "cacheHit": false,
+        "fallbackReason": "no_travel_context",
+        "fallbackUsed": true,
+        "matrixElementsRequested": 0,
+        "travelAccuracy": "estimated",
+        "travelProvider": "haversine",
+      },
       "travelProvider": "haversine",
       "wasOptimized": false,
       "workload": {
@@ -2454,6 +2518,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: maineMwfCluster 1`] 
     "techId": 1,
     "techName": "Chris Adams",
     "travelAccuracy": "estimated",
+    "travelDiagnostics": {
+      "cacheHit": false,
+      "fallbackReason": "no_travel_context",
+      "fallbackUsed": true,
+      "matrixElementsRequested": 0,
+      "travelAccuracy": "estimated",
+      "travelProvider": "haversine",
+    },
     "travelProvider": "haversine",
     "wasOptimized": false,
     "workload": {
@@ -2732,6 +2804,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: maineMwfCluster 1`] 
       "techId": 1,
       "techName": "Chris Adams",
       "travelAccuracy": "estimated",
+      "travelDiagnostics": {
+        "cacheHit": false,
+        "fallbackReason": "no_travel_context",
+        "fallbackUsed": true,
+        "matrixElementsRequested": 0,
+        "travelAccuracy": "estimated",
+        "travelProvider": "haversine",
+      },
       "travelProvider": "haversine",
       "wasOptimized": false,
       "workload": {
@@ -3041,6 +3121,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: missingCapacity 1`] 
     "techId": 4,
     "techName": "Tom Harris",
     "travelAccuracy": "estimated",
+    "travelDiagnostics": {
+      "cacheHit": false,
+      "fallbackReason": "no_travel_context",
+      "fallbackUsed": true,
+      "matrixElementsRequested": 0,
+      "travelAccuracy": "estimated",
+      "travelProvider": "haversine",
+    },
     "travelProvider": "haversine",
     "wasOptimized": false,
     "workload": {
@@ -3319,6 +3407,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: missingCapacity 1`] 
       "techId": 4,
       "techName": "Tom Harris",
       "travelAccuracy": "estimated",
+      "travelDiagnostics": {
+        "cacheHit": false,
+        "fallbackReason": "no_travel_context",
+        "fallbackUsed": true,
+        "matrixElementsRequested": 0,
+        "travelAccuracy": "estimated",
+        "travelProvider": "haversine",
+      },
       "travelProvider": "haversine",
       "wasOptimized": false,
       "workload": {
@@ -3618,6 +3714,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: nhApprovedTech 1`] =
     "techId": 10068,
     "techName": "Alex Gray",
     "travelAccuracy": "estimated",
+    "travelDiagnostics": {
+      "cacheHit": false,
+      "fallbackReason": "no_travel_context",
+      "fallbackUsed": true,
+      "matrixElementsRequested": 0,
+      "travelAccuracy": "estimated",
+      "travelProvider": "haversine",
+    },
     "travelProvider": "haversine",
     "wasOptimized": false,
     "workload": {
@@ -3870,6 +3974,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: nhApprovedTech 1`] =
       "techId": 10068,
       "techName": "Alex Gray",
       "travelAccuracy": "estimated",
+      "travelDiagnostics": {
+        "cacheHit": false,
+        "fallbackReason": "no_travel_context",
+        "fallbackUsed": true,
+        "matrixElementsRequested": 0,
+        "travelAccuracy": "estimated",
+        "travelProvider": "haversine",
+      },
       "travelProvider": "haversine",
       "wasOptimized": false,
       "workload": {
@@ -4190,6 +4302,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: twoTimedAnchors 1`] 
     "techId": 2,
     "techName": "Dave Wilson",
     "travelAccuracy": "estimated",
+    "travelDiagnostics": {
+      "cacheHit": false,
+      "fallbackReason": "no_travel_context",
+      "fallbackUsed": true,
+      "matrixElementsRequested": 0,
+      "travelAccuracy": "estimated",
+      "travelProvider": "haversine",
+    },
     "travelProvider": "haversine",
     "wasOptimized": false,
     "workload": {
@@ -4468,6 +4588,14 @@ exports[`Golden snapshots — scoreRoutes output > fixture: twoTimedAnchors 1`] 
       "techId": 2,
       "techName": "Dave Wilson",
       "travelAccuracy": "estimated",
+      "travelDiagnostics": {
+        "cacheHit": false,
+        "fallbackReason": "no_travel_context",
+        "fallbackUsed": true,
+        "matrixElementsRequested": 0,
+        "travelAccuracy": "estimated",
+        "travelProvider": "haversine",
+      },
       "travelProvider": "haversine",
       "wasOptimized": false,
       "workload": {

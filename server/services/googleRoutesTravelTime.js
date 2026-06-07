@@ -112,10 +112,14 @@ export async function computeTravelLegs({
 } = {}) {
   const diagnostics = {
     matrixProvider: 'haversine',
+    travelProvider: 'haversine',
+    travelAccuracy: 'estimated',
     cacheHit: false,
     elementsRequested: legs.length,
+    matrixElementsRequested: legs.length,
     estimatedApiCostCategory: legs.length <= 25 ? 'low' : legs.length <= 100 ? 'medium' : 'high',
     fallbackUsed: false,
+    fallbackReason: null,
     cacheHits: 0,
     cacheMisses: 0,
   };
@@ -128,8 +132,11 @@ export async function computeTravelLegs({
     const cachedRoute = getCachedRouteMatrix(routeKey);
     if (cachedRoute?.legs?.length === legs.length) {
       diagnostics.matrixProvider = cachedRoute.provider || 'google-routes';
+      diagnostics.travelProvider = diagnostics.matrixProvider;
+      diagnostics.travelAccuracy = diagnostics.matrixProvider === 'google-routes' ? 'road-based' : 'estimated';
       diagnostics.cacheHit = true;
       diagnostics.fallbackUsed = cachedRoute.fallbackUsed || false;
+      diagnostics.fallbackReason = cachedRoute.fallbackReason || null;
       return { legs: cachedRoute.legs, diagnostics };
     }
   }
@@ -157,6 +164,10 @@ export async function computeTravelLegs({
 
   if (missing.length === 0 && results.every(Boolean)) {
     diagnostics.matrixProvider = results[0]?.provider || 'haversine';
+    diagnostics.travelProvider = diagnostics.matrixProvider;
+    diagnostics.travelAccuracy = diagnostics.matrixProvider === 'google-routes' ? 'road-based' : 'estimated';
+    diagnostics.fallbackUsed = diagnostics.matrixProvider === 'haversine';
+    diagnostics.fallbackReason = diagnostics.fallbackUsed ? 'cache_only_haversine' : null;
     diagnostics.cacheHit = diagnostics.cacheHits > 0;
     return { legs: results, diagnostics };
   }
@@ -170,6 +181,9 @@ export async function computeTravelLegs({
       diagnostics.fallbackUsed = true;
     }
     diagnostics.matrixProvider = 'haversine';
+    diagnostics.travelProvider = 'haversine';
+    diagnostics.travelAccuracy = 'estimated';
+    diagnostics.fallbackReason = apiKey ? null : 'missing_api_key';
     return { legs: results, diagnostics };
   }
 
@@ -217,9 +231,12 @@ export async function computeTravelLegs({
           warnings: [],
         };
         diagnostics.matrixProvider = 'google-routes';
+        diagnostics.travelProvider = 'google-routes';
+        diagnostics.travelAccuracy = 'road-based';
       } else {
         leg = haversineLeg(item.origin, item.destination);
         diagnostics.fallbackUsed = true;
+        diagnostics.fallbackReason = 'route_not_found';
       }
       results[item.index] = leg;
       setCachedPair(item.origin, item.destination, leg);
@@ -234,6 +251,9 @@ export async function computeTravelLegs({
       diagnostics.fallbackUsed = true;
     }
     diagnostics.matrixProvider = 'haversine';
+    diagnostics.travelProvider = 'haversine';
+    diagnostics.travelAccuracy = 'estimated';
+    diagnostics.fallbackReason = diagnostics.fallbackReason || 'api_error';
   }
 
   if (routeKey) {
@@ -241,10 +261,15 @@ export async function computeTravelLegs({
       legs: results,
       provider: diagnostics.matrixProvider,
       fallbackUsed: diagnostics.fallbackUsed,
+      fallbackReason: diagnostics.fallbackReason,
     });
   }
 
   diagnostics.cacheHit = diagnostics.cacheHits > 0 && diagnostics.cacheMisses === 0;
+  diagnostics.matrixElementsRequested = diagnostics.elementsRequested;
+  if (!diagnostics.fallbackUsed && diagnostics.matrixProvider === 'google-routes') {
+    diagnostics.fallbackReason = null;
+  }
   return { legs: results, diagnostics };
 }
 
