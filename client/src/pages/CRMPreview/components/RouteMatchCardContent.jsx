@@ -8,8 +8,7 @@ import {
   CONF_CFG,
 } from './RouteFinder/routeMatchCardConfig.js';
 
-const DETAIL_SCORE_KEYS = ['travelEfficiency', 'workload', 'geographic'];
-const GRID_SCORE_KEYS = ['travelEfficiency', 'timeWindow', 'workload', 'serviceDuration', 'geographic'];
+const CARD_SCORE_KEYS = ['travelEfficiency', 'workload', 'geographic'];
 
 const SCORE_LABELS = {
   geographic: 'Geo',
@@ -86,7 +85,7 @@ export default function RouteMatchCardContent({
   const smoothCfg = SMOOTHNESS_CFG[match.routeSmoothness] ?? null;
   const confCfg = CONF_CFG[match.confidenceLabel ?? ins?.optimizationConfidence] ?? CONF_CFG.Low;
   const clusterLabel = match.clusterDetail?.label || match.clusterLabel;
-  const scoreKeys = compact ? GRID_SCORE_KEYS : DETAIL_SCORE_KEYS;
+  const scoreKeys = CARD_SCORE_KEYS;
 
   const explanationBody = (
     <>
