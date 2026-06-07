@@ -41,7 +41,7 @@ describe('nominatimGeocoder queue', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(callTimes.length).toBe(2);
     if (callTimes.length === 2) {
-      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(1100);
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(1500);
     }
   });
 
