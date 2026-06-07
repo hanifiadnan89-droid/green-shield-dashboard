@@ -9,8 +9,8 @@ export function describeMapLoadError(code, detail = '') {
       };
     case 'no_coordinates':
       return {
-        title: 'Route stops missing coordinates',
-        hint: 'Stops need lat/lng from FieldRoutes or geocoded lead address before the map can render.',
+        title: 'Map unavailable: route stops are missing coordinates',
+        hint: 'Stops need lat/lng from FieldRoutes or a geocoded customer address before the map can render.',
       };
     case 'auth_failure':
       return {

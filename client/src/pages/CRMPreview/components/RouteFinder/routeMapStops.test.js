@@ -24,6 +24,18 @@ describe('getMapCoordinateStatus', () => {
       { lat: '43.3', lng: '-70.4' },
     ])).toHaveLength(2);
   });
+
+  it('allows partial coordinates and still renders valid stops', () => {
+    const stops = [
+      { lat: 43.2, lng: -70.3, customerName: 'A' },
+      { lat: null, lng: null, customerName: 'B' },
+      { lat: 43.25, lng: -70.35, customerName: 'C', isNew: true },
+    ];
+    const status = getMapCoordinateStatus(stops);
+    expect(status.ok).toBe(true);
+    expect(status.code).toBe('partial_coordinates');
+    expect(status.withCoords).toBe(2);
+  });
 });
 
 describe('mapLoadErrors', () => {
@@ -33,6 +45,7 @@ describe('mapLoadErrors', () => {
 
   it('describes no_coordinates for UI', () => {
     const { title } = describeMapLoadError('no_coordinates');
+    expect(title).toMatch(/Map unavailable/i);
     expect(title).toMatch(/missing coordinates/i);
   });
 });

@@ -6,8 +6,8 @@ import RouteMatchCardContent from './RouteMatchCardContent.jsx';
 import RouteMatchScoreBreakdown from './RouteMatchScoreBreakdown.jsx';
 import RouteGoogleMap from './RouteGoogleMap.jsx';
 import TechnicianPhoto from './TechnicianPhoto.jsx';
-import { isGoogleMapsEnabled } from './RouteFinder/useGoogleMapsLoader.js';
 import { useRouteMatchPortalRoot } from './RouteFinder/useRouteMatchPortalRoot.js';
+import { getMapCoordinateStatus } from './RouteFinder/routeMapStops.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -28,7 +28,7 @@ export default function RouteMatchDetailWorkspace({
   const stops = match.routeStops || [];
   const visibleStops = showAllStops ? stops : stops.slice(0, 12);
   const day = match.daySummary;
-  const mapsEnabled = isGoogleMapsEnabled();
+  const mapCoordStatus = getMapCoordinateStatus(stops);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -214,18 +214,22 @@ export default function RouteMatchDetailWorkspace({
               </>
             )}
 
-            {mapsEnabled && (
-              <>
-                <h2 className="route-match-detail__section-title mt-4">Route preview</h2>
-                <RouteGoogleMap
-                  stops={stops}
-                  mapType="satellite"
-                  compact
-                  showControls={false}
-                  interactive={false}
-                />
-              </>
-            )}
+            <div className="route-match-detail__map-section">
+              <h2 className="route-match-detail__section-title mt-4">Route preview</h2>
+              {mapCoordStatus.total > 0 && mapCoordStatus.withCoords === 0 && (
+                <p className="route-match-detail__map-hint type-label-sm m-0 mb-2">
+                  Map unavailable: none of the {mapCoordStatus.total} stops have coordinates.
+                </p>
+              )}
+              <RouteGoogleMap
+                stops={stops}
+                mapType="satellite"
+                compact
+                detailView
+                showControls
+                interactive
+              />
+            </div>
           </section>
         </motion.div>
         </motion.div>
