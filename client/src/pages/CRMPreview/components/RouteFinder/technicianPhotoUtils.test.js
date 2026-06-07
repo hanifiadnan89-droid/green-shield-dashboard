@@ -7,20 +7,38 @@ import {
 } from './technicianPhotoUtils.js';
 
 const CATALOG = {
-  Paige: 'https://example.com/paige.jpg',
-  'Lee G': 'https://example.com/lee-g.jpg',
-  'Lee P': 'https://example.com/lee-p.jpg',
-  'Chris M': 'https://example.com/chris-m.jpg',
-  Jack: 'https://example.com/jack.jpg',
-  Jay: 'https://example.com/jay.jpg',
-  Josh: 'https://example.com/josh.jpg',
-  Mike: 'https://example.com/mike.jpg',
-  Matt: 'https://example.com/matt.jpg',
-  Ian: 'https://example.com/ian.jpg',
-  Justin: 'https://example.com/justin.jpg',
+  Paige: '/technicians/paige.jpeg',
+  'Lee G': '/technicians/lee_g.jpeg',
+  'Lee P': '/technicians/lee_p.jpeg',
+  'Chris M': '/technicians/chris_m.jpeg',
+  Jack: '/technicians/jack.jpeg',
+  Jay: '/technicians/jay.jpg',
+  Josh: '/technicians/josh.jpg',
+  Mike: '/technicians/mike.jpg',
+  Matt: '/technicians/matt.jpg',
+  Ian: '/technicians/ian.jpg',
+  Justin: '/technicians/justin.jpg',
 };
 
+describe('mergeTechnicianPhotoCatalog', () => {
+  it('prefers bundled local paths over remote scraped URLs', async () => {
+    const { mergeTechnicianPhotoCatalog } = await import('./technicianPhotoUtils.js');
+    const merged = mergeTechnicianPhotoCatalog({
+      'Lee G': 'https://gshieldpest.com/wrong.jpg',
+      'Lee P': 'https://gshieldpest.com/wrong2.jpg',
+    });
+    expect(merged['Lee G']).toBe('/technicians/lee_g.jpeg');
+    expect(merged['Lee P']).toBe('/technicians/lee_p.jpeg');
+  });
+});
+
 describe('resolveTechnicianPhotoUrl', () => {
+  it('resolves verified full-name aliases to canonical display names', () => {
+    expect(resolveTechnicianPhotoUrl('Ed Croy', CATALOG)).toBe('/technicians/ed.jpg');
+    expect(resolveTechnicianPhotoUrl('Mike Caswell', CATALOG)).toBe('/technicians/mike.jpg');
+    expect(resolveTechnicianPhotoUrl('Matt Lavigne', CATALOG)).toBe('/technicians/matt.jpg');
+  });
+
   it('returns exact display-name match', () => {
     expect(resolveTechnicianPhotoUrl('Lee G', CATALOG)).toBe(CATALOG['Lee G']);
     expect(resolveTechnicianPhotoUrl('Chris M', CATALOG)).toBe(CATALOG['Chris M']);

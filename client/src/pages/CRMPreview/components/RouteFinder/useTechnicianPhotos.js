@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../../../api/client.js';
-import { resolveTechnicianPhoto } from './technicianPhotoUtils.js';
+import { getLocalTechnicianPhotoCatalog } from '../../../../data/technicianPhotoManifest.js';
+import { mergeTechnicianPhotoCatalog, resolveTechnicianPhoto } from './technicianPhotoUtils.js';
 
 const photoLogCache = new Set();
 
@@ -20,7 +21,7 @@ function logPhotoMatch(message, detail) {
  * Loads technician headshots once per session (server caches for 7 days).
  */
 export function useTechnicianPhotos() {
-  const [byName, setByName] = useState(null);
+  const [byName, setByName] = useState(() => getLocalTechnicianPhotoCatalog());
   const [error, setError] = useState(null);
   const loadedRef = useRef(false);
 
@@ -34,12 +35,12 @@ export function useTechnicianPhotos() {
       try {
         const data = await api.routes.technicianPhotos();
         if (!cancelled) {
-          setByName(data.byName || {});
+          setByName(mergeTechnicianPhotoCatalog(data.byName || {}));
         }
       } catch (err) {
         if (!cancelled) {
           setError(err?.message || 'Photo catalog unavailable');
-          setByName({});
+          setByName(getLocalTechnicianPhotoCatalog());
         }
       }
     })();
@@ -54,7 +55,7 @@ export function useTechnicianPhotos() {
 
   return {
     byName: byName || {},
-    loading: byName === null,
+    loading: false,
     error,
     getPhotoUrl,
   };

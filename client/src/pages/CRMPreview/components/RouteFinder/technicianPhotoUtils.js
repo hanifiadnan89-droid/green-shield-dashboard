@@ -1,3 +1,8 @@
+import {
+  TECHNICIAN_PHOTO_ALIASES,
+  getLocalTechnicianPhotoCatalog,
+} from '../../../../data/technicianPhotoManifest.js';
+
 /** Normalize a person name for catalog lookup. */
 export function normalizeTechnicianName(name) {
   return String(name || '')
@@ -91,8 +96,34 @@ function matchesFirstAndLastName(techName, catalogKey) {
  * @param {{ logger?: (msg: string, detail?: Record<string, unknown>) => void }} [options]
  * @returns {{ url: string|null, matchType: TechnicianPhotoMatchType, catalogKey: string|null }}
  */
+function resolveAliasDisplayName(techName) {
+  if (!techName) return null;
+  if (TECHNICIAN_PHOTO_ALIASES[techName]) return TECHNICIAN_PHOTO_ALIASES[techName];
+  const trimmed = String(techName).trim();
+  for (const [alias, displayName] of Object.entries(TECHNICIAN_PHOTO_ALIASES)) {
+    if (normalizeTechnicianName(alias) === normalizeTechnicianName(trimmed)) {
+      return displayName;
+    }
+  }
+  return null;
+}
+
+/**
+ * Merge bundled local photos (priority) with server catalog entries.
+ * @param {Record<string, string|null>} [serverCatalog]
+ */
+export function mergeTechnicianPhotoCatalog(serverCatalog = {}) {
+  const local = getLocalTechnicianPhotoCatalog();
+  const merged = { ...serverCatalog };
+  for (const [name, url] of Object.entries(local)) {
+    if (url) merged[name] = url;
+  }
+  return merged;
+}
+
 export function resolveTechnicianPhoto(techName, byName = {}, options = {}) {
   const { logger = null } = options;
+  const catalog = mergeTechnicianPhotoCatalog(byName);
   const log = (matchType, catalogKey, url) => {
     if (!logger) return;
     logger(`[technician-photo] ${matchType} match`, {
@@ -102,20 +133,26 @@ export function resolveTechnicianPhoto(techName, byName = {}, options = {}) {
     });
   };
 
-  if (!techName || !byName || typeof byName !== 'object') {
+  if (!techName) {
     if (logger) logger('[technician-photo] no match', { techName, reason: 'empty-input' });
     return { url: null, matchType: 'none', catalogKey: null };
   }
 
-  const entries = Object.entries(byName).filter(([, url]) => url);
+  const entries = Object.entries(catalog).filter(([, url]) => url);
   if (entries.length === 0) {
     if (logger) logger('[technician-photo] no match', { techName, reason: 'empty-catalog' });
     return { url: null, matchType: 'none', catalogKey: null };
   }
 
-  if (byName[techName]) {
-    log('exact', techName, byName[techName]);
-    return { url: byName[techName], matchType: 'exact', catalogKey: techName };
+  if (catalog[techName]) {
+    log('exact', techName, catalog[techName]);
+    return { url: catalog[techName], matchType: 'exact', catalogKey: techName };
+  }
+
+  const aliasName = resolveAliasDisplayName(techName);
+  if (aliasName && catalog[aliasName]) {
+    log('alias', aliasName, catalog[aliasName]);
+    return { url: catalog[aliasName], matchType: 'exact', catalogKey: aliasName };
   }
 
   const tech = parseTechnicianNameParts(techName);
@@ -131,7 +168,7 @@ export function resolveTechnicianPhoto(techName, byName = {}, options = {}) {
     }
   }
 
-  const firstNameIndex = buildFirstNameIndex(byName);
+  const firstNameIndex = buildFirstNameIndex(catalog);
 
   const initialMatches = entries.filter(([key]) => matchesFirstLastInitial(techName, key));
   if (initialMatches.length === 1) {
@@ -160,7 +197,7 @@ export function resolveTechnicianPhoto(techName, byName = {}, options = {}) {
     const singleWordPeers = peers.filter(key => parseTechnicianNameParts(key).parts.length === 1);
     if (singleWordPeers.length === 1) {
       const key = singleWordPeers[0];
-      const url = byName[key];
+      const url = catalog[key];
       log('first-name', key, url);
       return { url, matchType: 'first-name', catalogKey: key };
     }
