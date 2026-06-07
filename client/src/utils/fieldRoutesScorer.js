@@ -27,6 +27,11 @@ import {
   selectTopMatchesByAreaViability,
 } from './routeAreaViability.js';
 import { ROUTE_AREA_VIABILITY_DEFAULTS } from './routeAreaViabilityConfig.js';
+import {
+  getStopServiceAbbreviation,
+  getLeadServiceAbbreviation,
+} from '../pages/CRMPreview/components/RouteFinder/stopServiceAbbreviation.js';
+import { formatStopTimedWindowLabel } from '../pages/CRMPreview/components/RouteFinder/stopTimedWindow.js';
 
 // ---------------------------------------------------------------------------
 // SCORER_CONFIG — single source of truth for all weights, thresholds, and
@@ -117,7 +122,7 @@ export const SCORER_CONFIG = {
   },
 
   penalties: {
-    timedRisk:    { high: 60, medium: 35, low: 15 },
+    timedRisk:    { high: 75, medium: 40, low: 15 },
     backtracking: { Severe: 25, High: 15, Moderate: 8, Low: 3, None: 0 },
     backtrackingBearing: {
       // deviation thresholds (degrees) and detour-ratio thresholds
@@ -148,7 +153,7 @@ export const SCORER_CONFIG = {
     alphaDetour:       10,
     betaSoftLate:       2.0,
     betaSoftEarly:      0.5,
-    gammaTimedAnchor:   8.0,
+    gammaTimedAnchor:   14.0,
     deltaDirection:    12,
     epsilonCluster:     1.5,
     zetaOvershoot:      5.0,
@@ -305,9 +310,93 @@ function isTimedStop(stop) {
 function timedRiskLevel(violations) {
   if (!violations.length) return 'none';
   const maxLate = Math.max(...violations.map(v => v.lateness));
-  if (maxLate <= 15) return 'low';
-  if (maxLate <= 30) return 'medium';
-  return 'high';
+  if (maxLate <= 0) return 'none';
+  if (maxLate > 15) return 'high';
+  return 'medium';
+}
+
+function formatTimedWindowLabel(windowStart, windowEnd) {
+  if (windowStart == null || windowEnd == null) return null;
+  return `${fmtTime12h(windowStart)}–${fmtTime12h(windowEnd)}`;
+}
+
+function buildTimedAppointmentDetail(insertion, stops) {
+  const hasTimedStops = stops.some(isTimedStop);
+  const base = {
+    timedConflictCustomerName: null,
+    timedConflictWindow: null,
+    projectedTimedArrival: null,
+    timedConflictMinutesLate: null,
+    timedConflictWarning: null,
+    timedConflictFallback: false,
+  };
+
+  if (!hasTimedStops) {
+    return {
+      ...base,
+      timedAppointmentStatus: 'none',
+      timedAppointmentLabel: 'None',
+    };
+  }
+
+  const primary = insertion.timedViolations?.[0];
+  const risk = insertion.timedRisk;
+
+  if (risk === 'high' || risk === 'medium') {
+    const customerName = primary?.customerName ?? null;
+    const windowLabel = formatTimedWindowLabel(primary?.windowStart, primary?.windowEnd);
+    const projected = primary?.projectedArrival != null ? fmtTime12h(primary.projectedArrival) : null;
+    const minutesLate = primary?.lateness ?? 0;
+    const status = risk === 'high' ? 'conflict' : 'risk';
+    let warning = customerName
+      ? `Scheduling conflict: adding this stop may push ${customerName} outside their appointment window.`
+      : 'Scheduling conflict: adding this stop may affect an existing timed appointment.';
+    if (projected && primary?.windowEnd != null) {
+      warning += ` Projected arrival: ${projected}. Window ends: ${fmtTime12h(primary.windowEnd)}.`;
+    } else if (minutesLate > 0) {
+      warning += ` This route may be ${minutesLate} minutes late to the next timed appointment.`;
+    }
+
+    return {
+      ...base,
+      timedAppointmentStatus: status,
+      timedAppointmentLabel: 'Conflict risk',
+      timedConflictCustomerName: customerName,
+      timedConflictWindow: windowLabel,
+      projectedTimedArrival: projected,
+      timedConflictMinutesLate: minutesLate,
+      timedConflictWarning: warning,
+      timedConflictFallback: true,
+    };
+  }
+
+  if (risk === 'low') {
+    const buffer = insertion.minTimingBuffer;
+    const nextTimed = insertion.beforeStop && isTimedStop(insertion.beforeStop)
+      ? insertion.beforeStop
+      : null;
+    return {
+      ...base,
+      timedAppointmentStatus: 'risk',
+      timedAppointmentLabel: 'Tight timing',
+      timedConflictCustomerName: nextTimed?.customerName ?? null,
+      timedConflictWindow: nextTimed
+        ? formatTimedWindowLabel(parseTimeStr(nextTimed.startTime), parseTimeStr(nextTimed.endTime))
+        : null,
+      timedConflictWarning: buffer != null
+        ? `Only ${buffer} minutes before the next timed appointment.`
+        : 'Tight timing buffer before the next timed appointment.',
+    };
+  }
+
+  return {
+    ...base,
+    timedAppointmentStatus: 'safe',
+    timedAppointmentLabel: 'Safe',
+    timedConflictWarning: insertion.minTimingBuffer != null && insertion.minTimingBuffer < 60
+      ? `${insertion.minTimingBuffer}-minute buffer before next timed appointment.`
+      : null,
+  };
 }
 
 /**
@@ -821,25 +910,22 @@ function computeOptimizationConfidence(stops, insertion) {
 // ---------------------------------------------------------------------------
 
 function buildTimedSafetyLabel(insertion) {
+  const detail = insertion.timedAppointmentDetail;
+  if (detail?.timedAppointmentLabel) return detail.timedAppointmentLabel;
   const { timedRisk, timedViolations, minTimingBuffer } = insertion;
-  if (timedRisk === 'high') {
-    const v = timedViolations[0];
-    if (v) return `Rejected — would miss ${v.customerName}'s timed window (${fmtTime12h(v.windowEnd)})`;
-    return 'Rejected — timed appointment conflict';
-  }
-  if (timedRisk === 'medium') {
-    const v = timedViolations[0];
-    if (v) return `Risky — ${v.customerName} would be delayed ${v.lateness} min past window`;
-    return 'Risky — moderate impact on timed appointments';
+  if (timedRisk === 'high' || timedRisk === 'medium') {
+    const v = timedViolations?.[0];
+    if (v) return `Conflict risk — ${v.customerName}`;
+    return 'Conflict risk';
   }
   if (timedRisk === 'low') {
-    if (minTimingBuffer != null) return `Risky — only ${minTimingBuffer} min before next timed appointment`;
-    return 'Low risk — tight timing buffer';
+    if (minTimingBuffer != null) return `Tight timing — ${minTimingBuffer} min buffer`;
+    return 'Tight timing';
   }
   if (minTimingBuffer != null && minTimingBuffer < 60) {
-    return `Safe — ${minTimingBuffer}-minute buffer before next timed appointment`;
+    return `Safe — ${minTimingBuffer}-minute buffer`;
   }
-  return 'Safe — no timed appointments affected';
+  return 'Safe';
 }
 
 // ---------------------------------------------------------------------------
@@ -959,8 +1045,8 @@ function vrptwInsertion(
       if (windowEnd == null) continue;
       const lateness = Math.max(0, arrivalMin - windowEnd);
       if (lateness > v.timedToleranceMin) {
-        timedViolations.push({ stop, arrivalMin, windowEnd, lateness });
-        if (lateness > v.timedToleranceMin) return null; // hard fail on any anchor violation
+        const windowStart = parseTimeStr(stop.startTime);
+        timedViolations.push({ stop, arrivalMin, windowStart, windowEnd, lateness });
       }
       timedLatenessSum += lateness;
     }
@@ -1054,10 +1140,13 @@ function vrptwInsertion(
         customerName:     v.stop.customerName,
         originalArrival:  v.stop.spotStartMinutes,
         projectedArrival: v.arrivalMin,
+        windowStart:      v.windowStart,
         windowEnd:        v.windowEnd,
         lateness:         v.lateness,
       })),
-      timedRisk:            timedLatenessSum > 30 ? 'high' : timedLatenessSum > 0 ? 'medium' : minTimingBuffer != null && minTimingBuffer < 30 ? 'low' : 'none',
+      timedRisk:            timedViolations.length
+        ? timedRiskLevel(timedViolations)
+        : (minTimingBuffer != null && minTimingBuffer < 30 ? 'low' : 'none'),
       minTimingBuffer,
       addedDriveMinutes,
       projectedRouteEnd:    projectedEnd,
@@ -1158,6 +1247,15 @@ function buildReason({
     }
   } else if (insertion.timedRisk === 'low') {
     parts.push(`timed appointment risk is low${insertion.minTimingBuffer != null ? ` (${insertion.minTimingBuffer}-min buffer)` : ''}`);
+  } else if (insertion.timedRisk === 'medium' || insertion.timedRisk === 'high') {
+    const v = insertion.timedViolations?.[0];
+    if (v) {
+      parts.push(
+        `timed appointment conflict — ${v.customerName} may be ${v.lateness} min past window`,
+      );
+    } else {
+      parts.push('timed appointment conflict risk');
+    }
   }
 
   // Route optimization note
@@ -1418,6 +1516,7 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     ? `Est. done by ${fmtTime12h(insertion.projectedRouteEnd)}`
     : null;
 
+  const timedAppointmentDetail = buildTimedAppointmentDetail(insertion, stops);
   const routeStops = buildRouteStopsDisplay(stops, timeline, insertion, lead, tech);
   const currentServiceMin = workload.currentServiceMinutes;
   const totalServiceMin = projectedServiceMinutes;
@@ -1563,7 +1662,8 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
       // Timed appointments
       timedRisk:               insertion.timedRisk,
       timedViolations:         insertion.timedViolations,
-      timedSafetyLabel:        buildTimedSafetyLabel(insertion),
+      timedAppointmentDetail,
+      timedSafetyLabel:        buildTimedSafetyLabel({ ...insertion, timedAppointmentDetail }),
       minTimingBufferMin,
       minTimingBufferLabel,
       delayAdded:              insertion.delayAdded,
@@ -1640,6 +1740,12 @@ function buildRouteStopsDisplay(stops, timeline, insertion, lead, tech = {}) {
       address: stop.address || '',
       scheduledTime: fmtTime12h(entry?.arrivalMin ?? stop.spotStartMinutes),
       isTimed: isTimedStop(stop),
+      serviceAbbreviation: getStopServiceAbbreviation(stop),
+      timedWindowLabel: formatStopTimedWindowLabel(stop),
+      aptStartMinutes: stop.aptStartMinutes,
+      aptEndMinutes: stop.aptEndMinutes,
+      startTime: stop.startTime,
+      endTime: stop.endTime,
       lat: stop.lat,
       lng: stop.lng,
       isNew: false,
@@ -1653,6 +1759,7 @@ function buildRouteStopsDisplay(stops, timeline, insertion, lead, tech = {}) {
       address: lead.address || 'Customer address',
       scheduledTime: fmtTime12h(insertion.estimatedArrivalMin),
       isTimed: false,
+      serviceAbbreviation: getLeadServiceAbbreviation(lead),
       lat: lead.lat,
       lng: lead.lng,
       isNew: true,

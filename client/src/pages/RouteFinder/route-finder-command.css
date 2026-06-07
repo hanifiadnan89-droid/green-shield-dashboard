@@ -931,6 +931,62 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+.rf-command-page .rf-route-explanation--detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.95rem 1rem;
+  margin-top: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rf-command-page .rf-route-explanation--detail .route-match-metrics--expanded {
+  font-size: 0.75rem;
+  gap: 0.45rem;
+  line-height: 1.5;
+}
+
+.rf-command-page .rf-route-explanation--detail .rf-route-reason {
+  font-size: 0.8125rem;
+  line-height: 1.58;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.rf-command-page .rf-timed-appt-facts {
+  display: flex;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.rf-command-page .rf-timed-appt-facts__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rf-command-page .rf-timed-appt-facts__warning,
+.rf-command-page .rf-timed-appt-facts__fallback {
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: #fbbf24;
+}
+
+.rf-command-page .route-match-detail__col--summary {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rf-command-page .route-match-stop-list__window {
+  font-size: 0.625rem;
+  color: #fbbf24;
+  margin-top: 0.15rem;
+}
+
 /* Footer + errors */
 .rf-command .route-finder-footer-summary {
   text-align: center;
