@@ -47,11 +47,20 @@ function MapFallback({ wrapperClass, title, hint, code, detail }) {
   );
 }
 
+function refreshMapLayout(map, maps, path, padding) {
+  if (!map || !maps || !path.length) return;
+  maps.event.trigger(map, 'resize');
+  const bounds = new maps.LatLngBounds();
+  path.forEach(p => bounds.extend(p));
+  map.fitBounds(bounds, padding);
+}
+
 export default function RouteGoogleMap({
   stops,
   mapType = 'satellite',
   interactive = true,
   compact = false,
+  detailView = false,
   showControls = true,
   onExpand,
   className = '',
@@ -78,6 +87,7 @@ export default function RouteGoogleMap({
 
     try {
       const maps = window.google.maps;
+      const padding = compact ? 48 : 72;
 
       if (!mapRef.current) {
         mapRef.current = new maps.Map(containerRef.current, {
@@ -112,13 +122,11 @@ export default function RouteGoogleMap({
 
       overlaysRef.current.polyline.setMap(mapRef.current);
 
-      const bounds = new maps.LatLngBounds();
-      path.forEach(p => bounds.extend(p));
-      mapRef.current.fitBounds(bounds, compact ? 48 : 72);
+      refreshMapLayout(mapRef.current, maps, path, padding);
 
       markerMeta.forEach(meta => {
         const marker = new maps.Marker({
-          position: { lat: meta.lat, lng: meta.lng },
+          position: { lat: Number(meta.lat), lng: Number(meta.lng) },
           map: mapRef.current,
           icon: buildMarkerIcon(maps, meta.role, meta.label),
           title: meta.customerName,
@@ -127,6 +135,13 @@ export default function RouteGoogleMap({
 
         overlaysRef.current.markers.push(marker);
       });
+
+      // Detail overlay animates in — resize after layout settles
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          refreshMapLayout(mapRef.current, maps, path, padding);
+        });
+      });
     } catch (err) {
       const detail = err?.message || String(err);
       console.error('[RouteFinder Maps] map_init_error', detail, err);
@@ -134,9 +149,22 @@ export default function RouteGoogleMap({
     }
   }, [status, markerMeta, path, localType, interactive, compact, showControls]);
 
+  useEffect(() => {
+    if (status !== 'ready' || !containerRef.current || !mapRef.current || !path.length) return;
+    const maps = window.google?.maps;
+    if (!maps) return;
+
+    const padding = compact ? 48 : 72;
+    const ro = new ResizeObserver(() => {
+      refreshMapLayout(mapRef.current, maps, path, padding);
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, [status, path, compact]);
+
   const wrapperClass = [
     'route-google-map',
-    compact ? 'route-google-map--compact' : 'route-google-map--full',
+    detailView ? 'route-google-map--detail' : compact ? 'route-google-map--compact' : 'route-google-map--full',
     onExpand ? 'route-google-map--clickable' : '',
     className,
   ].filter(Boolean).join(' ');
@@ -155,7 +183,16 @@ export default function RouteGoogleMap({
   }
 
   if (!hasKey || status === 'no_key') {
-    return null;
+    const { title, hint } = describeMapLoadError('no_key');
+
+    return (
+      <MapFallback
+        wrapperClass={wrapperClass}
+        title={title}
+        hint={hint}
+        code="no_key"
+      />
+    );
   }
 
   if (status === 'loading') {

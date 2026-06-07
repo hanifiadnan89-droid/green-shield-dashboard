@@ -50,5 +50,8 @@ export function getStopMarkerMeta(stops) {
 }
 
 export function getRoutePathCoords(stops) {
-  return getMapStops(stops).map(s => ({ lat: s.lat, lng: s.lng }));
+  return getMapStops(stops).map(s => ({
+    lat: Number(s.lat),
+    lng: Number(s.lng),
+  }));
 }
