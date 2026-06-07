@@ -11,6 +11,7 @@ import { useRouteMatchPortalRoot } from './RouteFinder/useRouteMatchPortalRoot.j
 import { getMapCoordinateStatus } from './RouteFinder/routeMapStops.js';
 import { useRoadPolyline } from './RouteFinder/useRoadPolyline.js';
 import { DETAIL_SCORE_BREAKDOWN } from './RouteFinder/routeMatchCardConfig.js';
+import { formatStopCustomerDisplayName } from './RouteFinder/stopServiceAbbreviation.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -155,20 +156,6 @@ export default function RouteMatchDetailWorkspace({
               </p>
             )}
 
-            {match.trustWarnings?.length > 0 && (
-              <div className="rf-detail-warnings">
-                <h2 className="route-match-detail__section-title">Reliability notes</h2>
-                <ul className="rf-detail-warnings__list">
-                  {match.trustWarnings.map(w => (
-                    <li key={w.code} className={`rf-detail-warnings__item rf-detail-warnings__item--${w.severity}`}>
-                      <strong>{w.badge}</strong>
-                      <span>{w.message}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             <div className="route-match-detail__actions">
               <button
                 type="button"
@@ -203,10 +190,13 @@ export default function RouteMatchDetailWorkspace({
                       <span className="route-match-stop-list__time">{stop.scheduledTime || '—'}</span>
                       <div className="min-w-0">
                         <p className="route-match-stop-list__name m-0">
-                          {stop.isNew ? 'NEW · ' : ''}{stop.customerName}
+                          {formatStopCustomerDisplayName(stop)}
                         </p>
                         {stop.address && (
                           <p className="route-match-stop-list__addr m-0">{stop.address}</p>
+                        )}
+                        {stop.timedWindowLabel && (
+                          <p className="route-match-stop-list__window m-0">{stop.timedWindowLabel}</p>
                         )}
                       </div>
                       {stop.isTimed && <span className="route-match-stop-list__timed">⏱</span>}

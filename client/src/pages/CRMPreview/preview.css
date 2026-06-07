@@ -611,7 +611,66 @@
 }
 
 .crm-preview .route-match-metrics--expanded {
+  font-size: 0.75rem;
+  gap: 0.45rem;
+  line-height: 1.5;
+}
+
+.crm-preview .rf-route-explanation--detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 0.9rem;
+  margin-top: 0.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+}
+
+.crm-preview .rf-route-explanation--detail .route-match-metrics--expanded {
+  margin-top: 0.35rem;
+}
+
+.crm-preview .rf-route-explanation--detail .rf-route-reason {
+  font-size: 0.8125rem;
+  line-height: 1.58;
+}
+
+.crm-preview .rf-timed-appt-facts {
+  display: flex;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.crm-preview .rf-timed-appt-facts__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.crm-preview .rf-timed-appt-facts__warning,
+.crm-preview .rf-timed-appt-facts__fallback {
   font-size: 0.6875rem;
+  line-height: 1.45;
+  color: #b45309;
+}
+
+.crm-preview .rf-timed-appt-facts__fallback {
+  color: #92400e;
+}
+
+.crm-preview .route-match-detail__col--summary {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.crm-preview .route-match-stop-list__window {
+  font-size: 0.625rem;
+  color: #b45309;
+  margin-top: 0.15rem;
 }
 
 /* Full-width technician detail + route map workspaces (portaled inside Route Finder) */
