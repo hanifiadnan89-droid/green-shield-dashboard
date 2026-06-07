@@ -28,11 +28,11 @@ export const COMMERCIAL_DURATION_OPTIONS = [60, 90, 120];
 export const ROUTE_FINDER_SERVICE_CARDS = [
   {
     id: 'it',
-    code: 'IT',
+    code: 'RIT',
     title: 'Insect Triannual',
     durationMinutes: 60,
     description: 'Adds 60 minutes to the route',
-    serviceLabel: 'IT / Insect Triannual',
+    serviceLabel: 'RIT / Insect Triannual',
     durationConfidence: 'standard',
   },
   {
