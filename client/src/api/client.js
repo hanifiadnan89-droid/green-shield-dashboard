@@ -132,6 +132,11 @@ export const api = {
     loginRefresh: () => request('/routes/login-refresh', { method: 'POST' }),
     technicianPhotos: (refresh = false) =>
       request(`/routes/technician-photos${refresh ? '?refresh=true' : ''}`),
+    travelLegs: (body) => request('/routes/travel-legs', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    travelStatus: () => request('/routes/travel-status'),
   },
 
   ai: {

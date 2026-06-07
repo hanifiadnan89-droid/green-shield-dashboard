@@ -3,11 +3,7 @@
  * Converts raw route payload into normalized schedule JSON.
  */
 
-const SERVICE_DURATION_DEFAULTS = {
-  'Regular Service': 30,
-  'Tick and Mosquito': 30,
-  'Initial Service': 60,
-};
+import { inferAppointmentDurationMinutes } from './routeServiceDurationRules.js';
 
 /**
  * Convert a time string like "08:00:00", "8:00", or integer minutes to
@@ -66,15 +62,6 @@ function isFullAppointment(appt) {
 }
 
 /**
- * Resolve duration in minutes: payload value first, then service-type defaults.
- */
-function resolveDuration(appt) {
-  const raw = parseInt(appt.duration, 10);
-  if (!isNaN(raw) && raw > 0) return raw;
-  return SERVICE_DURATION_DEFAULTS[appt.serviceDescription] ?? 30;
-}
-
-/**
  * Build a normalized stop object from an appointment record + spot metadata.
  */
 function buildStop(appt, spotStart, spotTime, routeOrder) {
@@ -107,6 +94,17 @@ function buildStop(appt, spotStart, spotTime, routeOrder) {
   const startTime = minutesToTimeString(appt.aptStart ?? appt.startTime);
   const endTime = minutesToTimeString(appt.aptEnd ?? appt.endTime);
 
+  const durationMeta = inferAppointmentDurationMinutes({
+    duration: appt.duration,
+    serviceType: appt.serviceDescription,
+    serviceCode: appt.abbreviation,
+    serviceDescription: appt.serviceDescription,
+    appointmentType: appt.appointmentType,
+    tags: appt.tags,
+    notes: noteParts.join(' '),
+    status: appt.statusText,
+  });
+
   return {
     appointmentId: String(appt.appointmentID),
     customerId: String(appt.customerID),
@@ -121,7 +119,10 @@ function buildStop(appt, spotStart, spotTime, routeOrder) {
     lng,
     serviceType: appt.serviceDescription || null,
     serviceCode: appt.abbreviation || null,
-    durationMinutes: resolveDuration(appt),
+    durationMinutes: durationMeta.durationMinutes,
+    durationConfidence: durationMeta.confidence,
+    durationSource: durationMeta.source,
+    durationRuleId: durationMeta.ruleId,
     timeWindow: appt.timeWindow || null,
     startTime,
     endTime,

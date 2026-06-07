@@ -7,8 +7,10 @@ import {
 import { generalHappyPath } from './__tests__/fieldRoutesScorer.fixtures.js';
 
 describe('routeFinderScoring', () => {
-  it('scoreSingleDate enriches matches with trust and cost fields', () => {
-    const result = scoreSingleDate(generalHappyPath.technicians, generalHappyPath.lead, 3);
+  it('scoreSingleDate enriches matches with trust and cost fields', async () => {
+    const result = await scoreSingleDate(generalHappyPath.technicians, generalHappyPath.lead, 3, {
+      prefetchTravel: false,
+    });
     expect(result.mode).toBe(SCORING_MODES.SINGLE_DATE);
     expect(result.topMatches[0].confidenceLabel).toBeTruthy();
     expect(result.topMatches[0].costImpact).toBeTruthy();
@@ -31,6 +33,7 @@ describe('routeFinderScoring', () => {
       },
       fetchPayload: async () => ({ technicians: generalHappyPath.technicians }),
       topN: 3,
+      prefetchTravel: false,
     });
 
     expect(result.mode).toBe(SCORING_MODES.BEST_AVAILABLE);

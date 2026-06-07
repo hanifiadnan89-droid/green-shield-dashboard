@@ -7,7 +7,7 @@ export const CUSTOM_DURATION_ID = 'custom-duration';
 export const DURATION_MIN_LIMIT = 10;
 export const DURATION_MAX_LIMIT = 240;
 
-/** @typedef {'standard' | 'estimated' | 'custom'} DurationConfidence */
+/** @typedef {'standard' | 'estimated' | 'custom' | 'inferred' | 'fallback'} DurationConfidence */
 
 /**
  * @typedef {Object} RouteServiceType
@@ -18,10 +18,31 @@ export const DURATION_MAX_LIMIT = 240;
  * @property {string} description
  * @property {DurationConfidence} durationConfidence
  * @property {string} [notes]
+ * @property {boolean} [isInitial]
+ * @property {boolean} [isRecurring]
+ * @property {boolean} [isReservice]
  */
 
 /** @type {RouteServiceType[]} */
 export const ROUTE_SERVICE_TYPES = [
+  {
+    id: 'initial-service',
+    label: 'Initial Service',
+    defaultDurationMinutes: 60,
+    category: 'Initial',
+    description: 'Standard initial pest service',
+    durationConfidence: 'standard',
+    isInitial: true,
+  },
+  {
+    id: 'subscription-initial',
+    label: 'Subscription Initial',
+    defaultDurationMinutes: 60,
+    category: 'Initial',
+    description: 'Subscription account initial visit',
+    durationConfidence: 'standard',
+    isInitial: true,
+  },
   {
     id: 'iq-initial',
     label: 'IQ Initial',
@@ -29,66 +50,64 @@ export const ROUTE_SERVICE_TYPES = [
     category: 'Insect Quarterly',
     description: 'Initial insect quarterly service',
     durationConfidence: 'standard',
+    isInitial: true,
     notes: 'Owner presence typically required for initial quarterly visits.',
   },
   {
     id: 'iq-recurring',
-    label: 'IQ Recurring',
+    label: 'IQ Recurring / Quarterly',
     defaultDurationMinutes: 30,
     category: 'Insect Quarterly',
     description: 'Recurring insect quarterly service',
     durationConfidence: 'standard',
+    isRecurring: true,
   },
   {
     id: 'rit-initial',
     label: 'RIT Initial',
-    defaultDurationMinutes: 75,
+    defaultDurationMinutes: 60,
     category: 'Rodent',
-    description: 'Initial rodent inspection and treatment',
+    description: 'Initial rodent / triannual service',
     durationConfidence: 'estimated',
-    notes: 'Duration varies with property size and entry-point complexity.',
+    isInitial: true,
+    notes: 'RIT initial uses 60 min unless explicitly overridden in config.',
   },
   {
     id: 'rit-recurring',
-    label: 'RIT Recurring',
-    defaultDurationMinutes: 45,
+    label: 'RIT Recurring / Triannual',
+    defaultDurationMinutes: 30,
     category: 'Rodent',
-    description: 'Recurring rodent service',
+    description: 'Recurring rodent / triannual service',
     durationConfidence: 'estimated',
+    isRecurring: true,
   },
   {
     id: 'tick-mosquito',
     label: 'Tick & Mosquito',
-    defaultDurationMinutes: 25,
+    defaultDurationMinutes: 30,
     category: 'Seasonal',
     description: 'Tick and mosquito treatment',
     durationConfidence: 'standard',
     notes: 'Owner does not need to be home; photo or phone availability helps.',
   },
   {
-    id: 'bed-bug-inspection',
-    label: 'Bed Bug Inspection',
-    defaultDurationMinutes: 45,
+    id: 'bed-bug',
+    label: 'Bed Bug Service',
+    defaultDurationMinutes: 60,
     category: 'Bed Bug',
-    description: 'Bed bug inspection only',
+    description: 'Bed bug inspection or treatment',
     durationConfidence: 'estimated',
+    isInitial: true,
+    notes: 'Owner should be home for bed bug visits.',
   },
   {
-    id: 'bed-bug-treatment',
-    label: 'Bed Bug Treatment',
-    defaultDurationMinutes: 120,
-    category: 'Bed Bug',
-    description: 'Bed bug treatment visit',
-    durationConfidence: 'estimated',
-    notes: 'Owner should be home for initial bed bug treatments.',
-  },
-  {
-    id: 'carpenter-ant',
-    label: 'Carpenter Ant',
-    defaultDurationMinutes: 45,
-    category: 'Ant',
-    description: 'Carpenter ant service',
-    durationConfidence: 'estimated',
+    id: 'reservice',
+    label: 'Re-service',
+    defaultDurationMinutes: 30,
+    category: 'Re-service',
+    description: 'Re-service visit',
+    durationConfidence: 'standard',
+    isReservice: true,
   },
   {
     id: 'inspection-only',
@@ -97,48 +116,6 @@ export const ROUTE_SERVICE_TYPES = [
     category: 'Inspection',
     description: 'General inspection without treatment',
     durationConfidence: 'standard',
-  },
-  {
-    id: 'commercial',
-    label: 'Commercial',
-    defaultDurationMinutes: 60,
-    category: 'Commercial',
-    description: 'Commercial account service',
-    durationConfidence: 'estimated',
-    notes: 'Commercial sites often need longer on-site time.',
-  },
-  {
-    id: 'wasp-hornet',
-    label: 'Wasp/Hornet',
-    defaultDurationMinutes: 45,
-    category: 'Stinging Insects',
-    description: 'Wasp or hornet nest treatment',
-    durationConfidence: 'estimated',
-  },
-  {
-    id: 'flea-treatment',
-    label: 'Flea Treatment',
-    defaultDurationMinutes: 60,
-    category: 'Flea',
-    description: 'Flea treatment service',
-    durationConfidence: 'estimated',
-  },
-  {
-    id: 'roach-treatment',
-    label: 'Roach Treatment',
-    defaultDurationMinutes: 60,
-    category: 'Roach',
-    description: 'Roach treatment service',
-    durationConfidence: 'estimated',
-  },
-  {
-    id: 'rodent-inspection',
-    label: 'Rodent Inspection',
-    defaultDurationMinutes: 45,
-    category: 'Rodent',
-    description: 'Rodent inspection without full treatment',
-    durationConfidence: 'standard',
-    notes: 'Owner presence recommended.',
   },
   {
     id: CUSTOM_DURATION_ID,
@@ -180,8 +157,12 @@ export function resolveServiceDuration(serviceTypeId, customDurationMinutes) {
       valid: true,
       durationMinutes: Math.round(mins),
       durationConfidence: 'custom',
+      durationSource: 'user',
       serviceType: type.label,
       serviceLabel: type.label,
+      isInitial: false,
+      isRecurring: false,
+      isReservice: false,
     };
   }
 
@@ -189,8 +170,12 @@ export function resolveServiceDuration(serviceTypeId, customDurationMinutes) {
     valid: true,
     durationMinutes: type.defaultDurationMinutes,
     durationConfidence: type.durationConfidence,
+    durationSource: 'catalog',
     serviceType: type.label,
     serviceLabel: type.label,
+    isInitial: Boolean(type.isInitial),
+    isRecurring: Boolean(type.isRecurring),
+    isReservice: Boolean(type.isReservice),
   };
 }
 
@@ -243,6 +228,10 @@ export function buildRouteFinderLead({
       serviceTypeId,
       durationMinutes: duration.durationMinutes,
       durationConfidence: duration.durationConfidence,
+      durationSource: duration.durationSource,
+      isInitial: duration.isInitial,
+      isRecurring: duration.isRecurring,
+      isReservice: duration.isReservice,
       timeWindowPreference,
       routeArea,
       date: date ?? null,

@@ -60,7 +60,11 @@ export default function RouteMatchCardContent({ match, rank, routeArea, multiDay
             )}
           </div>
           <p className="type-label-sm text-gs-muted m-0 font-normal tracking-normal">
-            Route {match.routeId} · {match.stopCount} stops · {match.nearestStopMiles} mi away
+            Route {match.routeId} · {match.stopCount} stops
+            {match.routeFeasibility?.workloadLabelDisplay && (
+              <span className="font-semibold ml-1">· {match.routeFeasibility.workloadLabelDisplay}</span>
+            )}
+            {' '}· {match.nearestStopMiles} mi away
             {match.clusterDensity > 0 && (
               <span className="font-semibold ml-1 text-gs-accent">
                 · {match.clusterDensity} nearby
@@ -137,9 +141,29 @@ export default function RouteMatchCardContent({ match, rank, routeArea, multiDay
         </div>
       )}
 
+      {match.routeFeasibility?.projectedRouteEndTime && (
+        <p className="type-label-sm text-gs-muted m-0 mt-1 font-normal tracking-normal">
+          Projected route end: {match.routeFeasibility.projectedRouteEndTime}
+          {match.travelAccuracy === 'road-based' ? ' · Road-based drive time' : ' · Estimated drive time'}
+        </p>
+      )}
+
+      {match.dispatcherNote && (
+        <p className="type-label-sm text-gs-accent m-0 mt-1 font-semibold tracking-normal leading-[1.45]">
+          {match.dispatcherNote}
+        </p>
+      )}
+
+      {match.workload?.isHeavy && match.chosenDespiteHeavy && (
+        <p className="type-label-sm text-amber-600 m-0 mt-1 font-normal tracking-normal">
+          Chosen despite heavy route because alternatives were weaker or unavailable.
+        </p>
+      )}
+
       {ins && (
         <ul className={`route-match-metrics ${compact ? '' : 'route-match-metrics--expanded'}`}>
-          <li><span className="text-gs-accent font-semibold">✓</span> +Drive {ins.addedDriveTime}</li>
+          <li><span className="text-gs-accent font-semibold">✓</span> +Drive {ins.addedDriveTime}{ins.addedMileage ? ` / ${ins.addedMileage}` : ''}</li>
+          {ins.serviceDuration && <li><span className="text-gs-accent font-semibold">✓</span> Service {ins.serviceDuration}</li>}
           <li><span className="text-gs-accent font-semibold">✓</span> Backtracking: {ins.backtrackingRisk === 'None' ? 'None' : ins.backtrackingRisk}</li>
           <li>
             <span style={{ color: timedSafetyColor }} className="font-semibold">
@@ -157,8 +181,16 @@ export default function RouteMatchCardContent({ match, rank, routeArea, multiDay
       )}
 
       <div className={`rf-mini-kpis ${compact ? 'mt-1.5' : 'mt-2'}`}>
-        {['geographic', 'travelEfficiency', 'timeWindow', 'capacity', 'insertionProximity'].map(k => {
-          const labels = { geographic: 'Geo', travelEfficiency: 'Drive', timeWindow: 'Win', capacity: 'Cap', insertionProximity: 'Ins' };
+        {['travelEfficiency', 'timeWindow', 'workload', 'serviceDuration', 'geographic'].map(k => {
+          const labels = {
+            geographic: 'Geo',
+            travelEfficiency: 'Drive',
+            timeWindow: 'Win',
+            workload: 'Load',
+            serviceDuration: 'Svc',
+            capacity: 'Cap',
+            insertionProximity: 'Ins',
+          };
           const v = match.scores[k] ?? 0;
           const tier = v >= 70 ? 'high' : v >= 45 ? 'mid' : 'low';
           return (

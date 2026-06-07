@@ -383,6 +383,31 @@ router.get('/technician-photos', async (req, res) => {
   }
 });
 
+// POST /api/routes/travel-legs — road-based drive legs (server-side Google Routes API)
+router.post('/travel-legs', async (req, res) => {
+  try {
+    const { computeTravelLegs } = await import('../services/googleRoutesTravelTime.js');
+    const { legs = [], context = {}, trafficAware = false } = req.body || {};
+    if (!Array.isArray(legs) || legs.length === 0) {
+      return res.status(400).json({ error: 'legs array is required' });
+    }
+    if (legs.length > 200) {
+      return res.status(400).json({ error: 'Too many legs requested (max 200)' });
+    }
+    const result = await computeTravelLegs({ legs, context, trafficAware });
+    res.json(result);
+  } catch (err) {
+    console.error('[routes] travel-legs error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/routes/travel-status — whether Google Routes API key is configured
+router.get('/travel-status', async (req, res) => {
+  const { getGoogleRoutesStatus } = await import('../services/googleRoutesTravelTime.js');
+  res.json(getGoogleRoutesStatus());
+});
+
 // POST /api/routes/preload — fire-and-forget preload for next 6 working days
 // ?force=true bypasses route cache TTL and re-scrapes every date
 router.post('/preload', (req, res) => {

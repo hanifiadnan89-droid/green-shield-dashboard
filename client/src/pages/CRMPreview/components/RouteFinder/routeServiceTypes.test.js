@@ -9,7 +9,7 @@ import {
 
 describe('routeServiceTypes', () => {
   it('defines all required service types with valid durations', () => {
-    expect(ROUTE_SERVICE_TYPES.length).toBeGreaterThanOrEqual(15);
+    expect(ROUTE_SERVICE_TYPES.length).toBeGreaterThanOrEqual(10);
     for (const t of ROUTE_SERVICE_TYPES) {
       expect(t.id).toBeTruthy();
       expect(t.label).toBeTruthy();
@@ -46,7 +46,8 @@ describe('routeServiceTypes', () => {
       date: '2026-06-09',
     });
     expect(built.valid).toBe(true);
-    expect(built.lead.durationMinutes).toBe(75);
+    expect(built.lead.durationMinutes).toBe(60);
+    expect(built.lead.isInitial).toBe(true);
     expect(built.lead.serviceLabel).toBe('RIT Initial');
     expect(built.lead.durationConfidence).toBe('estimated');
   });
