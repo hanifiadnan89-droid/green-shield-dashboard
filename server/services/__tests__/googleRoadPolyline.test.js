@@ -26,7 +26,7 @@ describe('googleRoadPolyline', () => {
         { lat: 43.36, lng: -70.58, stopId: 'a' },
         { lat: 43.32, lng: -70.55, stopId: 'b' },
       ],
-      context: { routeId: 'r1', date: '2026-06-09' },
+      context: { routeId: 'r1', date: '2026-06-09', detailView: true },
     });
     expect(result.provider).toBe('straight-line');
     expect(result.fallbackUsed).toBe(true);
@@ -53,7 +53,7 @@ describe('googleRoadPolyline', () => {
         { lat: 44.01, lng: -69.12, stopId: 'a' },
         { lat: 43.88, lng: -69.45, stopId: 'b' },
       ],
-      context: { routeId: 'r2', date: '2026-06-10' },
+      context: { routeId: 'r2', date: '2026-06-10', detailView: true },
     });
 
     expect(result.provider).toBe('google-routes');
@@ -82,7 +82,7 @@ describe('googleRoadPolyline', () => {
         { lat: 43.1, lng: -70.1, stopId: 'x' },
         { lat: 43.2, lng: -70.2, stopId: 'y' },
       ],
-      context: { routeId: 'cache-test', date: '2026-06-11' },
+      context: { routeId: 'cache-test', date: '2026-06-11', detailView: true },
     };
 
     await computeRoadPolyline(input);

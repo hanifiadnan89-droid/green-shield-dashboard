@@ -1,23 +1,37 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getRoutesApiConfig } from './routesApiConfig.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = path.resolve(__dirname, '../data/route-matrix-cache');
-const PAIR_TTL_MS = 24 * 60 * 60 * 1000;
-const ROUTE_TTL_MS = 30 * 60 * 1000;
+
+/** @type {Map<string, Promise<unknown>>} */
+const inFlightPairRequests = new Map();
+
+function roundCoord(n, decimals = 5) {
+  const factor = 10 ** decimals;
+  return Math.round(Number(n) * factor) / factor;
+}
+
+export function pairCacheKey(origin, destination, { travelMode = 'DRIVE', trafficAware = false } = {}) {
+  const prefix = trafficAware ? 'google-routes:traffic' : 'google-routes:drive';
+  return `${prefix}:${roundCoord(origin.lat)},${roundCoord(origin.lng)}:${roundCoord(destination.lat)},${roundCoord(destination.lng)}`;
+}
+
+function pairTtlMs(trafficAware = false) {
+  const config = getRoutesApiConfig();
+  const minutes = trafficAware
+    ? config.pairCacheTtlMinutesTraffic
+    : config.pairCacheTtlMinutesStatic;
+  return minutes * 60 * 1000;
+}
+
+function routeTtlMs() {
+  return getRoutesApiConfig().matrixCacheTtlMinutes * 60 * 1000;
+}
+
 const POLYLINE_TTL_MS = 30 * 60 * 1000;
-
-function roundCoord(n) {
-  return Math.round(Number(n) * 10000) / 10000;
-}
-
-export function pairCacheKey(origin, destination) {
-  return [
-    roundCoord(origin.lat), roundCoord(origin.lng),
-    roundCoord(destination.lat), roundCoord(destination.lng),
-  ].join('|');
-}
 
 export function routeCacheKey({ date, routeId, travelMode = 'DRIVE', trafficAware = false }) {
   return `${date || 'nodate'}::${routeId || 'noroute'}::${travelMode}::${trafficAware ? 'traffic' : 'static'}`;
@@ -50,18 +64,56 @@ function writeJson(file, payload) {
   writeFileSync(file, JSON.stringify(payload, null, 2), 'utf8');
 }
 
-export function getCachedPair(origin, destination) {
-  const key = pairCacheKey(origin, destination);
-  return readJson(pairCacheFile(key), PAIR_TTL_MS);
+export function getCachedPair(origin, destination, options = {}) {
+  const key = pairCacheKey(origin, destination, options);
+  const raw = readJson(pairCacheFile(key), pairTtlMs(options.trafficAware));
+  if (!raw) return null;
+  return raw;
 }
 
-export function setCachedPair(origin, destination, result) {
-  const key = pairCacheKey(origin, destination);
-  writeJson(pairCacheFile(key), { fetchedAt: Date.now(), key, ...result });
+export function setCachedPair(origin, destination, result, options = {}) {
+  const key = pairCacheKey(origin, destination, options);
+  const expiresAt = Date.now() + pairTtlMs(options.trafficAware);
+  writeJson(pairCacheFile(key), {
+    fetchedAt: Date.now(),
+    expiresAt,
+    key,
+    ...result,
+  });
+}
+
+/**
+ * Deduplicate concurrent identical pair lookups (in-flight promise sharing).
+ */
+export async function getOrComputePair(origin, destination, options, computeFn) {
+  const key = pairCacheKey(origin, destination, options);
+  const cached = getCachedPair(origin, destination, options);
+  if (cached?.distanceMiles != null) return { result: cached, fromCache: true };
+
+  if (inFlightPairRequests.has(key)) {
+    const result = await inFlightPairRequests.get(key);
+    return { result, fromCache: true };
+  }
+
+  const task = (async () => {
+    const again = getCachedPair(origin, destination, options);
+    if (again?.distanceMiles != null) return again;
+    const computed = await computeFn();
+    setCachedPair(origin, destination, computed, options);
+    return computed;
+  })();
+
+  inFlightPairRequests.set(key, task);
+  try {
+    const result = await task;
+    return { result, fromCache: false };
+  } finally {
+    inFlightPairRequests.delete(key);
+  }
 }
 
 export function getCachedRouteMatrix(cacheKey) {
-  return readJson(routeCacheFile(cacheKey), ROUTE_TTL_MS);
+  return readJson(routeCacheFile(cacheKey), routeTtlMs());
 }
 
 export function setCachedRouteMatrix(cacheKey, payload) {

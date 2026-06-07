@@ -4,10 +4,12 @@ import {
   HaversineTravelTimeProvider,
 } from './routeTravelTimeProvider.js';
 import { api } from '../api/client.js';
+import { getRoutesApiConfig, createSearchElementBudget } from './routesApiConfig.js';
+import { estimateBilledElements } from './routeTravelBudget.js';
 
 function pointKey(point) {
   if (!point?.lat || !point?.lng) return null;
-  return `${Math.round(point.lat * 10000)}:${Math.round(point.lng * 10000)}`;
+  return `${Math.round(point.lat * 100000)}:${Math.round(point.lng * 100000)}`;
 }
 
 function legKey(origin, destination) {
@@ -27,7 +29,7 @@ export function buildTravelContextFromLegs(legEntries = [], diagnostics = {}) {
     if (key) map.set(key, entry.result);
   }
 
-  const provider = diagnostics.matrixProvider || 'haversine';
+  const provider = diagnostics.matrixProvider || diagnostics.travelProvider || 'haversine';
 
   const getSegment = (origin, destination) => {
     const key = legKey(origin, destination);
@@ -46,10 +48,18 @@ export function buildTravelContextFromLegs(legEntries = [], diagnostics = {}) {
   const travelDiagnostics = {
     travelProvider: provider,
     travelAccuracy: provider === 'google-routes' ? 'road-based' : 'estimated',
+    roadTimingUsed: Boolean(diagnostics.roadTimingUsed ?? provider === 'google-routes'),
     fallbackUsed: Boolean(diagnostics.fallbackUsed),
     fallbackReason: diagnostics.fallbackReason || (diagnostics.fallbackUsed ? 'haversine_fallback' : null),
     matrixElementsRequested: diagnostics.matrixElementsRequested ?? diagnostics.elementsRequested ?? 0,
+    elementsRequested: diagnostics.elementsRequested ?? 0,
+    elementsFromCache: diagnostics.elementsFromCache ?? 0,
+    elementsBudgetRemaining: diagnostics.elementsBudgetRemaining ?? null,
+    routesRoadScored: diagnostics.routesRoadScored ?? 0,
+    routesEstimatedOnly: diagnostics.routesEstimatedOnly ?? 0,
     cacheHit: Boolean(diagnostics.cacheHit),
+    targetedMode: Boolean(diagnostics.targetedMode),
+    pairwiseMode: Boolean(diagnostics.pairwiseMode),
   };
 
   return {
@@ -72,47 +82,46 @@ export function buildTravelContextFromLegs(legEntries = [], diagnostics = {}) {
   };
 }
 
+function pushLeg(legs, seen, origin, destination) {
+  if (!origin?.lat || !destination?.lat) return;
+  const key = legKey(origin, destination);
+  if (!key || seen.has(key)) return;
+  seen.add(key);
+  legs.push({ origin, destination });
+}
+
 /**
- * Collect leg pairs needed for route scoring (consecutive + each stop to lead).
+ * Targeted legs for one technician: route timeline + insertion probe edges only.
  */
-export function collectRouteTravelLegs(technicians = [], lead = {}) {
+export function collectTargetedTravelLegs(technicians = [], lead = {}) {
   const legs = [];
   const seen = new Set();
   const leadPoint = lead.lat != null && lead.lng != null ? { lat: lead.lat, lng: lead.lng } : null;
-
-  const pushLeg = (origin, destination) => {
-    if (!origin?.lat || !destination?.lat) return;
-    const key = legKey(origin, destination);
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    legs.push({ origin, destination });
-  };
 
   for (const tech of technicians) {
     const stops = (tech.stops || []).filter(s => s.lat && s.lng);
     const start = tech.startLocation?.lat != null ? tech.startLocation : null;
     const end = tech.endLocation?.lat != null ? tech.endLocation : null;
 
-    if (start && stops[0]) pushLeg(start, stops[0]);
+    if (start && stops[0]) pushLeg(legs, seen, start, stops[0]);
     for (let i = 0; i < stops.length - 1; i++) {
-      pushLeg(stops[i], stops[i + 1]);
+      pushLeg(legs, seen, stops[i], stops[i + 1]);
     }
-    if (end && stops.length) pushLeg(stops[stops.length - 1], end);
+    if (end && stops.length) pushLeg(legs, seen, stops[stops.length - 1], end);
 
-    if (leadPoint) {
-      if (start) pushLeg(start, leadPoint);
-      for (const stop of stops) pushLeg(stop, leadPoint);
-      pushLeg(leadPoint, stops[0]);
-      for (let i = 0; i < stops.length - 1; i++) {
-        pushLeg(leadPoint, stops[i]);
-        pushLeg(stops[i], leadPoint);
-        pushLeg(leadPoint, stops[i + 1]);
-      }
-      if (stops.length) {
-        pushLeg(leadPoint, stops[stops.length - 1]);
-        pushLeg(stops[stops.length - 1], leadPoint);
-      }
-      if (end) pushLeg(leadPoint, end);
+    if (!leadPoint) continue;
+
+    for (let insertIdx = -1; insertIdx < stops.length; insertIdx++) {
+      const afterStop = insertIdx >= 0 ? stops[insertIdx] : null;
+      const beforeStop = insertIdx + 1 < stops.length ? stops[insertIdx + 1] : null;
+
+      const prevPt = afterStop
+        ?? (start?.lat != null ? start : (stops[0] ?? null));
+      const nextPt = beforeStop
+        ?? (end?.lat != null ? end : (stops[stops.length - 1] ?? null));
+
+      if (prevPt?.lat) pushLeg(legs, seen, prevPt, leadPoint);
+      if (nextPt?.lat) pushLeg(legs, seen, leadPoint, nextPt);
     }
   }
 
@@ -120,25 +129,79 @@ export function collectRouteTravelLegs(technicians = [], lead = {}) {
 }
 
 /**
+ * Legacy broad leg collection (all probe pairs). Prefer collectTargetedTravelLegs.
+ */
+export function collectRouteTravelLegs(technicians = [], lead = {}) {
+  return collectTargetedTravelLegs(technicians, lead);
+}
+
+/**
  * Prefetch road-based legs from the server (falls back server-side to haversine).
  */
-export async function prefetchTravelContext(technicians, lead, { trafficAware = false } = {}) {
-  const legs = collectRouteTravelLegs(technicians, lead);
+export async function prefetchTravelContext(technicians, lead, options = {}) {
+  const config = getRoutesApiConfig();
+  const budget = options.budget || createSearchElementBudget(config);
+  const targetedMode = options.targetedOnly !== false;
+
+  const legs = targetedMode
+    ? collectTargetedTravelLegs(technicians, lead)
+    : collectTargetedTravelLegs(technicians, lead);
+
   if (!legs.length) {
     return buildTravelContextFromLegs([], {
       matrixProvider: HaversineTravelTimeProvider.getProviderName(),
       cacheHit: false,
       elementsRequested: 0,
       fallbackUsed: true,
+      routesEstimatedOnly: technicians.length,
+    });
+  }
+
+  if (!config.enableRoadTiming || options.prefetchTravel === false) {
+    const entries = legs.map(leg => ({
+      origin: leg.origin,
+      destination: leg.destination,
+      result: HaversineTravelTimeProvider.getDistanceMiles(leg.origin, leg.destination),
+    }));
+    return buildTravelContextFromLegs(entries, {
+      matrixProvider: 'haversine',
+      fallbackUsed: true,
+      fallbackReason: 'road_timing_disabled',
+      elementsRequested: 0,
+      routesEstimatedOnly: technicians.length,
+    });
+  }
+
+  const estimatedElements = estimateBilledElements(legs, {
+    maxElementsPerRoute: budget.maxElementsPerRoute,
+  });
+  if (import.meta.env.DEV) {
+    console.debug('[route-finder] travel prefetch', {
+      techs: technicians.length,
+      legs: legs.length,
+      estimatedBilledElements: estimatedElements,
+      budgetRemaining: budget.remainingSearchElements,
+      targetedMode,
     });
   }
 
   try {
     const response = await api.routes.travelLegs({
       legs,
-      context: { date: lead?.date || null },
-      trafficAware,
+      context: {
+        date: lead?.date || null,
+        routeId: technicians.length === 1 ? technicians[0]?.routeId : null,
+        targetedMode,
+        budget,
+      },
+      trafficAware: options.trafficAware ?? false,
     });
+
+    if (response.budget) {
+      budget.remainingSearchElements = response.budget.elementsBudgetRemaining ?? budget.remainingSearchElements;
+      budget.elementsRequested += response.budget.elementsRequested ?? 0;
+      budget.elementsFromCache += response.budget.elementsFromCache ?? 0;
+    }
 
     const entries = legs.map((leg, index) => ({
       origin: leg.origin,
@@ -146,14 +209,23 @@ export async function prefetchTravelContext(technicians, lead, { trafficAware = 
       result: response.legs?.[index] || HaversineTravelTimeProvider.getDistanceMiles(leg.origin, leg.destination),
     }));
 
-    const ctx = buildTravelContextFromLegs(entries, response.diagnostics || {});
-    if (response.diagnostics?.fallbackUsed) {
-      console.info('[route-finder] travel matrix fallback', response.diagnostics);
-    } else if (response.diagnostics?.matrixProvider === 'google-routes') {
-      console.info('[route-finder] travel matrix google-routes', {
-        elements: response.diagnostics.matrixElementsRequested,
-        cacheHit: response.diagnostics.cacheHit,
-      });
+    const diagnostics = {
+      ...(response.diagnostics || {}),
+      targetedMode,
+      routesRoadScored: technicians.length,
+    };
+
+    const ctx = buildTravelContextFromLegs(entries, diagnostics);
+    if (import.meta.env.DEV) {
+      if (response.diagnostics?.fallbackUsed) {
+        console.info('[route-finder] travel matrix fallback', response.diagnostics);
+      } else if (response.diagnostics?.matrixProvider === 'google-routes') {
+        console.info('[route-finder] travel matrix google-routes', {
+          elements: response.diagnostics.matrixElementsRequested,
+          cacheHit: response.diagnostics.cacheHit,
+          budgetRemaining: response.diagnostics.elementsBudgetRemaining,
+        });
+      }
     }
     return ctx;
   } catch (err) {
@@ -168,10 +240,10 @@ export async function prefetchTravelContext(technicians, lead, { trafficAware = 
       travelProvider: 'haversine',
       travelAccuracy: 'estimated',
       cacheHit: false,
-      elementsRequested: legs.length,
-      matrixElementsRequested: legs.length,
+      elementsRequested: 0,
       fallbackUsed: true,
       fallbackReason: 'client_fetch_failed',
+      routesEstimatedOnly: technicians.length,
     });
   }
 }

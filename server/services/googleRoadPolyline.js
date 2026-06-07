@@ -3,6 +3,7 @@ import {
   setCachedPolyline,
   polylineCacheKey,
 } from './routeMatrixCache.js';
+import { getRoutesApiConfig } from './routesApiConfig.js';
 
 const COMPUTE_ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 /** Google allows up to 25 intermediates; keep margin for safety. */
@@ -85,6 +86,18 @@ export async function computeRoadPolyline({
   context = {},
   trafficAware = false,
 } = {}) {
+  const config = getRoutesApiConfig();
+  if (config.polylineOnDetailOnly && !context.detailView) {
+    return {
+      encodedPolyline: null,
+      provider: 'straight-line',
+      fallbackUsed: true,
+      fallbackReason: 'polyline_detail_only',
+      cacheHit: false,
+      warnings: ['Road polyline is only fetched in technician detail view.'],
+    };
+  }
+
   const normalized = stops.map(normalizeStop).filter(Boolean);
   const stopIds = normalized.map((s, i) => s.stopId || `idx-${i}`);
   const cacheKey = polylineCacheKey({
