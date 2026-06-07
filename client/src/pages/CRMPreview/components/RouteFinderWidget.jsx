@@ -6,7 +6,7 @@ import { api } from '../../../api/client.js';
 import StatusBadge from './RouteStatusBadge.jsx';
 import RouteMatchResults from './RouteMatchResults.jsx';
 import AuthStatusBanner from './RouteAuthBanner.jsx';
-import RouteFinderJobDetails from './RouteFinder/RouteFinderJobDetails.jsx';
+import RouteFinderServiceCards from './RouteFinder/RouteFinderServiceCards.jsx';
 import { buildDateMetas } from './RouteFinder/routeFinderDates.js';
 import { TIME_PREFS, FOUR_HOUR_SLOTS, TWO_HOUR_SLOTS } from './RouteFinder/routeFinderConstants.js';
 import { getDatePillTitle } from './RouteFinder/getDatePillTitle.js';
@@ -79,12 +79,9 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   // Scoring mode
   const [scoringMode, setScoringMode] = useState(SCORING_MODES.SINGLE_DATE);
 
-  // Job details
+  // Service selection
   const [serviceTypeId, setServiceTypeId] = useState('');
-  const [customDurationMinutes, setCustomDurationMinutes] = useState('45');
-  const [customerName, setCustomerName] = useState('');
-  const [jobNotes, setJobNotes] = useState('');
-  const [callAheadRequired, setCallAheadRequired] = useState(false);
+  const [commercialDurationMinutes, setCommercialDurationMinutes] = useState(60);
   const [jobValidationErrors, setJobValidationErrors] = useState([]);
 
   // Time preference
@@ -517,11 +514,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       lat: latLng.lat,
       lng: latLng.lng,
       address: latLng.full || latLng.display || '',
-      customerName,
-      notes: jobNotes,
-      callAheadRequired,
+      customerName: '',
+      notes: '',
+      callAheadRequired: false,
       serviceTypeId,
-      customDurationMinutes: serviceTypeId === 'custom-duration' ? customDurationMinutes : null,
+      commercialDurationMinutes,
       timeWindowPreference: prefStr,
       routeArea,
       date: date ?? null,
@@ -532,13 +529,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     }
     setJobValidationErrors([]);
     return built.lead;
-  }, [
-    customerName,
-    jobNotes,
-    callAheadRequired,
-    serviceTypeId,
-    customDurationMinutes,
-  ]);
+  }, [serviceTypeId, commercialDurationMinutes]);
 
   const runScore = useCallback(async () => {
     const pref = resolveTimeWindowPref(timePref, specificSlot);
@@ -659,10 +650,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setGeocodeError('');
     setIsEditing(false);
     setServiceTypeId('');
-    setCustomDurationMinutes('45');
-    setCustomerName('');
-    setJobNotes('');
-    setCallAheadRequired(false);
+    setCommercialDurationMinutes(60);
     setJobValidationErrors([]);
     setTimePref(null);
     setSpecificSlot(null);
@@ -1002,26 +990,21 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         </div>
 
         {geocodeStatus === 'success' && (
-          <RouteFinderJobDetails
+          <RouteFinderServiceCards
             isPage={isPage}
-            serviceTypeId={serviceTypeId}
-            onServiceTypeChange={(id) => {
+            selectedId={serviceTypeId}
+            commercialDurationMinutes={commercialDurationMinutes}
+            onSelect={(id) => {
               setServiceTypeId(id);
+              setJobValidationErrors([]);
               setResults(null);
               setScoringStatus('idle');
             }}
-            customDurationMinutes={customDurationMinutes}
-            onCustomDurationChange={(v) => {
-              setCustomDurationMinutes(v);
+            onCommercialDurationChange={(mins) => {
+              setCommercialDurationMinutes(mins);
               setResults(null);
               setScoringStatus('idle');
             }}
-            customerName={customerName}
-            onCustomerNameChange={setCustomerName}
-            notes={jobNotes}
-            onNotesChange={setJobNotes}
-            callAheadRequired={callAheadRequired}
-            onCallAheadChange={setCallAheadRequired}
             validationErrors={jobValidationErrors}
           />
         )}
