@@ -206,10 +206,17 @@ export default function RouteMatchDetailWorkspace({
                 <dl className="route-match-day-summary route-match-day-summary--detail">
                   <div><dt>Start</dt><dd>{day.startTime || '—'}</dd></div>
                   <div><dt>End</dt><dd>{day.endTime || '—'}</dd></div>
+                  <div><dt>Workload</dt><dd>{match.routeFeasibility?.workloadLabelDisplay || day.workloadLabel || '—'}</dd></div>
+                  <div><dt>Existing service</dt><dd>{match.routeFeasibility?.currentServiceMinutes ? `${Math.round(match.routeFeasibility.currentServiceMinutes / 60 * 10) / 10}h` : '—'}</dd></div>
+                  <div><dt>Existing drive</dt><dd>{match.routeFeasibility?.currentDriveMinutes != null ? `${Math.round(match.routeFeasibility.currentDriveMinutes)} min` : '—'}</dd></div>
+                  <div><dt>New appointment</dt><dd>{match.bestInsertion?.serviceDuration || '—'}</dd></div>
+                  <div><dt>Added drive</dt><dd>{match.bestInsertion?.addedDriveTime || '—'}{match.bestInsertion?.addedMileage ? ` / ${match.bestInsertion.addedMileage}` : ''}</dd></div>
+                  <div><dt>Projected total</dt><dd>{match.routeFeasibility?.projectedTotalRouteMinutes ? `${Math.round(match.routeFeasibility.projectedTotalRouteMinutes / 60 * 10) / 10}h` : '—'}</dd></div>
                   <div><dt>Total drive</dt><dd>{day.totalDriveHours ?? '—'}h</dd></div>
                   <div><dt>Total service</dt><dd>{day.totalServiceHours ?? '—'}h</dd></div>
                   <div><dt>Stops</dt><dd>{day.totalStops ?? match.stopCount}</dd></div>
                   <div><dt>Capacity left</dt><dd>{day.capacityLeftHours ?? match.capacity?.remainingHours}h</dd></div>
+                  <div><dt>Drive data</dt><dd>{match.travelAccuracy === 'road-based' ? 'Road-based' : 'Estimated straight-line'}</dd></div>
                 </dl>
               </>
             )}

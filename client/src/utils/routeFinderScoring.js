@@ -2,7 +2,8 @@
  * Route Finder scoring orchestration — single-date and best-available modes.
  */
 
-import { scoreRoutes, detectRouteArea } from './fieldRoutesScorer.js';
+import { scoreRoutesAsync, detectRouteArea } from './fieldRoutesScorer.js';
+import { prefetchTravelContext } from './routeTravelContext.js';
 
 function buildPrefWindowMeta(lead) {
   const pref = lead?.timeWindowPreference || 'AT';
@@ -70,13 +71,14 @@ function attachMatchMeta(match, { date, technicians, lead, rank }) {
   };
 }
 
-function enrichSingleDateResult(result, technicians, lead) {
+function enrichSingleDateResult(result, technicians, lead, travelProviderName) {
+  const provider = travelProviderName || defaultTravelProvider.getProviderName();
   if (!result || result.noSafeRoute) {
     return {
       ...result,
       mode: SCORING_MODES.SINGLE_DATE,
       generatedAt: new Date().toISOString(),
-      travelProvider: defaultTravelProvider.getProviderName(),
+      travelProvider: provider,
     };
   }
 
@@ -88,7 +90,7 @@ function enrichSingleDateResult(result, technicians, lead) {
     ...result,
     mode: SCORING_MODES.SINGLE_DATE,
     generatedAt: new Date().toISOString(),
-    travelProvider: defaultTravelProvider.getProviderName(),
+    travelProvider: provider,
     topMatches,
     recommendation: topMatches[0] ?? null,
     alternatives: topMatches.slice(1),
@@ -98,9 +100,12 @@ function enrichSingleDateResult(result, technicians, lead) {
 /**
  * Score one date (existing behavior + enrichment).
  */
-export function scoreSingleDate(technicians, lead, topN = 3) {
-  const raw = scoreRoutes(technicians, lead, topN);
-  return enrichSingleDateResult(raw, technicians, lead);
+export async function scoreSingleDate(technicians, lead, topN = 3, options = {}) {
+  const travelCtx = options.travelCtx
+    ?? (options.prefetchTravel === false ? null : await prefetchTravelContext(technicians, lead, options));
+  const raw = await scoreRoutesAsync(technicians, lead, topN, { ...options, travelCtx });
+  const provider = travelCtx?.getProviderName?.() || defaultTravelProvider.getProviderName();
+  return enrichSingleDateResult(raw, technicians, lead, provider);
 }
 
 /**
@@ -121,6 +126,7 @@ export async function scoreBestAvailable({
   fetchPayload,
   topN = 3,
   maxExtra = 5,
+  prefetchTravel = true,
 }) {
   const allMatches = [];
   const skippedDates = [];
@@ -148,7 +154,10 @@ export async function scoreBestAvailable({
     }
 
     const lead = { ...leadBase, date };
-    const result = scoreRoutes(technicians, lead, technicians.length);
+    const travelCtx = prefetchTravel
+      ? await prefetchTravelContext(technicians, lead)
+      : null;
+    const result = await scoreRoutesAsync(technicians, lead, technicians.length, { travelCtx });
     datesScored += 1;
 
     if (result.noSafeRoute) continue;

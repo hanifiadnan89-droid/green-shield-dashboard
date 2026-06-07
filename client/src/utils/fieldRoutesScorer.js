@@ -14,6 +14,13 @@ import {
   travelMinutesFromMiles as travelMin,
   defaultTravelProvider,
 } from './routeTravelTimeProvider.js';
+import { enrichStopsWithDurations } from './routeServiceDurationRules.js';
+import {
+  assessRouteWorkload,
+  applyLighterRoutePreference,
+  ROUTE_WORKLOAD_CONFIG,
+  workloadLabelDisplay,
+} from './routeWorkload.js';
 
 // ---------------------------------------------------------------------------
 // SCORER_CONFIG — single source of truth for all weights, thresholds, and
@@ -24,8 +31,16 @@ export const SCORER_CONFIG = {
   // 'vrptw' is the default engine as of Phase 5; 'legacy' retained for rollback
   engine: 'vrptw',
 
-  // Scoring weights — must sum to 1.0
-  weights: { geo: 0.20, travel: 0.40, window: 0.30, capacity: 0.10 },
+  // Scoring weights — must sum to 1.0 (dispatcher-grade balance)
+  weights: {
+    travel: 0.35,
+    window: 0.25,
+    workload: 0.20,
+    serviceDuration: 0.10,
+    geo: 0.10,
+  },
+
+  workload: { ...ROUTE_WORKLOAD_CONFIG },
 
   speed: {
     avgMph: 30,
@@ -151,6 +166,39 @@ const GEO_ZERO_MILES      = SCORER_CONFIG.thresholds.geoZeroMiles;
 const TRAVEL_ZERO_MILES   = SCORER_CONFIG.thresholds.travelZeroMiles;
 const HOME_NEAR_MILES     = SCORER_CONFIG.thresholds.homeNearMiles;
 const TIMED_WINDOW_MAX_MIN = SCORER_CONFIG.thresholds.timedWindowMaxMin;
+
+function point(lat, lng) {
+  return lat != null && lng != null ? { lat, lng } : null;
+}
+
+/** Road-based segment when travel context is available; otherwise haversine estimate. */
+function travelSegment(fromLat, fromLng, toLat, toLng, travelCtx = null) {
+  const origin = point(fromLat, fromLng);
+  const destination = point(toLat, toLng);
+  if (!origin || !destination) {
+    return { distanceMiles: 0, travelMinutes: 0, provider: 'haversine', accuracy: 'estimated' };
+  }
+  if (travelCtx?.getSegment) {
+    return travelCtx.getSegment(origin, destination);
+  }
+  const distanceMiles = haversine(fromLat, fromLng, toLat, toLng);
+  return {
+    distanceMiles,
+    travelMinutes: travelMin(distanceMiles),
+    provider: 'haversine',
+    accuracy: 'estimated',
+  };
+}
+
+function workloadScoreFromLabel(label) {
+  switch (label) {
+    case 'healthy': return 100;
+    case 'near-capacity': return 75;
+    case 'heavy': return 50;
+    case 'avoid-if-possible': return 30;
+    default: return 60;
+  }
+}
 
 function normalizeServiceType(str) {
   return str?.toLowerCase().replace(/[^a-z0-9]+/g, '') ?? '';
@@ -443,7 +491,7 @@ function twoOptImprove(stops) {
  * Simulate a route to build a timing map.
  * Returns an array of { stop, arrivalMin, departMin } for each stop in order.
  */
-function simulateRouteTiming(stops, startLat, startLng, startTimeMin = 480) {
+function simulateRouteTiming(stops, startLat, startLng, startTimeMin = 480, travelCtx = null) {
   const timeline = [];
   let curLat = startLat;
   let curLng = startLng;
@@ -455,7 +503,7 @@ function simulateRouteTiming(stops, startLat, startLng, startTimeMin = 480) {
       curTime += stop.durationMinutes;
       continue;
     }
-    const drive = Math.ceil(travelMin(haversine(curLat, curLng, stop.lat, stop.lng)));
+    const drive = Math.ceil(travelSegment(curLat, curLng, stop.lat, stop.lng, travelCtx).travelMinutes);
     // Respect timed window: can't arrive before window start
     const windowStart = isTimedStop(stop) ? (parseTimeStr(stop.startTime) ?? 0) : 0;
     const arrival = Math.max(curTime + drive, windowStart);
@@ -843,7 +891,7 @@ function measureHomeProximity(tech, leadLat, leadLng) {
 
 function vrptwInsertion(
   stops, leadLat, leadLng, durationMin, prefWindow,
-  startLoc, endLoc, routeDirectionBearing, clusterData, cfg
+  startLoc, endLoc, routeDirectionBearing, clusterData, cfg, travelCtx = null
 ) {
   if (stops.length === 0) return null;
 
@@ -871,7 +919,9 @@ function vrptwInsertion(
         continue;
       }
 
-      const drive = travelMin(haversine(cur?.lat ?? stop.lat, cur?.lng ?? stop.lng, stop.lat, stop.lng));
+      const drive = travelSegment(
+        cur?.lat ?? stop.lat, cur?.lng ?? stop.lng, stop.lat, stop.lng, travelCtx,
+      ).travelMinutes;
       let arrival = curTime + drive;
 
       // Respect timed window start for non-new stops
@@ -888,7 +938,7 @@ function vrptwInsertion(
     // Travel to endLoc after last stop
     const lastArr = arrivals[arrivals.length - 1];
     const endTravel = (hasEnd && lastArr?.stop?.lat && lastArr?.stop?.lng)
-      ? travelMin(haversine(lastArr.stop.lat, lastArr.stop.lng, endLoc.lat, endLoc.lng))
+      ? travelSegment(lastArr.stop.lat, lastArr.stop.lng, endLoc.lat, endLoc.lng, travelCtx).travelMinutes
       : 0;
     const projectedEnd = (lastArr?.arrivalMin ?? DAY_START_MIN) + (lastArr?.stop?.durationMinutes ?? 0) + endTravel;
 
@@ -929,9 +979,12 @@ function vrptwInsertion(
     const prevLng = afterStop?.lng ?? (hasStart ? startLoc.lng : (stops[0]?.lng ?? leadLng));
     const nextLat = beforeStop?.lat ?? (hasEnd ? endLoc.lat : (stops[stops.length - 1]?.lat ?? leadLat));
     const nextLng = beforeStop?.lng ?? (hasEnd ? endLoc.lng : (stops[stops.length - 1]?.lng ?? leadLng));
-    const dPN   = haversine(prevLat, prevLng, leadLat, leadLng);
-    const dNX   = haversine(leadLat, leadLng, nextLat, nextLng);
-    const dPX   = haversine(prevLat, prevLng, nextLat, nextLng);
+    const segPN = travelSegment(prevLat, prevLng, leadLat, leadLng, travelCtx);
+    const segNX = travelSegment(leadLat, leadLng, nextLat, nextLng, travelCtx);
+    const segPX = travelSegment(prevLat, prevLng, nextLat, nextLng, travelCtx);
+    const dPN = segPN.distanceMiles;
+    const dNX = segNX.distanceMiles;
+    const dPX = segPX.distanceMiles;
     const detourMiles = Math.max(0, dPN + dNX - dPX);
 
     // Window cost
@@ -972,7 +1025,7 @@ function vrptwInsertion(
       : { backtracking: false, severity: 0, risk: 'None', detail: null };
 
     const localProxMiles = Math.round(Math.min(dPN, dNX) * 10) / 10;
-    const addedDriveMinutes = Math.max(0, Math.round(travelMin(dPN + dNX - dPX)));
+    const addedDriveMinutes = Math.max(0, Math.round(segPN.travelMinutes + segNX.travelMinutes - segPX.travelMinutes));
 
     candidates.push({
       _vrptwCost:           totalCost,
@@ -1131,16 +1184,19 @@ function buildReason({
 // ---------------------------------------------------------------------------
 
 function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG) {
-  const { routeArea = 'general', dayOfWeek = null } = routingCtx;
+  const { routeArea = 'general', dayOfWeek = null, travelCtx = null } = routingCtx;
   const allStops = tech.stops.filter(s => s.lat && s.lng);
   if (allStops.length === 0) return null;
 
+  const durationMeta = enrichStopsWithDurations(allStops);
+  const enrichedStops = durationMeta.stops;
+  const workload = assessRouteWorkload(tech, enrichedStops);
   const durationMin = lead.durationMinutes ?? getDefaultDuration(lead.serviceType);
 
   // ── Step 1: internally optimize the route ────────────────────────────────
   const startLoc = tech.startLocation;
   const endLoc   = tech.endLocation;
-  const { stops: orderedStops, wasOptimized } = optimizeRouteOrder(allStops, startLoc, endLoc);
+  const { stops: orderedStops, wasOptimized } = optimizeRouteOrder(enrichedStops, startLoc, endLoc);
 
   // ── Step 1b: rebuild timing from 8 AM for the optimized order ────────────
   // All techs start at 8 AM. Rebuilding spotStartMinutes from DAY_START_MIN
@@ -1149,7 +1205,7 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
   const hasStartLoc = startLoc?.lat != null && startLoc?.lng != null;
   const simFromLat  = hasStartLoc ? startLoc.lat : (orderedStops[0]?.lat ?? lead.lat);
   const simFromLng  = hasStartLoc ? startLoc.lng : (orderedStops[0]?.lng ?? lead.lng);
-  const timeline    = simulateRouteTiming(orderedStops, simFromLat, simFromLng, DAY_START_MIN);
+  const timeline    = simulateRouteTiming(orderedStops, simFromLat, simFromLng, DAY_START_MIN, travelCtx);
   const stops       = orderedStops.map((stop, i) => ({
     ...stop,
     spotStartMinutes: timeline[i]?.arrivalMin ?? stop.spotStartMinutes ?? DAY_START_MIN,
@@ -1182,7 +1238,7 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
   // ── Step 5: find best insertion in the optimized route ────────────────────
   const insertionResult = vrptwInsertion(
     stops, lead.lat, lead.lng, durationMin, prefWindow,
-    startLoc, endLoc, routeDirectionBearing, clusterData, cfg
+    startLoc, endLoc, routeDirectionBearing, clusterData, cfg, travelCtx,
   );
   const { best: insertion, clusterData: insertionCluster } = insertionResult ?? {};
 
@@ -1212,15 +1268,25 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     : 50;
   const isOverCapacity = cap.remainingHours < durationMin / 60;
 
+  const workloadScore = workloadScoreFromLabel(workload.workloadLabel);
+  const projectedServiceMinutes = workload.currentServiceMinutes + durationMin;
+  const maxServiceMinutes = cap.maxHours > 0 ? cap.maxHours * 60 : null;
+  const serviceDurationScore = maxServiceMinutes
+    ? Math.min(100, Math.max(0, ((maxServiceMinutes - projectedServiceMinutes) / maxServiceMinutes) * 100))
+    : 50;
+
   const localProxMiles = insertion.localProximityMiles;
   const insertionProximityScore = Math.round(100 * Math.exp(-localProxMiles / GEO_ZERO_MILES));
 
   let total = Math.round(
-    geoScore      * cfg.weights.geo      +
-    travelScore   * cfg.weights.travel   +
-    windowScore   * cfg.weights.window   +
-    capacityScore * cfg.weights.capacity
+    geoScore            * cfg.weights.geo            +
+    travelScore         * cfg.weights.travel         +
+    windowScore         * cfg.weights.window         +
+    workloadScore       * (cfg.weights.workload ?? 0) +
+    serviceDurationScore * (cfg.weights.serviceDuration ?? 0)
   );
+
+  total -= workload.workloadPenalty;
 
   // Penalties — timed appointment risk only; EOD is no longer a scoring constraint
   const timedPen = cfg.penalties.timedRisk;
@@ -1330,17 +1396,39 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     : null;
 
   const routeStops = buildRouteStopsDisplay(stops, timeline, insertion, lead);
-  const totalServiceMin = stops.reduce((sum, s) => sum + (s.durationMinutes || getDefaultDuration(s.serviceType)), 0) + durationMin;
+  const currentServiceMin = workload.currentServiceMinutes;
+  const totalServiceMin = projectedServiceMinutes;
+  let currentDriveMin = 0;
   let totalDriveMin = 0;
   for (let i = 0; i < timeline.length; i++) {
     const fromLat = i === 0 ? simFromLat : timeline[i - 1].stop.lat;
     const fromLng = i === 0 ? simFromLng : timeline[i - 1].stop.lng;
     const s = timeline[i].stop;
     if (s.lat && s.lng) {
-      totalDriveMin += travelMin(haversine(fromLat, fromLng, s.lat, s.lng));
+      currentDriveMin += travelSegment(fromLat, fromLng, s.lat, s.lng, travelCtx).travelMinutes;
     }
   }
-  totalDriveMin += insertion.addedDriveMinutes ?? 0;
+  totalDriveMin = currentDriveMin + (insertion.addedDriveMinutes ?? 0);
+  const projectedTotalRouteMinutes = totalServiceMin + totalDriveMin;
+  const remainingCapacityMinutes = cap.maxHours > 0
+    ? Math.max(0, cap.remainingHours * 60 - projectedTotalRouteMinutes)
+    : null;
+
+  const routeFeasibility = {
+    currentServiceMinutes: currentServiceMin,
+    currentDriveMinutes: Math.round(currentDriveMin),
+    projectedServiceMinutes: totalServiceMin,
+    projectedDriveMinutes: Math.round(totalDriveMin),
+    projectedTotalRouteMinutes: Math.round(projectedTotalRouteMinutes),
+    projectedRouteEndTime: fmtTime12h(insertion.projectedRouteEnd),
+    remainingCapacityMinutes,
+    workloadLabel: workload.workloadLabel,
+    workloadLabelDisplay: workload.workloadLabelDisplay,
+    routeOptimizationStatus: workload.routeOptimizationStatus,
+    durationFallbackCount: workload.durationFallbackCount,
+    shiftHoursUnknown: cap.maxHours <= 0,
+  };
+
   const daySummary = {
     startTime: fmtTime12h(DAY_START_MIN),
     endTime: fmtTime12h(insertion.projectedRouteEnd),
@@ -1348,6 +1436,8 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     totalDriveHours: Math.round((totalDriveMin / 60) * 10) / 10,
     totalServiceHours: Math.round((totalServiceMin / 60) * 10) / 10,
     capacityLeftHours: Math.round(Math.max(0, cap.remainingHours - durationMin / 60) * 100) / 100,
+    currentServiceHours: workload.currentServiceHours,
+    workloadLabel: workload.workloadLabelDisplay,
   };
 
   return {
@@ -1365,13 +1455,20 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
       maxHours:       cap.maxHours,
       remainingHours: Math.round(cap.remainingHours * 100) / 100,
     },
+    workload,
+    routeFeasibility,
+    travelProvider: travelCtx?.getProviderName?.() || defaultTravelProvider.getProviderName(),
+    travelAccuracy: travelCtx?.getProviderAccuracy?.() || defaultTravelProvider.getProviderAccuracy(),
     scores: {
       geographic:         Math.round(geoScore),
       travelEfficiency:   Math.round(travelScore),
       timeWindow:         Math.round(Math.min(100, windowScore)),
+      workload:           Math.round(workloadScore),
+      serviceDuration:    Math.round(serviceDurationScore),
       capacity:           Math.round(capacityScore),
       insertionProximity: insertionProximityScore,
       routeAreaBonus,
+      workloadPenalty:    workload.workloadPenalty,
       total,
     },
     nearestStopMiles: Math.round(minDist * 10) / 10,
@@ -1480,11 +1577,11 @@ function buildRouteStopsDisplay(stops, timeline, insertion, lead) {
 // custom weights/thresholds without touching the global SCORER_CONFIG.
 // ---------------------------------------------------------------------------
 
-function runScorer(technicians, lead, topN, cfg) {
+function runScorer(technicians, lead, topN, cfg, travelCtx = null) {
   const prefWindow = parseWindow(lead.timeWindowPreference);
   const routeArea  = lead.routeArea ?? 'general';
   const dayOfWeek  = lead.date ? new Date(lead.date + 'T12:00:00').getDay() : null;
-  const routingCtx = { routeArea, dayOfWeek };
+  const routingCtx = { routeArea, dayOfWeek, travelCtx };
 
   // Global exclusions — always applied before any other filtering
   const exclusionPatterns = cfg.exclusions.techNamePatterns;
@@ -1502,10 +1599,15 @@ function runScorer(technicians, lead, topN, cfg) {
     );
   }
 
-  const scored = eligibleTechs
+  let scored = eligibleTechs
     .map(tech => scoreRoute(tech, lead, prefWindow, routingCtx, cfg))
     .filter(Boolean)
     .sort((a, b) => b.scores.total - a.scores.total);
+
+  scored = applyLighterRoutePreference(scored, cfg.workload);
+  if (scored[0]?.workload?.isHeavy) {
+    scored[0].chosenDespiteHeavy = true;
+  }
 
   const prefWindowMeta = {
     label:     lead.timeWindowPreference || 'AT',
@@ -1559,6 +1661,15 @@ function runScorer(technicians, lead, topN, cfg) {
 // Public API
 // ---------------------------------------------------------------------------
 
-export function scoreRoutes(technicians, lead, topN = 3) {
-  return runScorer(technicians, lead, topN, SCORER_CONFIG);
+export function scoreRoutes(technicians, lead, topN = 3, options = {}) {
+  return runScorer(technicians, lead, topN, SCORER_CONFIG, options.travelCtx ?? null);
+}
+
+export async function scoreRoutesAsync(technicians, lead, topN = 3, options = {}) {
+  let travelCtx = options.travelCtx ?? null;
+  if (!travelCtx && options.prefetchTravel !== false) {
+    const { prefetchTravelContext } = await import('./routeTravelContext.js');
+    travelCtx = await prefetchTravelContext(technicians, lead, options);
+  }
+  return runScorer(technicians, lead, topN, SCORER_CONFIG, travelCtx);
 }

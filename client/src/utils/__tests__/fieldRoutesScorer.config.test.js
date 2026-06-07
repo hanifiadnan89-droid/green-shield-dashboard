@@ -17,7 +17,7 @@ describe('SCORER_CONFIG', () => {
   });
 
   it('has required top-level keys', () => {
-    for (const key of ['weights', 'speed', 'workday', 'thresholds', 'durations', 'exclusions', 'nh', 'areaBonus', 'penalties', 'vrptw']) {
+    for (const key of ['weights', 'workload', 'speed', 'workday', 'thresholds', 'durations', 'exclusions', 'nh', 'areaBonus', 'penalties', 'vrptw']) {
       expect(SCORER_CONFIG).toHaveProperty(key);
     }
   });

@@ -533,7 +533,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
           return;
         }
         routeFinderDebug('single-date search started', { date: activeDateRef.current, lead });
-        const scored = scoreSingleDate(activeTechnicians, lead, 3);
+        const scored = await scoreSingleDate(activeTechnicians, lead, 3);
         if (requestId !== scoreRequestRef.current) return;
         setResults(scored);
         setScoringStatus('done');
