@@ -1,13 +1,18 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import RouteGoogleMap from './RouteGoogleMap.jsx';
 import { useRouteMatchPortalRoot } from './RouteFinder/useRouteMatchPortalRoot.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
-export default function RouteMatchMapWorkspace({ match, onBack }) {
+export default function RouteMatchMapWorkspace({
+  match,
+  onBack,
+  roadPolyline = null,
+  inline = false,
+}) {
   const panelRef = useRef(null);
   const portalRoot = useRouteMatchPortalRoot();
   const stops = match.routeStops || [];
@@ -32,7 +37,10 @@ export default function RouteMatchMapWorkspace({ match, onBack }) {
 
   const workspace = (
     <motion.div
-      className="crm-preview route-match-workspace route-match-workspace--map"
+      className={[
+        'crm-preview route-match-workspace route-match-workspace--map',
+        inline ? 'route-match-workspace--inline-overlay' : '',
+      ].filter(Boolean).join(' ')}
       role="dialog"
       aria-modal="true"
       aria-label={`Full route map for ${match.techName}`}
@@ -68,6 +76,14 @@ export default function RouteMatchMapWorkspace({ match, onBack }) {
           <p className="route-match-map-full__title m-0">
             {match.techName} · Route {match.routeId}
           </p>
+          <button
+            type="button"
+            className="route-match-map-full__close"
+            onClick={onBack}
+            aria-label="Close full map view"
+          >
+            <X size={20} strokeWidth={2.25} />
+          </button>
         </header>
         <RouteGoogleMap
           stops={stops}
@@ -75,10 +91,13 @@ export default function RouteMatchMapWorkspace({ match, onBack }) {
           interactive
           showControls
           compact={false}
+          roadPolyline={roadPolyline}
         />
       </motion.div>
     </motion.div>
   );
+
+  if (inline) return workspace;
 
   const mount = portalRoot || document.body;
   return createPortal(workspace, mount);

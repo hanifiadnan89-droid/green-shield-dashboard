@@ -10,7 +10,15 @@ import {
   CONF_CFG,
 } from './RouteFinder/routeMatchCardConfig.js';
 
-export default function RouteMatchCardContent({ match, rank, routeArea, multiDay = false, compact = true }) {
+export default function RouteMatchCardContent({
+  match,
+  rank,
+  routeArea,
+  multiDay = false,
+  compact = true,
+  showCostImpact = true,
+  showTravelAccuracy = true,
+}) {
   const color = RANK_COLORS[rank - 1] || '#94A3B8';
   const ins = match.bestInsertion;
   const areaLabel = ROUTE_AREA_LABELS[routeArea];
@@ -96,7 +104,9 @@ export default function RouteMatchCardContent({ match, rank, routeArea, multiDay
       <ScoreBar score={match.scores.total} />
 
       <RouteFinderTrustBadges badges={match.trustBadges} compact={compact} />
-      <RouteFinderCostImpact costImpact={match.costImpact} compact={compact} />
+      {showCostImpact && (
+        <RouteFinderCostImpact costImpact={match.costImpact} compact={compact} />
+      )}
 
       {ins && (ins.prevStop || ins.nextStop) && (
         <div className="mt-1.5 type-label-sm text-gs-muted font-normal tracking-normal flex items-center gap-1 flex-wrap">
@@ -144,7 +154,9 @@ export default function RouteMatchCardContent({ match, rank, routeArea, multiDay
       {match.routeFeasibility?.projectedRouteEndTime && (
         <p className="type-label-sm text-gs-muted m-0 mt-1 font-normal tracking-normal">
           Projected route end: {match.routeFeasibility.projectedRouteEndTime}
-          {match.travelAccuracy === 'road-based' ? ' · Road-based drive time' : ' · Estimated drive time'}
+          {showTravelAccuracy && (
+            match.travelAccuracy === 'road-based' ? ' · Road-based drive time' : ' · Estimated drive time'
+          )}
         </p>
       )}
 

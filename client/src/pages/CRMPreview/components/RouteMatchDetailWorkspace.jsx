@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, Maximize2, X } from 'lucide-react';
 import RouteMatchCardContent from './RouteMatchCardContent.jsx';
 import RouteMatchScoreBreakdown from './RouteMatchScoreBreakdown.jsx';
 import RouteGoogleMap from './RouteGoogleMap.jsx';
+import RouteMatchMapWorkspace from './RouteMatchMapWorkspace.jsx';
 import TechnicianPhoto from './TechnicianPhoto.jsx';
 import { useRouteMatchPortalRoot } from './RouteFinder/useRouteMatchPortalRoot.js';
 import { getMapCoordinateStatus } from './RouteFinder/routeMapStops.js';
 import { useRoadPolyline } from './RouteFinder/useRoadPolyline.js';
-import RouteTravelBadges from './RouteFinder/RouteTravelBadges.jsx';
+import { DETAIL_SCORE_BREAKDOWN } from './RouteFinder/routeMatchCardConfig.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -27,6 +28,7 @@ export default function RouteMatchDetailWorkspace({
   const panelRef = useRef(null);
   const portalRoot = useRouteMatchPortalRoot();
   const [showAllStops, setShowAllStops] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
   const stops = match.routeStops || [];
   const visibleStops = showAllStops ? stops : stops.slice(0, 12);
   const day = match.daySummary;
@@ -46,11 +48,16 @@ export default function RouteMatchDetailWorkspace({
 
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape') onBack();
+      if (e.key !== 'Escape') return;
+      if (mapExpanded) {
+        setMapExpanded(false);
+        return;
+      }
+      onBack();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onBack]);
+  }, [onBack, mapExpanded]);
 
   useEffect(() => {
     panelRef.current?.focus();
@@ -131,11 +138,15 @@ export default function RouteMatchDetailWorkspace({
                 <p className="route-match-detail__hero-name m-0">{match.techName}</p>
               </div>
             </div>
-            <RouteTravelBadges
-              travelDiagnostics={match.travelDiagnostics}
-              mapPolyline={roadPolyline}
+            <RouteMatchCardContent
+              match={match}
+              rank={rank}
+              routeArea={routeArea}
+              multiDay={multiDay}
+              compact={false}
+              showCostImpact={false}
+              showTravelAccuracy={false}
             />
-            <RouteMatchCardContent match={match} rank={rank} routeArea={routeArea} multiDay={multiDay} compact={false} />
 
             {match.trustWarnings?.length > 0 && (
               <div className="rf-detail-warnings">
@@ -210,7 +221,7 @@ export default function RouteMatchDetailWorkspace({
 
           <section className="route-match-detail__col route-match-detail__col--analytics">
             <h2 className="route-match-detail__section-title">Score breakdown</h2>
-            <RouteMatchScoreBreakdown scores={match.scores} />
+            <RouteMatchScoreBreakdown scores={match.scores} rows={DETAIL_SCORE_BREAKDOWN} />
 
             {day && (
               <>
@@ -228,13 +239,26 @@ export default function RouteMatchDetailWorkspace({
                   <div><dt>Total service</dt><dd>{day.totalServiceHours ?? '—'}h</dd></div>
                   <div><dt>Stops</dt><dd>{day.totalStops ?? match.stopCount}</dd></div>
                   <div><dt>Capacity left</dt><dd>{day.capacityLeftHours ?? match.capacity?.remainingHours}h</dd></div>
-                  <div><dt>Drive data</dt><dd>{match.travelAccuracy === 'road-based' ? 'Road-based' : 'Estimated straight-line'}</dd></div>
                 </dl>
               </>
             )}
 
             <div className="route-match-detail__map-section">
-              <h2 className="route-match-detail__section-title mt-4">Route preview</h2>
+              <div className="route-match-detail__map-header">
+                <h2 className="route-match-detail__section-title mt-4 m-0">Route preview</h2>
+                {mapCoordStatus.withCoords > 0 && (
+                  <button
+                    type="button"
+                    className="route-match-detail__map-fullview-btn"
+                    onClick={() => setMapExpanded(true)}
+                    title="Full View"
+                    aria-label="Full View"
+                  >
+                    <Maximize2 size={14} aria-hidden />
+                    <span>Full View</span>
+                  </button>
+                )}
+              </div>
               {mapCoordStatus.total > 0 && mapCoordStatus.withCoords === 0 && (
                 <p className="route-match-detail__map-hint type-label-sm m-0 mb-2">
                   Map unavailable: none of the {mapCoordStatus.total} stops have coordinates.
@@ -254,6 +278,15 @@ export default function RouteMatchDetailWorkspace({
         </motion.div>
         </motion.div>
       </div>
+
+      {mapExpanded && (
+        <RouteMatchMapWorkspace
+          match={match}
+          roadPolyline={roadPolyline}
+          onBack={() => setMapExpanded(false)}
+          inline
+        />
+      )}
     </motion.div>
   );
 

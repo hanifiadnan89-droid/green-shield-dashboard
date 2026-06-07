@@ -291,7 +291,7 @@ export default function RouteGoogleMap({
         </p>
       )}
 
-      {!usingRoadPath && path.length >= 2 && (
+      {!detailView && !usingRoadPath && path.length >= 2 && (
         <p className="route-google-map__coord-note type-label-sm m-0 text-amber-600">
           Estimated visual route — road path unavailable
         </p>

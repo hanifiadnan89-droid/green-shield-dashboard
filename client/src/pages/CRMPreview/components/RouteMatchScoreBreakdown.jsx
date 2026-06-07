@@ -6,10 +6,10 @@ function barColor(v) {
   return '#94A3B8';
 }
 
-export default function RouteMatchScoreBreakdown({ scores }) {
+export default function RouteMatchScoreBreakdown({ scores, rows = SCORE_BREAKDOWN }) {
   return (
     <ul className="route-match-score-bars">
-      {SCORE_BREAKDOWN.map(({ key, label }) => {
+      {rows.map(({ key, label }) => {
         const v = scores[key] ?? 0;
         const color = barColor(v);
         return (
