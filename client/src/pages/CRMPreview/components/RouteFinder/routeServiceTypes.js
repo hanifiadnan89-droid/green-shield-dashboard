@@ -29,10 +29,10 @@ export const ROUTE_FINDER_SERVICE_CARDS = [
   {
     id: 'it',
     code: 'RIT',
-    title: 'Insect Triannual',
+    title: 'Rodent Insect Triannual',
     durationMinutes: 60,
     description: 'Adds 60 minutes to the route',
-    serviceLabel: 'RIT / Insect Triannual',
+    serviceLabel: 'RIT / Rodent Insect Triannual',
     durationConfidence: 'standard',
   },
   {

@@ -1,10 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import RouteResultCard from './RouteResultCard.jsx';
 import RouteMatchDetailWorkspace from './RouteMatchDetailWorkspace.jsx';
 import { useTechnicianPhotos } from './RouteFinder/useTechnicianPhotos.js';
 import { matchLayoutId } from './RouteFinder/routeMatchCardConfig.js';
+import {
+  routeMatchKey,
+  resolveRouteMatchDetailState,
+} from './RouteFinder/routeMatchDetailState.js';
 
 const EASE = [0.22, 1, 0.36, 1];
 const LAYOUT_TRANSITION = { duration: 0.42, ease: EASE };
@@ -12,9 +16,7 @@ const LAYOUT_TRANSITION = { duration: 0.42, ease: EASE };
 /**
  * view: grid | detail
  */
-function matchKey(match) {
-  return match.matchId ?? match.routeId;
-}
+const matchKey = routeMatchKey;
 
 export default function RouteMatchResults({
   matches,
@@ -24,16 +26,27 @@ export default function RouteMatchResults({
 }) {
   const [view, setView] = useState('grid');
   const [activeMatchKey, setActiveMatchKey] = useState(null);
+  const [pinnedMatch, setPinnedMatch] = useState(null);
   const [showAdditional, setShowAdditional] = useState(false);
   const { getPhotoUrl } = useTechnicianPhotos();
 
-  const allVisible = showAdditional
-    ? [...matches, ...additionalMatches]
-    : matches;
+  const { activeMatch, detailMatch, detailStale } = resolveRouteMatchDetailState({
+    view,
+    activeMatchKey,
+    matches,
+    additionalMatches,
+    showAdditional,
+    pinnedMatch,
+  });
 
-  const activeMatch = activeMatchKey
-    ? allVisible.find(m => matchKey(m) === activeMatchKey)
-    : null;
+  useEffect(() => {
+    if (view === 'detail' && activeMatch) {
+      setPinnedMatch(activeMatch);
+    }
+    if (view === 'grid') {
+      setPinnedMatch(null);
+    }
+  }, [view, activeMatch]);
 
   const openDetail = useCallback((match) => {
     setActiveMatchKey(matchKey(match));
@@ -115,15 +128,16 @@ export default function RouteMatchResults({
       </motion.div>
 
       <AnimatePresence>
-        {view === 'detail' && activeMatch && (
+        {view === 'detail' && detailMatch && (
           <RouteMatchDetailWorkspace
-            key={`detail-${matchKey(activeMatch)}`}
-            layoutId={matchLayoutId(activeMatch)}
-            match={activeMatch}
-            rank={activeMatch.rank}
+            key={`detail-${matchKey(detailMatch)}`}
+            layoutId={matchLayoutId(detailMatch)}
+            match={detailMatch}
+            rank={detailMatch.rank}
             routeArea={routeArea}
             multiDay={multiDay}
-            photoUrl={getPhotoUrl(activeMatch.techName)}
+            photoUrl={getPhotoUrl(detailMatch.techName)}
+            detailStale={detailStale}
             onBack={backToGrid}
             onSelectTechnician={handleSelectTechnician}
             layoutTransition={LAYOUT_TRANSITION}

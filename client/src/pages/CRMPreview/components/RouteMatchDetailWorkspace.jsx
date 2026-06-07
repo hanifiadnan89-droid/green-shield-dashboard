@@ -21,6 +21,7 @@ export default function RouteMatchDetailWorkspace({
   routeArea,
   multiDay = false,
   photoUrl,
+  detailStale = false,
   onBack,
   onSelectTechnician,
   layoutTransition = { duration: 0.42, ease: EASE },
@@ -147,6 +148,12 @@ export default function RouteMatchDetailWorkspace({
               showCostImpact={false}
               showTravelAccuracy={false}
             />
+
+            {detailStale && (
+              <p className="rf-detail-stale-note type-label-sm text-gs-muted m-0 mt-2" role="status">
+                This route is no longer in the latest results. Review before booking or go back to refresh matches.
+              </p>
+            )}
 
             {match.trustWarnings?.length > 0 && (
               <div className="rf-detail-warnings">

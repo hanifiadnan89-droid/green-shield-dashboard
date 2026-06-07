@@ -26,7 +26,8 @@ describe('Route Finder service cards', () => {
     expect(r.valid).toBe(true);
     expect(r.durationMinutes).toBe(60);
     expect(r.durationSource).toBe('service-card');
-    expect(r.serviceLabel).toBe('RIT / Insect Triannual');
+    expect(r.serviceLabel).toBe('RIT / Rodent Insect Triannual');
+    expect(ROUTE_FINDER_SERVICE_CARDS.find(c => c.id === 'it')?.title).toBe('Rodent Insect Triannual');
   });
 
   it('selecting IQ sets 60 minutes', () => {
