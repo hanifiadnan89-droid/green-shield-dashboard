@@ -42,6 +42,13 @@ export const SCORE_BREAKDOWN = [
   { key: 'insertionProximity', label: 'Insurance Compatibility' },
 ];
 
+/** Detail view score breakdown — UI-only subset (scoring unchanged). */
+export const DETAIL_SCORE_BREAKDOWN = [
+  { key: 'geographic', label: 'Geo Match' },
+  { key: 'travelEfficiency', label: 'Drive Impact' },
+  { key: 'capacity', label: 'Capacity Impact' },
+];
+
 export function matchLayoutId(match) {
   return `route-match-${match.matchId ?? match.routeId}`;
 }
