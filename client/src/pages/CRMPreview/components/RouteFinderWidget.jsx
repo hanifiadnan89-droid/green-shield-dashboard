@@ -1173,7 +1173,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   {results.prefWindow
                     ? ` · ${results.prefWindow.label === 'AT' ? 'best available window' : `${results.prefWindow.startTime}–${results.prefWindow.endTime}`}`
                     : ''}
-                  {results.travelProvider ? ` · ${results.travelProvider} travel estimate` : ''}
+                  {results.travelDiagnostics?.travelProvider === 'google-routes' && !results.travelDiagnostics?.fallbackUsed
+                    ? ' · Road-based drive timing'
+                    : results.travelProvider
+                      ? ` · ${results.travelProvider} estimated timing`
+                      : ''}
                 </p>
               </>
             )}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useGoogleMapsLoader } from './RouteFinder/useGoogleMapsLoader.js';
 import { getStopMarkerMeta, getRoutePathCoords, getMapCoordinateStatus } from './RouteFinder/routeMapStops.js';
+import { decodeRoadPath } from '../../../utils/decodePolyline.js';
 import { describeMapLoadError } from './RouteFinder/mapLoadErrors.js';
 
 const ROLE_COLORS = {
@@ -64,6 +65,7 @@ export default function RouteGoogleMap({
   showControls = true,
   onExpand,
   className = '',
+  roadPolyline = null,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -73,7 +75,13 @@ export default function RouteGoogleMap({
   const [localType, setLocalType] = useState(mapType);
   const coordStatus = useMemo(() => getMapCoordinateStatus(stops), [stops]);
   const markerMeta = useMemo(() => getStopMarkerMeta(stops), [stops]);
-  const path = useMemo(() => getRoutePathCoords(stops), [stops]);
+  const straightPath = useMemo(() => getRoutePathCoords(stops), [stops]);
+  const roadPath = useMemo(
+    () => decodeRoadPath(roadPolyline?.encodedPolyline),
+    [roadPolyline?.encodedPolyline],
+  );
+  const usingRoadPath = roadPath.length >= 2 && !roadPolyline?.fallbackUsed;
+  const path = usingRoadPath ? roadPath : straightPath;
 
   useEffect(() => {
     setLocalType(mapType);
@@ -114,9 +122,9 @@ export default function RouteGoogleMap({
 
       overlaysRef.current.polyline = new maps.Polyline({
         path,
-        geodesic: true,
-        strokeColor: '#16A34A',
-        strokeOpacity: 0.95,
+        geodesic: !usingRoadPath,
+        strokeColor: usingRoadPath ? '#16A34A' : '#F59E0B',
+        strokeOpacity: usingRoadPath ? 0.95 : 0.85,
         strokeWeight: compact ? 3 : 5,
       });
 
@@ -147,7 +155,7 @@ export default function RouteGoogleMap({
       console.error('[RouteFinder Maps] map_init_error', detail, err);
       setMapInitError({ code: 'map_init_error', detail });
     }
-  }, [status, markerMeta, path, localType, interactive, compact, showControls]);
+  }, [status, markerMeta, path, straightPath, usingRoadPath, localType, interactive, compact, showControls]);
 
   useEffect(() => {
     if (status !== 'ready' || !containerRef.current || !mapRef.current || !path.length) return;
@@ -280,6 +288,12 @@ export default function RouteGoogleMap({
       {coordStatus.code === 'partial_coordinates' && (
         <p className="route-google-map__coord-note type-label-sm m-0">
           Showing {coordStatus.withCoords} of {coordStatus.total} stops on map
+        </p>
+      )}
+
+      {!usingRoadPath && path.length >= 2 && (
+        <p className="route-google-map__coord-note type-label-sm m-0 text-amber-600">
+          Estimated visual route — road path unavailable
         </p>
       )}
 

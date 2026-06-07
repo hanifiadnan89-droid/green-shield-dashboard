@@ -27,13 +27,27 @@ export function buildTrustWarnings(match, lead, ctx = {}) {
   const tech = ctx.tech;
   const stops = tech?.stops ?? match.routeStops?.filter(s => !s.isNew) ?? [];
 
-  const providerAccuracy = ctx.travelProvider?.getProviderAccuracy?.() ?? 'estimated';
+  const diagnostics = ctx.travelDiagnostics || match.travelDiagnostics;
+  const providerAccuracy = diagnostics?.travelAccuracy
+    || ctx.travelProvider?.getProviderAccuracy?.()
+    || match.travelAccuracy
+    || 'estimated';
 
-  if (providerAccuracy === 'estimated') {
+  if (providerAccuracy !== 'road-based' || diagnostics?.fallbackUsed) {
+    const reason = diagnostics?.fallbackReason;
     warnings.push({
       code: 'estimated_drive_time',
-      badge: 'Estimated drive time',
-      message: 'Drive time is estimated using distance because road-based travel time is not connected yet.',
+      badge: 'Estimated straight-line timing',
+      message: reason === 'missing_api_key'
+        ? 'Road-based drive time unavailable — GOOGLE_ROUTES_API_KEY is not configured on the server. Using estimated straight-line distance.'
+        : 'Road-based drive time unavailable; using estimated straight-line distance.',
+      severity: 'info',
+    });
+  } else {
+    warnings.push({
+      code: 'road_based_drive_time',
+      badge: 'Road-based timing',
+      message: 'Drive time and arrival estimates use Google road-based routing.',
       severity: 'info',
     });
   }

@@ -6,6 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = path.resolve(__dirname, '../data/route-matrix-cache');
 const PAIR_TTL_MS = 24 * 60 * 60 * 1000;
 const ROUTE_TTL_MS = 30 * 60 * 1000;
+const POLYLINE_TTL_MS = 30 * 60 * 1000;
 
 function roundCoord(n) {
   return Math.round(Number(n) * 10000) / 10000;
@@ -65,4 +66,22 @@ export function getCachedRouteMatrix(cacheKey) {
 
 export function setCachedRouteMatrix(cacheKey, payload) {
   writeJson(routeCacheFile(cacheKey), { fetchedAt: Date.now(), cacheKey, ...payload });
+}
+
+function polylineCacheFile(key) {
+  const safe = Buffer.from(key).toString('base64url');
+  return path.join(CACHE_DIR, 'polylines', `${safe}.json`);
+}
+
+export function polylineCacheKey({ date, routeId, stopIds = [], trafficAware = false }) {
+  const ids = stopIds.map(String).join(',');
+  return `poly::${date || 'nodate'}::${routeId || 'noroute'}::${ids}::${trafficAware ? 'traffic' : 'static'}`;
+}
+
+export function getCachedPolyline(cacheKey) {
+  return readJson(polylineCacheFile(cacheKey), POLYLINE_TTL_MS);
+}
+
+export function setCachedPolyline(cacheKey, payload) {
+  writeJson(polylineCacheFile(cacheKey), { fetchedAt: Date.now(), cacheKey, ...payload });
 }

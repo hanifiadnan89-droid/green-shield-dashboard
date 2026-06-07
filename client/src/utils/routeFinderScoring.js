@@ -53,11 +53,20 @@ function techByRouteId(technicians, routeId) {
   return technicians?.find(t => String(t.routeId) === String(routeId)) ?? null;
 }
 
-function attachMatchMeta(match, { date, technicians, lead, rank }) {
+function travelProviderFromMatch(match) {
+  return {
+    getProviderName: () => match.travelProvider || defaultTravelProvider.getProviderName(),
+    getProviderAccuracy: () => match.travelAccuracy || defaultTravelProvider.getProviderAccuracy(),
+  };
+}
+
+function attachMatchMeta(match, { date, technicians, lead, rank, travelDiagnostics }) {
   const tech = techByRouteId(technicians, match.routeId);
+  const diagnostics = match.travelDiagnostics || travelDiagnostics || null;
   const enriched = enrichMatchWithTrustAndCost(match, lead, {
     tech,
-    travelProvider: defaultTravelProvider,
+    travelProvider: travelProviderFromMatch(match),
+    travelDiagnostics: diagnostics,
   });
 
   const matchId = `${date}::${match.routeId}`;
@@ -68,22 +77,31 @@ function attachMatchMeta(match, { date, technicians, lead, rank }) {
     dayOfWeek: formatDayOfWeek(date),
     dayOfWeekLabel: formatRouteDateLabel(date),
     rank,
+    travelDiagnostics: diagnostics,
   };
 }
 
-function enrichSingleDateResult(result, technicians, lead, travelProviderName) {
-  const provider = travelProviderName || defaultTravelProvider.getProviderName();
+function enrichSingleDateResult(result, technicians, lead, travelCtx) {
+  const diagnostics = travelCtx?.travelDiagnostics || null;
+  const provider = diagnostics?.travelProvider || travelCtx?.getProviderName?.() || defaultTravelProvider.getProviderName();
   if (!result || result.noSafeRoute) {
     return {
       ...result,
       mode: SCORING_MODES.SINGLE_DATE,
       generatedAt: new Date().toISOString(),
       travelProvider: provider,
+      travelDiagnostics: diagnostics,
     };
   }
 
   const topMatches = (result.topMatches ?? []).map((m, i) =>
-    attachMatchMeta(m, { date: lead.date, technicians, lead, rank: i + 1 }),
+    attachMatchMeta(m, {
+      date: lead.date,
+      technicians,
+      lead,
+      rank: i + 1,
+      travelDiagnostics: m.travelDiagnostics || diagnostics,
+    }),
   );
 
   return {
@@ -91,6 +109,8 @@ function enrichSingleDateResult(result, technicians, lead, travelProviderName) {
     mode: SCORING_MODES.SINGLE_DATE,
     generatedAt: new Date().toISOString(),
     travelProvider: provider,
+    travelDiagnostics: diagnostics,
+    travelAccuracy: diagnostics?.travelAccuracy || (provider === 'google-routes' ? 'road-based' : 'estimated'),
     topMatches,
     recommendation: topMatches[0] ?? null,
     alternatives: topMatches.slice(1),
@@ -104,8 +124,7 @@ export async function scoreSingleDate(technicians, lead, topN = 3, options = {})
   const travelCtx = options.travelCtx
     ?? (options.prefetchTravel === false ? null : await prefetchTravelContext(technicians, lead, options));
   const raw = await scoreRoutesAsync(technicians, lead, topN, { ...options, travelCtx });
-  const provider = travelCtx?.getProviderName?.() || defaultTravelProvider.getProviderName();
-  return enrichSingleDateResult(raw, technicians, lead, provider);
+  return enrichSingleDateResult(raw, technicians, lead, travelCtx);
 }
 
 /**
@@ -131,6 +150,7 @@ export async function scoreBestAvailable({
   const allMatches = [];
   const skippedDates = [];
   let datesScored = 0;
+  let lastTravelDiagnostics = null;
 
   for (const { key: date } of dateMetas) {
     const status = dateStatus[date]?.status;
@@ -159,12 +179,19 @@ export async function scoreBestAvailable({
       : null;
     const result = await scoreRoutesAsync(technicians, lead, technicians.length, { travelCtx });
     datesScored += 1;
+    if (travelCtx?.travelDiagnostics) lastTravelDiagnostics = travelCtx.travelDiagnostics;
 
     if (result.noSafeRoute) continue;
 
     for (const match of result.topMatches ?? []) {
       allMatches.push(
-        attachMatchMeta(match, { date, technicians, lead, rank: 0 }),
+        attachMatchMeta(match, {
+          date,
+          technicians,
+          lead,
+          rank: 0,
+          travelDiagnostics: match.travelDiagnostics || travelCtx?.travelDiagnostics,
+        }),
       );
     }
   }
@@ -178,7 +205,9 @@ export async function scoreBestAvailable({
   return {
     mode: SCORING_MODES.BEST_AVAILABLE,
     generatedAt: new Date().toISOString(),
-    travelProvider: defaultTravelProvider.getProviderName(),
+    travelProvider: lastTravelDiagnostics?.travelProvider || defaultTravelProvider.getProviderName(),
+    travelDiagnostics: lastTravelDiagnostics,
+    travelAccuracy: lastTravelDiagnostics?.travelAccuracy || 'estimated',
     routeArea: leadBase.routeArea,
     prefWindow: buildPrefWindowMeta(leadBase),
     lead: leadBase,

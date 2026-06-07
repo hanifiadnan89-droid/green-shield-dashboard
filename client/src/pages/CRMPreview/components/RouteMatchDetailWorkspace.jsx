@@ -8,6 +8,8 @@ import RouteGoogleMap from './RouteGoogleMap.jsx';
 import TechnicianPhoto from './TechnicianPhoto.jsx';
 import { useRouteMatchPortalRoot } from './RouteFinder/useRouteMatchPortalRoot.js';
 import { getMapCoordinateStatus } from './RouteFinder/routeMapStops.js';
+import { useRoadPolyline } from './RouteFinder/useRoadPolyline.js';
+import RouteTravelBadges from './RouteFinder/RouteTravelBadges.jsx';
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -29,6 +31,12 @@ export default function RouteMatchDetailWorkspace({
   const visibleStops = showAllStops ? stops : stops.slice(0, 12);
   const day = match.daySummary;
   const mapCoordStatus = getMapCoordinateStatus(stops);
+  const roadPolyline = useRoadPolyline({
+    stops,
+    routeId: match.routeId,
+    routeDate: match.routeDate,
+    enabled: true,
+  });
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -123,6 +131,10 @@ export default function RouteMatchDetailWorkspace({
                 <p className="route-match-detail__hero-name m-0">{match.techName}</p>
               </div>
             </div>
+            <RouteTravelBadges
+              travelDiagnostics={match.travelDiagnostics}
+              mapPolyline={roadPolyline}
+            />
             <RouteMatchCardContent match={match} rank={rank} routeArea={routeArea} multiDay={multiDay} compact={false} />
 
             {match.trustWarnings?.length > 0 && (
@@ -235,6 +247,7 @@ export default function RouteMatchDetailWorkspace({
                 detailView
                 showControls
                 interactive
+                roadPolyline={roadPolyline}
               />
             </div>
           </section>

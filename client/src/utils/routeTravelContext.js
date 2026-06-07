@@ -43,9 +43,19 @@ export function buildTravelContextFromLegs(legEntries = [], diagnostics = {}) {
     };
   };
 
+  const travelDiagnostics = {
+    travelProvider: provider,
+    travelAccuracy: provider === 'google-routes' ? 'road-based' : 'estimated',
+    fallbackUsed: Boolean(diagnostics.fallbackUsed),
+    fallbackReason: diagnostics.fallbackReason || (diagnostics.fallbackUsed ? 'haversine_fallback' : null),
+    matrixElementsRequested: diagnostics.matrixElementsRequested ?? diagnostics.elementsRequested ?? 0,
+    cacheHit: Boolean(diagnostics.cacheHit),
+  };
+
   return {
     provider,
     diagnostics,
+    travelDiagnostics,
     getSegment,
     getTravelMinutes(origin, destination) {
       return getSegment(origin, destination).travelMinutes;
@@ -136,18 +146,32 @@ export async function prefetchTravelContext(technicians, lead, { trafficAware = 
       result: response.legs?.[index] || HaversineTravelTimeProvider.getDistanceMiles(leg.origin, leg.destination),
     }));
 
-    return buildTravelContextFromLegs(entries, response.diagnostics || {});
-  } catch {
+    const ctx = buildTravelContextFromLegs(entries, response.diagnostics || {});
+    if (response.diagnostics?.fallbackUsed) {
+      console.info('[route-finder] travel matrix fallback', response.diagnostics);
+    } else if (response.diagnostics?.matrixProvider === 'google-routes') {
+      console.info('[route-finder] travel matrix google-routes', {
+        elements: response.diagnostics.matrixElementsRequested,
+        cacheHit: response.diagnostics.cacheHit,
+      });
+    }
+    return ctx;
+  } catch (err) {
     const entries = legs.map(leg => ({
       origin: leg.origin,
       destination: leg.destination,
       result: HaversineTravelTimeProvider.getDistanceMiles(leg.origin, leg.destination),
     }));
+    console.warn('[route-finder] travel legs fetch failed', err?.message);
     return buildTravelContextFromLegs(entries, {
       matrixProvider: 'haversine',
+      travelProvider: 'haversine',
+      travelAccuracy: 'estimated',
       cacheHit: false,
       elementsRequested: legs.length,
+      matrixElementsRequested: legs.length,
       fallbackUsed: true,
+      fallbackReason: 'client_fetch_failed',
     });
   }
 }

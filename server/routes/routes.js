@@ -408,6 +408,25 @@ router.get('/travel-status', async (req, res) => {
   res.json(getGoogleRoutesStatus());
 });
 
+// POST /api/routes/road-polyline — road-following map path (computeRoutes encoded polyline)
+router.post('/road-polyline', async (req, res) => {
+  try {
+    const { computeRoadPolyline } = await import('../services/googleRoadPolyline.js');
+    const { stops = [], context = {}, trafficAware = false } = req.body || {};
+    if (!Array.isArray(stops) || stops.length < 2) {
+      return res.status(400).json({ error: 'At least two stops with coordinates are required' });
+    }
+    if (stops.length > 30) {
+      return res.status(400).json({ error: 'Too many stops for road polyline (max 30)' });
+    }
+    const result = await computeRoadPolyline({ stops, context, trafficAware });
+    res.json(result);
+  } catch (err) {
+    console.error('[routes] road-polyline error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/routes/preload — fire-and-forget preload for next 6 working days
 // ?force=true bypasses route cache TTL and re-scrapes every date
 router.post('/preload', (req, res) => {
