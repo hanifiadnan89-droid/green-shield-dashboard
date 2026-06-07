@@ -14,6 +14,10 @@ import { buildRouteDateHelperText } from './RouteFinder/buildRouteDateHelperText
 import { resolveTimeWindowPref } from './RouteFinder/resolveTimeWindowPref.js';
 import { useRouteFinderBackgroundRefresh } from './RouteFinder/useRouteFinderBackgroundRefresh.js';
 import {
+  buildRouteFinderSearchFingerprint,
+  shouldSkipAutoRouteSearch,
+} from './RouteFinder/routeFinderSearchFingerprint.js';
+import {
   SCORING_MODES,
   buildRouteFinderLead,
   detectRouteArea,
@@ -105,6 +109,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   useEffect(() => { activeDateRef.current = activeDate; }, [activeDate]);
   const payloadRequestRef = useRef(0);
   const scoreRequestRef = useRef(0);
+  const lastAutoSearchFingerprintRef = useRef('');
 
   // ---------------------------------------------------------------------------
   // Helper: splits _auth out of the status response and applies both
@@ -278,6 +283,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setScoringStatus('idle');
     setTimePref(null);
     setSpecificSlot(null);
+    lastAutoSearchFingerprintRef.current = '';
 
     setDateLoadStatus('loading');
     setDateLoadError('');
@@ -592,8 +598,19 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
 
   const timeWindowPref = resolveTimeWindowPref(timePref, specificSlot);
 
-  const maybeRunScore = useCallback(() => {
+  useEffect(() => {
     const pref = resolveTimeWindowPref(timePref, specificSlot);
+    const fingerprint = buildRouteFinderSearchFingerprint({
+      geocode,
+      timeWindowPreference: pref,
+      serviceTypeId,
+      commercialDurationMinutes,
+      scoringMode,
+      activeDate,
+      dateStatus,
+      dateKeys: DATE_KEYS,
+    });
+
     const hasJob = geocodeStatus === 'success' && geocode && serviceTypeId && pref;
     const singleReady = scoringMode === SCORING_MODES.SINGLE_DATE
       && activeDate && activeTechnicians?.length;
@@ -606,11 +623,24 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       hasJob,
       singleReady,
       bestReady,
+      fingerprint,
     });
 
     if (!hasJob) return;
     if (scoringMode === SCORING_MODES.SINGLE_DATE && !singleReady) return;
     if (scoringMode === SCORING_MODES.BEST_AVAILABLE && !bestReady) return;
+
+    if (shouldSkipAutoRouteSearch({
+      fingerprint,
+      lastFingerprint: lastAutoSearchFingerprintRef.current,
+      scoringStatus,
+      hasResults: Boolean(results),
+    })) {
+      routeFinderDebug('skip auto search', { fingerprint, reason: 'same-inputs-with-results' });
+      return;
+    }
+
+    lastAutoSearchFingerprintRef.current = fingerprint;
     runScore();
   }, [
     activeDate,
@@ -620,27 +650,28 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     timePref,
     specificSlot,
     serviceTypeId,
+    commercialDurationMinutes,
     scoringMode,
     dateStatus,
     DATE_KEYS,
+    scoringStatus,
+    results,
     runScore,
   ]);
-
-  useEffect(() => {
-    maybeRunScore();
-  }, [maybeRunScore]);
 
   const handleTimePrefSelect = useCallback((key) => {
     setTimePref(key);
     setSpecificSlot(null);
     setResults(null);
     setScoringStatus('idle');
+    lastAutoSearchFingerprintRef.current = '';
   }, []);
 
   const handleSpecificSlotSelect = useCallback((slot) => {
     setSpecificSlot(slot);
     setResults(null);
     setScoringStatus('idle');
+    lastAutoSearchFingerprintRef.current = '';
   }, []);
 
   const handleReset = () => {
@@ -656,6 +687,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setSpecificSlot(null);
     setResults(null);
     setScoringStatus('idle');
+    lastAutoSearchFingerprintRef.current = '';
     setSuggestions([]);
     setShowSuggestions(false);
     setActiveSuggestion(-1);
