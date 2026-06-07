@@ -18,15 +18,15 @@ const BASE_LEAD = {
 describe('Route Finder service cards', () => {
   it('defines five sales-rep service cards', () => {
     expect(ROUTE_FINDER_SERVICE_CARDS).toHaveLength(5);
-    expect(ROUTE_FINDER_SERVICE_CARDS.map(c => c.code)).toEqual(['IT', 'IQ', 'T/M', 'BB', 'COM']);
+    expect(ROUTE_FINDER_SERVICE_CARDS.map(c => c.code)).toEqual(['RIT', 'IQ', 'T/M', 'BB', 'COM']);
   });
 
-  it('selecting IT sets 60 minutes', () => {
+  it('selecting RIT sets 60 minutes', () => {
     const r = resolveServiceCardSelection('it');
     expect(r.valid).toBe(true);
     expect(r.durationMinutes).toBe(60);
     expect(r.durationSource).toBe('service-card');
-    expect(r.serviceLabel).toBe('IT / Insect Triannual');
+    expect(r.serviceLabel).toBe('RIT / Insect Triannual');
   });
 
   it('selecting IQ sets 60 minutes', () => {
