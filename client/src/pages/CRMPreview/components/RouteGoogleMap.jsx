@@ -8,6 +8,8 @@ import { describeMapLoadError } from './RouteFinder/mapLoadErrors.js';
 const ROLE_COLORS = {
   start: '#DC2626',
   end: '#DC2626',
+  home_start: '#7C3AED',
+  home_end: '#7C3AED',
   middle: '#2563EB',
   new: '#16A34A',
 };

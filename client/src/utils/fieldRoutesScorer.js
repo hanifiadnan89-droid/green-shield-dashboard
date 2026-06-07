@@ -21,6 +21,12 @@ import {
   ROUTE_WORKLOAD_CONFIG,
   workloadLabelDisplay,
 } from './routeWorkload.js';
+import {
+  assessAreaViability,
+  getAreaViabilityScoreAdjustments,
+  selectTopMatchesByAreaViability,
+} from './routeAreaViability.js';
+import { ROUTE_AREA_VIABILITY_DEFAULTS } from './routeAreaViabilityConfig.js';
 
 // ---------------------------------------------------------------------------
 // SCORER_CONFIG — single source of truth for all weights, thresholds, and
@@ -93,6 +99,8 @@ export const SCORER_CONFIG = {
     approvedTechNames: ['Alex Gray'],
     approvedTechIds:   [10068],
   },
+
+  areaViability: { ...ROUTE_AREA_VIABILITY_DEFAULTS },
 
   areaBonus: {
     boundaryFalloffMiles: 5,
@@ -1315,6 +1323,21 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     : 0;
   if (routeAreaBonus > 0) total = Math.min(100, total + routeAreaBonus);
 
+  const areaViability = assessAreaViability({
+    tech,
+    lead,
+    stops,
+    insertion,
+    cfg: cfg.areaViability ?? ROUTE_AREA_VIABILITY_DEFAULTS,
+  });
+  const areaScoreAdj = getAreaViabilityScoreAdjustments(
+    areaViability,
+    cfg.areaViability ?? ROUTE_AREA_VIABILITY_DEFAULTS,
+  );
+  total += areaScoreAdj.bonus;
+  total -= areaScoreAdj.penalty;
+  total = Math.min(100, Math.max(0, total));
+
   // ── Step 7: build rich output ─────────────────────────────────────────────
   // Broad AM/PM recommendation — route-context aware at the 11 AM–noon border
   const suggestedWindow = suggestBroadWindow(insertion.estimatedArrivalMin, stops, lead.lat, lead.lng);
@@ -1395,7 +1418,7 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     ? `Est. done by ${fmtTime12h(insertion.projectedRouteEnd)}`
     : null;
 
-  const routeStops = buildRouteStopsDisplay(stops, timeline, insertion, lead);
+  const routeStops = buildRouteStopsDisplay(stops, timeline, insertion, lead, tech);
   const currentServiceMin = workload.currentServiceMinutes;
   const totalServiceMin = projectedServiceMinutes;
   let currentDriveMin = 0;
@@ -1409,6 +1432,22 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     }
   }
   totalDriveMin = currentDriveMin + (insertion.addedDriveMinutes ?? 0);
+
+  const homeToFirstStopDriveMinutes = hasStartLoc && stops[0]?.lat
+    ? Math.ceil(travelSegment(startLoc.lat, startLoc.lng, stops[0].lat, stops[0].lng, travelCtx).travelMinutes)
+    : null;
+  const lastScheduledStop = stops[stops.length - 1];
+  const lastToHomeDriveMinutes = endLoc?.lat && lastScheduledStop?.lat
+    ? Math.ceil(travelSegment(
+      lastScheduledStop.lat, lastScheduledStop.lng, endLoc.lat, endLoc.lng, travelCtx,
+    ).travelMinutes)
+    : null;
+  const projectedFullDayMinutes = Math.round(
+    (homeToFirstStopDriveMinutes ?? 0)
+    + totalDriveMin
+    + totalServiceMin
+    + (lastToHomeDriveMinutes ?? 0),
+  );
   const projectedTotalRouteMinutes = totalServiceMin + totalDriveMin;
   const remainingCapacityMinutes = cap.maxHours > 0
     ? Math.max(0, cap.remainingHours * 60 - projectedTotalRouteMinutes)
@@ -1421,6 +1460,13 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     projectedDriveMinutes: Math.round(totalDriveMin),
     projectedTotalRouteMinutes: Math.round(projectedTotalRouteMinutes),
     projectedRouteEndTime: fmtTime12h(insertion.projectedRouteEnd),
+    homeToFirstStopDriveMinutes,
+    lastStopToHomeDriveMinutes: lastToHomeDriveMinutes,
+    fullDayDriveMinutes: Math.round(totalDriveMin + (homeToFirstStopDriveMinutes ?? 0) + (lastToHomeDriveMinutes ?? 0)),
+    fullDayServiceMinutes: Math.round(totalServiceMin),
+    projectedFullDayMinutes,
+    projectedStartTime: fmtTime12h(DAY_START_MIN),
+    projectedEndTime: fmtTime12h(insertion.projectedRouteEnd),
     remainingCapacityMinutes,
     workloadLabel: workload.workloadLabel,
     workloadLabelDisplay: workload.workloadLabelDisplay,
@@ -1438,6 +1484,9 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
     capacityLeftHours: Math.round(Math.max(0, cap.remainingHours - durationMin / 60) * 100) / 100,
     currentServiceHours: workload.currentServiceHours,
     workloadLabel: workload.workloadLabelDisplay,
+    homeToFirstStopDriveMinutes,
+    lastStopToHomeDriveMinutes: lastToHomeDriveMinutes,
+    projectedFullDayMinutes,
   };
 
   return {
@@ -1484,6 +1533,7 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
       total,
     },
     nearestStopMiles: Math.round(minDist * 10) / 10,
+    areaViability,
     homeProximity,
     suggestedWindow,
     reason,
@@ -1540,9 +1590,47 @@ function scoreRoute(tech, lead, prefWindow, routingCtx = {}, cfg = SCORER_CONFIG
   };
 }
 
-function buildRouteStopsDisplay(stops, timeline, insertion, lead) {
+function buildRouteStopsDisplay(stops, timeline, insertion, lead, tech = {}) {
   const rows = [];
   const insertAfter = insertion.afterIndex;
+  const startLoc = tech.startLocation?.lat != null ? tech.startLocation : null;
+  let endLoc = tech.endLocation?.lat != null ? tech.endLocation : null;
+  if (!endLoc && startLoc) endLoc = startLoc;
+  const sameHome = startLoc && endLoc
+    && haversine(startLoc.lat, startLoc.lng, endLoc.lat, endLoc.lng) <= (ROUTE_AREA_VIABILITY_DEFAULTS.sameHomeLocationMiles ?? 0.05);
+
+  const pushHomeStart = () => {
+    if (!startLoc) return;
+    rows.push({
+      id: 'tech-home-start',
+      customerName: 'Technician start / home',
+      address: '',
+      scheduledTime: fmtTime12h(DAY_START_MIN),
+      isTimed: false,
+      lat: startLoc.lat,
+      lng: startLoc.lng,
+      isNew: false,
+      isHomeStart: true,
+      isHomeEnd: false,
+    });
+  };
+
+  const pushHomeEnd = () => {
+    if (!endLoc) return;
+    rows.push({
+      id: sameHome ? 'tech-home-end-same' : 'tech-home-end',
+      customerName: sameHome ? 'Technician end / home' : 'Technician end / home',
+      address: '',
+      scheduledTime: fmtTime12h(insertion.projectedRouteEnd),
+      isTimed: false,
+      lat: endLoc.lat,
+      lng: endLoc.lng,
+      isNew: false,
+      isHomeStart: false,
+      isHomeEnd: true,
+      hideMapMarker: sameHome,
+    });
+  };
 
   const pushStop = (stop, i) => {
     const entry = timeline[i];
@@ -1571,6 +1659,8 @@ function buildRouteStopsDisplay(stops, timeline, insertion, lead) {
     });
   };
 
+  pushHomeStart();
+
   if (insertAfter === -1) {
     pushNew();
     stops.forEach((s, i) => pushStop(s, i));
@@ -1580,6 +1670,8 @@ function buildRouteStopsDisplay(stops, timeline, insertion, lead) {
       if (i === insertAfter) pushNew();
     });
   }
+
+  pushHomeEnd();
 
   return rows;
 }
@@ -1647,7 +1739,7 @@ function runScorer(technicians, lead, topN, cfg, travelCtx = null) {
     }
   }
 
-  const topMatches = scored.slice(0, topN).map((r, i) => ({ rank: i + 1, ...r }));
+  const topMatches = selectTopMatchesByAreaViability(scored, topN);
 
   return {
     lead,
