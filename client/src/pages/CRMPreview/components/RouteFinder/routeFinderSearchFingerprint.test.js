@@ -3,17 +3,13 @@ import {
   buildRouteFinderSearchFingerprint,
   shouldSkipAutoRouteSearch,
 } from './routeFinderSearchFingerprint.js';
-import { SCORING_MODES } from '../../../../utils/routeFinderScoring.js';
 
 const BASE = {
   geocode: { lat: 43.66, lng: -70.25 },
   timeWindowPreference: 'AM',
   serviceTypeId: 'it',
   commercialDurationMinutes: 60,
-  scoringMode: SCORING_MODES.SINGLE_DATE,
   activeDate: '2026-06-09',
-  dateStatus: { '2026-06-09': { status: 'cached' } },
-  dateKeys: ['2026-06-09'],
 };
 
 describe('routeFinderSearchFingerprint', () => {
