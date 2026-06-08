@@ -7,7 +7,6 @@ import { promisify } from 'util';
 import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 import { applyAgreementScheduleToPdf } from '../services/applyAgreementScheduleToPdf.js';
-import { buildBedBugAgreementPdf } from '../services/bedBugAgreementPdf.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
@@ -25,10 +24,8 @@ function ext(name) {
 
 // ── PDF field-prefix mappings ──────────────────────────────────────────────
 
-const BED_BUG_TEMPLATE = 'Bed Bug.pdf';
-
 const FILE_PREFIX = {
-  [BED_BUG_TEMPLATE]: 'bed_bug_insect_triannual',
+  'Bed Bug.pdf': 'bed_bug_insect_triannual',
 };
 
 const SERVICE_AGREEMENTS_FILE = 'Service Agreements.pdf';
@@ -256,6 +253,20 @@ function drawPestIcon(page, type, cx, cy) {
 // PDF y = 1008 − pdftotext_y_mid  (pages are 612×1008 pts).
 // Icon center x = pest_name_xMin − 7.
 const PEST_ICONS_MAP = {
+  bed_bug_insect_triannual: [
+    // Included Pests row 1
+    {type:'bed_bug',   x:29,  y:743}, {type:'ant',       x:168, y:743},
+    {type:'ant',       x:307, y:743}, {type:'ant',       x:446, y:743},
+    // Included Pests row 2
+    {type:'bee',       x:29,  y:729}, {type:'wasp',      x:168, y:729},
+    {type:'spider',    x:307, y:729}, {type:'bug',       x:446, y:729},
+    // Included Pests row 3
+    {type:'flea',      x:29,  y:715}, {type:'centipede', x:168, y:715},
+    {type:'cricket',   x:307, y:715}, {type:'silverfish',x:446, y:715},
+    // Add-ons
+    {type:'mouse',     x:29,  y:679}, {type:'rat',       x:168, y:679},
+    {type:'tick',      x:307, y:679}, {type:'cockroach', x:446, y:679},
+  ],
   insect_quarterly: [
     // Included Pests row 1
     {type:'ant',       x:29,  y:743}, {type:'ant',       x:168, y:743},
@@ -330,23 +341,6 @@ async function listDir(dir) {
         });
       }
     }
-
-    const hasBedBug = results.some(r => r.name === BED_BUG_TEMPLATE);
-    if (!hasBedBug) {
-      results.unshift({
-        key:      'bed_bug',
-        index:    0,
-        name:     BED_BUG_TEMPLATE,
-        type:     'pdf',
-        size:     0,
-        modified: new Date(),
-        virtual:  true,
-      });
-      results.forEach((r, i) => {
-        if (r.key !== 'bed_bug') r.index = i;
-      });
-    }
-
     return results;
   } catch (err) {
     if (err.code === 'ENOENT') return null;
@@ -391,20 +385,12 @@ router.get('/file', async (req, res) => {
     const idx       = parseInt(index, 10);
     if (isNaN(idx) || idx < 0 || idx >= supported.length) return res.status(404).json({ error: 'file not found' });
 
-    const filename  = supported[idx];
-    const extension = ext(filename);
+    const filePath  = join(dir, supported[idx]);
+    const extension = ext(supported[idx]);
     const mimeTypes = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
 
-    if (folder === 'quotes' && filename === BED_BUG_TEMPLATE) {
-      const { outBytes } = await buildBedBugAgreementPdf({});
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
-      return res.send(Buffer.from(outBytes));
-    }
-
-    const filePath = join(dir, filename);
     res.setHeader('Content-Type', mimeTypes[extension] || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(supported[idx])}"`);
     createReadStream(filePath).pipe(res);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -428,42 +414,12 @@ async function buildQuotePdf({
 }) {
   const allFiles  = await readdirAsync(QUOTES_DIR);
   const supported = allFiles.filter(f => SUPPORTED_EXTS.has(ext(f)));
-  const idx = parseInt(index, 10);
-
+  const idx       = parseInt(index, 10);
   if (isNaN(idx) || idx < 0 || idx >= supported.length) {
-    try {
-      await statAsync(join(QUOTES_DIR, BED_BUG_TEMPLATE));
-    } catch {
-      if (idx === 0) {
-        return buildBedBugAgreementPdf({
-          lead,
-          pricing,
-          address,
-          startDate,
-          agreementStartDate,
-          serviceStartDate,
-          initialServiceDate,
-          selectedStartDate,
-        });
-      }
-    }
     throw Object.assign(new Error('file not found'), { status: 404 });
   }
 
   const filename = supported[idx];
-
-  if (filename === BED_BUG_TEMPLATE) {
-    return buildBedBugAgreementPdf({
-      lead,
-      pricing,
-      address,
-      startDate,
-      agreementStartDate,
-      serviceStartDate,
-      initialServiceDate,
-      selectedStartDate,
-    });
-  }
 
   let prefix, pageIndex;
   if (FILE_PREFIX[filename]) {
@@ -534,7 +490,7 @@ async function buildQuotePdf({
   const contactParts = [lead.email, lead.phone].filter(Boolean);
   fill('customer_information', contactParts.join('\n'));
 
-  // ── Notes (not shown on Bed Bug — uses programmatic template) ──
+  // ── Notes ──
   if (notes && notes.trim()) fill('service_notes', notes.trim());
 
   // ── Pricing ──
