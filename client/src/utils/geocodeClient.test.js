@@ -12,6 +12,11 @@ describe('geocodeClient', () => {
     expect(msg).not.toContain('GEOCODE_RATE_LIMIT');
   });
 
+  it('describes 401 auth errors with reload guidance', () => {
+    const msg = describeGeocodeError({ httpStatus: 401, message: 'Unauthorized' });
+    expect(msg).toContain('reload');
+  });
+
   it('geocodeFromSuggestion maps suggestion fields', () => {
     const result = geocodeFromSuggestion({
       lat: 43.1,
