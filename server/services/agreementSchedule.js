@@ -15,6 +15,7 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
  * @property {string} [serviceMarker]
  * @property {string} [initialPaymentTextTemplate]
  * @property {string} [recurringPaymentTextTemplate]
+ * @property {string} [serviceRecurringPaymentTextTemplate]
  */
 
 /**
@@ -215,7 +216,11 @@ export function generateAgreementSchedule(params = {}) {
           serviceMarker: marker,
         });
       } else if (recurringTotal > 0) {
-        paymentText = applyPaymentTemplate(recurringTemplate, {
+        const serviceRecurringTemplate = config.serviceRecurringPaymentTextTemplate;
+        const template = isServiceMonth && serviceRecurringTemplate
+          ? serviceRecurringTemplate
+          : recurringTemplate;
+        paymentText = applyPaymentTemplate(template, {
           initialTotal,
           recurringTotal,
           serviceMarker: marker,
