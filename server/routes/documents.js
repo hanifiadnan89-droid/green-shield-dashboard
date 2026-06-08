@@ -7,6 +7,8 @@ import { promisify } from 'util';
 import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 import { applyAgreementScheduleToPdf } from '../services/applyAgreementScheduleToPdf.js';
+import { buildBedBugAgreementPdf } from '../services/bedBugAgreementPdf.js';
+import { BED_BUG_TEMPLATE_FILENAME, listQuoteDocuments } from '../services/quoteDocumentsList.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
@@ -24,9 +26,9 @@ function ext(name) {
 
 // ── PDF field-prefix mappings ──────────────────────────────────────────────
 
-const FILE_PREFIX = {
-  'Bed Bug.pdf': 'bed_bug_insect_triannual',
-};
+const BED_BUG_TEMPLATE = BED_BUG_TEMPLATE_FILENAME;
+
+const FILE_PREFIX = {};
 
 const SERVICE_AGREEMENTS_FILE = 'Service Agreements.pdf';
 
@@ -253,20 +255,6 @@ function drawPestIcon(page, type, cx, cy) {
 // PDF y = 1008 − pdftotext_y_mid  (pages are 612×1008 pts).
 // Icon center x = pest_name_xMin − 7.
 const PEST_ICONS_MAP = {
-  bed_bug_insect_triannual: [
-    // Included Pests row 1
-    {type:'bed_bug',   x:29,  y:743}, {type:'ant',       x:168, y:743},
-    {type:'ant',       x:307, y:743}, {type:'ant',       x:446, y:743},
-    // Included Pests row 2
-    {type:'bee',       x:29,  y:729}, {type:'wasp',      x:168, y:729},
-    {type:'spider',    x:307, y:729}, {type:'bug',       x:446, y:729},
-    // Included Pests row 3
-    {type:'flea',      x:29,  y:715}, {type:'centipede', x:168, y:715},
-    {type:'cricket',   x:307, y:715}, {type:'silverfish',x:446, y:715},
-    // Add-ons
-    {type:'mouse',     x:29,  y:679}, {type:'rat',       x:168, y:679},
-    {type:'tick',      x:307, y:679}, {type:'cockroach', x:446, y:679},
-  ],
   insect_quarterly: [
     // Included Pests row 1
     {type:'ant',       x:29,  y:743}, {type:'ant',       x:168, y:743},
@@ -307,45 +295,7 @@ const PEST_ICONS_MAP = {
 // ── Directory listing ──────────────────────────────────────────────────────
 
 async function listDir(dir) {
-  try {
-    const files = await readdirAsync(dir);
-    const results = [];
-    let si = 0;
-    for (let i = 0; i < files.length; i++) {
-      const name = files[i];
-      const extension = ext(name);
-      if (!SUPPORTED_EXTS.has(extension)) continue;
-      const info = await statAsync(join(dir, name));
-      const idx = si++;
-
-      if (name === SERVICE_AGREEMENTS_FILE) {
-        for (const [serviceType] of Object.entries(SERVICE_TYPE_PAGE)) {
-          results.push({
-            key:         `${idx}_${serviceType}`,
-            index:       idx,
-            name:        SERVICE_DISPLAY[serviceType],
-            serviceType,
-            type:        'pdf',
-            size:        info.size,
-            modified:    info.mtime,
-          });
-        }
-      } else {
-        results.push({
-          key:      String(idx),
-          index:    idx,
-          name,
-          type:     extension === '.pdf' ? 'pdf' : 'image',
-          size:     info.size,
-          modified: info.mtime,
-        });
-      }
-    }
-    return results;
-  } catch (err) {
-    if (err.code === 'ENOENT') return null;
-    throw err;
-  }
+  return listQuoteDocuments(dir);
 }
 
 // ── Routes: list ──────────────────────────────────────────────────────────
@@ -420,6 +370,19 @@ async function buildQuotePdf({
   }
 
   const filename = supported[idx];
+
+  if (filename === BED_BUG_TEMPLATE) {
+    return buildBedBugAgreementPdf({
+      lead,
+      pricing,
+      address,
+      startDate,
+      agreementStartDate,
+      serviceStartDate,
+      initialServiceDate,
+      selectedStartDate,
+    });
+  }
 
   let prefix, pageIndex;
   if (FILE_PREFIX[filename]) {
