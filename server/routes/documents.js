@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { promisify } from 'util';
 import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
+import { applyAgreementScheduleToPdf } from '../services/applyAgreementScheduleToPdf.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
@@ -398,7 +399,19 @@ router.get('/file', async (req, res) => {
 
 // ── Core PDF builder ──────────────────────────────────────────────────────
 
-async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', address = {}, serviceType }) {
+async function buildQuotePdf({
+  index,
+  lead = {},
+  pricing = {},
+  notes = '',
+  address = {},
+  serviceType,
+  startDate,
+  agreementStartDate,
+  serviceStartDate,
+  initialServiceDate,
+  selectedStartDate,
+}) {
   const allFiles  = await readdirAsync(QUOTES_DIR);
   const supported = allFiles.filter(f => SUPPORTED_EXTS.has(ext(f)));
   const idx       = parseInt(index, 10);
@@ -501,13 +514,18 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
     fill('payment_recurring_authorized', recurVal.toFixed(2));
   }
 
-  // ── 12-month payment schedule ──
-  if (subtotal > 0 || recurVal > 0) {
-    fill('payment_1', subtotal > 0 ? `$${subtotal.toFixed(2)}` : (recurVal > 0 ? `$${recurVal.toFixed(2)}` : ''));
-    for (let m = 2; m <= 12; m++) {
-      fill(`payment_${m}`, recurVal > 0 ? `$${recurVal.toFixed(2)}` : '');
-    }
-  }
+  // ── 12-month schedule (months, payments, service markers, contract dates) ──
+  applyAgreementScheduleToPdf({
+    prefix,
+    agreementType: prefix,
+    pricing: { initial: initVal, discounted: discVal, recurring: recurVal },
+    startDate,
+    agreementStartDate,
+    serviceStartDate,
+    initialServiceDate,
+    selectedStartDate,
+    fill,
+  });
 
   // ── Billing info ──
   fill('billing_info', addrParts.join('\n'));
@@ -579,11 +597,18 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
     drawField('recurring_total',  recurVal ? recurVal.toFixed(2) : '');
     drawField('payment_recurring_authorized', recurVal ? recurVal.toFixed(2) : '');
 
-    // 12-month subscription schedule
-    drawField('payment_1', subtotal > 0 ? `$${subtotal.toFixed(2)}` : (recurVal > 0 ? `$${recurVal.toFixed(2)}` : ''));
-    for (let m = 2; m <= 12; m++) {
-      drawField(`payment_${m}`, recurVal > 0 ? `$${recurVal.toFixed(2)}` : '');
-    }
+    // 12-month schedule (months, payments, service markers, contract dates)
+    applyAgreementScheduleToPdf({
+      prefix,
+      agreementType: prefix,
+      pricing: { initial: initVal, discounted: discVal, recurring: recurVal },
+      startDate,
+      agreementStartDate,
+      serviceStartDate,
+      initialServiceDate,
+      selectedStartDate,
+      fill: drawField,
+    });
 
     // Erase signature / card fields (removes any template outlines, leaves blank for customer)
     for (const fname of ['card_last_four', 'customer_initials', 'customer_signature', 'signature_date']) {
@@ -617,10 +642,34 @@ async function buildQuotePdf({ index, lead = {}, pricing = {}, notes = '', addre
 
 router.post('/generate-quote', async (req, res) => {
   try {
-    const { index, lead = {}, pricing = {}, notes = '', address = {}, serviceType } = req.body;
+    const {
+      index,
+      lead = {},
+      pricing = {},
+      notes = '',
+      address = {},
+      serviceType,
+      startDate,
+      agreementStartDate,
+      serviceStartDate,
+      initialServiceDate,
+      selectedStartDate,
+    } = req.body;
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
 
-    const { outBytes, outName } = await buildQuotePdf({ index, lead, pricing, notes, address, serviceType });
+    const { outBytes, outName } = await buildQuotePdf({
+      index,
+      lead,
+      pricing,
+      notes,
+      address,
+      serviceType,
+      startDate,
+      agreementStartDate,
+      serviceStartDate,
+      initialServiceDate,
+      selectedStartDate,
+    });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(outName)}"`);
@@ -635,7 +684,20 @@ router.post('/generate-quote', async (req, res) => {
 
 router.post('/email-quote', async (req, res) => {
   try {
-    const { index, lead = {}, pricing = {}, notes = '', address = {}, serviceType, prepGuideIndices = [] } = req.body;
+    const {
+      index,
+      lead = {},
+      pricing = {},
+      notes = '',
+      address = {},
+      serviceType,
+      prepGuideIndices = [],
+      startDate,
+      agreementStartDate,
+      serviceStartDate,
+      initialServiceDate,
+      selectedStartDate,
+    } = req.body;
 
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
     if (!lead.email) return res.status(400).json({ error: 'lead email is required to send' });
@@ -644,7 +706,19 @@ router.post('/email-quote', async (req, res) => {
       return res.status(500).json({ error: 'Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD missing from server/.env)' });
     }
 
-    const { outBytes, outName } = await buildQuotePdf({ index, lead, pricing, notes, address, serviceType });
+    const { outBytes, outName } = await buildQuotePdf({
+      index,
+      lead,
+      pricing,
+      notes,
+      address,
+      serviceType,
+      startDate,
+      agreementStartDate,
+      serviceStartDate,
+      initialServiceDate,
+      selectedStartDate,
+    });
 
     const MIME_MAP = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
     const attachments = [{ filename: outName, content: Buffer.from(outBytes), contentType: 'application/pdf' }];

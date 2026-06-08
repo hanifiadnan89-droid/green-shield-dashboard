@@ -16,6 +16,7 @@ export default function QuoteDocumentsSection({
   const [selected, setSelected]       = useState(null);
   const [pricing, setPricing]         = useState({ initial: '', recurring: '', discounted: '' });
   const [address, setAddress]         = useState({ street: '', cityState: '' });
+  const [agreementStartDate, setAgreementStartDate] = useState('');
   const [notes, setNotes]             = useState('');
   const [loading, setLoading]         = useState(true);
   const [generating, setGenerating]   = useState(false);
@@ -32,8 +33,8 @@ export default function QuoteDocumentsSection({
   }, []);
 
   useEffect(() => {
-    onStateChange?.({ pricing, address, notes, selected });
-  }, [pricing, address, notes, selected, onStateChange]);
+    onStateChange?.({ pricing, address, notes, selected, agreementStartDate });
+  }, [pricing, address, notes, selected, agreementStartDate, onStateChange]);
 
   function buildPayload() {
     return {
@@ -43,7 +44,9 @@ export default function QuoteDocumentsSection({
       pricing,
       notes,
       address,
-      prepGuideIndices
+      agreementStartDate: agreementStartDate || undefined,
+      startDate: agreementStartDate || undefined,
+      prepGuideIndices,
     };
   }
 
@@ -202,6 +205,21 @@ export default function QuoteDocumentsSection({
               onChange={e => setAddress(p => ({ ...p, cityState: e.target.value }))}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-1.5 block">
+            Agreement start date
+          </label>
+          <input
+            type="date"
+            className="send-command-input text-sm"
+            value={agreementStartDate}
+            onChange={e => setAgreementStartDate(e.target.value)}
+          />
+          <p className="text-[10px] text-gs-muted mt-1 mb-0">
+            Drives the 12-month calendar on the agreement. Leave blank to use today.
+          </p>
         </div>
 
         <div className="send-preview-pricing-edit">
