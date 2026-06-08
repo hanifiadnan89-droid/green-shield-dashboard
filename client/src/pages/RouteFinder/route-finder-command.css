@@ -388,6 +388,17 @@
   backdrop-filter: blur(12px);
 }
 
+.rf-command .route-finder-section--address {
+  overflow: visible;
+  position: relative;
+  z-index: 5;
+}
+
+.route-suggest-dropdown--fixed {
+  max-height: min(280px, 40vh);
+  overflow-y: auto;
+}
+
 .rf-command .route-suggest-item {
   background: transparent;
 }

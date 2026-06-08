@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw, Route } from 'lucide-react';
 import RouteFinderScoringSkeleton from './RouteFinderCommandSkeleton.jsx';
@@ -33,10 +34,11 @@ import {
   lookupAddress,
   describeGeocodeError,
   geocodeFromSuggestion,
+  pickSuggestionForInput,
   resolveFromSuggestCache,
 } from '../../../utils/geocodeClient.js';
 
-const SUGGEST_DEBOUNCE_MS = 900;
+const SUGGEST_DEBOUNCE_MS = 400;
 
 function RouteSection({ page, children, className = '' }) {
   if (!page) return children;
@@ -77,6 +79,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const [suggestions, setSuggestions]         = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [suggestLoading, setSuggestLoading]   = useState(false);
+  const [suggestDropdownRect, setSuggestDropdownRect] = useState(null);
 
   // Service selection
   const [serviceTypeId, setServiceTypeId] = useState('');
@@ -97,6 +101,11 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const suggestDebounceRef    = useRef(null);
   const suggestRequestIdRef   = useRef(0);
   const suppressBlurRef       = useRef(false);
+  const addressInputRef       = useRef(null);
+  const pendingConfirmRef     = useRef(false);
+  const pendingConfirmQueryRef = useRef('');
+  const selectSuggestionRef   = useRef(null);
+  const doGeocodeRef          = useRef(null);
   const pollRef            = useRef(null);
   const dateKeysRef     = useRef(DATE_KEYS);
   useEffect(() => { dateKeysRef.current = DATE_KEYS; }, [DATE_KEYS]);
@@ -368,6 +377,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setSuggestions([]);
       setShowSuggestions(false);
       setSuggestError('');
+      setSuggestLoading(false);
       return;
     }
 
@@ -377,6 +387,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setSuggestions(formatted);
       setShowSuggestions(formatted.length > 0);
       setActiveSuggestion(-1);
+      setSuggestLoading(false);
       setSuggestError(
         formatted.length === 0
           ? 'No matches — try city and state, e.g. 24 Morning St, Portland, ME 04101'
@@ -386,10 +397,15 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     }
 
     const requestId = ++suggestRequestIdRef.current;
+    setSuggestLoading(true);
     try {
       const formatted = await fetchAddressSuggestions(trimmed);
       if (requestId !== suggestRequestIdRef.current) return;
-      suggestCacheRef.current[cacheKey] = formatted;
+      if (formatted.length > 0) {
+        suggestCacheRef.current[cacheKey] = formatted;
+      } else {
+        delete suggestCacheRef.current[cacheKey];
+      }
       setSuggestions(formatted);
       setShowSuggestions(formatted.length > 0);
       setActiveSuggestion(-1);
@@ -398,12 +414,33 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
           ? 'No matches — try city and state, e.g. 24 Morning St, Portland, ME 04101'
           : '',
       );
+
+      if (
+        pendingConfirmRef.current
+        && pendingConfirmQueryRef.current.toLowerCase() === cacheKey
+      ) {
+        pendingConfirmRef.current = false;
+        pendingConfirmQueryRef.current = '';
+        const pick = pickSuggestionForInput(trimmed, formatted);
+        if (pick) {
+          selectSuggestionRef.current?.(pick);
+        } else {
+          doGeocodeRef.current?.(trimmed);
+        }
+      }
     } catch (err) {
       if (requestId !== suggestRequestIdRef.current) return;
       console.warn('[geocode] suggest failed:', err);
+      delete suggestCacheRef.current[cacheKey];
       setSuggestions([]);
       setShowSuggestions(false);
       setSuggestError(describeGeocodeError(err));
+      pendingConfirmRef.current = false;
+      pendingConfirmQueryRef.current = '';
+    } finally {
+      if (requestId === suggestRequestIdRef.current) {
+        setSuggestLoading(false);
+      }
     }
   }, []);
 
@@ -412,6 +449,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setSuggestions([]);
     setShowSuggestions(false);
     setActiveSuggestion(-1);
+    setSuggestLoading(false);
+    setSuggestError('');
     setAddressInput(s.shortDisplay);
     // Use coordinates directly from the suggestion — no second geocode call needed
     const result = { lat: s.lat, lng: s.lng, display: s.shortDisplay, full: s.full };
@@ -424,6 +463,10 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setSpecificSlot(null);
     setIsEditing(false);
   }, []);
+
+  useEffect(() => {
+    selectSuggestionRef.current = selectSuggestion;
+  }, [selectSuggestion]);
 
   // ---------------------------------------------------------------------------
   // Geocode
@@ -479,6 +522,76 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     }
   }, [suggestions]);
 
+  useEffect(() => {
+    doGeocodeRef.current = doGeocode;
+  }, [doGeocode]);
+
+  const confirmAddressFromInput = useCallback(() => {
+    const trimmed = addressInput.trim();
+    if (!trimmed) return;
+
+    const pick = activeSuggestion >= 0
+      ? suggestions[activeSuggestion]
+      : pickSuggestionForInput(trimmed, suggestions);
+    if (pick) {
+      selectSuggestion(pick);
+      return;
+    }
+
+    const fromCache = resolveFromSuggestCache(trimmed, suggestCacheRef.current, suggestions);
+    if (fromCache) {
+      geocodeCacheRef.current[trimmed] = fromCache;
+      setGeocode(fromCache);
+      setGeocodeStatus('success');
+      setResults(null);
+      setScoringStatus('idle');
+      setTimePref(null);
+      setSpecificSlot(null);
+      setIsEditing(false);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setAddressInput(fromCache.display);
+      return;
+    }
+
+    if (suggestLoading) {
+      pendingConfirmRef.current = true;
+      pendingConfirmQueryRef.current = trimmed;
+      return;
+    }
+
+    doGeocode(trimmed);
+  }, [addressInput, activeSuggestion, suggestions, suggestLoading, selectSuggestion, doGeocode]);
+
+  const updateSuggestDropdownRect = useCallback(() => {
+    const el = addressInputRef.current;
+    if (!el) {
+      setSuggestDropdownRect(null);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    setSuggestDropdownRect({
+      top: r.bottom + 4,
+      left: r.left,
+      width: r.width,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!showSuggestions || suggestions.length === 0) {
+      setSuggestDropdownRect(null);
+      return undefined;
+    }
+    updateSuggestDropdownRect();
+    const opts = { capture: true, passive: true };
+    window.addEventListener('scroll', updateSuggestDropdownRect, opts);
+    window.addEventListener('resize', updateSuggestDropdownRect, opts);
+    return () => {
+      window.removeEventListener('scroll', updateSuggestDropdownRect, opts);
+      window.removeEventListener('resize', updateSuggestDropdownRect, opts);
+    };
+  }, [showSuggestions, suggestions.length, updateSuggestDropdownRect]);
+
   const handleAddressKey = (e) => {
     if (showSuggestions && suggestions.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -491,11 +604,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         setActiveSuggestion(prev => Math.max(prev - 1, -1));
         return;
       }
-      if (e.key === 'Enter' && activeSuggestion >= 0) {
-        e.preventDefault();
-        selectSuggestion(suggestions[activeSuggestion]);
-        return;
-      }
       if (e.key === 'Escape') {
         setSuggestions([]);
         setShowSuggestions(false);
@@ -503,7 +611,10 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
         return;
       }
     }
-    if (e.key === 'Enter') doGeocode(addressInput);
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirmAddressFromInput();
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -650,6 +761,10 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setSuggestions([]);
     setShowSuggestions(false);
     setActiveSuggestion(-1);
+    setSuggestLoading(false);
+    setSuggestError('');
+    pendingConfirmRef.current = false;
+    pendingConfirmQueryRef.current = '';
     if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
   };
 
@@ -846,18 +961,24 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             <div className="relative">
               <MapPin size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 z-[1]" />
               <input
+                ref={addressInputRef}
                 autoFocus={isEditing}
                 value={addressInput}
                 onChange={e => {
                   const val = e.target.value;
                   setAddressInput(val);
                   setActiveSuggestion(-1);
+                  setSuggestError('');
+                  pendingConfirmRef.current = false;
+                  pendingConfirmQueryRef.current = '';
                   if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
                   if (val.trim().length >= 4) {
+                    setSuggestLoading(true);
                     suggestDebounceRef.current = setTimeout(() => fetchSuggestions(val), SUGGEST_DEBOUNCE_MS);
                   } else {
                     setSuggestions([]);
                     setShowSuggestions(false);
+                    setSuggestLoading(false);
                   }
                 }}
                 onKeyDown={handleAddressKey}
@@ -880,16 +1001,23 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   // used to fire a second Nominatim call and trigger rate limits.
                 }}
               />
-              {geocodeStatus === 'loading' ? (
+              {geocodeStatus === 'loading' || suggestLoading ? (
                 <Loader2 size={12} className="animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               ) : (
                 <button
                   type="button"
-                  onClick={() => doGeocode(addressInput)}
+                  onClick={confirmAddressFromInput}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer p-[3px] text-slate-400 flex"
+                  aria-label="Search address"
                 >
                   <Search size={12} />
                 </button>
+              )}
+
+              {suggestLoading && !suggestError && (
+                <p className="text-[9px] text-slate-500 mt-1 mb-0 leading-snug" role="status">
+                  Searching addresses…
+                </p>
               )}
 
               {suggestError && (
@@ -898,13 +1026,20 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                 </p>
               )}
 
-              {/* Autocomplete dropdown */}
-              {showSuggestions && suggestions.length > 0 && (
+              {/* Autocomplete dropdown — portaled so scroll containers cannot clip it */}
+              {showSuggestions && suggestions.length > 0 && suggestDropdownRect && createPortal(
                 <div
                   className={[
-                    'route-suggest-dropdown absolute top-full left-0 right-0 z-[200] rounded-[10px] mt-1 overflow-hidden',
+                    'route-suggest-dropdown route-suggest-dropdown--fixed rounded-[10px] overflow-hidden',
                     isPage ? 'route-suggest-dropdown--command' : 'route-suggest-dropdown--embedded',
                   ].join(' ')}
+                  style={{
+                    position: 'fixed',
+                    top: suggestDropdownRect.top,
+                    left: suggestDropdownRect.left,
+                    width: suggestDropdownRect.width,
+                    zIndex: 10000,
+                  }}
                 >
                   {suggestions.map((s, i) => (
                     <div
@@ -936,7 +1071,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                       </div>
                     </div>
                   ))}
-                </div>
+                </div>,
+                document.body,
               )}
             </div>
           )}
