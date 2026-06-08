@@ -1349,6 +1349,12 @@
   box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1);
 }
 
+.crm-preview .route-finder-section--address {
+  overflow: visible;
+  position: relative;
+  z-index: 5;
+}
+
 .crm-preview .route-suggest-item {
   background: transparent;
 }

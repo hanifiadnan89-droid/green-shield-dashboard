@@ -164,7 +164,10 @@ export async function searchAddressSuggestions(query, limit = 6) {
   }
 
   const suggestions = data.map(formatSuggestion).filter((s) => s.primary);
-  cacheSet(key, suggestions);
+  // Do not cache empty results — transient Nominatim misses should be retried.
+  if (suggestions.length > 0) {
+    cacheSet(key, suggestions);
+  }
   return suggestions;
 }
 
