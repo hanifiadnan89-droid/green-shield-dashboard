@@ -35,8 +35,7 @@ export const AGREEMENT_SCHEDULE_CONFIG = {
     serviceMonthIndexes: [0, 4, 8],
     serviceMarker: 'S',
     initialPaymentTextTemplate: '2x(S){initialTotal}',
-    recurringPaymentTextTemplate: '{recurringTotal}',
-    serviceRecurringPaymentTextTemplate: '(S){recurringTotal}',
+    recurringPaymentTextTemplate: '{recurringTotalFormatted}',
   },
   tick_mosquito_monthly: {
     agreementType: 'tick_mosquito_monthly',

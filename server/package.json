@@ -24,8 +24,6 @@
     "twilio": "^6.0.2"
   },
   "devDependencies": {
-    "canvas": "^3.2.3",
-    "pdfjs-dist": "^6.0.227",
     "vitest": "^1.6.1"
   }
 }
