@@ -105,7 +105,9 @@ describe('generateAgreementSchedule payments and edge cases', () => {
       recurringPayment: 65,
     });
     expect(scheduleMonths[0].paymentText).toBe('2x(S)599.00');
-    expect(scheduleMonths[1].paymentText).toBe('$65.00');
+    expect(scheduleMonths[1].paymentText).toBe('65.00');
+    expect(scheduleMonths[4].paymentText).toBe('(S)65.00');
+    expect(scheduleMonths[8].paymentText).toBe('(S)65.00');
     expect(scheduleMonths[0].serviceMarker).toBe('S');
   });
 
