@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw, Route } from 'lucide-react';
 import RouteFinderScoringSkeleton from './RouteFinderCommandSkeleton.jsx';
@@ -36,7 +37,7 @@ import {
   resolveFromSuggestCache,
 } from '../../../utils/geocodeClient.js';
 
-const SUGGEST_DEBOUNCE_MS = 900;
+const SUGGEST_DEBOUNCE_MS = 450;
 
 function RouteSection({ page, children, className = '' }) {
   if (!page) return children;
@@ -77,6 +78,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const [suggestions, setSuggestions]         = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [suggestLoading, setSuggestLoading]   = useState(false);
+  const [suggestDropdownRect, setSuggestDropdownRect] = useState(null);
 
   // Service selection
   const [serviceTypeId, setServiceTypeId] = useState('');
@@ -97,6 +100,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const suggestDebounceRef    = useRef(null);
   const suggestRequestIdRef   = useRef(0);
   const suppressBlurRef       = useRef(false);
+  const addressInputRef       = useRef(null);
   const pollRef            = useRef(null);
   const dateKeysRef     = useRef(DATE_KEYS);
   useEffect(() => { dateKeysRef.current = DATE_KEYS; }, [DATE_KEYS]);
@@ -377,6 +381,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setSuggestions(formatted);
       setShowSuggestions(formatted.length > 0);
       setActiveSuggestion(-1);
+      setSuggestLoading(false);
       setSuggestError(
         formatted.length === 0
           ? 'No matches — try city and state, e.g. 24 Morning St, Portland, ME 04101'
@@ -386,6 +391,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     }
 
     const requestId = ++suggestRequestIdRef.current;
+    setSuggestLoading(true);
     try {
       const formatted = await fetchAddressSuggestions(trimmed);
       if (requestId !== suggestRequestIdRef.current) return;
@@ -404,8 +410,41 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
       setSuggestions([]);
       setShowSuggestions(false);
       setSuggestError(describeGeocodeError(err));
+    } finally {
+      if (requestId === suggestRequestIdRef.current) {
+        setSuggestLoading(false);
+      }
     }
   }, []);
+
+  const updateSuggestDropdownRect = useCallback(() => {
+    const el = addressInputRef.current;
+    if (!el) {
+      setSuggestDropdownRect(null);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    setSuggestDropdownRect({
+      top: r.bottom + 4,
+      left: r.left,
+      width: r.width,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!showSuggestions || suggestions.length === 0) {
+      setSuggestDropdownRect(null);
+      return undefined;
+    }
+    updateSuggestDropdownRect();
+    const opts = { capture: true, passive: true };
+    window.addEventListener('scroll', updateSuggestDropdownRect, opts);
+    window.addEventListener('resize', updateSuggestDropdownRect, opts);
+    return () => {
+      window.removeEventListener('scroll', updateSuggestDropdownRect, opts);
+      window.removeEventListener('resize', updateSuggestDropdownRect, opts);
+    };
+  }, [showSuggestions, suggestions.length, updateSuggestDropdownRect]);
 
   const selectSuggestion = useCallback((s) => {
     if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
@@ -846,18 +885,22 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
             <div className="relative">
               <MapPin size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 z-[1]" />
               <input
+                ref={addressInputRef}
                 autoFocus={isEditing}
                 value={addressInput}
                 onChange={e => {
                   const val = e.target.value;
                   setAddressInput(val);
                   setActiveSuggestion(-1);
+                  setSuggestError('');
                   if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
                   if (val.trim().length >= 4) {
+                    setSuggestLoading(true);
                     suggestDebounceRef.current = setTimeout(() => fetchSuggestions(val), SUGGEST_DEBOUNCE_MS);
                   } else {
                     setSuggestions([]);
                     setShowSuggestions(false);
+                    setSuggestLoading(false);
                   }
                 }}
                 onKeyDown={handleAddressKey}
@@ -880,16 +923,23 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                   // used to fire a second Nominatim call and trigger rate limits.
                 }}
               />
-              {geocodeStatus === 'loading' ? (
+              {geocodeStatus === 'loading' || suggestLoading ? (
                 <Loader2 size={12} className="animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               ) : (
                 <button
                   type="button"
                   onClick={() => doGeocode(addressInput)}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer p-[3px] text-slate-400 flex"
+                  aria-label="Search address"
                 >
                   <Search size={12} />
                 </button>
+              )}
+
+              {suggestLoading && !suggestError && (
+                <p className="text-[9px] text-slate-500 mt-1 mb-0 leading-snug" role="status">
+                  Searching addresses…
+                </p>
               )}
 
               {suggestError && (
@@ -898,13 +948,20 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                 </p>
               )}
 
-              {/* Autocomplete dropdown */}
-              {showSuggestions && suggestions.length > 0 && (
+              {/* Autocomplete dropdown — portaled so scroll containers do not clip it */}
+              {showSuggestions && suggestions.length > 0 && suggestDropdownRect && createPortal(
                 <div
                   className={[
-                    'route-suggest-dropdown absolute top-full left-0 right-0 z-[200] rounded-[10px] mt-1 overflow-hidden',
+                    'route-suggest-dropdown route-suggest-dropdown--fixed rounded-[10px] overflow-hidden',
                     isPage ? 'route-suggest-dropdown--command' : 'route-suggest-dropdown--embedded',
                   ].join(' ')}
+                  style={{
+                    position: 'fixed',
+                    top: suggestDropdownRect.top,
+                    left: suggestDropdownRect.left,
+                    width: suggestDropdownRect.width,
+                    zIndex: 10000,
+                  }}
                 >
                   {suggestions.map((s, i) => (
                     <div
@@ -936,7 +993,8 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
                       </div>
                     </div>
                   ))}
-                </div>
+                </div>,
+                document.body,
               )}
             </div>
           )}

@@ -4,7 +4,8 @@ async function request(path, options = {}) {
   let res;
   try {
     res = await fetch(`${BASE}${path}`, {
-      credentials: 'same-origin',
+      // include: send HTTP Basic Auth after dashboard login (Render production)
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...options.headers },
       ...options,
     });
@@ -15,7 +16,14 @@ async function request(path, options = {}) {
     throw err;
   }
 
-  const data = await res.json().catch(() => ({ error: res.statusText }));
+  const raw = await res.text();
+  let data;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    data = { error: raw.trim() || res.statusText };
+  }
+
   if (!res.ok) {
     const err = new Error(data.error || `HTTP ${res.status}`);
     if (data.code) err.code = data.code;

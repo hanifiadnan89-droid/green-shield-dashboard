@@ -2,6 +2,9 @@ import { api } from '../api/client.js';
 
 export function describeGeocodeError(err) {
   const msg = err?.message || 'Unknown error';
+  if (err?.httpStatus === 401) {
+    return 'Dashboard login expired — reload the page and sign in again.';
+  }
   if (msg === 'Failed to fetch' || msg.includes('NetworkError')) {
     return 'Could not reach the dashboard geocoding API. Check your connection or reload the page.';
   }
