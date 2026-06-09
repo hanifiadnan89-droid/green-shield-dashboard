@@ -99,6 +99,9 @@ export default function QuoteDocumentsSection({
 
   const isPreview = variant === 'preview';
   const shellClass = isPreview ? 'send-doc-panel' : 'card flex flex-col gap-0 p-0 overflow-hidden';
+  const bedBugEmailDisabled = Boolean(selected?.emailDisabled);
+  const bedBugEmailDisabledMessage = selected?.emailDisabledMessage
+    || 'Bed Bug agreement email is temporarily disabled until PDF layout is verified.';
 
   return (
     <div className={shellClass}>
@@ -295,10 +298,18 @@ export default function QuoteDocumentsSection({
         {/* Email to customer — direct from CRM, no n8n */}
         <button
           onClick={handleEmail}
-          disabled={!selected || !lead?.email || emailing || generating}
-          title={!lead?.email ? 'No email address on this lead' : ''}
+          disabled={!selected || !lead?.email || emailing || generating || bedBugEmailDisabled}
+          title={
+            bedBugEmailDisabled
+              ? bedBugEmailDisabledMessage
+              : !lead?.email
+                ? 'No email address on this lead'
+                : ''
+          }
           className={`send-launch-cta text-xs ${
-            !selected || !lead?.email || emailing || generating ? 'opacity-40 cursor-not-allowed' : ''
+            !selected || !lead?.email || emailing || generating || bedBugEmailDisabled
+              ? 'opacity-40 cursor-not-allowed'
+              : ''
           }`}
         >
           {emailing
@@ -307,7 +318,13 @@ export default function QuoteDocumentsSection({
           }
         </button>
 
-        {!lead?.email && selected && (
+        {bedBugEmailDisabled && selected && (
+          <p className="send-command-alert send-command-alert--warning flex items-center gap-1.5 text-xs">
+            <AlertTriangle size={11} /> {bedBugEmailDisabledMessage}
+          </p>
+        )}
+
+        {!lead?.email && selected && !bedBugEmailDisabled && (
           <p className="text-gs-muted text-xs text-center">No email on this lead — can't send directly</p>
         )}
 

@@ -24,6 +24,7 @@
     "twilio": "^6.0.2"
   },
   "devDependencies": {
+    "pdfjs-dist": "^4.10.38",
     "vitest": "^1.6.1"
   }
 }

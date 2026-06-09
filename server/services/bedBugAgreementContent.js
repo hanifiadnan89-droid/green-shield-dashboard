@@ -12,3 +12,8 @@ export const BED_BUG_SERVICE_TYPE = 'BED BUG & INSECT TRIANNUAL';
 export const BED_BUG_SERVICE_FREQUENCY = 'Every 120 days';
 
 export const BED_BUG_TEMPLATE_FILENAME = 'Bed Bug.pdf';
+
+/** Block customer email until Bed Bug PDF layout passes visual QA. */
+export const BED_BUG_EMAIL_DISABLED = true;
+export const BED_BUG_EMAIL_DISABLED_MESSAGE =
+  'Bed Bug agreement email is temporarily disabled until PDF layout is verified.';
