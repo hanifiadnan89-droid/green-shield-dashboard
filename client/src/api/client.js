@@ -77,6 +77,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ inboundKey }),
     }),
+    markReadAll: (rowNumber) => request(`/messages/${rowNumber}/read-all`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
     list: (rowNumber) => request(`/messages/${rowNumber}`),
     append: (rowNumber, message) => request(`/messages/${rowNumber}`, {
       method: 'POST',

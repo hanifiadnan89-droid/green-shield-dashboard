@@ -33,7 +33,17 @@ function readStore() {
 
 function writeStore(store) {
   ensureFile();
-  fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2), 'utf8');
+  const tmp = `${STORE_FILE}.tmp`;
+  const payload = JSON.stringify(store, null, 2);
+  fs.writeFileSync(tmp, payload, 'utf8');
+  fs.renameSync(tmp, STORE_FILE);
+}
+
+function ensureReadInboundKeys(thread) {
+  if (!Array.isArray(thread.readInboundKeys)) {
+    thread.readInboundKeys = [];
+  }
+  return thread.readInboundKeys;
 }
 
 function newId(prefix) {
@@ -155,6 +165,7 @@ function getThread(store, rowNumber) {
   if (thread.lastReadAt === undefined) {
     thread.lastReadAt = null;
   }
+  ensureReadInboundKeys(thread);
   return thread;
 }
 
@@ -190,9 +201,13 @@ export function getLastReadAt(thread, lead) {
 }
 
 export function isThreadUnread(messages, thread, lead = null) {
-  const inboundAt = getLastInboundAt(messages);
-  if (!inboundAt) return false;
+  const latestKey = getLatestInboundReadKey(messages);
+  if (!latestKey) return false;
 
+  const readKeys = ensureReadInboundKeys(thread || {});
+  if (readKeys.includes(latestKey)) return false;
+
+  const inboundAt = getLastInboundAt(messages);
   const inboundMs = parseTimeMs(inboundAt);
   const readAt = getLastReadAt(thread, lead);
   const readMs = parseTimeMs(readAt);
@@ -201,8 +216,6 @@ export function isThreadUnread(messages, thread, lead = null) {
     return inboundMs > readMs;
   }
 
-  const latestKey = getLatestInboundReadKey(messages);
-  if (!latestKey) return false;
   const readKey = thread?.lastReadInboundKey;
   if (!readKey) return true;
   return readKey !== latestKey;
@@ -215,8 +228,21 @@ export function buildThreadReadMeta(messages, thread, lead = null) {
     lastInboundAt,
     lastReadAt,
     lastReadInboundKey: thread?.lastReadInboundKey ?? null,
+    readInboundKeys: [...(thread?.readInboundKeys || [])],
     unread: isThreadUnread(messages, thread, lead),
   };
+}
+
+function collectInboundReadKeys(messages, upToKey = null) {
+  const keys = [];
+  for (const message of messages) {
+    if (message.direction !== 'inbound') continue;
+    const key = inboundReadKey(message);
+    if (!key) continue;
+    keys.push(key);
+    if (upToKey && key === upToKey) break;
+  }
+  return keys;
 }
 
 export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
@@ -238,6 +264,17 @@ export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
     throw new Error('No inbound message to mark read');
   }
 
+  const readKeys = ensureReadInboundKeys(thread);
+  const keysToAdd = options.markAllInbound
+    ? collectInboundReadKeys(messages)
+    : collectInboundReadKeys(messages, inboundKey);
+  for (const key of keysToAdd) {
+    if (!readKeys.includes(key)) readKeys.push(key);
+  }
+  if (inboundKey && !readKeys.includes(inboundKey)) {
+    readKeys.push(inboundKey);
+  }
+
   thread.lastReadAt = lastReadAt;
   if (inboundKey) {
     thread.lastReadInboundKey = inboundKey;
@@ -252,9 +289,15 @@ export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
   return {
     lastReadAt: thread.lastReadAt,
     lastReadInboundKey: thread.lastReadInboundKey,
+    readInboundKeys: [...readKeys],
     lastInboundAt: getLastInboundAt(messages),
     unread: false,
   };
+}
+
+/** Mark every current inbound message in the thread as read (opening a conversation). */
+export async function markAllInboundRead(rowNumber) {
+  return markThreadRead(rowNumber, { markAllInbound: true });
 }
 
 function migrateLegacyViewedKeys(lead, messages, thread, legacyViewedKeys) {
@@ -266,17 +309,25 @@ function migrateLegacyViewedKeys(lead, messages, thread, legacyViewedKeys) {
   const latestKey = getLatestInboundReadKey(messages);
   if (!latestKey) return;
 
-  const smsKey = `${row}:${(lead.sms_reply || '').trim()}`;
+  const readKeys = ensureReadInboundKeys(thread);
   const inboundAt = getLastInboundAt(messages);
+  const smsKey = `${row}:${(lead.sms_reply || '').trim()}`;
+
   if (rowKeys.includes(smsKey)) {
     thread.lastReadInboundKey = latestKey;
     if (inboundAt) thread.lastReadAt = inboundAt;
+    for (const key of collectInboundReadKeys(messages)) {
+      if (!readKeys.includes(key)) readKeys.push(key);
+    }
     return;
   }
 
   // Prior client tracked per message id; any viewed key for this row means the thread was opened.
   thread.lastReadInboundKey = latestKey;
   if (inboundAt) thread.lastReadAt = inboundAt;
+  for (const key of collectInboundReadKeys(messages)) {
+    if (!readKeys.includes(key)) readKeys.push(key);
+  }
 }
 
 function ensureTemplateMessage(lead, messages) {
