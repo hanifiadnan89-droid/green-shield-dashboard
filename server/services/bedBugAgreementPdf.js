@@ -9,63 +9,35 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = join(__dirname, '..', '..', 'assets', 'quotes', BED_BUG_TEMPLATE_FILENAME);
 
 const PREFIX = 'bed_bug_insect_triannual';
-const PAGE_W = 792;
-const PAGE_H = 612;
 
 const WHITE = rgb(1, 1, 1);
 const TEXT = rgb(0.13, 0.13, 0.13);
 
-/** pdf-lib y (from bottom) for a region measured yTop-down from page top */
-function fromTop(yTop, height = 12) {
-  return PAGE_H - yTop - height;
-}
-
-/**
- * Calibrated for 792×612 landscape Bed Bug.pdf artwork.
- * Template ships with sample pricing/calendar baked into the image — wipe before overlay.
- */
-const WIPE_REGIONS = [
-  // Title typo "Aareement" → cover and redraw
-  { x: 318, y: fromTop(588, 20), w: 108, h: 20 },
-  // Service address + customer information input boxes
-  { x: 22, y: fromTop(186, 42), w: 252, h: 42 },
-  { x: 276, y: fromTop(186, 42), w: 252, h: 42 },
-  // Calendar grid (template sample months + dollar amounts)
-  { x: 22, y: fromTop(352, 88), w: 748, h: 88 },
-  // Expectations column sample numbers
-  { x: 198, y: fromTop(410, 72), w: 88, h: 72 },
-  // Initial service / warranties column
-  { x: 22, y: fromTop(562, 88), w: 248, h: 88 },
-  // Recurring services column
-  { x: 278, y: fromTop(562, 88), w: 248, h: 88 },
-  // Billing & payment column
-  { x: 532, y: fromTop(562, 88), w: 248, h: 88 },
-];
-
+/** 792×612 professional template — calibrated overlay coordinates */
 const CALENDAR = {
-  cols: [26, 148, 270, 392, 514, 636],
-  row1MonthY: fromTop(298, 11),
-  row1PayY: fromTop(314, 11),
-  row2MonthY: fromTop(330, 11),
-  row2PayY: fromTop(346, 11),
-  cellW: 118,
+  cols: [400, 463, 526, 589, 652, 715],
+  row1MonthY: 292,
+  row1PayY: 276,
+  row2MonthY: 246,
+  row2PayY: 230,
+  cellW: 63,
 };
 
 const FIELDS = {
-  service_address: { x: 26, y: fromTop(182, 38), w: 246, h: 38, size: 8, lineH: 11 },
-  customer_information: { x: 280, y: fromTop(182, 38), w: 246, h: 38, size: 8, lineH: 11 },
-  billing_info: { x: 536, y: fromTop(548, 52), w: 240, h: 52, size: 8, lineH: 11 },
-  initial_quote: { x: 42, y: fromTop(494, 12), w: 130, h: 12, size: 8 },
-  initial_discount: { x: 42, y: fromTop(508, 12), w: 130, h: 12, size: 8 },
-  initial_subtotal: { x: 42, y: fromTop(522, 12), w: 130, h: 12, size: 8 },
-  initial_tax: { x: 42, y: fromTop(536, 12), w: 130, h: 12, size: 8 },
-  initial_total: { x: 42, y: fromTop(550, 12), w: 130, h: 12, size: 8 },
-  recurring_charge: { x: 308, y: fromTop(494, 12), w: 130, h: 12, size: 8 },
-  recurring_tax: { x: 308, y: fromTop(508, 12), w: 130, h: 12, size: 8 },
-  recurring_total: { x: 308, y: fromTop(522, 12), w: 130, h: 12, size: 8 },
-  payment_recurring_authorized: { x: 308, y: fromTop(536, 12), w: 130, h: 12, size: 8 },
-  billing_recurring_authorized: { x: 580, y: fromTop(550, 12), w: 180, h: 12, size: 8 },
-  card_last_four: { x: 580, y: fromTop(536, 12), w: 180, h: 12, size: 8 },
+  service_address: { x: 22, y: 506, w: 248, h: 36, size: 8, lineH: 11 },
+  customer_information: { x: 278, y: 506, w: 248, h: 36, size: 8, lineH: 11 },
+  billing_info: { x: 534, y: 250, w: 248, h: 48, size: 8, lineH: 11 },
+  initial_quote: { x: 155, y: 248, w: 100, h: 12, size: 8 },
+  initial_discount: { x: 155, y: 234, w: 100, h: 12, size: 8 },
+  initial_subtotal: { x: 155, y: 220, w: 100, h: 12, size: 8 },
+  initial_tax: { x: 155, y: 206, w: 100, h: 12, size: 8 },
+  initial_total: { x: 155, y: 192, w: 100, h: 12, size: 8 },
+  recurring_charge: { x: 390, y: 248, w: 100, h: 12, size: 8 },
+  recurring_tax: { x: 390, y: 234, w: 100, h: 12, size: 8 },
+  recurring_total: { x: 390, y: 220, w: 100, h: 12, size: 8 },
+  payment_recurring_authorized: { x: 390, y: 206, w: 100, h: 12, size: 8 },
+  billing_recurring_authorized: { x: 620, y: 228, w: 150, h: 12, size: 8 },
+  card_last_four: { x: 620, y: 210, w: 150, h: 12, size: 8 },
 };
 
 function parseMoney(value) {
@@ -74,22 +46,6 @@ function parseMoney(value) {
 
 function eraseRect(page, { x, y, w, h }) {
   page.drawRectangle({ x, y, width: w, height: h, color: WHITE, borderWidth: 0 });
-}
-
-function wipeTemplateSampleData(page) {
-  for (const region of WIPE_REGIONS) {
-    eraseRect(page, region);
-  }
-}
-
-function drawTitleFix(page, fontBold) {
-  page.drawText('Agreement', {
-    x: 324,
-    y: fromTop(586, 14),
-    size: 13,
-    font: fontBold,
-    color: TEXT,
-  });
 }
 
 function drawRightAligned(page, text, { x, y, w, h, size, font }) {
@@ -233,21 +189,17 @@ export async function buildBedBugAgreementPdf({
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  wipeTemplateSampleData(page);
-  drawTitleFix(page, fontBold);
-
   const initVal = parseMoney(pricing.initial);
   const discVal = parseMoney(pricing.discounted);
   const recurVal = parseMoney(pricing.recurring);
   const subtotal = Math.max(0, initVal - discVal);
 
-  const serviceLines = [address.street, address.cityState].filter(Boolean);
+  const addrParts = [lead.name, address.street, address.cityState].filter(Boolean);
   const contactLines = [lead.name, lead.phone, lead.email].filter(Boolean);
-  const billingLines = [lead.name, address.street, address.cityState].filter(Boolean);
 
-  drawMultiline(page, serviceLines, { ...FIELDS.service_address, font });
+  drawMultiline(page, addrParts, { ...FIELDS.service_address, font });
   drawMultiline(page, contactLines, { ...FIELDS.customer_information, font });
-  drawMultiline(page, billingLines, { ...FIELDS.billing_info, font });
+  drawMultiline(page, addrParts, { ...FIELDS.billing_info, font });
 
   const filled = {};
   const fill = (name, value) => { filled[name] = value; };
@@ -310,7 +262,4 @@ export async function buildBedBugAgreementPdf({
   };
 }
 
-export const BED_BUG_PAGE_SIZE = { width: PAGE_W, height: PAGE_H };
-
-/** @internal test helper — expose field map for position assertions */
-export const BED_BUG_FIELD_LAYOUT = { FIELDS, CALENDAR, WIPE_REGIONS, fromTop };
+export const BED_BUG_PAGE_SIZE = { width: 792, height: 612 };
