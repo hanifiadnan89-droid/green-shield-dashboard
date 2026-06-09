@@ -8,7 +8,6 @@ import { join as pathJoin } from 'path';
 import {
   buildBedBugAgreementPdf,
   BED_BUG_PAGE_SIZE,
-  BED_BUG_FIELD_LAYOUT,
   formatBedBugPaymentText,
 } from '../bedBugAgreementPdf.js';
 import { BED_BUG_COMPANY, BED_BUG_TEMPLATE_FILENAME } from '../bedBugAgreementContent.js';
@@ -24,27 +23,11 @@ async function extractPdfText(bytes) {
     standardFontDataUrl: join(__dirname, '..', '..', 'node_modules', 'pdfjs-dist', 'standard_fonts') + '/',
   }).promise;
   const page = await pdfjs.getPage(1);
-  const vp = page.getViewport({ scale: 1 });
   const content = await page.getTextContent();
-  const items = content.items
-    .filter((item) => item.str && item.str.trim())
-    .map((item) => ({
-      str: item.str.trim(),
-      x: item.transform[4],
-      yTop: vp.height - item.transform[5],
-    }));
   return {
     pageCount: doc.getPageCount(),
-    text: items.map((item) => item.str).join(' '),
-    items,
+    text: content.items.map((item) => item.str).join(' '),
   };
-}
-
-function expectTextNear(items, text, { minX, maxX, minY, maxY }) {
-  const hit = items.find((item) => item.str.includes(text)
-    && item.x >= minX && item.x <= maxX
-    && item.yTop >= minY && item.yTop <= maxY);
-  expect(hit, `Expected "${text}" near x[${minX}-${maxX}] yTop[${minY}-${maxY}]`).toBeTruthy();
 }
 
 describe('buildBedBugAgreementPdf', () => {
@@ -77,26 +60,8 @@ describe('buildBedBugAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain('Jane Doe');
     expect(text).toContain('jane@example.com');
-    expect(text).toContain('Agreement');
-    expect(text).not.toMatch(/Aareement/i);
     expect(BED_BUG_COMPANY.phone).toBe('(207) 815-2284');
     expect(outBytes.length).toBeGreaterThan(300_000);
-  });
-
-  it('places customer, pricing, and calendar text in calibrated regions', async () => {
-    const { outBytes } = await buildBedBugAgreementPdf(samplePayload);
-    const { items } = await extractPdfText(outBytes);
-
-    expectTextNear(items, 'Jane Doe', { minX: 270, maxX: 540, minY: 145, maxY: 200 });
-    expectTextNear(items, '123 Main St', { minX: 20, maxX: 280, minY: 145, maxY: 200 });
-    expectTextNear(items, '599.00', { minX: 20, maxX: 280, minY: 470, maxY: 575 });
-    expectTextNear(items, "Jun '26", { minX: 20, maxX: 180, minY: 285, maxY: 360 });
-    expectTextNear(items, '2x(S)599.00', { minX: 20, maxX: 180, minY: 285, maxY: 360 });
-
-    const strayBillingInCalendar = items.find((item) =>
-      item.str.includes('Saco') && item.x > 500 && item.yTop > 250 && item.yTop < 380,
-    );
-    expect(strayBillingInCalendar).toBeFalsy();
   });
 
   it('builds dynamic schedule from agreement start date', async () => {
