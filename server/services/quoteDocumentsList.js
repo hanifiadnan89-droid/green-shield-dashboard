@@ -1,7 +1,11 @@
 import { readdir, stat } from 'fs';
 import { join } from 'path';
 import { promisify } from 'util';
-import { BED_BUG_TEMPLATE_FILENAME } from './bedBugAgreementContent.js';
+import {
+  BED_BUG_EMAIL_DISABLED,
+  BED_BUG_EMAIL_DISABLED_MESSAGE,
+  BED_BUG_TEMPLATE_FILENAME,
+} from './bedBugAgreementContent.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync = promisify(stat);
@@ -62,14 +66,19 @@ export async function listQuoteDocuments(dir) {
           });
         }
       } else {
-        results.push({
+        const entry = {
           key:      String(idx),
           index:    idx,
           name,
           type:     extension === '.pdf' ? 'pdf' : 'image',
           size:     info.size,
           modified: info.mtime,
-        });
+        };
+        if (name === BED_BUG_TEMPLATE_FILENAME && BED_BUG_EMAIL_DISABLED) {
+          entry.emailDisabled = true;
+          entry.emailDisabledMessage = BED_BUG_EMAIL_DISABLED_MESSAGE;
+        }
+        results.push(entry);
       }
     }
     return results;
@@ -77,6 +86,13 @@ export async function listQuoteDocuments(dir) {
     if (err.code === 'ENOENT') return null;
     throw err;
   }
+}
+
+export async function resolveQuoteTemplateFilename(dir, index) {
+  const listed = await listQuoteDocuments(dir);
+  if (!listed) return null;
+  const match = listed.find((doc) => doc.index === Number(index));
+  return match?.name ?? null;
 }
 
 export { BED_BUG_TEMPLATE_FILENAME };

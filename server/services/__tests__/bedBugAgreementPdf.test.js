@@ -8,11 +8,16 @@ import { join as pathJoin } from 'path';
 import {
   buildBedBugAgreementPdf,
   BED_BUG_PAGE_SIZE,
-  BED_BUG_FIELD_LAYOUT,
   formatBedBugPaymentText,
 } from '../bedBugAgreementPdf.js';
-import { BED_BUG_COMPANY, BED_BUG_TEMPLATE_FILENAME } from '../bedBugAgreementContent.js';
+import {
+  BED_BUG_COMPANY,
+  BED_BUG_EMAIL_DISABLED,
+  BED_BUG_EMAIL_DISABLED_MESSAGE,
+  BED_BUG_TEMPLATE_FILENAME,
+} from '../bedBugAgreementContent.js';
 import { listQuoteDocuments } from '../quoteDocumentsList.js';
+import { readFileSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const QUOTES_DIR = pathJoin(__dirname, '..', '..', '..', 'assets', 'quotes');
@@ -64,10 +69,18 @@ describe('buildBedBugAgreementPdf', () => {
     expect(pageCount).toBe(1);
   });
 
-  it('uses professional template dimensions', async () => {
-    const { outBytes } = await buildBedBugAgreementPdf(samplePayload);
+  it('uses stable professional template dimensions from pdf-lib', async () => {
+    const templateBytes = readFileSync(join(QUOTES_DIR, BED_BUG_TEMPLATE_FILENAME));
+    const templateDoc = await PDFDocument.load(templateBytes);
+    const templateSize = templateDoc.getPage(0).getSize();
+
+    const { outBytes, pageSize } = await buildBedBugAgreementPdf(samplePayload);
     const doc = await PDFDocument.load(outBytes);
     const size = doc.getPage(0).getSize();
+
+    expect(templateSize.width).toBe(BED_BUG_PAGE_SIZE.width);
+    expect(templateSize.height).toBe(BED_BUG_PAGE_SIZE.height);
+    expect(pageSize).toEqual(templateSize);
     expect(size.width).toBe(BED_BUG_PAGE_SIZE.width);
     expect(size.height).toBe(BED_BUG_PAGE_SIZE.height);
   });
@@ -77,7 +90,6 @@ describe('buildBedBugAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain('Jane Doe');
     expect(text).toContain('jane@example.com');
-    expect(text).toContain('Agreement');
     expect(text).not.toMatch(/Aareement/i);
     expect(BED_BUG_COMPANY.phone).toBe('(207) 815-2284');
     expect(outBytes.length).toBeGreaterThan(300_000);
@@ -137,6 +149,52 @@ describe('buildBedBugAgreementPdf', () => {
     expect(schedule.scheduleMonths[0].label).not.toBe("May '26");
     expect(schedule.scheduleMonths[11].label).not.toBe("Apr '27");
   });
+
+  it('does not import applyAgreementScheduleToPdf (manual overlay path only)', async () => {
+    const source = readFileSync(join(__dirname, '..', 'bedBugAgreementPdf.js'), 'utf8');
+    expect(source).not.toContain('applyAgreementScheduleToPdf');
+    expect(source).toContain('generateAgreementSchedule');
+  });
+
+  it('passes Adnan emergency payload with correct regions', async () => {
+    const adnanPayload = {
+      lead: {
+        name: 'Adnan',
+        phone: '2078897999',
+        email: 'hanifi.adnan89@gmail.com',
+      },
+      pricing: { initial: '799', discounted: '150', recurring: '65' },
+      startDate: '2026-06-15',
+      address: { street: '11 Eastview Pkwy', cityState: 'Saco, ME 04072' },
+    };
+
+    const { outBytes, schedule } = await buildBedBugAgreementPdf(adnanPayload);
+    const { items, pageCount, text } = await extractPdfText(outBytes);
+
+    expect(pageCount).toBe(1);
+    expect(schedule.scheduleMonths[0].label).toBe("Jun '26");
+    expect(schedule.scheduleMonths[11].label).toBe("May '27");
+    expect(text).toContain('649.00');
+    expect(text).toContain('2078897999');
+    expect(text).toContain('hanifi.adnan89@gmail.com');
+    expect(text).not.toMatch(/Aareement/i);
+
+    const strayAgreementFooter = items.find((item) =>
+      item.str === 'Agreement' && item.yTop > 550,
+    );
+    expect(strayAgreementFooter).toBeFalsy();
+
+    expectTextNear(items, 'Adnan', { minX: 270, maxX: 540, minY: 145, maxY: 225 });
+    expectTextNear(items, '2078897999', { minX: 270, maxX: 540, minY: 145, maxY: 225 });
+    expectTextNear(items, 'hanifi.adnan89@gmail.com', { minX: 270, maxX: 540, minY: 145, maxY: 225 });
+    expectTextNear(items, '649.00', { minX: 20, maxX: 280, minY: 470, maxY: 575 });
+    expectTextNear(items, "Jun '26", { minX: 20, maxX: 180, minY: 285, maxY: 360 });
+
+    const adnanInHeader = items.find((item) =>
+      item.str.includes('Adnan') && item.yTop < 120,
+    );
+    expect(adnanInHeader).toBeFalsy();
+  });
 });
 
 describe('quote documents list', () => {
@@ -154,5 +212,13 @@ describe('quote documents list', () => {
   it('does not list Bed Bug Agreement.pdf', async () => {
     const listed = await listQuoteDocuments(QUOTES_DIR);
     expect(listed.some((f) => f.name === 'Bed Bug Agreement.pdf')).toBe(false);
+  });
+
+  it('marks Bed Bug template email as disabled until layout QA', async () => {
+    expect(BED_BUG_EMAIL_DISABLED).toBe(true);
+    const listed = await listQuoteDocuments(QUOTES_DIR);
+    const bedBug = listed.find((f) => f.name === BED_BUG_TEMPLATE_FILENAME);
+    expect(bedBug?.emailDisabled).toBe(true);
+    expect(bedBug?.emailDisabledMessage).toBe(BED_BUG_EMAIL_DISABLED_MESSAGE);
   });
 });

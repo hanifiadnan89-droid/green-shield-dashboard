@@ -8,7 +8,15 @@ import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 import { applyAgreementScheduleToPdf } from '../services/applyAgreementScheduleToPdf.js';
 import { buildBedBugAgreementPdf } from '../services/bedBugAgreementPdf.js';
-import { BED_BUG_TEMPLATE_FILENAME, listQuoteDocuments } from '../services/quoteDocumentsList.js';
+import {
+  BED_BUG_EMAIL_DISABLED,
+  BED_BUG_EMAIL_DISABLED_MESSAGE,
+} from '../services/bedBugAgreementContent.js';
+import {
+  BED_BUG_TEMPLATE_FILENAME,
+  listQuoteDocuments,
+  resolveQuoteTemplateFilename,
+} from '../services/quoteDocumentsList.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
@@ -435,7 +443,7 @@ async function buildQuotePdf({
     } catch {}
   }
 
-  // Safe field writer (used for Bed Bug.pdf; for Service Agreements the saPos path handles rendering)
+  // Safe field writer (Service Agreements only — Bed Bug uses buildBedBugAgreementPdf)
   function fill(name, value) {
     if (value === null || value === undefined) return;
     try {
@@ -496,7 +504,7 @@ async function buildQuotePdf({
   // ── Embed font ──
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  // ── For Bed Bug.pdf: regenerate appearances; for Service Agreements skip (broken template) ──
+  // ── Regenerate AcroForm appearances (Service Agreements skip — broken template) ──
   if (filename !== SERVICE_AGREEMENTS_FILE) {
     form.updateFieldAppearances(helvetica);
   }
@@ -664,6 +672,11 @@ router.post('/email-quote', async (req, res) => {
 
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
     if (!lead.email) return res.status(400).json({ error: 'lead email is required to send' });
+
+    const templateName = await resolveQuoteTemplateFilename(QUOTES_DIR, index);
+    if (templateName === BED_BUG_TEMPLATE && BED_BUG_EMAIL_DISABLED) {
+      return res.status(503).json({ error: BED_BUG_EMAIL_DISABLED_MESSAGE });
+    }
 
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
       return res.status(500).json({ error: 'Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD missing from server/.env)' });
