@@ -74,7 +74,7 @@ export function useLeadsUnreadState(leads) {
         });
         return null;
       }
-      const result = await api.messages.markRead(lead.row_number, key);
+      const result = await api.messages.markReadAll(lead.row_number);
       setUnreadRows(prev => {
         const next = new Set(prev);
         next.delete(lead.row_number);

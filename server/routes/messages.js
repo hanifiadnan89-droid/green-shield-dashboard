@@ -6,6 +6,7 @@ import {
   mergeLocalOutboundHistory,
   getConversationPreview,
   markThreadRead,
+  markAllInboundRead,
   getLatestInboundReadKey,
   countUnreadForLeads,
   getThreadMeta,
@@ -54,6 +55,25 @@ router.post('/migrate-local', (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[messages] migrate-local error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:rowNumber/read-all', async (req, res) => {
+  try {
+    const rowNumber = parseInt(req.params.rowNumber, 10);
+    if (!rowNumber) return res.status(400).json({ error: 'Invalid row number' });
+    const readState = await markAllInboundRead(rowNumber);
+    const messages = getMessagesForLead(rowNumber);
+    res.json({
+      ...readState,
+      meta: {
+        ...getConversationPreview(messages),
+        ...readState,
+      },
+    });
+  } catch (err) {
+    console.error('[messages] read-all error:', err);
     res.status(500).json({ error: err.message });
   }
 });

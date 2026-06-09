@@ -80,6 +80,22 @@ describe('conversationMessages', () => {
     expect(mod.getThreadMeta(101, lead).unread).toBe(false);
   });
 
+  it('markAllInboundRead stores every inbound key and clears unread', async () => {
+    const lead = { row_number: 88, name: 'Alex', sent: '2024-06-01T10:00:00.000Z', notes: 'na' };
+    mod.syncLeadMessages({ ...lead, sms_reply: 'First' });
+    mod.syncLeadMessages({ ...lead, sms_reply: 'Second' });
+    const before = mod.getMessagesForLead(88).filter(m => m.direction === 'inbound');
+    expect(before.length).toBeGreaterThanOrEqual(2);
+
+    const readState = await mod.markAllInboundRead(88);
+    expect(readState.unread).toBe(false);
+    expect(readState.readInboundKeys.length).toBeGreaterThanOrEqual(2);
+    expect(mod.getThreadMeta(88).unread).toBe(false);
+
+    mod.syncLeadMessages({ ...lead, sms_reply: 'Second' });
+    expect(mod.getThreadMeta(88).unread).toBe(false);
+  });
+
   it('marks unread when new inbound arrives after read', async () => {
     const lead = { row_number: 100, name: 'Sam', sent: '2024-06-01T10:00:00.000Z', notes: 'na' };
     mod.syncLeadMessages({ ...lead, sms_reply: 'First' });

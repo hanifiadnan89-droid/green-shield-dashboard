@@ -27,4 +27,12 @@ describe('isInboundNewerThanRead', () => {
   it('returns false when there is no inbound', () => {
     expect(isInboundNewerThanRead([], {}, {}, 1)).toBe(false);
   });
+
+  it('returns false when latest inbound key is in readInboundKeys', () => {
+    const messages = [
+      { direction: 'inbound', body: 'Hi', ts: '2026-06-01T12:00:00.000Z', channel: 'sms' },
+    ];
+    const latestKey = 'sms|2026-06-01T12:00:00.000Z|Hi';
+    expect(isInboundNewerThanRead(messages, { readInboundKeys: [latestKey] }, {}, 1)).toBe(false);
+  });
 });

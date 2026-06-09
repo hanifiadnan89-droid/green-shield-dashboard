@@ -2,9 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { api } from '../../api/client.js';
 import { getLatestInbound, inboundReadKey } from './threadUtils.js';
 import { isInboundNewerThanRead } from './readState.js';
+import { recordLegacyViewedKey } from './legacyViewedKeys.js';
 
 /**
- * Server-backed read state: lastReadAt vs lastInboundAt (persisted in sheet + server store).
+ * Server-backed read state: lastReadAt + readInboundKeys (persisted in server store + sheet).
  */
 export function useUnreadReplies() {
   const [readByRow, setReadByRow] = useState({});
@@ -23,10 +24,12 @@ export function useUnreadReplies() {
         const entry = {
           lastReadAt: m.lastReadAt ?? prev[row]?.lastReadAt ?? null,
           lastReadInboundKey: m.lastReadInboundKey ?? prev[row]?.lastReadInboundKey ?? null,
+          readInboundKeys: m.readInboundKeys ?? prev[row]?.readInboundKeys ?? [],
         };
         if (
           entry.lastReadAt !== prev[row]?.lastReadAt
           || entry.lastReadInboundKey !== prev[row]?.lastReadInboundKey
+          || JSON.stringify(entry.readInboundKeys) !== JSON.stringify(prev[row]?.readInboundKeys || [])
         ) {
           next[row] = entry;
           changed = true;
@@ -38,13 +41,14 @@ export function useUnreadReplies() {
 
   const isUnread = useCallback((lead, messages, metaForRow) => {
     const row = lead.row_number;
-    const readAtMap = Object.fromEntries(
-      Object.entries(readByRowRef.current).map(([k, v]) => [k, v?.lastReadAt ?? v?.lastReadInboundKey ?? v]),
-    );
-    return isInboundNewerThanRead(messages, metaForRow, readAtMap, row);
+    return isInboundNewerThanRead(messages, metaForRow, readByRowRef.current, row);
   }, []);
 
   const markRead = useCallback(async (lead, messages) => {
+    const inboundMessages = (messages || []).filter(m => m.direction === 'inbound');
+    const inboundKeys = inboundMessages
+      .map(inboundReadKey)
+      .filter(Boolean);
     const latestInbound = getLatestInbound(messages);
     const latestKey = inboundReadKey(latestInbound);
     if (!latestKey) return null;
@@ -52,8 +56,14 @@ export function useUnreadReplies() {
     const row = lead.row_number;
     const alreadyRead = !isInboundNewerThanRead(
       messages,
-      { lastInboundAt: latestInbound?.ts, lastReadAt: readByRowRef.current[row]?.lastReadAt },
-      { [row]: readByRowRef.current[row]?.lastReadAt },
+      {
+        lastInboundAt: latestInbound?.ts,
+        lastReadAt: readByRowRef.current[row]?.lastReadAt,
+        lastReadInboundKey: readByRowRef.current[row]?.lastReadInboundKey,
+        readInboundKeys: readByRowRef.current[row]?.readInboundKeys,
+        unread: false,
+      },
+      readByRowRef.current,
       row,
     );
 
@@ -67,14 +77,20 @@ export function useUnreadReplies() {
       return {
         lastReadInboundKey: latestKey,
         lastReadAt: readByRowRef.current[row]?.lastReadAt ?? latestInbound?.ts,
+        readInboundKeys: readByRowRef.current[row]?.readInboundKeys ?? inboundKeys,
         unread: false,
       };
     }
 
     const optimisticReadAt = latestInbound?.ts || new Date().toISOString();
+    const previousRead = readByRowRef.current[row];
     setReadByRow(prev => ({
       ...prev,
-      [row]: { lastReadAt: optimisticReadAt, lastReadInboundKey: latestKey },
+      [row]: {
+        lastReadAt: optimisticReadAt,
+        lastReadInboundKey: latestKey,
+        readInboundKeys: [...new Set([...(prev[row]?.readInboundKeys || []), ...inboundKeys])],
+      },
     }));
     setPulseRows(prev => {
       if (!prev.has(row)) return prev;
@@ -84,19 +100,27 @@ export function useUnreadReplies() {
     });
 
     try {
-      const result = await api.messages.markRead(row, latestKey);
+      const result = await api.messages.markReadAll(row);
       if (result?.lastReadAt || result?.lastReadInboundKey) {
         setReadByRow(prev => ({
           ...prev,
           [row]: {
             lastReadAt: result.lastReadAt ?? prev[row]?.lastReadAt,
             lastReadInboundKey: result.lastReadInboundKey ?? latestKey,
+            readInboundKeys: result.readInboundKeys ?? prev[row]?.readInboundKeys ?? inboundKeys,
           },
         }));
+        for (const key of result.readInboundKeys || inboundKeys) {
+          recordLegacyViewedKey(row, key);
+        }
       }
       return result;
     } catch (err) {
       console.warn('[Replies] markRead failed:', err.message);
+      setReadByRow(prev => ({
+        ...prev,
+        [row]: previousRead || {},
+      }));
       return null;
     }
   }, []);
@@ -109,7 +133,7 @@ export function useUnreadReplies() {
     if (prevLatest && inboundReadKey(prevLatest) === inboundReadKey(latest)) return false;
 
     const row = lead.row_number;
-    if (!isInboundNewerThanRead(messages, null, { [row]: readByRowRef.current[row]?.lastReadAt }, row)) {
+    if (!isInboundNewerThanRead(messages, null, readByRowRef.current, row)) {
       return false;
     }
 

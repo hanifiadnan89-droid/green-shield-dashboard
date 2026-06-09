@@ -2,9 +2,11 @@ import { useCallback, useRef, useState } from 'react';
 import { api } from '../../api/client.js';
 import { HISTORY_KEY } from './constants.js';
 import { loadLegacyViewedKeys } from './legacyViewedKeys.js';
+import { mergeMessageLists } from './mergeMessages.js';
 
 /**
  * Server-backed message threads with one-time localStorage migration.
+ * Threads are merged on sync — never replaced with a partial subset.
  */
 export function useConversationThreads() {
   const [threads, setThreads] = useState({});
@@ -13,8 +15,10 @@ export function useConversationThreads() {
   const [syncing, setSyncing] = useState(false);
   const migratedRef = useRef(false);
   const threadsRef = useRef(threads);
+  const metaRef = useRef(meta);
 
   threadsRef.current = threads;
+  metaRef.current = meta;
 
   const migrateLocalOnce = useCallback(async () => {
     if (migratedRef.current) return;
@@ -30,11 +34,33 @@ export function useConversationThreads() {
     }
   }, []);
 
-  const syncLeads = useCallback(async (leads) => {
+  const applyThreadPayload = useCallback((rowNumber, messages, threadMeta) => {
+    const key = Number(rowNumber);
+    if (!key) return [];
+
+    const existing = threadsRef.current[key] || [];
+    const merged = mergeMessageLists(existing, messages || []);
+    const nextMessages = (merged.length === 0 && existing.length > 0) ? existing : merged;
+
+    setThreads(prev => ({ ...prev, [key]: nextMessages }));
+
+    if (threadMeta && typeof threadMeta === 'object') {
+      setMeta(prev => ({
+        ...prev,
+        [key]: { ...(prev[key] || {}), ...threadMeta },
+      }));
+    }
+
+    return nextMessages;
+  }, []);
+
+  const syncLeads = useCallback(async (leads, { replace = false } = {}) => {
     if (!leads?.length) {
-      setThreads({});
-      setMeta({});
-      return {};
+      if (replace) {
+        setThreads({});
+        setMeta({});
+      }
+      return threadsRef.current;
     }
     setSyncing(true);
     setSyncError(null);
@@ -42,8 +68,23 @@ export function useConversationThreads() {
       await migrateLocalOnce();
       const legacyViewedKeys = loadLegacyViewedKeys();
       const { threads: synced, meta: syncedMeta } = await api.messages.sync(leads, legacyViewedKeys);
-      setThreads(synced || {});
-      setMeta(syncedMeta || {});
+
+      setThreads(prev => {
+        if (replace) return synced || {};
+        const next = { ...prev };
+        for (const [rowKey, messages] of Object.entries(synced || {})) {
+          const row = Number(rowKey);
+          const existing = prev[row] || [];
+          const merged = mergeMessageLists(existing, messages || []);
+          if (merged.length > 0 || existing.length === 0) {
+            next[row] = merged;
+          }
+        }
+        return next;
+      });
+
+      setMeta(prev => (replace ? (syncedMeta || {}) : { ...prev, ...(syncedMeta || {}) }));
+
       if (!synced || typeof synced !== 'object') {
         console.warn('[Replies] Unexpected sync response shape');
       }
@@ -57,15 +98,28 @@ export function useConversationThreads() {
     }
   }, [migrateLocalOnce]);
 
+  const loadThread = useCallback(async (rowNumber) => {
+    const row = Number(rowNumber);
+    if (!row) return [];
+    try {
+      const { messages, meta: threadMeta } = await api.messages.list(row);
+      return applyThreadPayload(row, messages, threadMeta);
+    } catch (err) {
+      console.warn(`[Replies] loadThread(${row}) failed:`, err.message);
+      return threadsRef.current[row] || [];
+    }
+  }, [applyThreadPayload]);
+
   const appendOptimistic = useCallback((rowNumber, message) => {
     setThreads(prev => {
       const existing = prev[rowNumber] || [];
-      const next = [...existing, message];
+      const next = mergeMessageLists(existing, [message]);
       return { ...prev, [rowNumber]: next };
     });
     setMeta(prev => ({
       ...prev,
       [rowNumber]: {
+        ...(prev[rowNumber] || {}),
         preview: message.body?.length > 120 ? `${message.body.slice(0, 120)}…` : message.body,
         lastAt: message.ts,
         lastMessage: message,
@@ -88,6 +142,7 @@ export function useConversationThreads() {
     syncError,
     syncing,
     syncLeads,
+    loadThread,
     appendOptimistic,
     getMessages,
     patchMeta,

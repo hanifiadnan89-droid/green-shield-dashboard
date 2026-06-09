@@ -44,6 +44,7 @@ export default function Replies() {
     syncError,
     syncing,
     syncLeads,
+    loadThread,
     appendOptimistic,
     getMessages,
     patchMeta,
@@ -141,6 +142,12 @@ export default function Replies() {
   useEffect(() => { loadLeads(); }, [loadLeads]);
 
   useEffect(() => {
+    if (!loading && selectedRowNumber) {
+      void loadThread(selectedRowNumber);
+    }
+  }, [loading, selectedRowNumber, loadThread]);
+
+  useEffect(() => {
     applyMetaReadState(meta);
   }, [meta, applyMetaReadState]);
 
@@ -159,6 +166,7 @@ export default function Replies() {
         lastReadInboundKey: result.lastReadInboundKey,
         lastReadAt: result.lastReadAt,
         lastInboundAt: result.lastInboundAt,
+        readInboundKeys: result.readInboundKeys,
         unread: false,
       });
     }
@@ -177,9 +185,12 @@ export default function Replies() {
 
   const selectLead = useCallback((rowNumber) => {
     selectLeadBase(rowNumber);
-    const lead = leads.find(l => l.row_number === rowNumber);
-    if (lead) void markReadWithMeta(lead, getMessages(rowNumber));
-  }, [selectLeadBase, leads, getMessages, markReadWithMeta]);
+    void (async () => {
+      const messages = await loadThread(rowNumber);
+      const lead = leads.find(l => l.row_number === rowNumber);
+      if (lead) void markReadWithMeta(lead, messages);
+    })();
+  }, [selectLeadBase, leads, loadThread, markReadWithMeta]);
 
   const deepLinkRowRef = useRef(
     location.state?.selectRowNumber
@@ -229,7 +240,7 @@ export default function Replies() {
         message: '', sending: false, sent: true, error: null, sentAt: new Date(),
       });
       showToast(`SMS sent to ${lead.name}`);
-      await syncLeads([lead]);
+      await loadThread(lead.row_number);
     } catch (err) {
       updateCard(lead.row_number, { sending: false, error: err.message });
     }

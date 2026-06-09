@@ -6,33 +6,49 @@ export function parseTimeMs(value) {
   return Number.isNaN(t) ? null : t;
 }
 
+function getReadStateForRow(readStateByRow, rowNumber) {
+  const entry = readStateByRow?.[rowNumber];
+  if (!entry || typeof entry !== 'object') {
+    return { lastReadAt: null, lastReadInboundKey: null, readInboundKeys: [] };
+  }
+  return {
+    lastReadAt: entry.lastReadAt ?? null,
+    lastReadInboundKey: entry.lastReadInboundKey ?? null,
+    readInboundKeys: Array.isArray(entry.readInboundKeys) ? entry.readInboundKeys : [],
+  };
+}
+
 /**
  * Shared unread rule for Replies + Leads:
  * unread when last inbound is newer than last read (timestamp or inbound key fallback).
- *
- * @param {Array} messages - server thread messages
- * @param {object} [metaForRow] - sync meta (lastInboundAt, lastReadAt, lastReadInboundKey)
- * @param {Record<string, string>} [readAtByRow] - row -> lastReadAt ISO string
- * @param {number} rowNumber
  */
-export function isInboundNewerThanRead(messages, metaForRow, readAtByRow, rowNumber) {
+export function isInboundNewerThanRead(messages, metaForRow, readStateByRow, rowNumber) {
   const inboundAt = metaForRow?.lastInboundAt || getLatestInbound(messages)?.ts;
   if (!inboundAt) return false;
 
-  const inboundMs = parseTimeMs(inboundAt);
-  const readAt = metaForRow?.lastReadAt ?? readAtByRow?.[rowNumber];
-  const readMs = parseTimeMs(readAt);
+  const latestInbound = getLatestInbound(messages);
+  const latestKey = inboundReadKey(latestInbound);
+  if (!latestKey) return false;
 
   if (metaForRow?.unread === false) return false;
+
+  const localRead = getReadStateForRow(readStateByRow, rowNumber);
+  const readInboundKeys = [
+    ...(metaForRow?.readInboundKeys || []),
+    ...localRead.readInboundKeys,
+  ];
+  if (readInboundKeys.includes(latestKey)) return false;
+
+  const readAt = metaForRow?.lastReadAt ?? localRead.lastReadAt;
+  const readKey = metaForRow?.lastReadInboundKey ?? localRead.lastReadInboundKey;
+
+  const inboundMs = parseTimeMs(inboundAt);
+  const readMs = parseTimeMs(readAt);
 
   if (readMs != null && inboundMs != null) {
     return inboundMs > readMs;
   }
 
-  const latestInbound = getLatestInbound(messages);
-  const latestKey = inboundReadKey(latestInbound);
-  if (!latestKey) return false;
-  const readKey = metaForRow?.lastReadInboundKey ?? readAtByRow?.[rowNumber];
   if (!readKey) return true;
   return readKey !== latestKey;
 }
