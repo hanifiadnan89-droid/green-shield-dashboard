@@ -25,17 +25,15 @@ const FIELD_GROUPS = [
       ['initialQuote', 'Initial quote', 'money'],
       ['initialDiscount', 'Discount', 'money'],
       ['recurringCharge', 'Recurring charge', 'money'],
-      ['recurringPaymentAuthorized', 'Recurring payment authorized', 'money'],
     ],
   },
   {
     title: 'Billing & signature',
     fields: [
-      ['billingInfo', 'Billing info'],
-      ['cardLastFour', 'Card last four'],
+      ['billingInfo', 'Billing info', 'full'],
       ['agreementDate', 'Agreement date', 'date'],
       ['customerInitials', 'Customer initials'],
-      ['customerSignatureName', 'Customer signature name'],
+      ['customerSignatureName', 'Customer signature'],
     ],
   },
 ];
