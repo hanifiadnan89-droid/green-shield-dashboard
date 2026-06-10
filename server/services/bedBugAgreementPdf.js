@@ -43,8 +43,12 @@ const FIELD_SPACING = 8;
 
 /** Reference spacing from signature/date fields (label → value gap ≈ 10). */
 const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
-/** Same label/value gap as Customer Information; tighter block spacing for four fields. */
-const SPACING_ADDRESS = { gap: 10, fieldSpacing: 2, valueSize: 7 };
+
+/** Pest section label tag pill styling. */
+const LABEL_TAG_SIZE = 6.5;
+const LABEL_TAG_PAD_H = 5;
+const LABEL_TAG_HEIGHT = 12;
+const LABEL_TAG_RADIUS = 3;
 
 /** Green Shield section header bar (#148A43). */
 const HEADER_GREEN = rgb(20 / 255, 138 / 255, 67 / 255);
@@ -481,31 +485,30 @@ function drawTwoColumnAddressBlock(page, {
 }
 
 function drawLabelBubble(page, text, { x, y, boldFont, variant = 'gray' }) {
-  const size = 6.5;
+  const size = LABEL_TAG_SIZE;
   const textWidth = boldFont.widthOfTextAtSize(text, size);
-  const padH = 4;
-  const padV = 2;
-  const bubbleW = textWidth + padH * 2;
-  const bubbleH = size + padV * 2;
+  const bubbleW = textWidth + LABEL_TAG_PAD_H * 2;
+  const bubbleH = LABEL_TAG_HEIGHT;
   const styles = {
     red: { fill: TAG_RED_FILL, border: TAG_RED, text: TAG_RED },
     gray: { fill: TAG_GRAY_FILL, border: LOGO_GRAY, text: LOGO_GRAY },
     green: { fill: TITLE_BUBBLE_FILL, border: HEADER_GREEN, text: HEADER_GREEN },
   };
   const style = styles[variant] ?? styles.gray;
-  const bubbleY = y - bubbleH + padV + 0.5;
-  page.drawRectangle({
+  const bubbleBottom = y - bubbleH;
+  drawSvgRoundedRect(page, {
     x,
-    y: bubbleY,
-    width: bubbleW,
-    height: bubbleH,
-    color: style.fill,
-    borderColor: style.border,
-    borderWidth: 0.5,
+    y: bubbleBottom,
+    w: bubbleW,
+    h: bubbleH,
+    radius: LABEL_TAG_RADIUS,
+    fill: style.fill,
+    border: style.border,
+    borderWidth: 0.6,
   });
   page.drawText(text, {
-    x: x + padH,
-    y: y - padV,
+    x: x + LABEL_TAG_PAD_H,
+    y: bubbleBottom + (bubbleH - size) / 2 + 0.5,
     size,
     font: boldFont,
     color: style.text,
@@ -795,22 +798,52 @@ async function drawHeader(pdfDoc, page, fonts) {
   }
 }
 
-function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_ADDRESS }) {
-  drawTwoColumnAddressBlock(page, {
-    x,
+function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+  const colW = (width - 10) / 2;
+  const leftX = x;
+  const rightX = x + colW + 10;
+
+  const row1LeftEnd = drawStackedField(page, {
+    x: leftX,
     y,
-    width,
-    leftFields: [
-      { label: 'Address', value: data.serviceAddress },
-      { label: 'State', value: data.state },
-    ],
-    rightFields: [
-      { label: 'City', value: data.city },
-      { label: 'Zip', value: data.zip },
-    ],
+    label: 'Address',
+    value: data.serviceAddress,
+    width: colW,
     font,
     boldFont,
-    spacing,
+    ...spacing,
+  });
+  const row1RightEnd = drawStackedField(page, {
+    x: rightX,
+    y,
+    label: 'City',
+    value: data.city,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+
+  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 4;
+  drawStackedField(page, {
+    x: leftX,
+    y: row2Y,
+    label: 'State',
+    value: data.state,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+  drawStackedField(page, {
+    x: rightX,
+    y: row2Y,
+    label: 'Zip',
+    value: data.zip,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
   });
 }
 
@@ -883,7 +916,7 @@ function drawTopRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_ADDRESS,
+        spacing: SPACING_SIGNATURE,
       });
     } else if (box.kind === 'customer') {
       drawCustomerGridBlock(page, {
