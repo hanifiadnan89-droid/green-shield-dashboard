@@ -46,6 +46,11 @@ const SPACING_ADDRESS = { gap: 10, fieldSpacing: 2, valueSize: 7 };
 
 /** Green Shield section header bar (#148A43). */
 const HEADER_GREEN = rgb(20 / 255, 138 / 255, 67 / 255);
+/** Logo gray tone (#58595B). Kept for legacy tag helper compatibility. */
+const LOGO_GRAY = rgb(88 / 255, 89 / 255, 91 / 255);
+const TAG_RED = rgb(185 / 255, 28 / 255, 28 / 255);
+const TAG_RED_FILL = rgb(254 / 255, 242 / 255, 242 / 255);
+const TAG_GRAY_FILL = rgb(243 / 255, 244 / 255, 246 / 255);
 const TITLE_BUBBLE_FILL = rgb(240 / 255, 253 / 255, 244 / 255);
 
 /** Rounded bubble panel corner radius. */
@@ -446,11 +451,45 @@ function drawTwoColumnAddressBlock(page, {
   return Math.min(leftEnd, rightEnd);
 }
 
+function drawLabelBubble(page, text, { x, y, boldFont, variant = 'gray' }) {
+  const size = 6.5;
+  const textWidth = boldFont.widthOfTextAtSize(text, size);
+  const padH = 4;
+  const padV = 2;
+  const bubbleW = textWidth + padH * 2;
+  const bubbleH = size + padV * 2;
+  const styles = {
+    red: { fill: TAG_RED_FILL, border: TAG_RED, text: TAG_RED },
+    gray: { fill: TAG_GRAY_FILL, border: LOGO_GRAY, text: LOGO_GRAY },
+    green: { fill: TITLE_BUBBLE_FILL, border: HEADER_GREEN, text: HEADER_GREEN },
+  };
+  const style = styles[variant] ?? styles.gray;
+  const bubbleY = y - bubbleH + padV + 0.5;
+  page.drawRectangle({
+    x,
+    y: bubbleY,
+    width: bubbleW,
+    height: bubbleH,
+    color: style.fill,
+    borderColor: style.border,
+    borderWidth: 0.5,
+  });
+  page.drawText(text, {
+    x: x + padH,
+    y: y - padV,
+    size,
+    font: boldFont,
+    color: style.text,
+  });
+  return bubbleH;
+}
+
 function drawChecklistGroup(page, {
   x,
   y,
   width,
   title,
+  titleVariant = 'gray',
   items,
   itemGap = 8.5,
   font,
@@ -880,6 +919,7 @@ function drawPestsSection(page, data, fonts) {
       y: groupTopY,
       width: group.width,
       title: group.title,
+      titleVariant: group.titleVariant,
       items: group.items,
       itemGap: group.itemGap,
       font: fonts.regular,
