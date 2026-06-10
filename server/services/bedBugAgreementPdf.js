@@ -1,3 +1,6 @@
+import { readFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { generateAgreementSchedule } from './agreementSchedule.js';
 import {
@@ -14,6 +17,8 @@ import {
   BED_BUG_TITLE,
 } from './bedBugAgreementContent.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 const AGREEMENT_TYPE = 'bed_bug_insect_triannual';
 
 /** Landscape letter: 11in × 8.5in */
@@ -24,6 +29,17 @@ const PAGE_H = BED_BUG_PAGE_SIZE.height;
 const MARGIN_X = 18;
 const MARGIN_Y = 12;
 const GAP = 6;
+const SECTION_PAD = 10;
+const HEADER_BAR_H = 14;
+const LABEL_SIZE = 7;
+const VALUE_SIZE = 7.5;
+const LABEL_VALUE_GAP = 8;
+const FIELD_SPACING = 7;
+
+const LOGO_CANDIDATE_PATHS = [
+  join(__dirname, '..', 'assets', 'green-shield-logo.png'),
+  join(__dirname, '..', '..', 'assets', 'logos', 'green-shield-logo.png'),
+];
 
 const COLORS = {
   headerBg: rgb(15 / 255, 42 / 255, 20 / 255),
@@ -200,7 +216,7 @@ function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = CO
   page.drawRectangle({ x, y, width: w, height: h, color: fill, borderColor: border, borderWidth });
 }
 
-function drawSectionHeader(page, text, { x, y, w, h, font }) {
+function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
   page.drawRectangle({ x, y, width: w, height: h, color: COLORS.headerBg, borderWidth: 0 });
   const size = 7.5;
   const textWidth = font.widthOfTextAtSize(text, size);
@@ -213,12 +229,100 @@ function drawSectionHeader(page, text, { x, y, w, h, font }) {
   });
 }
 
-function drawLabelLine(page, label, value, { x, y, w, labelFont, valueFont, labelSize = 6.5, valueSize = 8 }) {
-  page.drawText(label, { x, y: y + 10, size: labelSize, font: labelFont, color: COLORS.muted });
-  drawValue(page, value, { x, y, w, font: valueFont, size: valueSize });
+/**
+ * Draw a label with the value clearly below it. Returns the next y position for stacking.
+ */
+function drawStackedField(page, {
+  x,
+  y,
+  label,
+  value,
+  width,
+  labelSize = LABEL_SIZE,
+  valueSize = VALUE_SIZE,
+  gap = LABEL_VALUE_GAP,
+  labelColor = COLORS.muted,
+  valueColor = COLORS.text,
+  font,
+  boldFont,
+}) {
+  const valueFont = boldFont ?? font;
+  page.drawText(String(label), { x, y, size: labelSize, font, color: labelColor });
+  const valueY = y - gap;
+  const text = String(value ?? '').trim();
+  if (text) {
+    const clipped = truncateText(text, valueFont, valueSize, width - 2);
+    page.drawText(clipped, { x, y: valueY, size: valueSize, font: valueFont, color: valueColor });
+  }
+  return valueY - valueSize - FIELD_SPACING;
 }
 
-function drawValue(page, value, { x, y, w, font, size = 8, align = 'left' }) {
+function drawPriceRows(page, {
+  x,
+  y,
+  width,
+  rows,
+  rowHeight = 14,
+  labelSize = VALUE_SIZE,
+  valueSize = VALUE_SIZE,
+  font,
+  boldFont,
+}) {
+  let rowY = y;
+  for (const row of rows) {
+    const isTotal = /total|authorized/i.test(row.label);
+    const rowFont = isTotal ? boldFont : font;
+    page.drawText(String(row.label), {
+      x,
+      y: rowY,
+      size: labelSize,
+      font,
+      color: COLORS.muted,
+    });
+    const value = String(row.value ?? '').trim();
+    if (value) {
+      const clipped = truncateText(value, rowFont, valueSize, width * 0.45);
+      const valueWidth = rowFont.widthOfTextAtSize(clipped, valueSize);
+      page.drawText(clipped, {
+        x: x + width - valueWidth,
+        y: rowY,
+        size: valueSize,
+        font: rowFont,
+        color: COLORS.text,
+      });
+    }
+    rowY -= rowHeight;
+  }
+  return rowY;
+}
+
+function drawSignatureField(page, {
+  x,
+  y,
+  label,
+  value,
+  width,
+  font,
+  boldFont,
+}) {
+  page.drawText(String(label), { x, y, size: LABEL_SIZE, font, color: COLORS.muted });
+  const valueY = y - 10;
+  const text = String(value ?? '').trim();
+  if (text) {
+    const clipped = truncateText(text, boldFont ?? font, VALUE_SIZE, width - 4);
+    page.drawText(clipped, { x, y: valueY, size: VALUE_SIZE, font: boldFont ?? font, color: COLORS.text });
+  }
+  const lineY = valueY - 6;
+  page.drawLine({
+    start: { x, y: lineY },
+    end: { x: x + width, y: lineY },
+    thickness: 0.5,
+    color: COLORS.border,
+  });
+  return lineY - 4;
+}
+
+function drawValue(page, value, { x, y, w, font, size = VALUE_SIZE, align = 'left' }) {
   const text = String(value ?? '').trim();
   if (!text) return;
   const clipped = truncateText(text, font, size, w - 4);
@@ -292,7 +396,13 @@ function drawCheckItem(page, label, { x, y, font, checked = true }) {
   page.drawText(label, { x: x + box + 4, y: y + 0.5, size: 6.5, font, color: COLORS.text });
 }
 
-function drawShieldLogo(page, x, y, size) {
+function detectImageKind(bytes) {
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8) return 'jpg';
+  if (bytes[0] === 0x89 && bytes[1] === 0x50) return 'png';
+  return null;
+}
+
+function drawShieldLogoFallback(page, x, y, size, fontBold) {
   const cx = x + size / 2;
   const top = y + size;
   page.drawRectangle({ x: cx - size * 0.34, y: y + size * 0.12, width: size * 0.68, height: size * 0.72, color: COLORS.accent, borderWidth: 0 });
@@ -302,17 +412,51 @@ function drawShieldLogo(page, x, y, size) {
     x: cx - size * 0.14,
     y: y + size * 0.28,
     size: size * 0.28,
-    font: page.__logoFont,
+    font: fontBold,
     color: COLORS.white,
   });
 }
 
-function drawHeader(page, fonts) {
+async function drawCompanyLogo(pdfDoc, page, { x, y, maxWidth, maxHeight, fontBold }) {
+  for (const logoPath of LOGO_CANDIDATE_PATHS) {
+    if (!existsSync(logoPath)) continue;
+    try {
+      const bytes = readFileSync(logoPath);
+      const kind = detectImageKind(bytes);
+      const image = kind === 'jpg'
+        ? await pdfDoc.embedJpg(bytes)
+        : kind === 'png'
+          ? await pdfDoc.embedPng(bytes)
+          : null;
+      if (!image) continue;
+
+      const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
+      const drawW = image.width * scale;
+      const drawH = image.height * scale;
+      const drawX = x;
+      const drawY = y + (maxHeight - drawH) / 2;
+      page.drawImage(image, { x: drawX, y: drawY, width: drawW, height: drawH });
+      return true;
+    } catch (err) {
+      console.warn('[bed-bug-pdf] logo embed failed:', logoPath, err.message);
+    }
+  }
+  drawShieldLogoFallback(page, x, y, Math.min(maxWidth, maxHeight), fontBold);
+  return false;
+}
+
+async function drawHeader(pdfDoc, page, fonts) {
   const top = MARGIN_Y;
-  const h = 48;
+  const h = 50;
   const y = yFromTop(top, h);
 
-  drawShieldLogo(page, MARGIN_X, y + 8, 32);
+  await drawCompanyLogo(pdfDoc, page, {
+    x: MARGIN_X,
+    y,
+    maxWidth: 118,
+    maxHeight: h - 4,
+    fontBold: fonts.bold,
+  });
 
   const titleSize = 11;
   const titleWidth = fonts.bold.widthOfTextAtSize(BED_BUG_TITLE, titleSize);
@@ -340,30 +484,30 @@ function drawHeader(page, fonts) {
 }
 
 function drawTopRow(page, data, fonts) {
-  const top = MARGIN_Y + 48 + GAP;
-  const h = 58;
+  const top = MARGIN_Y + 50 + GAP;
+  const h = 96;
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
     {
       title: 'Service Address',
-      lines: [
-        ['Address', data.serviceAddress],
-        ['City / State / Zip', data.cityStateZip],
+      fields: [
+        { label: 'Address', value: data.serviceAddress },
+        { label: 'City / State / Zip', value: data.cityStateZip },
       ],
     },
     {
       title: 'Customer Information',
-      lines: [
-        ['Customer Name', data.customerName],
-        ['Phone', data.phone],
-        ['Email', data.email],
+      fields: [
+        { label: 'Customer Name', value: data.customerName },
+        { label: 'Phone', value: data.phone },
+        { label: 'Email', value: data.email, valueSize: 7 },
       ],
     },
     {
       title: 'Service Details',
-      lines: [
-        ['Service Type', data.serviceType],
-        ['Frequency', data.frequency],
+      fields: [
+        { label: 'Service Type', value: data.serviceType },
+        { label: 'Frequency', value: data.frequency },
       ],
     },
   ];
@@ -371,19 +515,28 @@ function drawTopRow(page, data, fonts) {
   boxes.forEach((box, i) => {
     const x = MARGIN_X + i * (colW + GAP);
     const y = yFromTop(top, h);
+    const innerW = colW - SECTION_PAD * 2;
     drawRoundedSection(page, { x, y, w: colW, h });
-    drawSectionHeader(page, box.title, { x, y: y + h - 14, w: colW, h: 14, font: fonts.bold });
-    let ly = y + h - 28;
-    for (const [label, value] of box.lines) {
-      drawLabelLine(page, label, value, { x: x + 6, y: ly, w: colW - 12, labelFont: fonts.regular, valueFont: fonts.regular });
-      ly -= 18;
+    drawSectionHeader(page, box.title, { x, y: y + h - HEADER_BAR_H, w: colW, font: fonts.bold });
+    let fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
+    for (const field of box.fields) {
+      fieldY = drawStackedField(page, {
+        x: x + SECTION_PAD,
+        y: fieldY,
+        label: field.label,
+        value: field.value,
+        width: innerW,
+        valueSize: field.valueSize ?? VALUE_SIZE,
+        font: fonts.regular,
+        boldFont: fonts.regular,
+      });
     }
   });
 }
 
 function drawPestsSection(page, data, fonts) {
-  const top = MARGIN_Y + 48 + GAP + 58 + GAP;
-  const h = 68;
+  const top = MARGIN_Y + 50 + GAP + 96 + GAP;
+  const h = 66;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
@@ -423,8 +576,8 @@ function drawPestsSection(page, data, fonts) {
 }
 
 function drawMiddleRow(page, data, schedule, fonts) {
-  const top = MARGIN_Y + 48 + GAP + 58 + GAP + 68 + GAP;
-  const h = 124;
+  const top = MARGIN_Y + 50 + GAP + 96 + GAP + 66 + GAP;
+  const h = 118;
   const w = PAGE_W - MARGIN_X * 2;
   const leftW = w * 0.48;
   const rightW = w - leftW - GAP;
@@ -464,35 +617,35 @@ function drawMiddleRow(page, data, schedule, fonts) {
 }
 
 function drawPricingRow(page, data, fonts) {
-  const top = MARGIN_Y + 48 + GAP + 58 + GAP + 68 + GAP + 124 + GAP;
-  const h = 72;
+  const top = MARGIN_Y + 50 + GAP + 96 + GAP + 66 + GAP + 118 + GAP;
+  const h = 76;
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
     {
       title: 'Initial Service / Warranties',
       rows: [
-        ['Initial Quote', formatCurrency(data.initialQuote)],
-        ['Initial Discount', data.initialDiscount ? `-${formatCurrency(data.initialDiscount).replace('$', '')}` : ''],
-        ['Sub Total', formatCurrency(data.initialSubtotal)],
-        ['Tax (0%)', formatCurrency(data.tax)],
-        ['Initial Total', formatCurrency(data.initialTotal)],
+        { label: 'Initial Quote', value: formatCurrency(data.initialQuote) },
+        { label: 'Initial Discount', value: data.initialDiscount ? `-${formatCurrency(data.initialDiscount).replace('$', '')}` : '' },
+        { label: 'Sub Total', value: formatCurrency(data.initialSubtotal) },
+        { label: 'Tax (0%)', value: formatCurrency(data.tax) },
+        { label: 'Initial Total', value: formatCurrency(data.initialTotal) },
       ],
     },
     {
       title: 'Recurring Services',
       rows: [
-        ['Service Charge', formatCurrency(data.recurringCharge)],
-        ['Tax (0%)', formatCurrency(data.recurringTax)],
-        ['Recurring Total', formatCurrency(data.recurringTotal)],
-        ['Recurring Payment Authorized', formatCurrency(data.recurringPaymentAuthorized)],
+        { label: 'Service Charge', value: formatCurrency(data.recurringCharge) },
+        { label: 'Tax (0%)', value: formatCurrency(data.recurringTax) },
+        { label: 'Recurring Total', value: formatCurrency(data.recurringTotal) },
+        { label: 'Recurring Payment Authorized', value: formatCurrency(data.recurringPaymentAuthorized) },
       ],
     },
     {
       title: 'Billing & Payment',
-      rows: [
-        ['Billing Info', data.billingInfo],
-        ['Payment Method / Card Last Four', [data.paymentMethod, data.cardLastFour].filter(Boolean).join(' • ')],
-        ['Recurring Payment Authorized', formatCurrency(data.recurringPaymentAuthorized)],
+      stacked: [
+        { label: 'Billing Info', value: data.billingInfo },
+        { label: 'Payment Method / Card Last Four', value: [data.paymentMethod, data.cardLastFour].filter(Boolean).join(' • ') },
+        { label: 'Recurring Payment Authorized', value: formatCurrency(data.recurringPaymentAuthorized) },
       ],
     },
   ];
@@ -500,20 +653,40 @@ function drawPricingRow(page, data, fonts) {
   boxes.forEach((box, i) => {
     const x = MARGIN_X + i * (colW + GAP);
     const y = yFromTop(top, h);
+    const innerW = colW - SECTION_PAD * 2;
     drawRoundedSection(page, { x, y, w: colW, h });
-    drawSectionHeader(page, box.title, { x, y: y + h - 14, w: colW, h: 14, font: fonts.bold });
-    let ly = y + h - 28;
-    for (const [label, value] of box.rows) {
-      page.drawText(label, { x: x + 6, y: ly + 9, size: 6, font: fonts.regular, color: COLORS.muted });
-      drawValue(page, value, { x: x + 6, y: ly, w: colW - 12, font: fonts.regular, size: 7.5 });
-      ly -= 13;
+    drawSectionHeader(page, box.title, { x, y: y + h - HEADER_BAR_H, w: colW, font: fonts.bold });
+
+    if (box.stacked) {
+      let fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
+      for (const field of box.stacked) {
+        fieldY = drawStackedField(page, {
+          x: x + SECTION_PAD,
+          y: fieldY,
+          label: field.label,
+          value: field.value,
+          width: innerW,
+          font: fonts.regular,
+          boldFont: fonts.regular,
+        });
+      }
+    } else {
+      drawPriceRows(page, {
+        x: x + SECTION_PAD,
+        y: y + h - HEADER_BAR_H - SECTION_PAD - VALUE_SIZE,
+        width: innerW,
+        rows: box.rows,
+        rowHeight: 14,
+        font: fonts.regular,
+        boldFont: fonts.bold,
+      });
     }
   });
 }
 
 function drawAuthorizationSection(page, fonts) {
-  const top = MARGIN_Y + 48 + GAP + 58 + GAP + 68 + GAP + 124 + GAP + 72 + GAP;
-  const h = 88;
+  const top = MARGIN_Y + 50 + GAP + 96 + GAP + 66 + GAP + 118 + GAP + 76 + GAP;
+  const h = 80;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
@@ -530,46 +703,48 @@ function drawAuthorizationSection(page, fonts) {
 }
 
 function drawSignatureSection(page, data, fonts) {
-  const top = MARGIN_Y + 48 + GAP + 58 + GAP + 68 + GAP + 124 + GAP + 72 + GAP + 88 + GAP;
-  const h = 58;
+  const top = MARGIN_Y + 50 + GAP + 96 + GAP + 66 + GAP + 118 + GAP + 76 + GAP + 80 + GAP;
+  const h = 66;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
   drawRoundedSection(page, { x, y, w, h });
 
   page.drawText(BED_BUG_AGREEMENT_PERIOD_TEXT, {
-    x: x + 8,
-    y: y + h - 14,
+    x: x + SECTION_PAD,
+    y: y + h - SECTION_PAD - 2,
     size: 7,
     font: fonts.bold,
     color: COLORS.headerBg,
   });
 
   drawWrappedText(page, BED_BUG_INITIALS_TEXT, {
-    x: x + 4,
-    y: y + h - 28,
-    w: w - 8,
+    x: x + SECTION_PAD,
+    y: y + h - SECTION_PAD - 14,
+    w: w - SECTION_PAD * 2,
     font: fonts.regular,
-    size: 5.8,
-    lineHeight: 7,
+    size: 5.6,
+    lineHeight: 6.5,
   });
 
-  const sigY = y + 6;
+  const fieldW = (w - SECTION_PAD * 2 - 24) / 3;
+  const sigTopY = y + 30;
   const fields = [
-    ['Customer Initials:', data.customerInitials],
-    ['Customer Signature:', data.customerSignatureName],
-    ['Date:', data.agreementDateDisplay ? String(data.agreementDateDisplay) : ''],
+    { label: 'Customer Initials', value: data.customerInitials },
+    { label: 'Customer Signature', value: data.customerSignatureName },
+    { label: 'Date', value: data.agreementDateDisplay ? String(data.agreementDateDisplay) : '' },
   ];
-  let fx = x + 8;
-  for (const [label, value] of fields) {
-    page.drawText(label, { x: fx, y: sigY + 10, size: 6, font: fonts.regular, color: COLORS.muted });
-    const lineW = 140;
-    page.drawLine({ start: { x: fx, y: sigY + 4 }, end: { x: fx + lineW, y: sigY + 4 }, thickness: 0.5, color: COLORS.border });
-    if (value) {
-      drawValue(page, value, { x: fx, y: sigY + 6, w: lineW, font: fonts.regular, size: 7.5 });
-    }
-    fx += lineW + 16;
-  }
+  fields.forEach((field, index) => {
+    drawSignatureField(page, {
+      x: x + SECTION_PAD + index * (fieldW + 12),
+      y: sigTopY,
+      label: field.label,
+      value: field.value,
+      width: fieldW,
+      font: fonts.regular,
+      boldFont: fonts.regular,
+    });
+  });
 }
 
 /**
@@ -596,10 +771,9 @@ export async function buildBedBugAgreementPdf(input = {}) {
   const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  page.__logoFont = fontBold;
   const fonts = { regular: font, bold: fontBold };
 
-  drawHeader(page, fonts);
+  await drawHeader(pdfDoc, page, fonts);
   drawTopRow(page, data, fonts);
   drawPestsSection(page, data, fonts);
   drawMiddleRow(page, data, schedule, fonts);
