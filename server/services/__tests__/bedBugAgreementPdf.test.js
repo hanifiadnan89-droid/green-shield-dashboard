@@ -195,6 +195,9 @@ describe('buildBedBugAgreementPdf', () => {
     expect(text).toContain('Other included');
     expect(text).toContain('Carpenter Bees');
     expect(text).toContain('Crickets/Earwigs');
+    expect(text).toContain('Yellow Jackets/Hornets');
+    expect(text).toContain('Silverfish');
+    expect(text).toContain('Stink Bugs');
     expect(text).not.toContain('Payment Method / Card Last Four');
     expect(text).not.toContain('Billing Info');
   });
