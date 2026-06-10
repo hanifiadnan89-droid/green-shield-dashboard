@@ -5,18 +5,50 @@ function defaultAgreementDate(existing) {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Split legacy combined city/state/zip for form prefill only. */
+export function parseCityStateZip(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return { city: '', state: '', zip: '' };
+
+  const commaMatch = raw.match(/^(.+?),\s*([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+  if (commaMatch) {
+    return {
+      city: commaMatch[1].trim(),
+      state: commaMatch[2].toUpperCase(),
+      zip: commaMatch[3],
+    };
+  }
+
+  const parts = raw.split(',').map((s) => s.trim());
+  if (parts.length >= 2) {
+    const city = parts[0];
+    const rest = parts.slice(1).join(', ');
+    const stateZip = rest.match(/^([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+    if (stateZip) {
+      return { city, state: stateZip[1].toUpperCase(), zip: stateZip[2] };
+    }
+    return { city, state: rest, zip: '' };
+  }
+
+  return { city: raw, state: '', zip: '' };
+}
+
 export function buildBedBugAgreementState(lead, address, pricing, agreementStartDate) {
   const initialQuote = pricing?.initial ?? '';
   const initialDiscount = pricing?.discounted ?? '';
   const subtotal = Math.max(0, parseMoney(initialQuote) - parseMoney(initialDiscount));
   const agreementDate = defaultAgreementDate(agreementStartDate);
+  const parsed = parseCityStateZip(address?.cityState ?? '');
 
   return {
     customerName: lead?.name ?? '',
     phone: lead?.phone ?? '',
     email: lead?.email ?? '',
     serviceAddress: address?.street ?? '',
-    cityStateZip: address?.cityState ?? '',
+    address: address?.street ?? '',
+    city: parsed.city,
+    state: parsed.state,
+    zip: parsed.zip,
     initialQuote,
     initialDiscount,
     initialSubtotal: subtotal ? String(subtotal) : '',
@@ -38,6 +70,9 @@ export function buildBedBugAgreementState(lead, address, pricing, agreementStart
 
 export function applyBedBugFormPatch(form, patch) {
   const next = { ...form, ...patch };
+  if (patch.serviceAddress !== undefined) {
+    next.address = patch.serviceAddress;
+  }
   const totals = computeBedBugTotals(next);
   return {
     ...next,
@@ -85,6 +120,7 @@ export function bedBugFormFingerprint(form, pricing, address, agreementStartDate
 
 export function mergeBedBugPayload(basePayload, bedBugForm) {
   const totals = computeBedBugTotals(bedBugForm);
+  const street = bedBugForm.serviceAddress ?? bedBugForm.address ?? '';
   return {
     ...basePayload,
     lead: {
@@ -93,8 +129,10 @@ export function mergeBedBugPayload(basePayload, bedBugForm) {
       phone: bedBugForm.phone,
     },
     address: {
-      street: bedBugForm.serviceAddress,
-      cityState: bedBugForm.cityStateZip,
+      street,
+      city: bedBugForm.city,
+      state: bedBugForm.state,
+      zip: bedBugForm.zip,
     },
     pricing: {
       initial: bedBugForm.initialQuote,
@@ -105,6 +143,11 @@ export function mergeBedBugPayload(basePayload, bedBugForm) {
     startDate: bedBugForm.agreementDate || basePayload.startDate,
     bedBugAgreement: {
       ...bedBugForm,
+      serviceAddress: street,
+      address: street,
+      city: bedBugForm.city,
+      state: bedBugForm.state,
+      zip: bedBugForm.zip,
       initialSubtotal: String(totals.initialSubtotal),
       initialTotal: String(totals.initialTotal),
       recurringTotal: String(totals.recurringTotal),

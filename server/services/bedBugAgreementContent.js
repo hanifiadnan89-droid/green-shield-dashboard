@@ -44,6 +44,21 @@ export const BED_BUG_OTHER_INCLUDED_PESTS = [
   'Crickets/Earwigs',
 ];
 
+export const BED_BUG_OTHER_INCLUDED_PESTS_A = [
+  'Odorous Ants',
+  'Pavement Ants',
+  'Carpenter Ants',
+  'Carpenter Bees',
+];
+
+export const BED_BUG_OTHER_INCLUDED_PESTS_B = [
+  'Spiders',
+  'Fall Invaders',
+  'Fleas',
+  'Centi/Millipedes',
+  'Crickets/Earwigs',
+];
+
 export const BED_BUG_ADDON_PESTS = [
   'Mice',
   'Rats',

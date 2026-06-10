@@ -13,8 +13,10 @@ const FIELD_GROUPS = [
   {
     title: 'Service address',
     fields: [
-      ['serviceAddress', 'Street address'],
-      ['cityStateZip', 'City / State / Zip'],
+      ['serviceAddress', 'Address', 'full'],
+      ['city', 'City'],
+      ['state', 'State'],
+      ['zip', 'Zip'],
     ],
   },
   {
@@ -65,7 +67,7 @@ export default function BedBugAgreementForm({ form, onChange, previewStale }) {
           <p className="send-preview-address__title">{group.title}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {group.fields.map(([key, label, type]) => (
-              <div key={key} className={type === 'date' ? 'sm:col-span-2' : ''}>
+              <div key={key} className={type === 'date' || type === 'full' ? 'sm:col-span-2' : ''}>
                 <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
                   {label}
                 </label>
