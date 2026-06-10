@@ -12,6 +12,7 @@ import {
   buildSubscriptionSchedule,
   normalizeBedBugAgreementData,
   validateBedBugAgreementData,
+  parseCityStateZip,
 } from '../bedBugAgreementPdf.js';
 import {
   BED_BUG_COMPANY,
@@ -150,6 +151,37 @@ describe('buildBedBugAgreementPdf', () => {
     expect(source).not.toContain('readFileSync(TEMPLATE_PATH)');
     expect(source).toContain('PDFDocument.create');
     expect(source).toContain('generateAgreementSchedule');
+  });
+
+  it('parseCityStateZip splits combined city/state/zip strings', () => {
+    expect(parseCityStateZip('Westbrook, ME 04092')).toEqual({
+      city: 'Westbrook',
+      state: 'ME',
+      zip: '04092',
+    });
+    expect(parseCityStateZip('Saco, ME 04072')).toEqual({
+      city: 'Saco',
+      state: 'ME',
+      zip: '04072',
+    });
+  });
+
+  it('renders split service address and billing summary layout', async () => {
+    const { outBytes } = await buildBedBugAgreementPdf({
+      ...samplePayload,
+      address: { street: '34 Cloudman St', cityState: 'Westbrook, ME 04092' },
+    });
+    const { text, pageCount } = await extractPdfText(outBytes);
+    expect(pageCount).toBe(1);
+    expect(text).toContain('34 Cloudman St');
+    expect(text).toContain('Westbrook');
+    expect(text).toContain('ME');
+    expect(text).toContain('04092');
+    expect(text).toContain('Other included');
+    expect(text).toContain('Carpenter Bees');
+    expect(text).toContain('Crickets/Earwigs');
+    expect(text).not.toContain('Payment Method / Card Last Four');
+    expect(text).not.toContain('Billing Info');
   });
 
   it('passes Adnan emergency payload with readable output', async () => {

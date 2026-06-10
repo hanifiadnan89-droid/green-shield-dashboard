@@ -10,8 +10,9 @@ import {
   BED_BUG_AUTHORIZATION_TITLE,
   BED_BUG_COMPANY,
   BED_BUG_EXPECTATIONS_TEXT,
-  BED_BUG_INCLUDED_PESTS,
   BED_BUG_INITIALS_TEXT,
+  BED_BUG_MAIN_PESTS,
+  BED_BUG_OTHER_INCLUDED_PESTS,
   BED_BUG_SERVICE_FREQUENCY,
   BED_BUG_SERVICE_TYPE,
   BED_BUG_TITLE,
@@ -33,8 +34,12 @@ const SECTION_PAD = 10;
 const HEADER_BAR_H = 14;
 const LABEL_SIZE = 7;
 const VALUE_SIZE = 7.5;
-const LABEL_VALUE_GAP = 8;
-const FIELD_SPACING = 7;
+const LABEL_VALUE_GAP = 6;
+const FIELD_SPACING = 8;
+
+const SPACING_COMPACT = { gap: 5, fieldSpacing: 5, valueSize: 7 };
+const SPACING_RELAXED = { gap: 6, fieldSpacing: 10, valueSize: 7.5 };
+const SPACING_MEDIUM = { gap: 6, fieldSpacing: 9, valueSize: 7.5 };
 
 const LOGO_CANDIDATE_PATHS = [
   join(__dirname, '..', 'assets', 'green-shield-logo.png'),
@@ -88,6 +93,36 @@ export function buildSubscriptionSchedule(params = {}) {
 /**
  * Format payment text for Bed Bug calendar tiles.
  */
+/**
+ * Split a combined "City, ST 04072" string into parts for PDF layout.
+ */
+export function parseCityStateZip(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return { city: '', state: '', zip: '' };
+
+  const commaMatch = raw.match(/^(.+?),\s*([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+  if (commaMatch) {
+    return {
+      city: commaMatch[1].trim(),
+      state: commaMatch[2].toUpperCase(),
+      zip: commaMatch[3],
+    };
+  }
+
+  const parts = raw.split(',').map((s) => s.trim());
+  if (parts.length >= 2) {
+    const city = parts[0];
+    const rest = parts.slice(1).join(', ');
+    const stateZip = rest.match(/^([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+    if (stateZip) {
+      return { city, state: stateZip[1].toUpperCase(), zip: stateZip[2] };
+    }
+    return { city, state: rest, zip: '' };
+  }
+
+  return { city: raw, state: '', zip: '' };
+}
+
 export function formatBedBugPaymentText(month) {
   if (!month?.paymentText) return '';
   let text = month.paymentText;
@@ -136,13 +171,18 @@ export function normalizeBedBugAgreementData(input = {}) {
     : recurringTotal;
 
   const resolvedStart = agreementStartDate || startDate || bedBugAgreement.agreementDate || '';
+  const cityStateZipRaw = bedBugAgreement.cityStateZip ?? address.cityState ?? '';
+  const parsedLocation = parseCityStateZip(cityStateZipRaw);
 
   return {
     customerName: bedBugAgreement.customerName ?? lead.name ?? '',
     phone: bedBugAgreement.phone ?? lead.phone ?? '',
     email: bedBugAgreement.email ?? lead.email ?? '',
     serviceAddress: bedBugAgreement.serviceAddress ?? address.street ?? '',
-    cityStateZip: bedBugAgreement.cityStateZip ?? address.cityState ?? '',
+    cityStateZip: cityStateZipRaw,
+    city: bedBugAgreement.city ?? parsedLocation.city,
+    state: bedBugAgreement.state ?? parsedLocation.state,
+    zip: bedBugAgreement.zip ?? parsedLocation.zip,
     serviceType: bedBugAgreement.serviceType ?? BED_BUG_SERVICE_TYPE,
     frequency: bedBugAgreement.frequency ?? BED_BUG_SERVICE_FREQUENCY,
     startMonth: bedBugAgreement.startMonth ?? '',
@@ -241,6 +281,7 @@ function drawStackedField(page, {
   labelSize = LABEL_SIZE,
   valueSize = VALUE_SIZE,
   gap = LABEL_VALUE_GAP,
+  fieldSpacing = FIELD_SPACING,
   labelColor = COLORS.muted,
   valueColor = COLORS.text,
   font,
@@ -254,7 +295,98 @@ function drawStackedField(page, {
     const clipped = truncateText(text, valueFont, valueSize, width - 2);
     page.drawText(clipped, { x, y: valueY, size: valueSize, font: valueFont, color: valueColor });
   }
-  return valueY - valueSize - FIELD_SPACING;
+  return valueY - valueSize - fieldSpacing;
+}
+
+function drawStackedFields(page, {
+  x,
+  y,
+  width,
+  fields,
+  font,
+  boldFont,
+  gap = LABEL_VALUE_GAP,
+  fieldSpacing = FIELD_SPACING,
+  valueSize = VALUE_SIZE,
+}) {
+  let fieldY = y;
+  for (const field of fields) {
+    fieldY = drawStackedField(page, {
+      x,
+      y: fieldY,
+      label: field.label,
+      value: field.value,
+      width,
+      gap: field.gap ?? gap,
+      fieldSpacing: field.fieldSpacing ?? fieldSpacing,
+      valueSize: field.valueSize ?? valueSize,
+      font,
+      boldFont,
+    });
+  }
+  return fieldY;
+}
+
+function drawTwoColumnAddressBlock(page, {
+  x,
+  y,
+  width,
+  leftFields,
+  rightFields,
+  font,
+  boldFont,
+  columnGap = 8,
+  spacing = SPACING_MEDIUM,
+}) {
+  const colW = (width - columnGap) / 2;
+  const leftX = x;
+  const rightX = x + colW + columnGap;
+  const leftEnd = drawStackedFields(page, {
+    x: leftX,
+    y,
+    width: colW,
+    fields: leftFields,
+    font,
+    boldFont,
+    ...spacing,
+  });
+  const rightEnd = drawStackedFields(page, {
+    x: rightX,
+    y,
+    width: colW,
+    fields: rightFields,
+    font,
+    boldFont,
+    ...spacing,
+  });
+  return Math.min(leftEnd, rightEnd);
+}
+
+function drawChecklistGroup(page, {
+  x,
+  y,
+  width,
+  title,
+  items,
+  itemGap = 8.5,
+  font,
+  boldFont,
+  isChecked = () => true,
+}) {
+  page.drawText(title, { x, y, size: 6.5, font: boldFont, color: COLORS.muted });
+  let itemY = y - 10;
+  for (const item of items) {
+    drawCheckItem(page, item, {
+      x,
+      y: itemY,
+      font: boldFont,
+      checked: isChecked(item),
+      labelSize: 6.5,
+      maxWidth: width - 10,
+    });
+    itemY -= itemGap;
+  }
+  return itemY;
 }
 
 function drawPriceRows(page, {
@@ -378,7 +510,7 @@ function drawPaymentTile(page, monthLabel, paymentText, { x, y, w, h, font, font
   }
 }
 
-function drawCheckItem(page, label, { x, y, font, checked = true }) {
+function drawCheckItem(page, label, { x, y, font, checked = true, labelSize = 6.5, maxWidth }) {
   const box = 6;
   page.drawRectangle({
     x,
@@ -393,7 +525,10 @@ function drawCheckItem(page, label, { x, y, font, checked = true }) {
     page.drawLine({ start: { x: x + 1.2, y: y + 2.8 }, end: { x: x + 2.6, y: y + 1.4 }, thickness: 0.8, color: COLORS.white });
     page.drawLine({ start: { x: x + 2.6, y: y + 1.4 }, end: { x: x + 4.8, y: y + 4.8 }, thickness: 0.8, color: COLORS.white });
   }
-  page.drawText(label, { x: x + box + 4, y: y + 0.5, size: 6.5, font, color: COLORS.text });
+  const labelText = maxWidth
+    ? truncateText(label, font, labelSize, maxWidth - box - 4)
+    : String(label);
+  page.drawText(labelText, { x: x + box + 4, y: y + 0.5, size: labelSize, font, color: COLORS.text });
 }
 
 function detectImageKind(bytes) {
@@ -485,15 +620,18 @@ async function drawHeader(pdfDoc, page, fonts) {
 
 function drawTopRow(page, data, fonts) {
   const top = MARGIN_Y + 50 + GAP;
-  const h = 96;
+  const h = 108;
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
     {
       title: 'Service Address',
       fields: [
         { label: 'Address', value: data.serviceAddress },
-        { label: 'City / State / Zip', value: data.cityStateZip },
+        { label: 'City', value: data.city },
+        { label: 'State', value: data.state },
+        { label: 'Zip', value: data.zip },
       ],
+      spacing: SPACING_COMPACT,
     },
     {
       title: 'Customer Information',
@@ -502,6 +640,7 @@ function drawTopRow(page, data, fonts) {
         { label: 'Phone', value: data.phone },
         { label: 'Email', value: data.email, valueSize: 7 },
       ],
+      spacing: SPACING_RELAXED,
     },
     {
       title: 'Service Details',
@@ -509,6 +648,7 @@ function drawTopRow(page, data, fonts) {
         { label: 'Service Type', value: data.serviceType },
         { label: 'Frequency', value: data.frequency },
       ],
+      spacing: { ...SPACING_RELAXED, fieldSpacing: 12 },
     },
   ];
 
@@ -518,66 +658,82 @@ function drawTopRow(page, data, fonts) {
     const innerW = colW - SECTION_PAD * 2;
     drawRoundedSection(page, { x, y, w: colW, h });
     drawSectionHeader(page, box.title, { x, y: y + h - HEADER_BAR_H, w: colW, font: fonts.bold });
-    let fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
-    for (const field of box.fields) {
-      fieldY = drawStackedField(page, {
-        x: x + SECTION_PAD,
-        y: fieldY,
-        label: field.label,
-        value: field.value,
-        width: innerW,
-        valueSize: field.valueSize ?? VALUE_SIZE,
-        font: fonts.regular,
-        boldFont: fonts.regular,
-      });
-    }
-  });
-}
-
-function drawPestsSection(page, data, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 96 + GAP;
-  const h = 66;
-  const w = PAGE_W - MARGIN_X * 2;
-  const x = MARGIN_X;
-  const y = yFromTop(top, h);
-  drawRoundedSection(page, { x, y, w, h });
-  drawSectionHeader(page, 'Included Pests & Add-ons', { x, y: y + h - 14, w, h: 14, font: fonts.bold });
-
-  const colW = (w - 24) / 2;
-  const selected = new Set((data.selectedAddOns || []).map((s) => String(s).toLowerCase()));
-  let leftY = y + h - 28;
-  let rightY = y + h - 28;
-
-  page.drawText('Main pests', { x: x + 8, y: leftY + 10, size: 6.5, font: fonts.bold, color: COLORS.muted });
-  page.drawText('Add-ons', { x: x + colW + 16, y: rightY + 10, size: 6.5, font: fonts.bold, color: COLORS.muted });
-  leftY -= 4;
-  rightY -= 4;
-
-  const pestsPerCol = 6;
-  BED_BUG_INCLUDED_PESTS.forEach((pest, idx) => {
-    const row = idx % pestsPerCol;
-    const col = Math.floor(idx / pestsPerCol);
-    const px = x + 8 + col * (colW / 2);
-    const py = leftY - row * 10;
-    drawCheckItem(page, pest, { x: px, y: py, font: fonts.bold, checked: true });
-  });
-
-  BED_BUG_ADDON_PESTS.forEach((pest, idx) => {
-    const checked = selected.size === 0
-      ? false
-      : selected.has(pest.toLowerCase()) || selected.has(pest.split('/')[0].toLowerCase());
-    drawCheckItem(page, pest, {
-      x: x + colW + 16,
-      y: rightY - idx * 10,
-      font: fonts.bold,
-      checked,
+    const fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
+    drawStackedFields(page, {
+      x: x + SECTION_PAD,
+      y: fieldY,
+      width: innerW,
+      fields: box.fields,
+      font: fonts.regular,
+      boldFont: fonts.regular,
+      ...box.spacing,
     });
   });
 }
 
+function drawPestsSection(page, data, fonts) {
+  const top = MARGIN_Y + 50 + GAP + 108 + GAP;
+  const h = 68;
+  const w = PAGE_W - MARGIN_X * 2;
+  const x = MARGIN_X;
+  const y = yFromTop(top, h);
+  drawRoundedSection(page, { x, y, w, h });
+  drawSectionHeader(page, 'Included Pests & Add-ons', { x, y: y + h - HEADER_BAR_H, w, font: fonts.bold });
+
+  const innerX = x + SECTION_PAD;
+  const innerW = w - SECTION_PAD * 2;
+  const groupTopY = y + h - HEADER_BAR_H - SECTION_PAD - 6;
+  const col1W = innerW * 0.22;
+  const col2W = innerW * 0.48;
+  const col3W = innerW * 0.26;
+  const col2X = innerX + col1W + 6;
+  const col3X = innerX + col1W + col2W + 12;
+
+  const selected = new Set((data.selectedAddOns || []).map((s) => String(s).toLowerCase()));
+  const isAddonChecked = (pest) => selected.size > 0 && (
+    selected.has(pest.toLowerCase()) || selected.has(pest.split('/')[0].toLowerCase())
+  );
+
+  drawChecklistGroup(page, {
+    x: innerX,
+    y: groupTopY,
+    width: col1W,
+    title: 'Main pests',
+    items: BED_BUG_MAIN_PESTS,
+    itemGap: 9,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    isChecked: () => true,
+  });
+
+  drawChecklistGroup(page, {
+    x: col2X,
+    y: groupTopY,
+    width: col2W,
+    title: 'Other included',
+    items: BED_BUG_OTHER_INCLUDED_PESTS,
+    itemGap: 7.5,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    isChecked: () => true,
+  });
+
+  drawChecklistGroup(page, {
+    x: col3X,
+    y: groupTopY,
+    width: col3W,
+    title: 'Add-ons',
+    items: BED_BUG_ADDON_PESTS,
+    itemGap: 9,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    isChecked: isAddonChecked,
+  });
+}
+
 function drawMiddleRow(page, data, schedule, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 96 + GAP + 66 + GAP;
-  const h = 118;
+  const top = MARGIN_Y + 50 + GAP + 108 + GAP + 68 + GAP;
+  const h = 108;
   const w = PAGE_W - MARGIN_X * 2;
   const leftW = w * 0.48;
   const rightW = w - leftW - GAP;
@@ -616,8 +772,28 @@ function drawMiddleRow(page, data, schedule, fonts) {
   });
 }
 
+function drawBillingSummaryBlock(page, { x, y, width, data, font, boldFont }) {
+  drawTwoColumnAddressBlock(page, {
+    x,
+    y,
+    width,
+    font,
+    boldFont,
+    spacing: SPACING_MEDIUM,
+    leftFields: [
+      { label: 'Customer Name', value: data.customerName },
+      { label: 'Address', value: data.serviceAddress },
+    ],
+    rightFields: [
+      { label: 'City', value: data.city },
+      { label: 'State', value: data.state },
+      { label: 'Zip', value: data.zip },
+    ],
+  });
+}
+
 function drawPricingRow(page, data, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 96 + GAP + 66 + GAP + 118 + GAP;
+  const top = MARGIN_Y + 50 + GAP + 108 + GAP + 68 + GAP + 108 + GAP;
   const h = 76;
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
@@ -642,11 +818,7 @@ function drawPricingRow(page, data, fonts) {
     },
     {
       title: 'Billing & Payment',
-      stacked: [
-        { label: 'Billing Info', value: data.billingInfo },
-        { label: 'Payment Method / Card Last Four', value: [data.paymentMethod, data.cardLastFour].filter(Boolean).join(' • ') },
-        { label: 'Recurring Payment Authorized', value: formatCurrency(data.recurringPaymentAuthorized) },
-      ],
+      billing: true,
     },
   ];
 
@@ -657,19 +829,15 @@ function drawPricingRow(page, data, fonts) {
     drawRoundedSection(page, { x, y, w: colW, h });
     drawSectionHeader(page, box.title, { x, y: y + h - HEADER_BAR_H, w: colW, font: fonts.bold });
 
-    if (box.stacked) {
-      let fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
-      for (const field of box.stacked) {
-        fieldY = drawStackedField(page, {
-          x: x + SECTION_PAD,
-          y: fieldY,
-          label: field.label,
-          value: field.value,
-          width: innerW,
-          font: fonts.regular,
-          boldFont: fonts.regular,
-        });
-      }
+    if (box.billing) {
+      drawBillingSummaryBlock(page, {
+        x: x + SECTION_PAD,
+        y: y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE,
+        width: innerW,
+        data,
+        font: fonts.regular,
+        boldFont: fonts.regular,
+      });
     } else {
       drawPriceRows(page, {
         x: x + SECTION_PAD,
@@ -685,8 +853,8 @@ function drawPricingRow(page, data, fonts) {
 }
 
 function drawAuthorizationSection(page, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 96 + GAP + 66 + GAP + 118 + GAP + 76 + GAP;
-  const h = 80;
+  const top = MARGIN_Y + 50 + GAP + 108 + GAP + 68 + GAP + 108 + GAP + 76 + GAP;
+  const h = 74;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
@@ -703,8 +871,8 @@ function drawAuthorizationSection(page, fonts) {
 }
 
 function drawSignatureSection(page, data, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 96 + GAP + 66 + GAP + 118 + GAP + 76 + GAP + 80 + GAP;
-  const h = 66;
+  const top = MARGIN_Y + 50 + GAP + 108 + GAP + 68 + GAP + 108 + GAP + 76 + GAP + 74 + GAP;
+  const h = 56;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
@@ -720,15 +888,15 @@ function drawSignatureSection(page, data, fonts) {
 
   drawWrappedText(page, BED_BUG_INITIALS_TEXT, {
     x: x + SECTION_PAD,
-    y: y + h - SECTION_PAD - 14,
+    y: y + h - SECTION_PAD - 12,
     w: w - SECTION_PAD * 2,
     font: fonts.regular,
-    size: 5.6,
-    lineHeight: 6.5,
+    size: 5.4,
+    lineHeight: 6,
   });
 
   const fieldW = (w - SECTION_PAD * 2 - 24) / 3;
-  const sigTopY = y + 30;
+  const sigTopY = y + 20;
   const fields = [
     { label: 'Customer Initials', value: data.customerInitials },
     { label: 'Customer Signature', value: data.customerSignatureName },
