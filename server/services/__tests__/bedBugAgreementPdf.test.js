@@ -204,6 +204,23 @@ describe('buildBedBugAgreementPdf', () => {
     expect(text).not.toContain('Billing Info');
   });
 
+  it('omits tax from Initial Service and Recurring Payment Authorized from Recurring Services', async () => {
+    const { outBytes } = await buildBedBugAgreementPdf(samplePayload);
+    const { text } = await extractPdfText(outBytes);
+    const initialIdx = text.indexOf('Initial Service / Warranties');
+    const recurringIdx = text.indexOf('Recurring Services');
+    const billingIdx = text.indexOf('Billing & Payment');
+    const initialSection = text.slice(initialIdx, recurringIdx);
+    const recurringSection = text.slice(recurringIdx, billingIdx);
+    expect(initialSection).toContain('Initial Quote');
+    expect(initialSection).toContain('Sub Total');
+    expect(initialSection).not.toMatch(/Tax \(0%\)/);
+    expect(initialSection).not.toContain('Initial Total');
+    expect(recurringSection).toContain('Service Charge');
+    expect(recurringSection).toContain('Recurring Total');
+    expect(recurringSection).not.toContain('Recurring Payment Authorized');
+  });
+
   it('does not show zip in Billing & Payment grid', async () => {
     const { outBytes } = await buildBedBugAgreementPdf({
       lead: { name: 'Adnan' },
