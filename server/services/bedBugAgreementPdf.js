@@ -294,48 +294,58 @@ function truncateText(text, font, size, maxWidth) {
   return value;
 }
 
-function roundedRectPath(x, y, w, h, radius) {
+/**
+ * Local-coordinate SVG paths for pdf-lib drawSvgPath.
+ * Anchor (x, y) is the bottom-left corner; path height extends upward in PDF space.
+ */
+function roundedRectLocalPath(w, h, radius) {
   const r = Math.min(radius, w / 2, h / 2);
   return [
-    `M ${x + r} ${y}`,
-    `L ${x + w - r} ${y}`,
-    `Q ${x + w} ${y} ${x + w} ${y + r}`,
-    `L ${x + w} ${y + h - r}`,
-    `Q ${x + w} ${y + h} ${x + w - r} ${y + h}`,
-    `L ${x + r} ${y + h}`,
-    `Q ${x} ${y + h} ${x} ${y + h - r}`,
-    `L ${x} ${y + r}`,
-    `Q ${x} ${y} ${x + r} ${y}`,
+    `M ${r} 0`,
+    `L ${w - r} 0`,
+    `Q ${w} 0 ${w} ${r}`,
+    `L ${w} ${h - r}`,
+    `Q ${w} ${h} ${w - r} ${h}`,
+    `L ${r} ${h}`,
+    `Q 0 ${h} 0 ${h - r}`,
+    `L 0 ${r}`,
+    `Q 0 0 ${r} 0`,
     'Z',
   ].join(' ');
 }
 
-function roundedRectTopPath(x, y, w, h, radius) {
+function roundedRectTopLocalPath(w, h, radius) {
   const r = Math.min(radius, w / 2, h / 2);
   return [
-    `M ${x} ${y}`,
-    `L ${x + w} ${y}`,
-    `L ${x + w} ${y + h - r}`,
-    `Q ${x + w} ${y + h} ${x + w - r} ${y + h}`,
-    `L ${x + r} ${y + h}`,
-    `Q ${x} ${y + h} ${x} ${y + h - r}`,
+    'M 0 0',
+    `L ${w} 0`,
+    `L ${w} ${h - r}`,
+    `Q ${w} ${h} ${w - r} ${h}`,
+    `L ${r} ${h}`,
+    `Q 0 ${h} 0 ${h - r}`,
     'Z',
   ].join(' ');
 }
 
-function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = COLORS.border, borderWidth = 0.75 }) {
-  page.drawSvgPath(roundedRectPath(x, y, w, h, BUBBLE_RADIUS), {
+function drawSvgRoundedRect(page, { x, y, w, h, radius = BUBBLE_RADIUS, fill, border, borderWidth = 0.75 }) {
+  page.drawSvgPath(roundedRectLocalPath(w, h, radius), {
+    x,
+    y,
     color: fill,
     borderColor: border,
     borderWidth,
   });
 }
 
-function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font, panelBottom, panelHeight }) {
-  const headerY = panelBottom != null && panelHeight != null
-    ? panelBottom + panelHeight - h
-    : y;
-  page.drawSvgPath(roundedRectTopPath(x, headerY, w, h, BUBBLE_RADIUS), {
+function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = COLORS.border, borderWidth = 0.75 }) {
+  drawSvgRoundedRect(page, { x, y, w, h, fill, border, borderWidth });
+}
+
+function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
+  const headerY = y;
+  page.drawSvgPath(roundedRectTopLocalPath(w, h, BUBBLE_RADIUS), {
+    x,
+    y: headerY,
     color: COLORS.headerBg,
     borderWidth: 0,
   });
@@ -352,7 +362,13 @@ function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font, panelB
 
 function drawBubblePanel(page, { x, y, w, h, title, font }) {
   drawRoundedSection(page, { x, y, w, h });
-  drawSectionHeader(page, title, { x, y, w, h: HEADER_BAR_H, font, panelBottom: y, panelHeight: h });
+  drawSectionHeader(page, title, {
+    x,
+    y: y + h - HEADER_BAR_H,
+    w,
+    h: HEADER_BAR_H,
+    font,
+  });
 }
 
 /**
@@ -734,14 +750,17 @@ async function drawHeader(pdfDoc, page, fonts) {
   const bubbleH = titleSize + titlePadY * 2;
   const bubbleX = (PAGE_W - bubbleW) / 2;
   const titleY = y + 18;
-  page.drawSvgPath(
-    roundedRectPath(bubbleX, titleY - titlePadY + 1, bubbleW, bubbleH, 6),
-    {
-      color: TITLE_BUBBLE_FILL,
-      borderColor: HEADER_GREEN,
-      borderWidth: 0.75,
-    },
-  );
+  const bubbleBottom = titleY - titlePadY + 1;
+  drawSvgRoundedRect(page, {
+    x: bubbleX,
+    y: bubbleBottom,
+    w: bubbleW,
+    h: bubbleH,
+    radius: 6,
+    fill: TITLE_BUBBLE_FILL,
+    border: HEADER_GREEN,
+    borderWidth: 0.75,
+  });
   page.drawText(BED_BUG_TITLE, {
     x: (PAGE_W - titleWidth) / 2,
     y: titleY,
