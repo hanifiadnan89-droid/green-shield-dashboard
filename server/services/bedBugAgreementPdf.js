@@ -46,21 +46,25 @@ const SPACING_ADDRESS = { gap: 10, fieldSpacing: 2, valueSize: 7 };
 
 /** Green Shield section header bar (#148A43). */
 const HEADER_GREEN = rgb(20 / 255, 138 / 255, 67 / 255);
-/** Logo gray tone (#58595B). */
+/** Logo gray tone (#58595B). Kept for legacy tag helper compatibility. */
 const LOGO_GRAY = rgb(88 / 255, 89 / 255, 91 / 255);
 const TAG_RED = rgb(185 / 255, 28 / 255, 28 / 255);
 const TAG_RED_FILL = rgb(254 / 255, 242 / 255, 242 / 255);
 const TAG_GRAY_FILL = rgb(243 / 255, 244 / 255, 246 / 255);
 const TITLE_BUBBLE_FILL = rgb(240 / 255, 253 / 255, 244 / 255);
 
+/** Rounded bubble panel corner radius. */
+const BUBBLE_RADIUS = 8;
+
 /** Vertical section heights (landscape one-page layout). */
 const LAYOUT_HEADER_H = 50;
-const LAYOUT_TOP_ROW_H = 110;
+/** Matches Billing & Payment box height. */
+const LAYOUT_TOP_ROW_H = 76;
 const LAYOUT_PESTS_H = 68;
-const LAYOUT_MIDDLE_ROW_H = 118;
+const LAYOUT_MIDDLE_ROW_H = 140;
 const LAYOUT_PRICING_H = 76;
-const LAYOUT_AUTH_H = 74;
-const LAYOUT_SIGNATURE_H = 56;
+const LAYOUT_AUTH_H = 80;
+const LAYOUT_SIGNATURE_H = 62;
 
 function layoutTop(...segments) {
   return MARGIN_Y + LAYOUT_HEADER_H + segments.reduce((sum, n) => sum + n, 0);
@@ -290,21 +294,65 @@ function truncateText(text, font, size, maxWidth) {
   return value;
 }
 
-function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = COLORS.border, borderWidth = 0.75 }) {
-  page.drawRectangle({ x, y, width: w, height: h, color: fill, borderColor: border, borderWidth });
+function roundedRectPath(x, y, w, h, radius) {
+  const r = Math.min(radius, w / 2, h / 2);
+  return [
+    `M ${x + r} ${y}`,
+    `L ${x + w - r} ${y}`,
+    `Q ${x + w} ${y} ${x + w} ${y + r}`,
+    `L ${x + w} ${y + h - r}`,
+    `Q ${x + w} ${y + h} ${x + w - r} ${y + h}`,
+    `L ${x + r} ${y + h}`,
+    `Q ${x} ${y + h} ${x} ${y + h - r}`,
+    `L ${x} ${y + r}`,
+    `Q ${x} ${y} ${x + r} ${y}`,
+    'Z',
+  ].join(' ');
 }
 
-function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
-  page.drawRectangle({ x, y, width: w, height: h, color: COLORS.headerBg, borderWidth: 0 });
+function roundedRectTopPath(x, y, w, h, radius) {
+  const r = Math.min(radius, w / 2, h / 2);
+  return [
+    `M ${x} ${y}`,
+    `L ${x + w} ${y}`,
+    `L ${x + w} ${y + h - r}`,
+    `Q ${x + w} ${y + h} ${x + w - r} ${y + h}`,
+    `L ${x + r} ${y + h}`,
+    `Q ${x} ${y + h} ${x} ${y + h - r}`,
+    'Z',
+  ].join(' ');
+}
+
+function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = COLORS.border, borderWidth = 0.75 }) {
+  page.drawSvgPath(roundedRectPath(x, y, w, h, BUBBLE_RADIUS), {
+    color: fill,
+    borderColor: border,
+    borderWidth,
+  });
+}
+
+function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font, panelBottom, panelHeight }) {
+  const headerY = panelBottom != null && panelHeight != null
+    ? panelBottom + panelHeight - h
+    : y;
+  page.drawSvgPath(roundedRectTopPath(x, headerY, w, h, BUBBLE_RADIUS), {
+    color: COLORS.headerBg,
+    borderWidth: 0,
+  });
   const size = 7.5;
   const textWidth = font.widthOfTextAtSize(text, size);
   page.drawText(text, {
     x: x + Math.max(6, (w - textWidth) / 2),
-    y: y + (h - size) / 2 + 0.5,
+    y: headerY + (h - size) / 2 + 0.5,
     size,
     font,
     color: COLORS.white,
   });
+}
+
+function drawBubblePanel(page, { x, y, w, h, title, font }) {
+  drawRoundedSection(page, { x, y, w, h });
+  drawSectionHeader(page, title, { x, y, w, h: HEADER_BAR_H, font, panelBottom: y, panelHeight: h });
 }
 
 /**
@@ -320,18 +368,21 @@ function drawStackedField(page, {
   valueSize = VALUE_SIZE,
   gap = LABEL_VALUE_GAP,
   fieldSpacing = FIELD_SPACING,
-  labelColor = COLORS.muted,
+  labelColor = COLORS.text,
   valueColor = COLORS.text,
   font,
   boldFont,
+  labelFont,
+  valueFont,
 }) {
-  const valueFont = boldFont ?? font;
-  page.drawText(String(label), { x, y, size: labelSize, font, color: labelColor });
+  const labelF = labelFont ?? boldFont ?? font;
+  const valueF = valueFont ?? font;
+  page.drawText(String(label), { x, y, size: labelSize, font: labelF, color: labelColor });
   const valueY = y - gap;
   const text = String(value ?? '').trim();
   if (text) {
-    const clipped = truncateText(text, valueFont, valueSize, width - 2);
-    page.drawText(clipped, { x, y: valueY, size: valueSize, font: valueFont, color: valueColor });
+    const clipped = truncateText(text, valueF, valueSize, width - 2);
+    page.drawText(clipped, { x, y: valueY, size: valueSize, font: valueF, color: valueColor });
   }
   return valueY - valueSize - fieldSpacing;
 }
@@ -445,8 +496,9 @@ function drawChecklistGroup(page, {
   boldFont,
   isChecked = () => true,
 }) {
-  const bubbleH = drawLabelBubble(page, title, { x, y, boldFont, variant: titleVariant });
-  let itemY = y - bubbleH - 5;
+  const titleSize = 6.5;
+  page.drawText(title, { x, y, size: titleSize, font: boldFont, color: COLORS.text });
+  let itemY = y - 10;
   for (const item of items) {
     drawCheckItem(page, item, {
       x,
@@ -474,14 +526,14 @@ function drawPriceRows(page, {
 }) {
   let rowY = y;
   for (const row of rows) {
-    const isTotal = /total|authorized/i.test(row.label);
+    const isTotal = /sub total|recurring total/i.test(row.label);
     const rowFont = isTotal ? boldFont : font;
     page.drawText(String(row.label), {
       x,
       y: rowY,
       size: labelSize,
-      font,
-      color: COLORS.muted,
+      font: boldFont,
+      color: COLORS.text,
     });
     const value = String(row.value ?? '').trim();
     if (value) {
@@ -509,12 +561,21 @@ function drawSignatureField(page, {
   font,
   boldFont,
 }) {
-  page.drawText(String(label), { x, y, size: LABEL_SIZE, font, color: COLORS.muted });
+  const labelF = boldFont ?? font;
+  const labelText = String(label);
+  page.drawText(labelText, { x, y, size: LABEL_SIZE, font: labelF, color: COLORS.text });
+  const labelWidth = labelF.widthOfTextAtSize(labelText, LABEL_SIZE);
+  page.drawLine({
+    start: { x, y: y - 1.5 },
+    end: { x: x + labelWidth, y: y - 1.5 },
+    thickness: 0.5,
+    color: COLORS.text,
+  });
   const valueY = y - 10;
   const text = String(value ?? '').trim();
   if (text) {
-    const clipped = truncateText(text, boldFont ?? font, VALUE_SIZE, width - 4);
-    page.drawText(clipped, { x, y: valueY, size: VALUE_SIZE, font: boldFont ?? font, color: COLORS.text });
+    const clipped = truncateText(text, font, VALUE_SIZE, width - 4);
+    page.drawText(clipped, { x, y: valueY, size: VALUE_SIZE, font, color: COLORS.text });
   }
   const lineY = valueY - 6;
   page.drawLine({
@@ -673,15 +734,14 @@ async function drawHeader(pdfDoc, page, fonts) {
   const bubbleH = titleSize + titlePadY * 2;
   const bubbleX = (PAGE_W - bubbleW) / 2;
   const titleY = y + 18;
-  page.drawRectangle({
-    x: bubbleX,
-    y: titleY - titlePadY + 1,
-    width: bubbleW,
-    height: bubbleH,
-    color: TITLE_BUBBLE_FILL,
-    borderColor: HEADER_GREEN,
-    borderWidth: 0.75,
-  });
+  page.drawSvgPath(
+    roundedRectPath(bubbleX, titleY - titlePadY + 1, bubbleW, bubbleH, 6),
+    {
+      color: TITLE_BUBBLE_FILL,
+      borderColor: HEADER_GREEN,
+      borderWidth: 0.75,
+    },
+  );
   page.drawText(BED_BUG_TITLE, {
     x: (PAGE_W - titleWidth) / 2,
     y: titleY,
@@ -706,95 +766,44 @@ async function drawHeader(pdfDoc, page, fonts) {
 }
 
 function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_ADDRESS }) {
-  const colW = (width - 10) / 2;
-  const leftX = x;
-  const rightX = x + colW + 10;
-
-  const row1LeftEnd = drawStackedField(page, {
-    x: leftX,
+  drawTwoColumnAddressBlock(page, {
+    x,
     y,
-    label: 'Address',
-    value: data.serviceAddress,
-    width: colW,
+    width,
+    leftFields: [
+      { label: 'Address', value: data.serviceAddress },
+      { label: 'State', value: data.state },
+    ],
+    rightFields: [
+      { label: 'City', value: data.city },
+      { label: 'Zip', value: data.zip },
+    ],
     font,
     boldFont,
-    ...spacing,
-  });
-  const row1RightEnd = drawStackedField(page, {
-    x: rightX,
-    y,
-    label: 'City',
-    value: data.city,
-    width: colW,
-    font,
-    boldFont,
-    ...spacing,
-  });
-
-  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 2;
-  drawStackedField(page, {
-    x: leftX,
-    y: row2Y,
-    label: 'State',
-    value: data.state,
-    width: colW,
-    font,
-    boldFont,
-    ...spacing,
-  });
-  drawStackedField(page, {
-    x: rightX,
-    y: row2Y,
-    label: 'Zip',
-    value: data.zip,
-    width: colW,
-    font,
-    boldFont,
-    ...spacing,
+    spacing,
   });
 }
 
 function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
-  const colW = (width - 10) / 2;
-  const leftX = x;
-  const rightX = x + colW + 10;
-
-  const row1LeftEnd = drawStackedField(page, {
-    x: leftX,
+  drawTwoColumnAddressBlock(page, {
+    x,
     y,
-    label: 'Customer Name',
-    value: data.customerName,
-    width: colW,
+    width,
+    leftFields: [
+      { label: 'Customer Name', value: data.customerName },
+      { label: 'Phone', value: data.phone },
+    ],
+    rightFields: [
+      { label: 'Email', value: data.email },
+    ],
     font,
     boldFont,
-    ...spacing,
-  });
-  const row1RightEnd = drawStackedField(page, {
-    x: rightX,
-    y,
-    label: 'Email',
-    value: data.email,
-    width: colW,
-    font,
-    boldFont,
-    ...spacing,
-  });
-
-  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 2;
-  drawStackedField(page, {
-    x: leftX,
-    y: row2Y,
-    label: 'Phone',
-    value: data.phone,
-    width: colW,
-    font,
-    boldFont,
-    ...spacing,
+    spacing,
   });
 }
 
 function drawServiceDetailsBlock(page, { x, y, width, data, font, boldFont }) {
-  const spacing = { gap: 8, fieldSpacing: 10, valueSize: 7.5 };
+  const spacing = { gap: 9, fieldSpacing: 12, valueSize: 7.5 };
   const afterServiceType = drawStackedField(page, {
     x,
     y,
@@ -803,6 +812,7 @@ function drawServiceDetailsBlock(page, { x, y, width, data, font, boldFont }) {
     width,
     font,
     boldFont,
+    valueFont: font,
     ...spacing,
   });
   drawStackedField(page, {
@@ -813,6 +823,7 @@ function drawServiceDetailsBlock(page, { x, y, width, data, font, boldFont }) {
     width,
     font,
     boldFont,
+    valueFont: font,
     ...spacing,
   });
 }
@@ -833,8 +844,7 @@ function drawTopRow(page, data, fonts) {
     const innerW = colW - SECTION_PAD * 2;
     const innerX = x + SECTION_PAD;
     const fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
-    drawRoundedSection(page, { x, y, w: colW, h });
-    drawSectionHeader(page, box.title, { x, y: y + h - HEADER_BAR_H, w: colW, font: fonts.bold });
+    drawBubblePanel(page, { x, y, w: colW, h, title: box.title, font: fonts.bold });
     if (box.kind === 'address') {
       drawServiceAddressGridBlock(page, {
         x: innerX,
@@ -842,7 +852,7 @@ function drawTopRow(page, data, fonts) {
         width: innerW,
         data,
         font: fonts.regular,
-        boldFont: fonts.regular,
+        boldFont: fonts.bold,
         spacing: SPACING_ADDRESS,
       });
     } else if (box.kind === 'customer') {
@@ -852,7 +862,7 @@ function drawTopRow(page, data, fonts) {
         width: innerW,
         data,
         font: fonts.regular,
-        boldFont: fonts.regular,
+        boldFont: fonts.bold,
         spacing: SPACING_SIGNATURE,
       });
     } else {
@@ -862,7 +872,7 @@ function drawTopRow(page, data, fonts) {
         width: innerW,
         data,
         font: fonts.regular,
-        boldFont: fonts.regular,
+        boldFont: fonts.bold,
       });
     }
   });
@@ -874,8 +884,7 @@ function drawPestsSection(page, data, fonts) {
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
-  drawRoundedSection(page, { x, y, w, h });
-  drawSectionHeader(page, 'Included Pests & Add-ons', { x, y: y + h - HEADER_BAR_H, w, font: fonts.bold });
+  drawBubblePanel(page, { x, y, w, h, title: 'Included Pests & Add-ons', font: fonts.bold });
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
@@ -897,11 +906,11 @@ function drawPestsSection(page, data, fonts) {
   );
 
   const groups = [
-    { x: innerX, width: col1W, title: 'Main pest', titleVariant: 'red', items: BED_BUG_MAIN_PESTS, itemGap: 9 },
-    { x: col2X, width: col2W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 6.5 },
-    { x: col3X, width: col3W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 6.5 },
-    { x: col4X, width: col4W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_C, itemGap: 6.5 },
-    { x: col5X, width: col5W, title: 'Add-ons', titleVariant: 'red', items: BED_BUG_ADDON_PESTS, itemGap: 7, isAddon: true },
+    { x: innerX, width: col1W, title: 'Main pest', items: BED_BUG_MAIN_PESTS, itemGap: 9 },
+    { x: col2X, width: col2W, title: 'Included', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 6.5 },
+    { x: col3X, width: col3W, title: 'Included', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 6.5 },
+    { x: col4X, width: col4W, title: 'Included', items: BED_BUG_OTHER_INCLUDED_PESTS_C, itemGap: 6.5 },
+    { x: col5X, width: col5W, title: 'Add-ons', items: BED_BUG_ADDON_PESTS, itemGap: 7, isAddon: true },
   ];
 
   for (const group of groups) {
@@ -929,30 +938,28 @@ function drawMiddleRow(page, data, schedule, fonts) {
   const x = MARGIN_X;
   const y = yFromTop(top, h);
 
-  drawRoundedSection(page, { x, y, w: leftW, h });
-  drawSectionHeader(page, 'Expectations / Scheduling', { x, y: y + h - 14, w: leftW, h: 14, font: fonts.bold });
+  drawBubblePanel(page, { x, y, w: leftW, h, title: 'Expectations / Scheduling', font: fonts.bold });
   drawWrappedText(page, BED_BUG_EXPECTATIONS_TEXT, {
-    x: x + 4,
-    y: y + h - 28,
-    w: leftW - 8,
+    x: x + 6,
+    y: y + h - HEADER_BAR_H - 10,
+    w: leftW - 12,
     font: fonts.regular,
     size: 6,
     lineHeight: 7.5,
   });
 
   const rx = x + leftW + GAP;
-  drawRoundedSection(page, { x: rx, y, w: rightW, h });
-  drawSectionHeader(page, 'Bed Bug Insect Triannual Subscription', { x: rx, y: y + h - 14, w: rightW, h: 14, font: fonts.bold });
+  drawBubblePanel(page, { x: rx, y, w: rightW, h, title: 'Bed Bug Insect Triannual Subscription', font: fonts.bold });
 
   const tileW = (rightW - 14) / 6;
-  const tileH = 22;
+  const tileH = 24;
   const months = schedule?.scheduleMonths ?? [];
   months.forEach((month, index) => {
     const row = Math.floor(index / 6);
     const col = index % 6;
     drawPaymentTile(page, month.label, formatBedBugPaymentText(month), {
       x: rx + 4 + col * (tileW + 1),
-      y: y + h - 30 - (row + 1) * (tileH + 2),
+      y: y + h - HEADER_BAR_H - 12 - (row + 1) * (tileH + 2),
       w: tileW,
       h: tileH,
       font: fonts.regular,
@@ -1021,8 +1028,6 @@ function drawPricingRow(page, data, fonts) {
         { label: 'Initial Quote', value: formatCurrency(data.initialQuote) },
         { label: 'Initial Discount', value: data.initialDiscount ? `-${formatCurrency(data.initialDiscount).replace('$', '')}` : '' },
         { label: 'Sub Total', value: formatCurrency(data.initialSubtotal) },
-        { label: 'Tax (0%)', value: formatCurrency(data.tax) },
-        { label: 'Initial Total', value: formatCurrency(data.initialTotal) },
       ],
     },
     {
@@ -1031,7 +1036,6 @@ function drawPricingRow(page, data, fonts) {
         { label: 'Service Charge', value: formatCurrency(data.recurringCharge) },
         { label: 'Tax (0%)', value: formatCurrency(data.recurringTax) },
         { label: 'Recurring Total', value: formatCurrency(data.recurringTotal) },
-        { label: 'Recurring Payment Authorized', value: formatCurrency(data.recurringPaymentAuthorized) },
       ],
     },
     {
@@ -1044,8 +1048,7 @@ function drawPricingRow(page, data, fonts) {
     const x = MARGIN_X + i * (colW + GAP);
     const y = yFromTop(top, h);
     const innerW = colW - SECTION_PAD * 2;
-    drawRoundedSection(page, { x, y, w: colW, h });
-    drawSectionHeader(page, box.title, { x, y: y + h - HEADER_BAR_H, w: colW, font: fonts.bold });
+    drawBubblePanel(page, { x, y, w: colW, h, title: box.title, font: fonts.bold });
 
     if (box.billing) {
       drawBillingGridBlock(page, {
@@ -1054,7 +1057,7 @@ function drawPricingRow(page, data, fonts) {
         width: innerW,
         data,
         font: fonts.regular,
-        boldFont: fonts.regular,
+        boldFont: fonts.bold,
         spacing: SPACING_SIGNATURE,
       });
     } else {
@@ -1077,11 +1080,10 @@ function drawAuthorizationSection(page, fonts) {
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
-  drawRoundedSection(page, { x, y, w, h });
-  drawSectionHeader(page, BED_BUG_AUTHORIZATION_TITLE, { x, y: y + h - 14, w, h: 14, font: fonts.bold });
+  drawBubblePanel(page, { x, y, w, h, title: BED_BUG_AUTHORIZATION_TITLE, font: fonts.bold });
   drawWrappedText(page, BED_BUG_AUTHORIZATION_TEXT, {
-    x: x + 4,
-    y: y + h - 28,
+    x: x + 6,
+    y: y + h - HEADER_BAR_H - 10,
     w: w - 8,
     font: fonts.regular,
     size: 5.8,
@@ -1144,7 +1146,7 @@ function drawSignatureSection(page, data, fonts) {
       value: field.value,
       width: fieldW,
       font: fonts.regular,
-      boldFont: fonts.regular,
+      boldFont: fonts.bold,
     });
   });
 }
