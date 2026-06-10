@@ -4,6 +4,7 @@ import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { readdir } from 'fs/promises';
+import { inflateSync } from 'zlib';
 import { join as pathJoin } from 'path';
 import {
   buildBedBugAgreementPdf,
@@ -25,6 +26,28 @@ import { listQuoteDocuments } from '../quoteDocumentsList.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const QUOTES_DIR = pathJoin(__dirname, '..', '..', '..', 'assets', 'quotes');
+
+function pdfContentHasVectorGraphics(bytes) {
+  const raw = Buffer.from(bytes);
+  const streamMarker = Buffer.from('stream\n');
+  let pos = 0;
+  while (pos < raw.length) {
+    const idx = raw.indexOf(streamMarker, pos);
+    if (idx === -1) break;
+    const endIdx = raw.indexOf('endstream', idx);
+    if (endIdx === -1) break;
+    const streamBytes = raw.subarray(idx + streamMarker.length, endIdx);
+    try {
+      const decoded = streamBytes[0] === 0x78 ? inflateSync(streamBytes) : streamBytes;
+      const text = decoded.toString('latin1');
+      if (/\bf\b|\bf\*/.test(text) && /\bm\b|\bc\b/.test(text)) return true;
+    } catch {
+      // ignore non-deflate streams
+    }
+    pos = endIdx + 9;
+  }
+  return false;
+}
 
 async function extractPdfText(bytes) {
   const doc = await PDFDocument.load(bytes);
@@ -64,6 +87,22 @@ describe('buildBedBugAgreementPdf', () => {
     expect(outName).toBe('Jane_Doe_Bed_Bug.pdf');
     const { pageCount } = await extractPdfText(outBytes);
     expect(pageCount).toBe(1);
+    expect(pdfContentHasVectorGraphics(outBytes)).toBe(true);
+  });
+
+  it('renders section header titles inside bubble panels', async () => {
+    const { outBytes } = await buildBedBugAgreementPdf(samplePayload);
+    const { text } = await extractPdfText(outBytes);
+    expect(text).toContain('Service Address');
+    expect(text).toContain('Customer Information');
+    expect(text).toContain('Service Details');
+    expect(text).toContain('Included Pests & Add-ons');
+    expect(text).toContain('Expectations / Scheduling');
+    expect(text).toContain('Bed Bug Insect Triannual Subscription');
+    expect(text).toContain('Initial Service / Warranties');
+    expect(text).toContain('Recurring Services');
+    expect(text).toContain('Billing & Payment');
+    expect(text).toContain('Cancellation and Payment Authorization');
   });
 
   it('uses landscape letter dimensions (792×612)', async () => {
