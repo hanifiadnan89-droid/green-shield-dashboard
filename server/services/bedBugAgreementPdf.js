@@ -322,12 +322,13 @@ function roundedRectLocalPath(w, h, radius) {
 function roundedHeaderLocalPath(w, h, radius) {
   const r = Math.min(radius, w / 2, h / 2);
   return [
-    'M 0 0',
-    `L ${w} 0`,
-    `L ${w} ${h - r}`,
-    `Q ${w} ${h} ${w - r} ${h}`,
-    `L ${r} ${h}`,
-    `Q 0 ${h} 0 ${h - r}`,
+    `M ${r} 0`,
+    `L ${w - r} 0`,
+    `Q ${w} 0 ${w} ${r}`,
+    `L ${w} ${h}`,
+    `L 0 ${h}`,
+    `L 0 ${r}`,
+    `Q 0 0 ${r} 0`,
     'Z',
   ].join(' ');
 }
@@ -352,7 +353,7 @@ function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = CO
 function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
   const headerY = y;
 
-  page.drawSvgPath(roundedRectTopLocalPath(w, h, BUBBLE_RADIUS), {
+  page.drawSvgPath(roundedHeaderLocalPath(w, h, BUBBLE_RADIUS), {
     x,
     y: headerY,
     color: COLORS.headerBg,
@@ -364,7 +365,7 @@ function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
 
   page.drawText(text, {
     x: x + Math.max(6, (w - textWidth) / 2),
-    y: headerY + (h - size) / 2 + 0.5,
+    y: headerY - h + (h - size) / 2 + 0.5,
     size,
     font,
     color: COLORS.white,
@@ -376,7 +377,7 @@ function drawBubblePanel(page, { x, y, w, h, title, font }) {
 
   drawSectionHeader(page, title, {
     x,
-    y: y + h - HEADER_BAR_H,
+    y: y + h,
     w,
     h: HEADER_BAR_H,
     font,
