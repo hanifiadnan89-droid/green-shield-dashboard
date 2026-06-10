@@ -7,7 +7,11 @@ import { promisify } from 'util';
 import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 import { applyAgreementScheduleToPdf } from '../services/applyAgreementScheduleToPdf.js';
-import { buildBedBugAgreementPdf } from '../services/bedBugAgreementPdf.js';
+import {
+  buildBedBugAgreementPdf,
+  normalizeBedBugAgreementData,
+  validateBedBugAgreementData,
+} from '../services/bedBugAgreementPdf.js';
 import {
   BED_BUG_EMAIL_DISABLED,
   BED_BUG_EMAIL_DISABLED_MESSAGE,
@@ -369,6 +373,8 @@ async function buildQuotePdf({
   serviceStartDate,
   initialServiceDate,
   selectedStartDate,
+  bedBugAgreement = {},
+  cardLastFour = '',
 }) {
   const allFiles  = await readdirAsync(QUOTES_DIR);
   const supported = allFiles.filter(f => SUPPORTED_EXTS.has(ext(f)));
@@ -384,6 +390,8 @@ async function buildQuotePdf({
       lead,
       pricing,
       address,
+      cardLastFour,
+      bedBugAgreement,
       startDate,
       agreementStartDate,
       serviceStartDate,
@@ -625,8 +633,20 @@ router.post('/generate-quote', async (req, res) => {
       serviceStartDate,
       initialServiceDate,
       selectedStartDate,
+      bedBugAgreement = {},
+      cardLastFour = '',
+      preview = false,
     } = req.body;
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
+
+    const templateName = await resolveQuoteTemplateFilename(QUOTES_DIR, index);
+    if (templateName === BED_BUG_TEMPLATE) {
+      const normalized = normalizeBedBugAgreementData(req.body);
+      const validationErrors = validateBedBugAgreementData(normalized, req.body);
+      if (validationErrors.length) {
+        return res.status(400).json({ error: validationErrors.join('; ') });
+      }
+    }
 
     const { outBytes, outName } = await buildQuotePdf({
       index,
@@ -640,10 +660,13 @@ router.post('/generate-quote', async (req, res) => {
       serviceStartDate,
       initialServiceDate,
       selectedStartDate,
+      bedBugAgreement,
+      cardLastFour,
     });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(outName)}"`);
+    const disposition = preview ? 'inline' : 'attachment';
+    res.setHeader('Content-Disposition', `${disposition}; filename="${encodeURIComponent(outName)}"`);
     res.send(Buffer.from(outBytes));
   } catch (err) {
     console.error('generate-quote error:', err);
@@ -668,6 +691,9 @@ router.post('/email-quote', async (req, res) => {
       serviceStartDate,
       initialServiceDate,
       selectedStartDate,
+      bedBugAgreement = {},
+      cardLastFour = '',
+      previewVerified = false,
     } = req.body;
 
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
@@ -676,6 +702,17 @@ router.post('/email-quote', async (req, res) => {
     const templateName = await resolveQuoteTemplateFilename(QUOTES_DIR, index);
     if (templateName === BED_BUG_TEMPLATE && BED_BUG_EMAIL_DISABLED) {
       return res.status(503).json({ error: BED_BUG_EMAIL_DISABLED_MESSAGE });
+    }
+
+    if (templateName === BED_BUG_TEMPLATE) {
+      const normalized = normalizeBedBugAgreementData(req.body);
+      const validationErrors = validateBedBugAgreementData(normalized, req.body, { forEmail: true });
+      if (validationErrors.length) {
+        return res.status(400).json({ error: validationErrors.join('; ') });
+      }
+      if (!previewVerified) {
+        return res.status(400).json({ error: 'Preview the Bed Bug agreement PDF before emailing.' });
+      }
     }
 
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
@@ -694,6 +731,8 @@ router.post('/email-quote', async (req, res) => {
       serviceStartDate,
       initialServiceDate,
       selectedStartDate,
+      bedBugAgreement,
+      cardLastFour,
     });
 
     const MIME_MAP = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };

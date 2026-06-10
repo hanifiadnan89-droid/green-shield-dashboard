@@ -1,9 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Send, CheckCircle, FileText, ExternalLink, Check, AlertTriangle, MapPin } from 'lucide-react';
+import { Send, CheckCircle, FileText, ExternalLink, Check, AlertTriangle, MapPin, Eye } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Spinner from '../../components/Spinner.jsx';
 import { formatMoney, computeFinalQuote } from './previewSendUtils.js';
+import BedBugAgreementForm from './BedBugAgreementForm.jsx';
+import {
+  bedBugFormFingerprint,
+  buildBedBugAgreementState,
+  mergeBedBugPayload,
+  validateBedBugForm,
+} from './bedBugAgreementUtils.js';
 
 /* ── Quote Documents Section ── */
 export default function QuoteDocumentsSection({
@@ -18,12 +25,23 @@ export default function QuoteDocumentsSection({
   const [address, setAddress]         = useState({ street: '', cityState: '' });
   const [agreementStartDate, setAgreementStartDate] = useState('');
   const [notes, setNotes]             = useState('');
+  const [bedBugForm, setBedBugForm]   = useState(null);
+  const [previewFingerprint, setPreviewFingerprint] = useState(null);
   const [loading, setLoading]         = useState(true);
   const [generating, setGenerating]   = useState(false);
+  const [previewing, setPreviewing]   = useState(false);
   const [emailing, setEmailing]       = useState(false);
   const [emailResult, setEmailResult] = useState(null);
   const [genError, setGenError]       = useState(null);
   const [missing, setMissing]         = useState(false);
+
+  const isBedBug = selected?.templateKind === 'bed_bug' || selected?.name === 'Bed Bug.pdf';
+  const currentFingerprint = useMemo(
+    () => (isBedBug && bedBugForm ? bedBugFormFingerprint(bedBugForm, pricing, address, agreementStartDate) : null),
+    [isBedBug, bedBugForm, pricing, address, agreementStartDate],
+  );
+  const previewVerified = isBedBug && currentFingerprint && previewFingerprint === currentFingerprint;
+  const previewStale = isBedBug && previewFingerprint && !previewVerified;
 
   useEffect(() => {
     api.documents.quotes().then(data => {
@@ -33,11 +51,36 @@ export default function QuoteDocumentsSection({
   }, []);
 
   useEffect(() => {
-    onStateChange?.({ pricing, address, notes, selected, agreementStartDate });
-  }, [pricing, address, notes, selected, agreementStartDate, onStateChange]);
+    if (isBedBug && lead) {
+      setBedBugForm((prev) => prev ?? buildBedBugAgreementState(lead, address, pricing, agreementStartDate));
+    } else if (!isBedBug) {
+      setBedBugForm(null);
+      setPreviewFingerprint(null);
+    }
+  }, [isBedBug, lead, address, pricing, agreementStartDate]);
 
-  function buildPayload() {
-    return {
+  useEffect(() => {
+    if (!isBedBug || !bedBugForm) return;
+    setPricing({
+      initial: bedBugForm.initialQuote,
+      discounted: bedBugForm.initialDiscount,
+      recurring: bedBugForm.recurringCharge,
+    });
+    setAddress({
+      street: bedBugForm.serviceAddress,
+      cityState: bedBugForm.cityStateZip,
+    });
+    if (bedBugForm.agreementDate) {
+      setAgreementStartDate(bedBugForm.agreementDate);
+    }
+  }, [isBedBug, bedBugForm?.initialQuote, bedBugForm?.initialDiscount, bedBugForm?.recurringCharge, bedBugForm?.serviceAddress, bedBugForm?.cityStateZip, bedBugForm?.agreementDate]);
+
+  useEffect(() => {
+    onStateChange?.({ pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified });
+  }, [pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified, onStateChange]);
+
+  function buildPayload(extra = {}) {
+    const base = {
       index:            selected.index,
       serviceType:      selected.serviceType || null,
       lead:             { name: lead?.name, email: lead?.email, phone: lead?.phone },
@@ -47,7 +90,69 @@ export default function QuoteDocumentsSection({
       agreementStartDate: agreementStartDate || undefined,
       startDate: agreementStartDate || undefined,
       prepGuideIndices,
+      ...extra,
     };
+    if (isBedBug && bedBugForm) {
+      return mergeBedBugPayload(base, bedBugForm);
+    }
+    return base;
+  }
+
+  function validateBeforeGenerate() {
+    if (!isBedBug) return null;
+    const errors = validateBedBugForm(bedBugForm);
+    return errors.length ? errors.join('; ') : null;
+  }
+
+  async function requestPdf({ preview = false, download = false } = {}) {
+    const validationError = validateBeforeGenerate();
+    if (validationError) throw new Error(validationError);
+
+    const res = await fetch('/api/documents/generate-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildPayload({ preview, previewVerified: preview || previewVerified })),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const fnMatch = disposition.match(/filename="?([^";\n]+)"?/);
+    const filename = fnMatch ? decodeURIComponent(fnMatch[1]) : 'quote.pdf';
+
+    if (download) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    }
+
+    if (isBedBug) {
+      setPreviewFingerprint(currentFingerprint);
+    }
+    return filename;
+  }
+
+  async function handlePreview() {
+    if (!selected) return;
+    setPreviewing(true);
+    setGenError(null);
+    setEmailResult(null);
+    try {
+      await requestPdf({ preview: true });
+    } catch (err) {
+      setGenError(err.message);
+    } finally {
+      setPreviewing(false);
+    }
   }
 
   async function handleGenerate() {
@@ -56,25 +161,8 @@ export default function QuoteDocumentsSection({
     setGenError(null);
     setEmailResult(null);
     try {
-      const res = await fetch('/api/documents/generate-quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildPayload())
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || `HTTP ${res.status}`);
-      }
-      const blob = await res.blob();
-      const disposition = res.headers.get('Content-Disposition') || '';
-      const fnMatch = disposition.match(/filename="?([^";\n]+)"?/);
-      const filename = fnMatch ? decodeURIComponent(fnMatch[1]) : 'quote.pdf';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      await requestPdf({ preview: false, download: true });
+      if (isBedBug) setPreviewFingerprint(currentFingerprint);
     } catch (err) {
       setGenError(err.message);
     } finally {
@@ -84,11 +172,15 @@ export default function QuoteDocumentsSection({
 
   async function handleEmail() {
     if (!selected || !lead?.email) return;
+    if (isBedBug && !previewVerified) {
+      setGenError('Preview the Bed Bug agreement PDF before emailing.');
+      return;
+    }
     setEmailing(true);
     setGenError(null);
     setEmailResult(null);
     try {
-      await api.documents.emailQuote(buildPayload());
+      await api.documents.emailQuote(buildPayload({ previewVerified: true }));
       setEmailResult({ ok: true, to: lead.email });
     } catch (err) {
       setEmailResult({ ok: false, error: err.message });
@@ -102,6 +194,7 @@ export default function QuoteDocumentsSection({
   const bedBugEmailDisabled = Boolean(selected?.emailDisabled);
   const bedBugEmailDisabledMessage = selected?.emailDisabledMessage
     || 'Bed Bug agreement email is temporarily disabled until PDF layout is verified.';
+  const emailBlocked = bedBugEmailDisabled || (isBedBug && !previewVerified);
 
   return (
     <div className={shellClass}>
@@ -167,99 +260,109 @@ export default function QuoteDocumentsSection({
           </div>
         )}
 
-        {/* Customer info preview */}
-        {lead && (
-          <div className="send-preview-profile">
-            <p className="send-preview-profile__title">Customer profile</p>
-            <div className="send-preview-profile__grid">
-              {[
-                ['Name', lead.name],
-                ['Phone', lead.phone],
-                ['Email', lead.email],
-                ['Reason', lead.reason],
-                ['Notes', lead.notes],
-                ['Status', lead.status],
-              ].map(([label, val]) => (
-                <div key={label} className="send-preview-profile__cell">
-                  <p className="send-preview-profile__label">{label}</p>
-                  <p className="send-preview-profile__value">{val || '—'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="send-preview-address">
-          <p className="send-preview-address__title">
-            <MapPin size={14} className="inline mr-1.5 -mt-0.5 text-gs-accent" />
-            Service address
-          </p>
-          <div className="space-y-2">
-            <input
-              className="send-command-input text-sm"
-              placeholder="Street address"
-              value={address.street}
-              onChange={e => setAddress(p => ({ ...p, street: e.target.value }))}
-            />
-            <input
-              className="send-command-input text-sm"
-              placeholder="City, State ZIP"
-              value={address.cityState}
-              onChange={e => setAddress(p => ({ ...p, cityState: e.target.value }))}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-1.5 block">
-            Agreement start date
-          </label>
-          <input
-            type="date"
-            className="send-command-input text-sm"
-            value={agreementStartDate}
-            onChange={e => setAgreementStartDate(e.target.value)}
+        {isBedBug && bedBugForm ? (
+          <BedBugAgreementForm
+            form={bedBugForm}
+            onChange={setBedBugForm}
+            previewStale={previewStale}
           />
-          <p className="text-[10px] text-gs-muted mt-1 mb-0">
-            Drives the 12-month calendar on the agreement. Leave blank to use today.
-          </p>
-        </div>
-
-        <div className="send-preview-pricing-edit">
-          <p className="send-preview-pricing-edit__title">Quote pricing</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ['initial', 'Initial quote'],
-              ['discounted', 'Discount'],
-              ['recurring', 'Recurring / mo'],
-            ].map(([key, label]) => (
-              <div key={key}>
-                <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
-                  {label}
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted text-sm">$</span>
-                  <input
-                    className="send-command-input send-command-input--money text-sm"
-                    placeholder="0"
-                    value={pricing[key]}
-                    onChange={e => setPricing(p => ({ ...p, [key]: e.target.value }))}
-                  />
+        ) : (
+          <>
+            {/* Customer info preview */}
+            {lead && (
+              <div className="send-preview-profile">
+                <p className="send-preview-profile__title">Customer profile</p>
+                <div className="send-preview-profile__grid">
+                  {[
+                    ['Name', lead.name],
+                    ['Phone', lead.phone],
+                    ['Email', lead.email],
+                    ['Reason', lead.reason],
+                    ['Notes', lead.notes],
+                    ['Status', lead.status],
+                  ].map(([label, val]) => (
+                    <div key={label} className="send-preview-profile__cell">
+                      <p className="send-preview-profile__label">{label}</p>
+                      <p className="send-preview-profile__value">{val || '—'}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-          {pricing.initial && (
-            <p className="text-sm font-semibold text-gs-accent mt-3 text-right">
-              Final: {formatMoney(computeFinalQuote(pricing))}
-            </p>
-          )}
-        </div>
+            )}
+
+            <div className="send-preview-address">
+              <p className="send-preview-address__title">
+                <MapPin size={14} className="inline mr-1.5 -mt-0.5 text-gs-accent" />
+                Service address
+              </p>
+              <div className="space-y-2">
+                <input
+                  className="send-command-input text-sm"
+                  placeholder="Street address"
+                  value={address.street}
+                  onChange={e => setAddress(p => ({ ...p, street: e.target.value }))}
+                />
+                <input
+                  className="send-command-input text-sm"
+                  placeholder="City, State ZIP"
+                  value={address.cityState}
+                  onChange={e => setAddress(p => ({ ...p, cityState: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-1.5 block">
+                Agreement start date
+              </label>
+              <input
+                type="date"
+                className="send-command-input text-sm"
+                value={agreementStartDate}
+                onChange={e => setAgreementStartDate(e.target.value)}
+              />
+              <p className="text-[10px] text-gs-muted mt-1 mb-0">
+                Drives the 12-month calendar on the agreement. Leave blank to use today.
+              </p>
+            </div>
+
+            <div className="send-preview-pricing-edit">
+              <p className="send-preview-pricing-edit__title">Quote pricing</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ['initial', 'Initial quote'],
+                  ['discounted', 'Discount'],
+                  ['recurring', 'Recurring / mo'],
+                ].map(([key, label]) => (
+                  <div key={key}>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
+                      {label}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gs-muted text-sm">$</span>
+                      <input
+                        className="send-command-input send-command-input--money text-sm"
+                        placeholder="0"
+                        value={pricing[key]}
+                        onChange={e => setPricing(p => ({ ...p, [key]: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {pricing.initial && (
+                <p className="text-sm font-semibold text-gs-accent mt-3 text-right">
+                  Final: {formatMoney(computeFinalQuote(pricing))}
+                </p>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Notes */}
         <div>
           <label className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-1.5 block">
-            Notes (bottom-right of quote)
+            Notes {isBedBug ? '(not shown on Bed Bug agreement)' : '(bottom-right of quote)'}
           </label>
           <textarea
             className="send-command-input text-xs resize-none"
@@ -284,12 +387,24 @@ export default function QuoteDocumentsSection({
             : <p className="send-command-alert send-command-alert--error">{emailResult.error}</p>
         )}
 
+        {isBedBug && (
+          <button
+            onClick={handlePreview}
+            disabled={!selected || previewing || generating || emailing}
+            className={`send-command-secondary ${
+              !selected || previewing || generating || emailing ? 'send-command-secondary--disabled' : ''
+            }`}
+          >
+            {previewing ? <><Spinner size={12} /> Previewing...</> : <><Eye size={12} /> Preview PDF</>}
+          </button>
+        )}
+
         {/* Download */}
         <button
           onClick={handleGenerate}
-          disabled={!selected || generating || emailing}
+          disabled={!selected || generating || emailing || previewing}
           className={`send-command-secondary ${
-            !selected || generating || emailing ? 'send-command-secondary--disabled' : ''
+            !selected || generating || emailing || previewing ? 'send-command-secondary--disabled' : ''
           }`}
         >
           {generating ? <><Spinner size={12} /> Generating...</> : <><FileText size={12} /> Download PDF</>}
@@ -298,16 +413,18 @@ export default function QuoteDocumentsSection({
         {/* Email to customer — direct from CRM, no n8n */}
         <button
           onClick={handleEmail}
-          disabled={!selected || !lead?.email || emailing || generating || bedBugEmailDisabled}
+          disabled={!selected || !lead?.email || emailing || generating || previewing || emailBlocked}
           title={
             bedBugEmailDisabled
               ? bedBugEmailDisabledMessage
-              : !lead?.email
-                ? 'No email address on this lead'
-                : ''
+              : isBedBug && !previewVerified
+                ? 'Preview the agreement PDF before emailing'
+                : !lead?.email
+                  ? 'No email address on this lead'
+                  : ''
           }
           className={`send-launch-cta text-xs ${
-            !selected || !lead?.email || emailing || generating || bedBugEmailDisabled
+            !selected || !lead?.email || emailing || generating || previewing || emailBlocked
               ? 'opacity-40 cursor-not-allowed'
               : ''
           }`}
@@ -318,9 +435,15 @@ export default function QuoteDocumentsSection({
           }
         </button>
 
-        {bedBugEmailDisabled && selected && (
+        {bedBugEmailDisabled && selected && isBedBug && (
           <p className="send-command-alert send-command-alert--warning flex items-center gap-1.5 text-xs">
             <AlertTriangle size={11} /> {bedBugEmailDisabledMessage}
+          </p>
+        )}
+
+        {isBedBug && !bedBugEmailDisabled && previewStale && (
+          <p className="send-command-alert send-command-alert--warning flex items-center gap-1.5 text-xs">
+            <AlertTriangle size={11} /> Agreement fields changed after preview — preview again before emailing.
           </p>
         )}
 
@@ -328,7 +451,7 @@ export default function QuoteDocumentsSection({
           <p className="text-gs-muted text-xs text-center">No email on this lead — can't send directly</p>
         )}
 
-        {selected && (
+        {selected && !isBedBug && (
           <a
             href={api.documents.fileUrl('quotes', selected.index)}
             target="_blank"

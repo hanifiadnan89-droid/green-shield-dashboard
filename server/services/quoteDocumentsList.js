@@ -74,9 +74,12 @@ export async function listQuoteDocuments(dir) {
           size:     info.size,
           modified: info.mtime,
         };
-        if (name === BED_BUG_TEMPLATE_FILENAME && BED_BUG_EMAIL_DISABLED) {
-          entry.emailDisabled = true;
-          entry.emailDisabledMessage = BED_BUG_EMAIL_DISABLED_MESSAGE;
+        if (name === BED_BUG_TEMPLATE_FILENAME) {
+          entry.templateKind = 'bed_bug';
+          if (BED_BUG_EMAIL_DISABLED) {
+            entry.emailDisabled = true;
+            entry.emailDisabledMessage = BED_BUG_EMAIL_DISABLED_MESSAGE;
+          }
         }
         results.push(entry);
       }
