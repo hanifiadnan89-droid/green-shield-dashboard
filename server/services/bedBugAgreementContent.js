@@ -56,7 +56,13 @@ export const BED_BUG_OTHER_INCLUDED_PESTS_B = [
   'Fall Invaders',
   'Fleas',
   'Centi/Millipedes',
+];
+
+export const BED_BUG_OTHER_INCLUDED_PESTS_C = [
   'Crickets/Earwigs',
+  'Yellow Jackets/Hornets',
+  'Silverfish',
+  'Stink Bugs',
 ];
 
 export const BED_BUG_ADDON_PESTS = [

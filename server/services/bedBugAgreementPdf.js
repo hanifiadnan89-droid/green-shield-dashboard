@@ -14,6 +14,7 @@ import {
   BED_BUG_MAIN_PESTS,
   BED_BUG_OTHER_INCLUDED_PESTS_A,
   BED_BUG_OTHER_INCLUDED_PESTS_B,
+  BED_BUG_OTHER_INCLUDED_PESTS_C,
   BED_BUG_SERVICE_FREQUENCY,
   BED_BUG_SERVICE_TYPE,
   BED_BUG_TITLE,
@@ -40,7 +41,11 @@ const FIELD_SPACING = 8;
 
 /** Reference spacing from signature/date fields (label → value gap ≈ 10). */
 const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
-const SPACING_ADDRESS = { gap: 8, fieldSpacing: 6, valueSize: 7.5 };
+/** Same label/value gap as Customer Information; tighter block spacing for four fields. */
+const SPACING_ADDRESS = { gap: 10, fieldSpacing: 2, valueSize: 7 };
+
+/** Green Shield section header bar (#148A43). */
+const HEADER_GREEN = rgb(20 / 255, 138 / 255, 67 / 255);
 
 const LOGO_CANDIDATE_PATHS = [
   join(__dirname, '..', 'assets', 'green-shield-logo.png'),
@@ -48,7 +53,7 @@ const LOGO_CANDIDATE_PATHS = [
 ];
 
 const COLORS = {
-  headerBg: rgb(15 / 255, 42 / 255, 20 / 255),
+  headerBg: HEADER_GREEN,
   accent: rgb(22 / 255, 163 / 255, 74 / 255),
   border: rgb(220 / 255, 231 / 255, 219 / 255),
   text: rgb(15 / 255, 23 / 255, 42 / 255),
@@ -350,7 +355,7 @@ function drawTwoColumnAddressBlock(page, {
   font,
   boldFont,
   columnGap = 8,
-  spacing = SPACING_MEDIUM,
+  spacing = SPACING_SIGNATURE,
 }) {
   const colW = (width - columnGap) / 2;
   const leftX = x;
@@ -705,14 +710,16 @@ function drawPestsSection(page, data, fonts) {
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
   const groupTopY = y + h - HEADER_BAR_H - SECTION_PAD - 4;
-  const gap = 5;
-  const col1W = innerW * 0.18;
-  const col2W = innerW * 0.28;
-  const col3W = innerW * 0.28;
-  const col4W = innerW * 0.18;
-  const col2X = innerX + col1W + gap;
-  const col3X = col2X + col2W + gap;
-  const col4X = col3X + col3W + gap;
+  const colGap = 4;
+  const col1W = innerW * 0.16;
+  const col2W = innerW * 0.24;
+  const col3W = innerW * 0.24;
+  const col4W = innerW * 0.22;
+  const col5W = innerW * 0.14;
+  const col5X = innerX + innerW - col5W;
+  const col4X = col5X - colGap - col4W;
+  const col3X = col4X - colGap - col3W;
+  const col2X = col3X - colGap - col2W;
 
   const selected = new Set((data.selectedAddOns || []).map((s) => String(s).toLowerCase()));
   const isAddonChecked = (pest) => selected.size > 0 && (
@@ -721,9 +728,10 @@ function drawPestsSection(page, data, fonts) {
 
   const groups = [
     { x: innerX, width: col1W, title: 'Main pests', items: BED_BUG_MAIN_PESTS, itemGap: 9 },
-    { x: col2X, width: col2W, title: 'Other included', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 7 },
-    { x: col3X, width: col3W, title: 'Other included', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 7 },
-    { x: col4X, width: col4W, title: 'Add-ons', items: BED_BUG_ADDON_PESTS, itemGap: 8, isAddon: true },
+    { x: col2X, width: col2W, title: 'Other included', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 6.5 },
+    { x: col3X, width: col3W, title: 'Other included', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 6.5 },
+    { x: col4X, width: col4W, title: 'Other included', items: BED_BUG_OTHER_INCLUDED_PESTS_C, itemGap: 6.5 },
+    { x: col5X, width: col5W, title: 'Add-ons', items: BED_BUG_ADDON_PESTS, itemGap: 7, isAddon: true },
   ];
 
   for (const group of groups) {
