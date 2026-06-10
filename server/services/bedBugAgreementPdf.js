@@ -46,6 +46,25 @@ const SPACING_ADDRESS = { gap: 10, fieldSpacing: 2, valueSize: 7 };
 
 /** Green Shield section header bar (#148A43). */
 const HEADER_GREEN = rgb(20 / 255, 138 / 255, 67 / 255);
+/** Logo gray tone (#58595B). */
+const LOGO_GRAY = rgb(88 / 255, 89 / 255, 91 / 255);
+const TAG_RED = rgb(185 / 255, 28 / 255, 28 / 255);
+const TAG_RED_FILL = rgb(254 / 255, 242 / 255, 242 / 255);
+const TAG_GRAY_FILL = rgb(243 / 255, 244 / 255, 246 / 255);
+const TITLE_BUBBLE_FILL = rgb(240 / 255, 253 / 255, 244 / 255);
+
+/** Vertical section heights (landscape one-page layout). */
+const LAYOUT_HEADER_H = 50;
+const LAYOUT_TOP_ROW_H = 110;
+const LAYOUT_PESTS_H = 68;
+const LAYOUT_MIDDLE_ROW_H = 118;
+const LAYOUT_PRICING_H = 76;
+const LAYOUT_AUTH_H = 74;
+const LAYOUT_SIGNATURE_H = 56;
+
+function layoutTop(...segments) {
+  return MARGIN_Y + LAYOUT_HEADER_H + segments.reduce((sum, n) => sum + n, 0);
+}
 
 const LOGO_CANDIDATE_PATHS = [
   join(__dirname, '..', 'assets', 'green-shield-logo.png'),
@@ -381,27 +400,53 @@ function drawTwoColumnAddressBlock(page, {
   return Math.min(leftEnd, rightEnd);
 }
 
+function drawLabelBubble(page, text, { x, y, boldFont, variant = 'gray' }) {
+  const size = 6.5;
+  const textWidth = boldFont.widthOfTextAtSize(text, size);
+  const padH = 4;
+  const padV = 2;
+  const bubbleW = textWidth + padH * 2;
+  const bubbleH = size + padV * 2;
+  const styles = {
+    red: { fill: TAG_RED_FILL, border: TAG_RED, text: TAG_RED },
+    gray: { fill: TAG_GRAY_FILL, border: LOGO_GRAY, text: LOGO_GRAY },
+    green: { fill: TITLE_BUBBLE_FILL, border: HEADER_GREEN, text: HEADER_GREEN },
+  };
+  const style = styles[variant] ?? styles.gray;
+  const bubbleY = y - bubbleH + padV + 0.5;
+  page.drawRectangle({
+    x,
+    y: bubbleY,
+    width: bubbleW,
+    height: bubbleH,
+    color: style.fill,
+    borderColor: style.border,
+    borderWidth: 0.5,
+  });
+  page.drawText(text, {
+    x: x + padH,
+    y: y - padV,
+    size,
+    font: boldFont,
+    color: style.text,
+  });
+  return bubbleH;
+}
+
 function drawChecklistGroup(page, {
   x,
   y,
   width,
   title,
+  titleVariant = 'gray',
   items,
   itemGap = 8.5,
   font,
   boldFont,
   isChecked = () => true,
 }) {
-  const titleSize = 6.5;
-  page.drawText(title, { x, y, size: titleSize, font: boldFont, color: COLORS.text });
-  const titleWidth = boldFont.widthOfTextAtSize(title, titleSize);
-  page.drawLine({
-    start: { x, y: y - 1.5 },
-    end: { x: x + titleWidth, y: y - 1.5 },
-    thickness: 0.5,
-    color: COLORS.text,
-  });
-  let itemY = y - 11;
+  const bubbleH = drawLabelBubble(page, title, { x, y, boldFont, variant: titleVariant });
+  let itemY = y - bubbleH - 5;
   for (const item of items) {
     drawCheckItem(page, item, {
       x,
@@ -622,9 +667,24 @@ async function drawHeader(pdfDoc, page, fonts) {
 
   const titleSize = 11;
   const titleWidth = fonts.bold.widthOfTextAtSize(BED_BUG_TITLE, titleSize);
+  const titlePadX = 12;
+  const titlePadY = 5;
+  const bubbleW = titleWidth + titlePadX * 2;
+  const bubbleH = titleSize + titlePadY * 2;
+  const bubbleX = (PAGE_W - bubbleW) / 2;
+  const titleY = y + 18;
+  page.drawRectangle({
+    x: bubbleX,
+    y: titleY - titlePadY + 1,
+    width: bubbleW,
+    height: bubbleH,
+    color: TITLE_BUBBLE_FILL,
+    borderColor: HEADER_GREEN,
+    borderWidth: 0.75,
+  });
   page.drawText(BED_BUG_TITLE, {
     x: (PAGE_W - titleWidth) / 2,
-    y: y + 18,
+    y: titleY,
     size: titleSize,
     font: fonts.bold,
     color: COLORS.headerBg,
@@ -645,62 +705,172 @@ async function drawHeader(pdfDoc, page, fonts) {
   }
 }
 
+function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_ADDRESS }) {
+  const colW = (width - 10) / 2;
+  const leftX = x;
+  const rightX = x + colW + 10;
+
+  const row1LeftEnd = drawStackedField(page, {
+    x: leftX,
+    y,
+    label: 'Address',
+    value: data.serviceAddress,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+  const row1RightEnd = drawStackedField(page, {
+    x: rightX,
+    y,
+    label: 'City',
+    value: data.city,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+
+  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 2;
+  drawStackedField(page, {
+    x: leftX,
+    y: row2Y,
+    label: 'State',
+    value: data.state,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+  drawStackedField(page, {
+    x: rightX,
+    y: row2Y,
+    label: 'Zip',
+    value: data.zip,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+}
+
+function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+  const colW = (width - 10) / 2;
+  const leftX = x;
+  const rightX = x + colW + 10;
+
+  const row1LeftEnd = drawStackedField(page, {
+    x: leftX,
+    y,
+    label: 'Customer Name',
+    value: data.customerName,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+  const row1RightEnd = drawStackedField(page, {
+    x: rightX,
+    y,
+    label: 'Email',
+    value: data.email,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+
+  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 2;
+  drawStackedField(page, {
+    x: leftX,
+    y: row2Y,
+    label: 'Phone',
+    value: data.phone,
+    width: colW,
+    font,
+    boldFont,
+    ...spacing,
+  });
+}
+
+function drawServiceDetailsBlock(page, { x, y, width, data, font, boldFont }) {
+  const spacing = { gap: 8, fieldSpacing: 10, valueSize: 7.5 };
+  const afterServiceType = drawStackedField(page, {
+    x,
+    y,
+    label: 'Service Type',
+    value: data.serviceType,
+    width,
+    font,
+    boldFont,
+    ...spacing,
+  });
+  drawStackedField(page, {
+    x,
+    y: afterServiceType,
+    label: 'Frequency',
+    value: data.frequency,
+    width,
+    font,
+    boldFont,
+    ...spacing,
+  });
+}
+
 function drawTopRow(page, data, fonts) {
-  const top = MARGIN_Y + 50 + GAP;
-  const h = 128;
+  const top = layoutTop(GAP);
+  const h = LAYOUT_TOP_ROW_H;
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
-    {
-      title: 'Service Address',
-      fields: [
-        { label: 'Address', value: data.serviceAddress },
-        { label: 'City', value: data.city },
-        { label: 'State', value: data.state },
-        { label: 'Zip', value: data.zip },
-      ],
-      spacing: SPACING_ADDRESS,
-    },
-    {
-      title: 'Customer Information',
-      fields: [
-        { label: 'Customer Name', value: data.customerName },
-        { label: 'Phone', value: data.phone },
-        { label: 'Email', value: data.email, valueSize: 7.5 },
-      ],
-      spacing: SPACING_SIGNATURE,
-    },
-    {
-      title: 'Service Details',
-      fields: [
-        { label: 'Service Type', value: data.serviceType },
-        { label: 'Frequency', value: data.frequency },
-      ],
-      spacing: { ...SPACING_SIGNATURE, fieldSpacing: 12 },
-    },
+    { title: 'Service Address', kind: 'address' },
+    { title: 'Customer Information', kind: 'customer' },
+    { title: 'Service Details', kind: 'service' },
   ];
 
   boxes.forEach((box, i) => {
     const x = MARGIN_X + i * (colW + GAP);
     const y = yFromTop(top, h);
     const innerW = colW - SECTION_PAD * 2;
+    const innerX = x + SECTION_PAD;
+    const fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
     drawRoundedSection(page, { x, y, w: colW, h });
     drawSectionHeader(page, box.title, { x, y: y + h - HEADER_BAR_H, w: colW, font: fonts.bold });
-    const fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
-    drawStackedFields(page, {
-      x: x + SECTION_PAD,
-      y: fieldY,
-      width: innerW,
-      fields: box.fields,
-      font: fonts.regular,
-      boldFont: fonts.regular,
-      ...box.spacing,
-    });
+    if (box.kind === 'address') {
+      drawServiceAddressGridBlock(page, {
+        x: innerX,
+        y: fieldY,
+        width: innerW,
+        data,
+        font: fonts.regular,
+        boldFont: fonts.regular,
+        spacing: SPACING_ADDRESS,
+      });
+    } else if (box.kind === 'customer') {
+      drawCustomerGridBlock(page, {
+        x: innerX,
+        y: fieldY,
+        width: innerW,
+        data,
+        font: fonts.regular,
+        boldFont: fonts.regular,
+        spacing: SPACING_SIGNATURE,
+      });
+    } else {
+      drawServiceDetailsBlock(page, {
+        x: innerX,
+        y: fieldY,
+        width: innerW,
+        data,
+        font: fonts.regular,
+        boldFont: fonts.regular,
+      });
+    }
   });
 }
 
 function drawPestsSection(page, data, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 128 + GAP;
-  const h = 68;
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP);
+  const h = LAYOUT_PESTS_H;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
@@ -727,11 +897,11 @@ function drawPestsSection(page, data, fonts) {
   );
 
   const groups = [
-    { x: innerX, width: col1W, title: 'Main pests', items: BED_BUG_MAIN_PESTS, itemGap: 9 },
-    { x: col2X, width: col2W, title: 'Other included', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 6.5 },
-    { x: col3X, width: col3W, title: 'Other included', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 6.5 },
-    { x: col4X, width: col4W, title: 'Other included', items: BED_BUG_OTHER_INCLUDED_PESTS_C, itemGap: 6.5 },
-    { x: col5X, width: col5W, title: 'Add-ons', items: BED_BUG_ADDON_PESTS, itemGap: 7, isAddon: true },
+    { x: innerX, width: col1W, title: 'Main pest', titleVariant: 'red', items: BED_BUG_MAIN_PESTS, itemGap: 9 },
+    { x: col2X, width: col2W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 6.5 },
+    { x: col3X, width: col3W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 6.5 },
+    { x: col4X, width: col4W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_C, itemGap: 6.5 },
+    { x: col5X, width: col5W, title: 'Add-ons', titleVariant: 'red', items: BED_BUG_ADDON_PESTS, itemGap: 7, isAddon: true },
   ];
 
   for (const group of groups) {
@@ -740,6 +910,7 @@ function drawPestsSection(page, data, fonts) {
       y: groupTopY,
       width: group.width,
       title: group.title,
+      titleVariant: group.titleVariant,
       items: group.items,
       itemGap: group.itemGap,
       font: fonts.regular,
@@ -750,8 +921,8 @@ function drawPestsSection(page, data, fonts) {
 }
 
 function drawMiddleRow(page, data, schedule, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 128 + GAP + 68 + GAP;
-  const h = 100;
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP);
+  const h = LAYOUT_MIDDLE_ROW_H;
   const w = PAGE_W - MARGIN_X * 2;
   const leftW = w * 0.48;
   const rightW = w - leftW - GAP;
@@ -840,8 +1011,8 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
 }
 
 function drawPricingRow(page, data, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 128 + GAP + 68 + GAP + 100 + GAP;
-  const h = 76;
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP, LAYOUT_MIDDLE_ROW_H, GAP);
+  const h = LAYOUT_PRICING_H;
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
     {
@@ -901,8 +1072,8 @@ function drawPricingRow(page, data, fonts) {
 }
 
 function drawAuthorizationSection(page, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 128 + GAP + 68 + GAP + 100 + GAP + 76 + GAP;
-  const h = 74;
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP, LAYOUT_MIDDLE_ROW_H, GAP, LAYOUT_PRICING_H, GAP);
+  const h = LAYOUT_AUTH_H;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
@@ -919,32 +1090,47 @@ function drawAuthorizationSection(page, fonts) {
 }
 
 function drawSignatureSection(page, data, fonts) {
-  const top = MARGIN_Y + 50 + GAP + 128 + GAP + 68 + GAP + 100 + GAP + 76 + GAP + 74 + GAP;
-  const h = 56;
+  const top = layoutTop(
+    GAP,
+    LAYOUT_TOP_ROW_H,
+    GAP,
+    LAYOUT_PESTS_H,
+    GAP,
+    LAYOUT_MIDDLE_ROW_H,
+    GAP,
+    LAYOUT_PRICING_H,
+    GAP,
+    LAYOUT_AUTH_H,
+    GAP,
+  );
+  const h = LAYOUT_SIGNATURE_H;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
   drawRoundedSection(page, { x, y, w, h });
 
+  const periodSize = 7;
+  const periodWidth = fonts.bold.widthOfTextAtSize(BED_BUG_AGREEMENT_PERIOD_TEXT, periodSize);
   page.drawText(BED_BUG_AGREEMENT_PERIOD_TEXT, {
-    x: x + SECTION_PAD,
+    x: x + (w - periodWidth) / 2,
     y: y + h - SECTION_PAD - 2,
-    size: 7,
+    size: periodSize,
     font: fonts.bold,
     color: COLORS.headerBg,
   });
 
   drawWrappedText(page, BED_BUG_INITIALS_TEXT, {
     x: x + SECTION_PAD,
-    y: y + h - SECTION_PAD - 12,
+    y: y + h - SECTION_PAD - 14,
     w: w - SECTION_PAD * 2,
     font: fonts.regular,
     size: 5.4,
     lineHeight: 6,
   });
 
-  const fieldW = (w - SECTION_PAD * 2 - 24) / 3;
-  const sigTopY = y + 20;
+  const fieldGap = 16;
+  const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
+  const sigTopY = y + 10;
   const fields = [
     { label: 'Customer Initials', value: data.customerInitials },
     { label: 'Customer Signature', value: data.customerSignatureName },
@@ -952,7 +1138,7 @@ function drawSignatureSection(page, data, fonts) {
   ];
   fields.forEach((field, index) => {
     drawSignatureField(page, {
-      x: x + SECTION_PAD + index * (fieldW + 12),
+      x: x + SECTION_PAD + index * (fieldW + fieldGap),
       y: sigTopY,
       label: field.label,
       value: field.value,

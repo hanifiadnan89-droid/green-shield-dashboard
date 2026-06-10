@@ -192,7 +192,9 @@ describe('buildBedBugAgreementPdf', () => {
     expect(text).toContain('Westbrook');
     expect(text).toContain('Maine');
     expect(text).toContain('04092');
-    expect(text).toContain('Other included');
+    expect(text).toContain('Main pest');
+    expect(text).toContain('Included');
+    expect(text).not.toContain('Other included');
     expect(text).toContain('Carpenter Bees');
     expect(text).toContain('Crickets/Earwigs');
     expect(text).toContain('Yellow Jackets/Hornets');
