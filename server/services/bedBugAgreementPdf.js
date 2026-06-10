@@ -35,7 +35,7 @@ const GAP = 6;
 const SECTION_PAD = 10;
 const HEADER_BAR_H = 14;
 /** Padding between green header bar and section body content. */
-const BODY_TOP_PAD = 9;
+const BODY_TOP_PAD = 10;
 const LABEL_SIZE = 7;
 const VALUE_SIZE = 7.5;
 const LABEL_VALUE_GAP = 6;
@@ -301,7 +301,7 @@ function truncateText(text, font, size, maxWidth) {
 
 /**
  * Local-coordinate SVG paths for pdf-lib drawSvgPath.
- * Anchor (x, y) is the bottom-left corner; path height extends upward in PDF space.
+ * Anchor (x, y) is the top-left corner; local +y extends downward in PDF space.
  */
 function roundedRectLocalPath(w, h, radius) {
   const r = Math.min(radius, w / 2, h / 2);
@@ -319,23 +319,28 @@ function roundedRectLocalPath(w, h, radius) {
   ].join(' ');
 }
 
-function roundedRectTopLocalPath(w, h, radius) {
+function roundedHeaderLocalPath(w, h, radius) {
   const r = Math.min(radius, w / 2, h / 2);
   return [
-    'M 0 0',
-    `L ${w} 0`,
-    `L ${w} ${h - r}`,
-    `Q ${w} ${h} ${w - r} ${h}`,
-    `L ${r} ${h}`,
-    `Q 0 ${h} 0 ${h - r}`,
+    `M ${r} 0`,
+    `L ${w - r} 0`,
+    `Q ${w} 0 ${w} ${r}`,
+    `L ${w} ${h}`,
+    `L 0 ${h}`,
+    `L 0 ${r}`,
+    `Q 0 0 ${r} 0`,
     'Z',
   ].join(' ');
+}
+
+function panelTopY(panelBottom, panelHeight) {
+  return panelBottom + panelHeight;
 }
 
 function drawSvgRoundedRect(page, { x, y, w, h, radius = BUBBLE_RADIUS, fill, border, borderWidth = 0.75 }) {
   page.drawSvgPath(roundedRectLocalPath(w, h, radius), {
     x,
-    y,
+    y: y + h,
     color: fill,
     borderColor: border,
     borderWidth,
@@ -351,7 +356,7 @@ function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
 
   page.drawSvgPath(roundedRectTopLocalPath(w, h, BUBBLE_RADIUS), {
     x,
-    y: headerY,
+    y: topY,
     color: COLORS.headerBg,
     borderWidth: 0,
   });
@@ -361,7 +366,7 @@ function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
 
   page.drawText(text, {
     x: x + Math.max(6, (w - textWidth) / 2),
-    y: headerY + (h - size) / 2 + 0.5,
+    y: topY - h + (h - size) / 2 + 0.5,
     size,
     font,
     color: COLORS.white,
@@ -373,7 +378,8 @@ function drawBubblePanel(page, { x, y, w, h, title, font }) {
 
   drawSectionHeader(page, title, {
     x,
-    y: y + h - HEADER_BAR_H,
+    panelBottom: y,
+    panelHeight: h,
     w,
     h: HEADER_BAR_H,
     font,
