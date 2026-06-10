@@ -68,12 +68,15 @@ export default function QuoteDocumentsSection({
     });
     setAddress({
       street: bedBugForm.serviceAddress,
-      cityState: bedBugForm.cityStateZip,
+      city: bedBugForm.city,
+      state: bedBugForm.state,
+      zip: bedBugForm.zip,
+      cityState: [bedBugForm.city, bedBugForm.state, bedBugForm.zip].filter(Boolean).join(', '),
     });
     if (bedBugForm.agreementDate) {
       setAgreementStartDate(bedBugForm.agreementDate);
     }
-  }, [isBedBug, bedBugForm?.initialQuote, bedBugForm?.initialDiscount, bedBugForm?.recurringCharge, bedBugForm?.serviceAddress, bedBugForm?.cityStateZip, bedBugForm?.agreementDate]);
+  }, [isBedBug, bedBugForm?.initialQuote, bedBugForm?.initialDiscount, bedBugForm?.recurringCharge, bedBugForm?.serviceAddress, bedBugForm?.city, bedBugForm?.state, bedBugForm?.zip, bedBugForm?.agreementDate]);
 
   useEffect(() => {
     onStateChange?.({ pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified });

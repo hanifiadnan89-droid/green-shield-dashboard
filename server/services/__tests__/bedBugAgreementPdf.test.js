@@ -166,22 +166,61 @@ describe('buildBedBugAgreementPdf', () => {
     });
   });
 
-  it('renders split service address and billing summary layout', async () => {
-    const { outBytes } = await buildBedBugAgreementPdf({
-      ...samplePayload,
-      address: { street: '34 Cloudman St', cityState: 'Westbrook, ME 04092' },
+  it('uses separate city, state, zip fields as source of truth', async () => {
+    const { outBytes, data } = await buildBedBugAgreementPdf({
+      lead: { name: 'Adnan', email: 'a@example.com', phone: '2078897999' },
+      pricing: { initial: '799', discounted: '150', recurring: '65' },
+      agreementStartDate: '2026-06-10',
+      bedBugAgreement: {
+        serviceAddress: '34B Cloudman St',
+        city: 'Westbrook',
+        state: 'Maine',
+        zip: '04092',
+        agreementDate: '2026-06-10',
+        initialQuote: '799',
+        recurringCharge: '65',
+        initialTotal: '649',
+      },
     });
+    expect(data.city).toBe('Westbrook');
+    expect(data.state).toBe('Maine');
+    expect(data.zip).toBe('04092');
+
     const { text, pageCount } = await extractPdfText(outBytes);
     expect(pageCount).toBe(1);
-    expect(text).toContain('34 Cloudman St');
+    expect(text).toContain('34B Cloudman St');
     expect(text).toContain('Westbrook');
-    expect(text).toContain('ME');
+    expect(text).toContain('Maine');
     expect(text).toContain('04092');
     expect(text).toContain('Other included');
     expect(text).toContain('Carpenter Bees');
     expect(text).toContain('Crickets/Earwigs');
     expect(text).not.toContain('Payment Method / Card Last Four');
     expect(text).not.toContain('Billing Info');
+  });
+
+  it('does not show zip in Billing & Payment grid', async () => {
+    const { outBytes } = await buildBedBugAgreementPdf({
+      lead: { name: 'Adnan' },
+      bedBugAgreement: {
+        serviceAddress: '34B Cloudman St',
+        city: 'Westbrook',
+        state: 'Maine',
+        zip: '04092',
+        agreementDate: '2026-06-10',
+        initialQuote: '100',
+        recurringCharge: '65',
+        initialTotal: '100',
+      },
+    });
+    const { text } = await extractPdfText(outBytes);
+    const billingIdx = text.indexOf('Billing & Payment');
+    const authIdx = text.indexOf('Cancellation and Payment Authorization');
+    const billingSection = text.slice(billingIdx, authIdx);
+    expect(billingSection).toContain('Customer Name');
+    expect(billingSection).toContain('Westbrook');
+    expect(billingSection).toContain('Maine');
+    expect(billingSection).not.toMatch(/\bZip\b/);
   });
 
   it('passes Adnan emergency payload with readable output', async () => {
