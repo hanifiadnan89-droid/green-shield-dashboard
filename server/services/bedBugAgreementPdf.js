@@ -34,6 +34,8 @@ const MARGIN_Y = 12;
 const GAP = 6;
 const SECTION_PAD = 10;
 const HEADER_BAR_H = 14;
+/** Padding between green header bar and section body content. */
+const BODY_TOP_PAD = 9;
 const LABEL_SIZE = 7;
 const VALUE_SIZE = 7.5;
 const LABEL_VALUE_GAP = 6;
@@ -58,10 +60,9 @@ const BUBBLE_RADIUS = 8;
 
 /** Vertical section heights (landscape one-page layout). */
 const LAYOUT_HEADER_H = 50;
-/** Matches Billing & Payment box height. */
-const LAYOUT_TOP_ROW_H = 76;
+const LAYOUT_TOP_ROW_H = 90;
 const LAYOUT_PESTS_H = 68;
-const LAYOUT_MIDDLE_ROW_H = 140;
+const LAYOUT_MIDDLE_ROW_H = 122;
 const LAYOUT_PRICING_H = 76;
 const LAYOUT_AUTH_H = 80;
 const LAYOUT_SIGNATURE_H = 62;
@@ -286,6 +287,14 @@ function yFromTop(yTop, height = 0) {
   return PAGE_H - yTop - height;
 }
 
+function panelTopY(panelBottom, panelHeight) {
+  return panelBottom + panelHeight;
+}
+
+function bodyStartY(panelBottom, panelHeight) {
+  return panelBottom + panelHeight - HEADER_BAR_H - BODY_TOP_PAD;
+}
+
 function truncateText(text, font, size, maxWidth) {
   let value = String(text ?? '');
   while (value.length > 1 && font.widthOfTextAtSize(value, size) > maxWidth) {
@@ -314,15 +323,15 @@ function roundedRectLocalPath(w, h, radius) {
   ].join(' ');
 }
 
-function roundedRectTopLocalPath(w, h, radius) {
+function roundedHeaderLocalPath(w, h, radius) {
   const r = Math.min(radius, w / 2, h / 2);
   return [
-    'M 0 0',
-    `L ${w} 0`,
-    `L ${w} ${h - r}`,
-    `Q ${w} ${h} ${w - r} ${h}`,
-    `L ${r} ${h}`,
-    `Q 0 ${h} 0 ${h - r}`,
+    `M 0 ${h}`,
+    `L ${w} ${h}`,
+    `L ${w} ${r}`,
+    `Q ${w} 0 ${w - r} 0`,
+    `L ${r} 0`,
+    `Q 0 0 0 ${r}`,
     'Z',
   ].join(' ');
 }
@@ -330,7 +339,7 @@ function roundedRectTopLocalPath(w, h, radius) {
 function drawSvgRoundedRect(page, { x, y, w, h, radius = BUBBLE_RADIUS, fill, border, borderWidth = 0.75 }) {
   page.drawSvgPath(roundedRectLocalPath(w, h, radius), {
     x,
-    y,
+    y: y + h,
     color: fill,
     borderColor: border,
     borderWidth,
@@ -341,11 +350,11 @@ function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = CO
   drawSvgRoundedRect(page, { x, y, w, h, fill, border, borderWidth });
 }
 
-function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
-  const headerY = y;
-  page.drawSvgPath(roundedRectTopLocalPath(w, h, BUBBLE_RADIUS), {
+function drawSectionHeader(page, text, { x, panelBottom, panelHeight, w, h = HEADER_BAR_H, font }) {
+  const topY = panelTopY(panelBottom, panelHeight);
+  page.drawSvgPath(roundedHeaderLocalPath(w, h, BUBBLE_RADIUS), {
     x,
-    y: headerY,
+    y: topY,
     color: COLORS.headerBg,
     borderWidth: 0,
   });
@@ -353,7 +362,7 @@ function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
   const textWidth = font.widthOfTextAtSize(text, size);
   page.drawText(text, {
     x: x + Math.max(6, (w - textWidth) / 2),
-    y: headerY + (h - size) / 2 + 0.5,
+    y: topY - h + (h - size) / 2 + 0.5,
     size,
     font,
     color: COLORS.white,
@@ -364,7 +373,8 @@ function drawBubblePanel(page, { x, y, w, h, title, font }) {
   drawRoundedSection(page, { x, y, w, h });
   drawSectionHeader(page, title, {
     x,
-    y: y + h - HEADER_BAR_H,
+    panelBottom: y,
+    panelHeight: h,
     w,
     h: HEADER_BAR_H,
     font,
@@ -512,9 +522,8 @@ function drawChecklistGroup(page, {
   boldFont,
   isChecked = () => true,
 }) {
-  const titleSize = 6.5;
-  page.drawText(title, { x, y, size: titleSize, font: boldFont, color: COLORS.text });
-  let itemY = y - 10;
+  const bubbleH = drawLabelBubble(page, title, { x, y, boldFont, variant: titleVariant });
+  let itemY = y - bubbleH - 5;
   for (const item of items) {
     drawCheckItem(page, item, {
       x,
@@ -745,12 +754,11 @@ async function drawHeader(pdfDoc, page, fonts) {
   const titleSize = 11;
   const titleWidth = fonts.bold.widthOfTextAtSize(BED_BUG_TITLE, titleSize);
   const titlePadX = 12;
-  const titlePadY = 5;
+  const titlePadY = 6;
   const bubbleW = titleWidth + titlePadX * 2;
   const bubbleH = titleSize + titlePadY * 2;
   const bubbleX = (PAGE_W - bubbleW) / 2;
-  const titleY = y + 18;
-  const bubbleBottom = titleY - titlePadY + 1;
+  const bubbleBottom = y + (h - bubbleH) / 2;
   drawSvgRoundedRect(page, {
     x: bubbleX,
     y: bubbleBottom,
@@ -763,7 +771,7 @@ async function drawHeader(pdfDoc, page, fonts) {
   });
   page.drawText(BED_BUG_TITLE, {
     x: (PAGE_W - titleWidth) / 2,
-    y: titleY,
+    y: bubbleBottom + (bubbleH - titleSize) / 2 + 0.5,
     size: titleSize,
     font: fonts.bold,
     color: COLORS.headerBg,
@@ -862,7 +870,7 @@ function drawTopRow(page, data, fonts) {
     const y = yFromTop(top, h);
     const innerW = colW - SECTION_PAD * 2;
     const innerX = x + SECTION_PAD;
-    const fieldY = y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE;
+    const fieldY = bodyStartY(y, h) - LABEL_SIZE;
     drawBubblePanel(page, { x, y, w: colW, h, title: box.title, font: fonts.bold });
     if (box.kind === 'address') {
       drawServiceAddressGridBlock(page, {
@@ -907,7 +915,7 @@ function drawPestsSection(page, data, fonts) {
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
-  const groupTopY = y + h - HEADER_BAR_H - SECTION_PAD - 4;
+  const groupTopY = bodyStartY(y, h);
   const colGap = 4;
   const col1W = innerW * 0.16;
   const col2W = innerW * 0.24;
@@ -925,11 +933,11 @@ function drawPestsSection(page, data, fonts) {
   );
 
   const groups = [
-    { x: innerX, width: col1W, title: 'Main pest', items: BED_BUG_MAIN_PESTS, itemGap: 9 },
-    { x: col2X, width: col2W, title: 'Included', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 6.5 },
-    { x: col3X, width: col3W, title: 'Included', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 6.5 },
-    { x: col4X, width: col4W, title: 'Included', items: BED_BUG_OTHER_INCLUDED_PESTS_C, itemGap: 6.5 },
-    { x: col5X, width: col5W, title: 'Add-ons', items: BED_BUG_ADDON_PESTS, itemGap: 7, isAddon: true },
+    { x: innerX, width: col1W, title: 'Main pest', titleVariant: 'red', items: BED_BUG_MAIN_PESTS, itemGap: 9 },
+    { x: col2X, width: col2W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 6.5 },
+    { x: col3X, width: col3W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 6.5 },
+    { x: col4X, width: col4W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_C, itemGap: 6.5 },
+    { x: col5X, width: col5W, title: 'Add-ons', titleVariant: 'red', items: BED_BUG_ADDON_PESTS, itemGap: 7, isAddon: true },
   ];
 
   for (const group of groups) {
@@ -960,7 +968,7 @@ function drawMiddleRow(page, data, schedule, fonts) {
   drawBubblePanel(page, { x, y, w: leftW, h, title: 'Expectations / Scheduling', font: fonts.bold });
   drawWrappedText(page, BED_BUG_EXPECTATIONS_TEXT, {
     x: x + 6,
-    y: y + h - HEADER_BAR_H - 10,
+    y: bodyStartY(y, h),
     w: leftW - 12,
     font: fonts.regular,
     size: 6,
@@ -978,7 +986,7 @@ function drawMiddleRow(page, data, schedule, fonts) {
     const col = index % 6;
     drawPaymentTile(page, month.label, formatBedBugPaymentText(month), {
       x: rx + 4 + col * (tileW + 1),
-      y: y + h - HEADER_BAR_H - 12 - (row + 1) * (tileH + 2),
+      y: bodyStartY(y, h) - 4 - (row + 1) * (tileH + 2),
       w: tileW,
       h: tileH,
       font: fonts.regular,
@@ -1072,7 +1080,7 @@ function drawPricingRow(page, data, fonts) {
     if (box.billing) {
       drawBillingGridBlock(page, {
         x: x + SECTION_PAD,
-        y: y + h - HEADER_BAR_H - SECTION_PAD - LABEL_SIZE,
+        y: bodyStartY(y, h) - LABEL_SIZE,
         width: innerW,
         data,
         font: fonts.regular,
@@ -1082,7 +1090,7 @@ function drawPricingRow(page, data, fonts) {
     } else {
       drawPriceRows(page, {
         x: x + SECTION_PAD,
-        y: y + h - HEADER_BAR_H - SECTION_PAD - VALUE_SIZE,
+        y: bodyStartY(y, h) - VALUE_SIZE,
         width: innerW,
         rows: box.rows,
         rowHeight: 14,
@@ -1102,8 +1110,8 @@ function drawAuthorizationSection(page, fonts) {
   drawBubblePanel(page, { x, y, w, h, title: BED_BUG_AUTHORIZATION_TITLE, font: fonts.bold });
   drawWrappedText(page, BED_BUG_AUTHORIZATION_TEXT, {
     x: x + 6,
-    y: y + h - HEADER_BAR_H - 10,
-    w: w - 8,
+    y: bodyStartY(y, h),
+    w: w - 12,
     font: fonts.regular,
     size: 5.8,
     lineHeight: 7,
