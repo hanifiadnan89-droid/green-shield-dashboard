@@ -10,7 +10,8 @@ const { outBytes } = await buildBedBugAgreementPdf({
   lead: { name: 'Jane Doe', email: 'jane@example.com', phone: '207-555-0100' },
   address: { street: '123 Main St', cityState: 'Saco, ME 04072' },
   pricing: { initial: '749', discounted: '150', recurring: '65' },
-  startDate: '2026-06-15',
+  agreementStartDate: '2026-06-15',
+  bedBugAgreement: { agreementDate: '2026-06-15' },
 });
 
 mkdirSync(outDir, { recursive: true });

@@ -20,4 +20,4 @@ playwright/.auth/
 .env
 .env.local
 server/.env
-client/.env
+client/.envtmp/
