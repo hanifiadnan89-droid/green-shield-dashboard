@@ -14,6 +14,7 @@ export const BED_BUG_TITLE = 'Bed Bug & Insect Triannual Service Agreement';
 export const BED_BUG_SERVICE_TYPE = 'BED BUG & INSECT TRIANNUAL';
 export const BED_BUG_SERVICE_FREQUENCY = 'Every 120 days';
 
+/** @deprecated Use BED_BUG_MAIN_PESTS + BED_BUG_OTHER_INCLUDED_PESTS */
 export const BED_BUG_INCLUDED_PESTS = [
   'Bed Bugs',
   'Odorous Ants',
@@ -27,6 +28,20 @@ export const BED_BUG_INCLUDED_PESTS = [
   'Centi/Millipedes',
   'Crickets/Earwigs',
   'Springtails/Silverfish',
+];
+
+export const BED_BUG_MAIN_PESTS = ['Bed Bugs'];
+
+export const BED_BUG_OTHER_INCLUDED_PESTS = [
+  'Odorous Ants',
+  'Pavement Ants',
+  'Carpenter Ants',
+  'Carpenter Bees',
+  'Spiders',
+  'Fall Invaders',
+  'Fleas',
+  'Centi/Millipedes',
+  'Crickets/Earwigs',
 ];
 
 export const BED_BUG_ADDON_PESTS = [
