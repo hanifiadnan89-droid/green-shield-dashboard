@@ -362,19 +362,20 @@ export default function QuoteDocumentsSection({
           </>
         )}
 
-        {/* Notes */}
-        <div>
-          <label className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-1.5 block">
-            Notes {isBedBug ? '(not shown on Bed Bug agreement)' : '(bottom-right of quote)'}
-          </label>
-          <textarea
-            className="send-command-input text-xs resize-none"
-            rows={3}
-            placeholder="Add custom notes for this customer's quote..."
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-          />
-        </div>
+        {!isBedBug && (
+          <div>
+            <label className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-1.5 block">
+              Notes (bottom-right of quote)
+            </label>
+            <textarea
+              className="send-command-input text-xs resize-none"
+              rows={3}
+              placeholder="Add custom notes for this customer's quote..."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Footer */}
