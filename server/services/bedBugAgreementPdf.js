@@ -351,10 +351,10 @@ function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = CO
   drawSvgRoundedRect(page, { x, y, w, h, fill, border, borderWidth });
 }
 
-function drawSectionHeader(page, text, { x, panelBottom, panelHeight, w, h = HEADER_BAR_H, font }) {
-  const topY = panelTopY(panelBottom, panelHeight);
+function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
+  const headerY = y;
 
-  page.drawSvgPath(roundedHeaderLocalPath(w, h, BUBBLE_RADIUS), {
+  page.drawSvgPath(roundedRectTopLocalPath(w, h, BUBBLE_RADIUS), {
     x,
     y: topY,
     color: COLORS.headerBg,
