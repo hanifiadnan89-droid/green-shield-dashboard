@@ -333,9 +333,8 @@ function roundedHeaderLocalPath(w, h, radius) {
   ].join(' ');
 }
 
-function panelTopY(panelBottom, panelHeight) {
-  return panelBottom + panelHeight;
-}
+// Backward-compatible alias for older call sites during merge cleanup.
+const roundedRectTopLocalPath = roundedHeaderLocalPath;
 
 function drawSvgRoundedRect(page, { x, y, w, h, radius = BUBBLE_RADIUS, fill, border, borderWidth = 0.75 }) {
   page.drawSvgPath(roundedRectLocalPath(w, h, radius), {
@@ -354,9 +353,9 @@ function drawRoundedSection(page, { x, y, w, h, fill = COLORS.white, border = CO
 function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
   const headerY = y;
 
-  page.drawSvgPath(roundedRectTopLocalPath(w, h, BUBBLE_RADIUS), {
+  page.drawSvgPath(roundedHeaderLocalPath(w, h, BUBBLE_RADIUS), {
     x,
-    y: topY,
+    y: headerY,
     color: COLORS.headerBg,
     borderWidth: 0,
   });
@@ -366,7 +365,7 @@ function drawSectionHeader(page, text, { x, y, w, h = HEADER_BAR_H, font }) {
 
   page.drawText(text, {
     x: x + Math.max(6, (w - textWidth) / 2),
-    y: topY - h + (h - size) / 2 + 0.5,
+    y: headerY - h + (h - size) / 2 + 0.5,
     size,
     font,
     color: COLORS.white,
@@ -378,8 +377,7 @@ function drawBubblePanel(page, { x, y, w, h, title, font }) {
 
   drawSectionHeader(page, title, {
     x,
-    panelBottom: y,
-    panelHeight: h,
+    y: y + h,
     w,
     h: HEADER_BAR_H,
     font,
