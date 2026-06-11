@@ -96,7 +96,7 @@ describe('buildBedBugAgreementPdf', () => {
     expect(text).toContain('Service Address');
     expect(text).toContain('Customer Information');
     expect(text).toContain('Service Details');
-    expect(text).toContain('Covered Pests');
+    expect(text).toContain('Covered Pests and Upgrades');
     expect(text).toContain('Expectations / Scheduling');
     expect(text).toContain('Bed Bug Insect Triannual Subscription');
     expect(text).toContain('Initial Service');
