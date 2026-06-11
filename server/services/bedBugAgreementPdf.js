@@ -1074,7 +1074,9 @@ function drawPestsSection(page, data, fonts) {
   const coveredVCenterX = headerTextX
     + fonts.bold.widthOfTextAtSize('Co', headerFontSize)
     + fonts.bold.widthOfTextAtSize('v', headerFontSize) / 2;
-  const headerConnectorTop = y + h - HEADER_BAR_H;
+  const headerConnectorBottom = y + h - HEADER_BAR_H;
+  const headerConnectorGap = 3;
+  const headerConnectorTop = headerConnectorBottom - headerConnectorGap;
   page.drawLine({
     start: { x: coveredVCenterX, y: headerConnectorTop },
     end: { x: coveredVCenterX, y: bracketTop },
