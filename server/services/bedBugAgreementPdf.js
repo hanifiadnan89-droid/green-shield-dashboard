@@ -36,10 +36,12 @@ const SECTION_PAD = 10;
 const HEADER_BAR_H = 14;
 /** Padding between green header bar and section body content. */
 const BODY_TOP_PAD = 10;
-const LABEL_SIZE = 7;
+const LABEL_SIZE = 7 * 1.15;
+const PEST_LABEL_SIZE = 6.5 * 1.15;
 const VALUE_SIZE = 7.5;
 const LABEL_VALUE_GAP = 6;
 const FIELD_SPACING = 8;
+const LABEL_UNDERLINE_OFFSET = 1.5;
 
 /** Reference spacing from signature/date fields (label → value gap ≈ 10). */
 const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
@@ -388,6 +390,27 @@ function drawBubblePanel(page, { x, y, w, h, title, font }) {
   });
 }
 
+function drawUnderlinedLabel(page, {
+  x,
+  y,
+  text,
+  size = LABEL_SIZE,
+  font,
+  color = COLORS.text,
+  thickness = 0.5,
+}) {
+  const labelText = String(text);
+  page.drawText(labelText, { x, y, size, font, color });
+  const labelWidth = font.widthOfTextAtSize(labelText, size);
+  page.drawLine({
+    start: { x, y: y - LABEL_UNDERLINE_OFFSET },
+    end: { x: x + labelWidth, y: y - LABEL_UNDERLINE_OFFSET },
+    thickness,
+    color,
+  });
+  return labelWidth;
+}
+
 /**
  * Draw a label with the value clearly below it. Returns the next y position for stacking.
  */
@@ -410,7 +433,14 @@ function drawStackedField(page, {
 }) {
   const labelF = labelFont ?? boldFont ?? font;
   const valueF = valueFont ?? font;
-  page.drawText(String(label), { x, y, size: labelSize, font: labelF, color: labelColor });
+  drawUnderlinedLabel(page, {
+    x,
+    y,
+    text: label,
+    size: labelSize,
+    font: labelF,
+    color: labelColor,
+  });
   const valueY = y - gap;
   const text = String(value ?? '').trim();
   if (text) {
@@ -550,7 +580,7 @@ function drawPriceRows(page, {
   width,
   rows,
   rowHeight = 14,
-  labelSize = VALUE_SIZE,
+  labelSize = LABEL_SIZE,
   valueSize = VALUE_SIZE,
   font,
   boldFont,
@@ -559,9 +589,10 @@ function drawPriceRows(page, {
   for (const row of rows) {
     const isTotal = /sub total|recurring total/i.test(row.label);
     const rowFont = isTotal ? boldFont : font;
-    page.drawText(String(row.label), {
+    drawUnderlinedLabel(page, {
       x,
       y: rowY,
+      text: row.label,
       size: labelSize,
       font: boldFont,
       color: COLORS.text,
@@ -593,16 +624,15 @@ function drawSignatureField(page, {
   boldFont,
 }) {
   const labelF = boldFont ?? font;
-  const labelText = String(label);
-  page.drawText(labelText, { x, y, size: LABEL_SIZE, font: labelF, color: COLORS.text });
-  const labelWidth = labelF.widthOfTextAtSize(labelText, LABEL_SIZE);
-  page.drawLine({
-    start: { x, y: y - 1.5 },
-    end: { x: x + labelWidth, y: y - 1.5 },
-    thickness: 0.5,
+  drawUnderlinedLabel(page, {
+    x,
+    y,
+    text: label,
+    size: LABEL_SIZE,
+    font: labelF,
     color: COLORS.text,
   });
-  const valueY = y - 10;
+  const valueY = y - 12;
   const text = String(value ?? '').trim();
   if (text) {
     const clipped = truncateText(text, font, VALUE_SIZE, width - 4);
@@ -865,30 +895,8 @@ function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacin
   });
 }
 
-function drawServiceDetailsBlock(page, { x, y, width, data, font, boldFont }) {
-  const spacing = { gap: 9, fieldSpacing: 12, valueSize: 7.5 };
-  const afterServiceType = drawStackedField(page, {
-    x,
-    y,
-    label: 'Service Type',
-    value: data.serviceType,
-    width,
-    font,
-    boldFont,
-    valueFont: font,
-    ...spacing,
-  });
-  drawStackedField(page, {
-    x,
-    y: afterServiceType,
-    label: 'Frequency',
-    value: data.frequency,
-    width,
-    font,
-    boldFont,
-    valueFont: font,
-    ...spacing,
-  });
+function drawServiceDetailsBlock() {
+  // Service detail labels removed intentionally; panel shell is drawn by drawTopRow.
 }
 
 function drawTopRow(page, data, fonts) {
@@ -1000,15 +1008,17 @@ function drawPestsSection(page, data, fonts) {
     selected.has(pest.toLowerCase()) || selected.has(pest.split('/')[0].toLowerCase())
   );
 
-  const headingSize = 6.5;
+  const headingSize = PEST_LABEL_SIZE;
   const headingFont = fonts.bold;
   const itemsStartY = groupTopY - LABEL_TAG_HEIGHT - 5;
   const includedItemGap = 6.5;
   const checkItemHeight = 7;
+  const headingBaseline = groupTopY - 2;
 
-  page.drawText('Main pest', {
+  drawUnderlinedLabel(page, {
     x: innerX,
-    y: groupTopY - 2,
+    y: headingBaseline,
+    text: 'Main pest',
     size: headingSize,
     font: headingFont,
     color: TAG_RED,
@@ -1021,9 +1031,10 @@ function drawPestsSection(page, data, fonts) {
   const bracketRight = cricketsTextX + cricketsWidth + 18;
   const bracketWidth = bracketRight - bracketLeft;
 
-  page.drawText('Add-ons', {
+  drawUnderlinedLabel(page, {
     x: col5X,
-    y: groupTopY - 2,
+    y: headingBaseline,
+    text: 'Add-ons',
     size: headingSize,
     font: headingFont,
     color: TAG_RED,
@@ -1031,7 +1042,7 @@ function drawPestsSection(page, data, fonts) {
 
   const includedHeading = 'Included';
   const includedHeadingWidth = headingFont.widthOfTextAtSize(includedHeading, headingSize);
-  const includedHeadingBaseline = groupTopY - 2;
+  const includedHeadingBaseline = headingBaseline;
   const bracketTop = includedHeadingBaseline - 0.5;
   const includedItemCount = BED_BUG_OTHER_INCLUDED_PESTS_A.length;
   const priorBracketBottom = itemsStartY - (includedItemCount - 1) * includedItemGap - checkItemHeight - 3;
@@ -1045,9 +1056,10 @@ function drawPestsSection(page, data, fonts) {
     drop: bracketSideDrop,
   });
 
-  page.drawText(includedHeading, {
+  drawUnderlinedLabel(page, {
     x: bracketLeft + (bracketWidth - includedHeadingWidth) / 2,
     y: includedHeadingBaseline,
+    text: includedHeading,
     size: headingSize,
     font: headingFont,
     color: LOGO_GRAY,
@@ -1192,7 +1204,7 @@ function drawPricingRow(page, data, fonts) {
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
     {
-      title: 'Initial Service / Warranties',
+      title: 'Initial Service',
       rows: [
         { label: 'Initial Quote', value: formatCurrency(data.initialQuote) },
         { label: 'Initial Discount', value: data.initialDiscount ? `-${formatCurrency(data.initialDiscount).replace('$', '')}` : '' },
@@ -1280,11 +1292,14 @@ function drawSignatureSection(page, data, fonts) {
   const y = yFromTop(top, h);
   drawRoundedSection(page, { x, y, w, h });
 
-  const periodSize = 7;
+  const periodSize = LABEL_SIZE;
   const periodWidth = fonts.bold.widthOfTextAtSize(BED_BUG_AGREEMENT_PERIOD_TEXT, periodSize);
-  page.drawText(BED_BUG_AGREEMENT_PERIOD_TEXT, {
-    x: x + (w - periodWidth) / 2,
-    y: y + h - SECTION_PAD - 2,
+  const periodX = x + (w - periodWidth) / 2;
+  const periodY = y + h - SECTION_PAD - 2;
+  drawUnderlinedLabel(page, {
+    x: periodX,
+    y: periodY,
+    text: BED_BUG_AGREEMENT_PERIOD_TEXT,
     size: periodSize,
     font: fonts.bold,
     color: COLORS.headerBg,
@@ -1301,7 +1316,7 @@ function drawSignatureSection(page, data, fonts) {
 
   const fieldGap = 16;
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
-  const sigTopY = y + 10;
+  const sigTopY = y + 14;
   const fields = [
     { label: 'Customer Initials', value: data.customerInitials },
     { label: 'Customer Signature', value: data.customerSignatureName },

@@ -99,7 +99,7 @@ describe('buildBedBugAgreementPdf', () => {
     expect(text).toContain('Included Pests & Add-ons');
     expect(text).toContain('Expectations / Scheduling');
     expect(text).toContain('Bed Bug Insect Triannual Subscription');
-    expect(text).toContain('Initial Service / Warranties');
+    expect(text).toContain('Initial Service');
     expect(text).toContain('Recurring Services');
     expect(text).toContain('Billing & Payment');
     expect(text).toContain('Cancellation and Payment Authorization');
@@ -246,7 +246,7 @@ describe('buildBedBugAgreementPdf', () => {
   it('omits tax from Initial Service and Recurring Payment Authorized from Recurring Services', async () => {
     const { outBytes } = await buildBedBugAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
-    const initialIdx = text.indexOf('Initial Service / Warranties');
+    const initialIdx = text.indexOf('Initial Service');
     const recurringIdx = text.indexOf('Recurring Services');
     const billingIdx = text.indexOf('Billing & Payment');
     const initialSection = text.slice(initialIdx, recurringIdx);
