@@ -941,6 +941,37 @@ function drawTopRow(page, data, fonts) {
   });
 }
 
+/** Upside-down staple bracket: horizontal top with vertical sides (open bottom). */
+function drawInvertedBracket(page, { left, top, right, bottom, color = LOGO_GRAY, thickness = 0.6 }) {
+  page.drawLine({ start: { x: left, y: top }, end: { x: right, y: top }, thickness, color });
+  page.drawLine({ start: { x: left, y: top }, end: { x: left, y: bottom }, thickness, color });
+  page.drawLine({ start: { x: right, y: top }, end: { x: right, y: bottom }, thickness, color });
+}
+
+function drawPestChecklistColumn(page, {
+  x,
+  width,
+  items,
+  startY,
+  itemGap,
+  font,
+  isChecked = () => true,
+}) {
+  const labelSize = 6.5;
+  let itemY = startY;
+  for (const item of items) {
+    drawCheckItem(page, item, {
+      x,
+      y: itemY,
+      font,
+      checked: isChecked(item),
+      labelSize,
+      maxWidth: width - 10,
+    });
+    itemY -= itemGap;
+  }
+}
+
 function drawPestsSection(page, data, fonts) {
   const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP);
   const h = LAYOUT_PESTS_H;
@@ -968,28 +999,98 @@ function drawPestsSection(page, data, fonts) {
     selected.has(pest.toLowerCase()) || selected.has(pest.split('/')[0].toLowerCase())
   );
 
-  const groups = [
-    { x: innerX, width: col1W, title: 'Main pest', titleVariant: 'red', items: BED_BUG_MAIN_PESTS, itemGap: 9 },
-    { x: col2X, width: col2W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_A, itemGap: 6.5 },
-    { x: col3X, width: col3W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_B, itemGap: 6.5 },
-    { x: col4X, width: col4W, title: 'Included', titleVariant: 'gray', items: BED_BUG_OTHER_INCLUDED_PESTS_C, itemGap: 6.5 },
-    { x: col5X, width: col5W, title: 'Add-ons', titleVariant: 'red', items: BED_BUG_ADDON_PESTS, itemGap: 7, isAddon: true },
-  ];
+  const headingSize = 6.5;
+  const headingFont = fonts.bold;
+  const itemsStartY = groupTopY - LABEL_TAG_HEIGHT - 5;
+  const includedItemGap = 6.5;
+  const checkItemHeight = 7;
 
-  for (const group of groups) {
-    drawChecklistGroup(page, {
-      x: group.x,
-      y: groupTopY,
-      width: group.width,
-      title: group.title,
-      titleVariant: group.titleVariant,
-      items: group.items,
-      itemGap: group.itemGap,
-      font: fonts.regular,
-      boldFont: fonts.bold,
-      isChecked: group.isAddon ? isAddonChecked : () => true,
-    });
-  }
+  page.drawText('Main pest', {
+    x: innerX,
+    y: groupTopY - 2,
+    size: headingSize,
+    font: headingFont,
+    color: TAG_RED,
+  });
+
+  const cricketsLabel = BED_BUG_OTHER_INCLUDED_PESTS_C[0];
+  const cricketsTextX = col4X + 10;
+  const cricketsWidth = fonts.bold.widthOfTextAtSize(cricketsLabel, headingSize);
+  const bracketLeft = col2X - 10;
+  const bracketRight = cricketsTextX + cricketsWidth + 18;
+  const bracketWidth = bracketRight - bracketLeft;
+
+  const includedHeading = 'Included';
+  const includedHeadingWidth = headingFont.widthOfTextAtSize(includedHeading, headingSize);
+  page.drawText(includedHeading, {
+    x: bracketLeft + (bracketWidth - includedHeadingWidth) / 2,
+    y: groupTopY - 2,
+    size: headingSize,
+    font: headingFont,
+    color: LOGO_GRAY,
+  });
+
+  page.drawText('Add-ons', {
+    x: col5X,
+    y: groupTopY - 2,
+    size: headingSize,
+    font: headingFont,
+    color: TAG_RED,
+  });
+
+  const bracketTop = groupTopY - LABEL_TAG_HEIGHT + 1;
+  const includedItemCount = BED_BUG_OTHER_INCLUDED_PESTS_A.length;
+  const bracketBottom = itemsStartY - (includedItemCount - 1) * includedItemGap - checkItemHeight - 3;
+  drawInvertedBracket(page, {
+    left: bracketLeft,
+    top: bracketTop,
+    right: bracketRight,
+    bottom: bracketBottom,
+  });
+
+  drawPestChecklistColumn(page, {
+    x: innerX,
+    width: col1W,
+    items: BED_BUG_MAIN_PESTS,
+    startY: itemsStartY,
+    itemGap: 9,
+    font: fonts.bold,
+  });
+
+  drawPestChecklistColumn(page, {
+    x: col2X,
+    width: col2W,
+    items: BED_BUG_OTHER_INCLUDED_PESTS_A,
+    startY: itemsStartY,
+    itemGap: includedItemGap,
+    font: fonts.bold,
+  });
+  drawPestChecklistColumn(page, {
+    x: col3X,
+    width: col3W,
+    items: BED_BUG_OTHER_INCLUDED_PESTS_B,
+    startY: itemsStartY,
+    itemGap: includedItemGap,
+    font: fonts.bold,
+  });
+  drawPestChecklistColumn(page, {
+    x: col4X,
+    width: col4W,
+    items: BED_BUG_OTHER_INCLUDED_PESTS_C,
+    startY: itemsStartY,
+    itemGap: includedItemGap,
+    font: fonts.bold,
+  });
+
+  drawPestChecklistColumn(page, {
+    x: col5X,
+    width: col5W,
+    items: BED_BUG_ADDON_PESTS,
+    startY: itemsStartY,
+    itemGap: 7,
+    font: fonts.bold,
+    isChecked: isAddonChecked,
+  });
 }
 
 function drawMiddleRow(page, data, schedule, fonts) {
