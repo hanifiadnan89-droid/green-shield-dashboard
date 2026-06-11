@@ -43,6 +43,14 @@ const LABEL_VALUE_GAP = 6;
 const FIELD_SPACING = 8;
 const LABEL_UNDERLINE_OFFSET = 1.5;
 
+/** Body paragraph sizes (+10% from prior values). */
+const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1;
+const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1;
+const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1;
+
+const BED_BUG_SERVICE_DETAILS_TEXT =
+  'Our bed bug service begins with a thorough inspection to confirm activity, identify affected areas, and determine the level of infestation, followed by a targeted treatment to eliminate active bed bugs and their hiding spots. A follow-up visit is scheduled two weeks after the initial service to ensure effectiveness and address any remaining activity, with continued preventative follow-ups every four months thereafter. In-between visits are available at no extra cost should any new activity arise, ensuring long-term protection and peace of mind.';
+
 /** Reference spacing from signature/date fields (label → value gap ≈ 10). */
 const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
 
@@ -836,7 +844,7 @@ function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, 
   const row1LeftEnd = drawStackedField(page, {
     x: leftX,
     y,
-    label: 'Address',
+    label: 'Address:',
     value: data.serviceAddress,
     width: colW,
     font,
@@ -846,7 +854,7 @@ function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, 
   const row1RightEnd = drawStackedField(page, {
     x: rightX,
     y,
-    label: 'City',
+    label: 'City:',
     value: data.city,
     width: colW,
     font,
@@ -858,7 +866,7 @@ function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, 
   drawStackedField(page, {
     x: leftX,
     y: row2Y,
-    label: 'State',
+    label: 'State:',
     value: data.state,
     width: colW,
     font,
@@ -868,7 +876,7 @@ function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, 
   drawStackedField(page, {
     x: rightX,
     y: row2Y,
-    label: 'Zip',
+    label: 'Zip:',
     value: data.zip,
     width: colW,
     font,
@@ -883,11 +891,11 @@ function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacin
     y,
     width,
     leftFields: [
-      { label: 'Customer Name', value: data.customerName },
-      { label: 'Phone', value: data.phone },
+      { label: 'Customer Name:', value: data.customerName },
+      { label: 'Phone:', value: data.phone },
     ],
     rightFields: [
-      { label: 'Email', value: data.email },
+      { label: 'Email:', value: data.email },
     ],
     font,
     boldFont,
@@ -895,8 +903,15 @@ function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacin
   });
 }
 
-function drawServiceDetailsBlock() {
-  // Service detail labels removed intentionally; panel shell is drawn by drawTopRow.
+function drawServiceDetailsBlock(page, { x, y, width, font }) {
+  drawWrappedText(page, BED_BUG_SERVICE_DETAILS_TEXT, {
+    x,
+    y,
+    w: width,
+    font,
+    size: 6.4,
+    lineHeight: 7.2,
+  });
 }
 
 function drawTopRow(page, data, fonts) {
@@ -939,11 +954,9 @@ function drawTopRow(page, data, fonts) {
     } else {
       drawServiceDetailsBlock(page, {
         x: innerX,
-        y: fieldY,
+        y: bodyStartY(y, h),
         width: innerW,
-        data,
         font: fonts.regular,
-        boldFont: fonts.bold,
       });
     }
   });
@@ -987,7 +1000,7 @@ function drawPestsSection(page, data, fonts) {
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
-  drawBubblePanel(page, { x, y, w, h, title: 'Included Pests & Add-ons', font: fonts.bold });
+  drawBubblePanel(page, { x, y, w, h, title: 'Covered Pests', font: fonts.bold });
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
@@ -1029,7 +1042,6 @@ function drawPestsSection(page, data, fonts) {
   const cricketsWidth = fonts.bold.widthOfTextAtSize(cricketsLabel, headingSize);
   const bracketLeft = col2X - 10;
   const bracketRight = cricketsTextX + cricketsWidth + 18;
-  const bracketWidth = bracketRight - bracketLeft;
 
   drawUnderlinedLabel(page, {
     x: col5X,
@@ -1040,10 +1052,7 @@ function drawPestsSection(page, data, fonts) {
     color: TAG_RED,
   });
 
-  const includedHeading = 'Included';
-  const includedHeadingWidth = headingFont.widthOfTextAtSize(includedHeading, headingSize);
-  const includedHeadingBaseline = headingBaseline;
-  const bracketTop = includedHeadingBaseline - 0.5;
+  const bracketTop = headingBaseline - 0.5;
   const includedItemCount = BED_BUG_OTHER_INCLUDED_PESTS_A.length;
   const priorBracketBottom = itemsStartY - (includedItemCount - 1) * includedItemGap - checkItemHeight - 3;
   const priorSideHeight = (groupTopY - LABEL_TAG_HEIGHT + 1) - priorBracketBottom;
@@ -1054,15 +1063,6 @@ function drawPestsSection(page, data, fonts) {
     top: bracketTop,
     right: bracketRight,
     drop: bracketSideDrop,
-  });
-
-  drawUnderlinedLabel(page, {
-    x: bracketLeft + (bracketWidth - includedHeadingWidth) / 2,
-    y: includedHeadingBaseline,
-    text: includedHeading,
-    size: headingSize,
-    font: headingFont,
-    color: LOGO_GRAY,
   });
 
   drawPestChecklistColumn(page, {
@@ -1125,8 +1125,8 @@ function drawMiddleRow(page, data, schedule, fonts) {
     y: bodyStartY(y, h),
     w: leftW - 12,
     font: fonts.regular,
-    size: 6,
-    lineHeight: 7.5,
+    size: BODY_TEXT_SIZE_EXPECTATIONS,
+    lineHeight: BODY_TEXT_SIZE_EXPECTATIONS * 1.25,
   });
 
   const rx = x + leftW + GAP;
@@ -1157,7 +1157,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
   const row1LeftEnd = drawStackedField(page, {
     x: leftX,
     y,
-    label: 'Customer Name',
+    label: 'Customer Name:',
     value: data.customerName,
     width: colW,
     font,
@@ -1167,7 +1167,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
   const row1RightEnd = drawStackedField(page, {
     x: rightX,
     y,
-    label: 'City',
+    label: 'City:',
     value: data.city,
     width: colW,
     font,
@@ -1179,7 +1179,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
   drawStackedField(page, {
     x: leftX,
     y: row2Y,
-    label: 'Address',
+    label: 'Address:',
     value: data.serviceAddress,
     width: colW,
     font,
@@ -1189,7 +1189,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
   drawStackedField(page, {
     x: rightX,
     y: row2Y,
-    label: 'State',
+    label: 'State:',
     value: data.state,
     width: colW,
     font,
@@ -1206,17 +1206,17 @@ function drawPricingRow(page, data, fonts) {
     {
       title: 'Initial Service',
       rows: [
-        { label: 'Initial Quote', value: formatCurrency(data.initialQuote) },
-        { label: 'Initial Discount', value: data.initialDiscount ? `-${formatCurrency(data.initialDiscount).replace('$', '')}` : '' },
-        { label: 'Sub Total', value: formatCurrency(data.initialSubtotal) },
+        { label: 'Initial Quote:', value: formatCurrency(data.initialQuote) },
+        { label: 'Initial Discount:', value: data.initialDiscount ? `-${formatCurrency(data.initialDiscount).replace('$', '')}` : '' },
+        { label: 'Sub Total:', value: formatCurrency(data.initialSubtotal) },
       ],
     },
     {
       title: 'Recurring Services',
       rows: [
-        { label: 'Service Charge', value: formatCurrency(data.recurringCharge) },
-        { label: 'Tax (0%)', value: formatCurrency(data.recurringTax) },
-        { label: 'Recurring Total', value: formatCurrency(data.recurringTotal) },
+        { label: 'Service Charge:', value: formatCurrency(data.recurringCharge) },
+        { label: 'Tax (0%):', value: formatCurrency(data.recurringTax) },
+        { label: 'Recurring Total:', value: formatCurrency(data.recurringTotal) },
       ],
     },
     {
@@ -1267,8 +1267,8 @@ function drawAuthorizationSection(page, fonts) {
     y: bodyStartY(y, h),
     w: w - 12,
     font: fonts.regular,
-    size: 5.8,
-    lineHeight: 7,
+    size: BODY_TEXT_SIZE_AUTHORIZATION,
+    lineHeight: BODY_TEXT_SIZE_AUTHORIZATION * 1.21,
   });
 }
 
@@ -1310,13 +1310,13 @@ function drawSignatureSection(page, data, fonts) {
     y: y + h - SECTION_PAD - 14,
     w: w - SECTION_PAD * 2,
     font: fonts.regular,
-    size: 5.4,
-    lineHeight: 6,
+    size: BODY_TEXT_SIZE_INITIALS,
+    lineHeight: BODY_TEXT_SIZE_INITIALS * 1.11,
   });
 
   const fieldGap = 16;
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
-  const sigTopY = y + 14;
+  const sigTopY = y + 17;
   const fields = [
     { label: 'Customer Initials', value: data.customerInitials },
     { label: 'Customer Signature', value: data.customerSignatureName },
