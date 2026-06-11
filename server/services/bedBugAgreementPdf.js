@@ -942,47 +942,8 @@ function drawTopRow(page, data, fonts) {
 }
 
 /** Short upside-down staple: horizontal top with brief vertical drops at each end. */
-function drawInvertedBracket(page, {
-  left,
-  top,
-  right,
-  drop,
-  bottom,
-  color = LOGO_GRAY,
-  thickness = 0.6,
-}) {
-  // Support both versions safely:
-  // - new version passes `drop`
-  // - old/main version may pass `bottom`
-  // If bottom is passed, convert the old tall side height into a short 5% drop.
-  const oldSideHeight = Number.isFinite(bottom) ? Math.abs(top - bottom) : 80;
-  const resolvedDrop = Number.isFinite(drop)
-    ? drop
-    : Math.max(3, Math.min(7, oldSideHeight * 0.05));
-
-  const shortBottom = top - resolvedDrop;
-
-  page.drawLine({
-    start: { x: left, y: top },
-    end: { x: right, y: top },
-    thickness,
-    color,
-  });
-
-  page.drawLine({
-    start: { x: left, y: top },
-    end: { x: left, y: shortBottom },
-    thickness,
-    color,
-  });
-
-  page.drawLine({
-    start: { x: right, y: top },
-    end: { x: right, y: shortBottom },
-    thickness,
-    color,
-  });
-}
+function drawInvertedBracket(page, { left, top, right, drop, color = LOGO_GRAY, thickness = 0.6 }) {
+  const bottom = top - drop;
   page.drawLine({ start: { x: left, y: top }, end: { x: right, y: top }, thickness, color });
   page.drawLine({ start: { x: left, y: top }, end: { x: left, y: bottom }, thickness, color });
   page.drawLine({ start: { x: right, y: top }, end: { x: right, y: bottom }, thickness, color });
@@ -1060,18 +1021,6 @@ function drawPestsSection(page, data, fonts) {
   const bracketRight = cricketsTextX + cricketsWidth + 18;
   const bracketWidth = bracketRight - bracketLeft;
 
-const includedHeading = 'Included';
-const includedHeadingWidth = headingFont.widthOfTextAtSize(includedHeading, headingSize);
-
-// Keep the label centered over the bracket.
-// The bracket line should be moved up separately so it visually touches this label.
-page.drawText(includedHeading, {
-  x: bracketLeft + (bracketWidth - includedHeadingWidth) / 2,
-  y: groupTopY - 2,
-  size: headingSize,
-  font: headingFont,
-  color: LOGO_GRAY,
-});
   page.drawText('Add-ons', {
     x: col5X,
     y: groupTopY - 2,
@@ -1080,19 +1029,15 @@ page.drawText(includedHeading, {
     color: TAG_RED,
   });
 
-const includedHeadingBaseline = groupTopY - 2;
+  const includedHeading = 'Included';
+  const includedHeadingWidth = headingFont.widthOfTextAtSize(includedHeading, headingSize);
+  const includedHeadingBaseline = groupTopY - 2;
+  const bracketTop = includedHeadingBaseline - 0.5;
+  const includedItemCount = BED_BUG_OTHER_INCLUDED_PESTS_A.length;
+  const priorBracketBottom = itemsStartY - (includedItemCount - 1) * includedItemGap - checkItemHeight - 3;
+  const priorSideHeight = (groupTopY - LABEL_TAG_HEIGHT + 1) - priorBracketBottom;
+  const bracketSideDrop = priorSideHeight * 0.05;
 
-// Move the bracket line up so it visually touches the "Included" label.
-// Do not move the pest items.
-const bracketTop = includedHeadingBaseline - 0.5;
-
-const includedItemCount = BED_BUG_OTHER_INCLUDED_PESTS_A.length;
-
-// Use the old full-height bracket math only to calculate what 5% used to be,
-// then convert it into a short staple drop.
-const priorBracketBottom = itemsStartY - (includedItemCount - 1) * includedItemGap - checkItemHeight - 3;
-const priorSideHeight = (groupTopY - LABEL_TAG_HEIGHT + 1) - priorBracketBottom;
-const bracketSideDrop = Math.max(3, Math.min(7, priorSideHeight * 0.05));
   drawInvertedBracket(page, {
     left: bracketLeft,
     top: bracketTop,
@@ -1106,7 +1051,6 @@ const bracketSideDrop = Math.max(3, Math.min(7, priorSideHeight * 0.05));
     size: headingSize,
     font: headingFont,
     color: LOGO_GRAY,
-  });
   });
 
   drawPestChecklistColumn(page, {
