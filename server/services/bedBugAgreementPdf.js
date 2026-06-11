@@ -4,7 +4,6 @@ import { fileURLToPath } from 'url';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { generateAgreementSchedule } from './agreementSchedule.js';
 import {
-  BED_BUG_ADDON_PESTS,
   BED_BUG_AGREEMENT_PERIOD_TEXT,
   BED_BUG_AUTHORIZATION_TEXT,
   BED_BUG_AUTHORIZATION_TITLE,
@@ -50,6 +49,22 @@ const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1;
 
 const COVERED_PESTS_SECTION_TITLE = 'Covered Pests and Upgrades';
 const BED_BUG_HEADER_CONTACT_EMAIL = 'ahanifi@gshieldpest.com';
+
+const BED_BUG_ADDON_PESTS_DISPLAY = [
+  'Mice/Rats',
+  'Moles/Voles',
+  'Ticks/Mosquitoes',
+  'Cockroaches',
+];
+
+const COMPANY_INFO_SIZE = 6.5 * 1.1;
+const COMPANY_INFO_LEADING = 9.5 * 1.1;
+const CALENDAR_MONTH_SIZE = 6.5 * 1.1;
+const CALENDAR_PAY_SIZE = 6 * 1.1;
+const CALENDAR_PAY_SIZE_LONG = 5.5 * 1.1;
+const CALENDAR_TILE_H = 24 * 1.1;
+const CALENDAR_TILE_GAP = 2 * 1.1;
+const SERVICE_MARKER_RED = rgb(139 / 255, 26 / 255, 26 / 255);
 
 const BED_BUG_SERVICE_DETAILS_TEXT =
   'Our bed bug service begins with a thorough inspection to confirm activity, identify affected areas, and determine the level of infestation, followed by a targeted treatment to eliminate active bed bugs and their hiding spots. A follow-up visit is scheduled two weeks after the initial service to ensure effectiveness and address any remaining activity, with continued preventative follow-ups every four months thereafter. In-between visits are available at no extra cost should any new activity arise, ensuring long-term protection and peace of mind.';
@@ -693,8 +708,8 @@ function drawWrappedText(page, text, { x, y, w, font, size = 6.5, lineHeight = 8
 
 function drawPaymentTile(page, monthLabel, paymentText, { x, y, w, h, font, fontBold }) {
   page.drawRectangle({ x, y, width: w, height: h, color: COLORS.tileBg, borderColor: COLORS.border, borderWidth: 0.5 });
-  const monthSize = 6.5;
-  const paySize = paymentText.length > 10 ? 5.5 : 6;
+  const monthSize = CALENDAR_MONTH_SIZE;
+  const paySize = paymentText.length > 10 ? CALENDAR_PAY_SIZE_LONG : CALENDAR_PAY_SIZE;
   const monthWidth = fontBold.widthOfTextAtSize(monthLabel, monthSize);
   page.drawText(monthLabel, {
     x: x + (w - monthWidth) / 2,
@@ -704,14 +719,21 @@ function drawPaymentTile(page, monthLabel, paymentText, { x, y, w, h, font, font
     color: COLORS.text,
   });
   if (paymentText) {
-    const payWidth = font.widthOfTextAtSize(paymentText, paySize);
-    page.drawText(truncateText(paymentText, font, paySize, w - 4), {
-      x: x + (w - payWidth) / 2,
-      y: y + 3,
-      size: paySize,
-      font,
-      color: COLORS.accent,
-    });
+    const clipped = truncateText(paymentText, font, paySize, w - 4);
+    const parts = clipped.split(/(\(S\))/);
+    const totalWidth = parts.reduce((sum, part) => sum + font.widthOfTextAtSize(part, paySize), 0);
+    let payX = x + (w - totalWidth) / 2;
+    for (const part of parts) {
+      if (!part) continue;
+      page.drawText(part, {
+        x: payX,
+        y: y + 3,
+        size: paySize,
+        font,
+        color: part === '(S)' ? SERVICE_MARKER_RED : COLORS.accent,
+      });
+      payX += font.widthOfTextAtSize(part, paySize);
+    }
   }
 }
 
@@ -834,8 +856,8 @@ async function drawHeader(pdfDoc, page, fonts) {
   ];
   let ry = y + h - 8;
   for (const line of lines) {
-    page.drawText(line, { x: rightX, y: ry, size: 6.5, font: fonts.regular, color: COLORS.text });
-    ry -= 9.5;
+    page.drawText(line, { x: rightX, y: ry, size: COMPANY_INFO_SIZE, font: fonts.regular, color: COLORS.text });
+    ry -= COMPANY_INFO_LEADING;
   }
 }
 
@@ -1020,9 +1042,12 @@ function drawPestsSection(page, data, fonts) {
   const col2X = col3X - colGap - col2W;
 
   const selected = new Set((data.selectedAddOns || []).map((s) => String(s).toLowerCase()));
-  const isAddonChecked = (pest) => selected.size > 0 && (
-    selected.has(pest.toLowerCase()) || selected.has(pest.split('/')[0].toLowerCase())
-  );
+  const isAddonChecked = (pest) => {
+    if (selected.size === 0) return false;
+    const lower = pest.toLowerCase();
+    if (selected.has(lower)) return true;
+    return pest.split('/').some((part) => selected.has(part.toLowerCase().trim()));
+  };
 
   const headingSize = PEST_LABEL_SIZE;
   const headingFont = fonts.bold;
@@ -1121,7 +1146,7 @@ function drawPestsSection(page, data, fonts) {
   drawPestChecklistColumn(page, {
     x: col5X,
     width: col5W,
-    items: BED_BUG_ADDON_PESTS,
+    items: BED_BUG_ADDON_PESTS_DISPLAY,
     startY: itemsStartY,
     itemGap: 7,
     font: fonts.bold,
@@ -1152,14 +1177,14 @@ function drawMiddleRow(page, data, schedule, fonts) {
   drawBubblePanel(page, { x: rx, y, w: rightW, h, title: 'Bed Bug Insect Triannual Subscription', font: fonts.bold });
 
   const tileW = (rightW - 14) / 6;
-  const tileH = 24;
+  const tileH = CALENDAR_TILE_H;
   const months = schedule?.scheduleMonths ?? [];
   months.forEach((month, index) => {
     const row = Math.floor(index / 6);
     const col = index % 6;
     drawPaymentTile(page, month.label, formatBedBugPaymentText(month), {
       x: rx + 4 + col * (tileW + 1),
-      y: bodyStartY(y, h) - 4 - (row + 1) * (tileH + 2),
+      y: bodyStartY(y, h) - 4 - (row + 1) * (tileH + CALENDAR_TILE_GAP),
       w: tileW,
       h: tileH,
       font: fonts.regular,
@@ -1337,9 +1362,9 @@ function drawSignatureSection(page, data, fonts) {
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
   const sigTopY = y + 17;
   const fields = [
-    { label: 'Customer Initials', value: data.customerInitials },
-    { label: 'Customer Signature', value: data.customerSignatureName },
-    { label: 'Date', value: data.agreementDateDisplay ? String(data.agreementDateDisplay) : '' },
+    { label: 'Customer Initials:', value: data.customerInitials },
+    { label: 'Customer Signature:', value: data.customerSignatureName },
+    { label: 'Date:', value: data.agreementDateDisplay ? String(data.agreementDateDisplay) : '' },
   ];
   fields.forEach((field, index) => {
     drawSignatureField(page, {
