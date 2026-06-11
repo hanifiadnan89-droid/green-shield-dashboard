@@ -1000,7 +1000,7 @@ function drawPestsSection(page, data, fonts) {
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
-  drawBubblePanel(page, { x, y, w, h, title: 'Covered Pests', font: fonts.bold });
+  drawBubblePanel(page, { x, y, w, h, title: 'Covered Pests and Upgrades', font: fonts.bold });
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
