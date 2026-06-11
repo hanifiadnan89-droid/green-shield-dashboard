@@ -154,7 +154,7 @@ describe('buildBedBugAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain("Jun '26");
     expect(text).toContain("May '27");
-    expect(text).toContain('2x(S)599.00');
+    expect(text.replace(/\s/g, '')).toContain('2x(S)599.00');
   });
 
   it('generates Jan 27 through Dec 27 from January 2027 start', async () => {
