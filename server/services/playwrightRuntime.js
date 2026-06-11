@@ -3,14 +3,15 @@ import { existsSync } from 'fs';
 const RENDER_INSTALL_HINT =
   'Chromium not installed/found. Set Render Build Command to: npm run render:build, then Clear build cache & deploy.';
 
-function ensureRenderBrowserPath() {
-  if (process.env.RENDER && !process.env.PLAYWRIGHT_BROWSERS_PATH) {
+function ensurePlaywrightBrowserPath() {
+  // Matches npm run playwright:install (local + Render render:build).
+  if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
     process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
   }
 }
 
 async function loadChromium() {
-  ensureRenderBrowserPath();
+  ensurePlaywrightBrowserPath();
   let playwrightMod;
   try {
     playwrightMod = await import('playwright');

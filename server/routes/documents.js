@@ -17,6 +17,12 @@ import {
   BED_BUG_EMAIL_DISABLED_MESSAGE,
 } from '../services/bedBugAgreementContent.js';
 import {
+  buildBedBugPreviewInlineAttachment,
+  buildBedBugQuoteEmailHtml,
+  buildStandardQuoteEmailHtml,
+} from '../services/bedBugAgreementEmail.js';
+import { tryRenderBedBugAgreementPreviewPng } from '../services/bedBugAgreementEmailPreview.js';
+import {
   BED_BUG_TEMPLATE_FILENAME,
   listQuoteDocuments,
   resolveQuoteTemplateFilename,
@@ -773,36 +779,39 @@ router.post('/email-quote', async (req, res) => {
     });
 
     const firstName = (lead.name || '').split(' ')[0] || 'there';
-    const attachmentText = prepGuideAttached.length > 0
-      ? 'your personalized quote and preparation guide'
-      : 'your personalized quote';
+    const hasPrepGuide = prepGuideAttached.length > 0;
+    const isBedBugTemplate = templateName === BED_BUG_TEMPLATE;
+
+    let emailHtml;
+    if (isBedBugTemplate) {
+      const preview = await tryRenderBedBugAgreementPreviewPng(outBytes);
+      if (preview.ok) {
+        attachments.push(buildBedBugPreviewInlineAttachment(preview.pngBuffer));
+      }
+      emailHtml = buildBedBugQuoteEmailHtml({
+        firstName,
+        hasPrepGuide,
+        includePreview: preview.ok,
+      });
+    } else {
+      emailHtml = buildStandardQuoteEmailHtml({ firstName, hasPrepGuide });
+    }
 
     await transporter.sendMail({
       from:    `Green Shield Pest Solutions <${process.env.GMAIL_USER}>`,
       to:      lead.email,
       subject: 'Your Quote from Green Shield Pest Solutions',
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:560px;color:#1a1a1a">
-          <p>Hi ${firstName},</p>
-          <p>Please find ${attachmentText} attached to this email.</p>
-          <p>If you have any questions, feel free to reply here or give us a call at
-             <strong>(207) 815-2234</strong>.</p>
-          <p>We look forward to working with you!</p>
-          <br>
-          <p style="color:#555;font-size:13px">
-            Green Shield Pest Solutions<br>
-            (207) 815-2234 | ahanifi@gshieldpest.com<br>
-            11 Eastview Pkwy Unit 106, Saco, ME 04072
-          </p>
-        </div>
-      `,
+      html:    emailHtml,
       attachments
     });
 
     const logSuffix = prepGuideAttached.length > 0
       ? `+ prep guides: ${prepGuideAttached.join(', ')}`
       : 'quote only (no prep guide)';
-    console.log(`[email-quote] Sent to ${lead.email} — ${outName} — ${logSuffix}`);
+    const previewSuffix = isBedBugTemplate && attachments.some((a) => a.cid)
+      ? ' + inline preview'
+      : '';
+    console.log(`[email-quote] Sent to ${lead.email} — ${outName} — ${logSuffix}${previewSuffix}`);
 
     res.json({ success: true, to: lead.email, filename: outName, prepGuides: prepGuideAttached });
   } catch (err) {
