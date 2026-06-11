@@ -46,7 +46,10 @@ const LABEL_UNDERLINE_OFFSET = 1.5;
 /** Body paragraph sizes (+10% from prior values). */
 const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1;
 const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1;
-const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1;
+const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1;
+
+const COVERED_PESTS_SECTION_TITLE = 'Covered Pests and Upgrades';
+const BED_BUG_HEADER_CONTACT_EMAIL = 'ahanifi@gshieldpest.com';
 
 const BED_BUG_SERVICE_DETAILS_TEXT =
   'Our bed bug service begins with a thorough inspection to confirm activity, identify affected areas, and determine the level of infestation, followed by a targeted treatment to eliminate active bed bugs and their hiding spots. A follow-up visit is scheduled two weeks after the initial service to ensure effectiveness and address any remaining activity, with continued preventative follow-ups every four months thereafter. In-between visits are available at no extra cost should any new activity arise, ensuring long-term protection and peace of mind.';
@@ -826,7 +829,7 @@ async function drawHeader(pdfDoc, page, fonts) {
     BED_BUG_COMPANY.name,
     BED_BUG_COMPANY.addressLine1,
     BED_BUG_COMPANY.addressLine2,
-    `${BED_BUG_COMPANY.phone} | ${BED_BUG_COMPANY.email}`,
+    `${BED_BUG_COMPANY.phone} | ${BED_BUG_HEADER_CONTACT_EMAIL}`,
     `License #: ${BED_BUG_COMPANY.license}`,
   ];
   let ry = y + h - 8;
@@ -1000,7 +1003,7 @@ function drawPestsSection(page, data, fonts) {
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
   const y = yFromTop(top, h);
-  drawBubblePanel(page, { x, y, w, h, title: 'Covered Pests and Upgrades', font: fonts.bold });
+  drawBubblePanel(page, { x, y, w, h, title: COVERED_PESTS_SECTION_TITLE, font: fonts.bold });
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
@@ -1063,6 +1066,20 @@ function drawPestsSection(page, data, fonts) {
     top: bracketTop,
     right: bracketRight,
     drop: bracketSideDrop,
+  });
+
+  const headerFontSize = 7.5;
+  const headerTextWidth = fonts.bold.widthOfTextAtSize(COVERED_PESTS_SECTION_TITLE, headerFontSize);
+  const headerTextX = x + Math.max(6, (w - headerTextWidth) / 2);
+  const coveredVCenterX = headerTextX
+    + fonts.bold.widthOfTextAtSize('Co', headerFontSize)
+    + fonts.bold.widthOfTextAtSize('v', headerFontSize) / 2;
+  const headerConnectorTop = y + h - HEADER_BAR_H;
+  page.drawLine({
+    start: { x: coveredVCenterX, y: headerConnectorTop },
+    end: { x: coveredVCenterX, y: bracketTop },
+    thickness: 0.6,
+    color: LOGO_GRAY,
   });
 
   drawPestChecklistColumn(page, {
