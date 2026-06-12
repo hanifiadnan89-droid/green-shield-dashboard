@@ -36,6 +36,7 @@ import {
 import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.js';
 import { getGoogleCredentialsDiagnostics } from './services/googleCredentials.js';
 import { getSheetsStartupCheck, runSheetsStartupCheck } from './services/sheetsStartupCheck.js';
+import { isInsectQuarterlyVectorPdfEnabled } from './services/insectQuarterlyVectorPdfFlag.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -237,6 +238,7 @@ app.listen(PORT, () => {
   console.log('Sheet ID:', process.env.SHEET_ID || '(not set — using default in sheets.js)');
   console.log(`   Google Sheets SHEET_ID env: ${process.env.SHEET_ID ? 'configured' : '⚠️  SHEET_ID missing (default ID used)'}`);
   console.log(`   n8n: ${process.env.N8N_BASE_URL || '⚠️  N8N_BASE_URL missing'}`);
+  console.log(`   Insect Quarterly vector PDF: ${isInsectQuarterlyVectorPdfEnabled() ? 'enabled' : 'disabled (legacy AcroForm)'}`);
   const g = getGoogleCredentialsDiagnostics();
   if (g.ok) {
     console.log(`   Google credentials: ✓ (${g.source})`);

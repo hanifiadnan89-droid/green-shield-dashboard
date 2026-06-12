@@ -13,6 +13,7 @@ import {
   validateBedBugAgreementData,
 } from '../services/bedBugAgreementPdf.js';
 import { buildInsectQuarterlyAgreementPdf } from '../services/insectQuarterlyAgreementPdf.js';
+import { isInsectQuarterlyVectorPdfEnabled } from '../services/insectQuarterlyVectorPdfFlag.js';
 import {
   BED_BUG_EMAIL_DISABLED,
   BED_BUG_EMAIL_DISABLED_MESSAGE,
@@ -415,7 +416,7 @@ async function buildQuotePdf({
     if (!serviceType || SERVICE_TYPE_PAGE[serviceType] === undefined) {
       throw Object.assign(new Error('serviceType required for Service Agreements.pdf'), { status: 400 });
     }
-    if (serviceType === 'insect_quarterly' && process.env.INSECT_QUARTERLY_VECTOR_PDF === 'true') {
+    if (serviceType === 'insect_quarterly' && isInsectQuarterlyVectorPdfEnabled()) {
       return buildInsectQuarterlyAgreementPdf({
         lead,
         pricing,
