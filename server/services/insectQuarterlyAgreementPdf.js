@@ -19,8 +19,7 @@ import {
   IQ_INCLUDED_PESTS_COL_C,
   IQ_INCLUDED_PESTS_COL_D,
   IQ_INITIALS_TEXT,
-  IQ_SERVICE_FREQUENCY,
-  IQ_SERVICE_TYPE,
+  IQ_SERVICE_DETAILS_TEXT,
   IQ_SUBSCRIPTION_TITLE,
   IQ_TITLE,
 } from './insectQuarterlyAgreementContent.js';
@@ -36,7 +35,6 @@ import {
   drawRoundedSection,
   drawSignatureField,
   drawStackedField,
-  drawStackedFields,
   drawSvgRoundedRect,
   drawTwoColumnAddressBlock,
   drawUnderlinedLabel,
@@ -44,6 +42,7 @@ import {
   HEADER_BAR_H,
   HEADER_GREEN,
   LABEL_SIZE,
+  LABEL_TAG_HEIGHT,
   LOGO_GRAY,
   TAG_RED,
   TITLE_BUBBLE_FILL,
@@ -65,18 +64,20 @@ const SECTION_PAD = 10;
 const PEST_LABEL_SIZE = 6.5 * 1.15;
 const VALUE_SIZE = 7.5;
 
-const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1;
-const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1;
-const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1;
+const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
+const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1;
+const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1 * 1.1;
 const EXPECTATIONS_SUBHEADING_SIZE = 6.8 * 1.1;
 
-const COMPANY_INFO_SIZE = 6.5 * 1.1;
-const COMPANY_INFO_LEADING = 9.5 * 1.1;
-const CALENDAR_MONTH_SIZE = 6.5 * 1.1;
-const CALENDAR_PAY_SIZE = 6 * 1.1;
-const CALENDAR_PAY_SIZE_LONG = 5.5 * 1.1;
-const CALENDAR_TILE_H = 24 * 1.1;
-const CALENDAR_TILE_GAP = 2 * 1.1;
+const COMPANY_INFO_SIZE = 6.5 * 1.1 * 1.1;
+/** Leading tuned for six company lines within the 50pt header band at +10% size. */
+const COMPANY_INFO_LEADING = 8.2;
+const CALENDAR_MONTH_SIZE = 6.5 * 1.1 * 1.1;
+const CALENDAR_PAY_SIZE = 6 * 1.1 * 1.1;
+const CALENDAR_PAY_SIZE_LONG = 5.5 * 1.1 * 1.1;
+const CALENDAR_TILE_H = 24 * 1.1 * 1.1;
+const CALENDAR_TILE_GAP = 2 * 1.1 * 1.1;
+const CALENDAR_PANEL_PAD = 2;
 
 const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
 
@@ -225,10 +226,11 @@ async function drawHeader(pdfDoc, page, fonts) {
     IQ_COMPANY.name,
     IQ_COMPANY.addressLine1,
     IQ_COMPANY.addressLine2,
-    `${IQ_COMPANY.phone} | ${IQ_HEADER_CONTACT_EMAIL}`,
+    IQ_COMPANY.phone,
+    IQ_HEADER_CONTACT_EMAIL,
     `License #: ${IQ_COMPANY.license}`,
   ];
-  let ry = y + h - 8;
+  let ry = y + h - 6;
   for (const line of lines) {
     page.drawText(line, { x: rightX, y: ry, size: COMPANY_INFO_SIZE, font: fonts.regular, color: COLORS.text });
     ry -= COMPANY_INFO_LEADING;
@@ -302,19 +304,14 @@ function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacin
   });
 }
 
-function drawServiceDetailsBlock(page, { x, y, width, font, boldFont }) {
-  drawStackedFields(page, {
+function drawServiceDetailsBlock(page, { x, y, width, font }) {
+  drawWrappedText(page, IQ_SERVICE_DETAILS_TEXT, {
     x,
     y,
-    width,
-    fields: [
-      { label: 'Service Type:', value: IQ_SERVICE_TYPE },
-      { label: 'Frequency:', value: IQ_SERVICE_FREQUENCY },
-    ],
+    w: width,
     font,
-    boldFont,
-    gap: 8,
-    fieldSpacing: 6,
+    size: 6.4,
+    lineHeight: 7.2,
   });
 }
 
@@ -358,10 +355,9 @@ function drawTopRow(page, data, fonts) {
     } else {
       drawServiceDetailsBlock(page, {
         x: innerX,
-        y: fieldY,
+        y: bodyStartY(y, h),
         width: innerW,
         font: fonts.regular,
-        boldFont: fonts.bold,
       });
     }
   });
@@ -384,13 +380,12 @@ function drawPestsSection(page, data, fonts) {
   const col3W = innerW * 0.215;
   const col2W = innerW * 0.215;
   const col1W = innerW - col2W - col3W - col4W - col5W - colGap * 4;
-  const col1X = innerX;
-  const col2X = col1X + col1W + colGap;
-  const col3X = col2X + col2W + colGap;
-  const col4X = col3X + col3W + colGap;
   const col5X = innerX + innerW - col5W;
+  const col4X = col5X - colGap - col4W;
+  const col3X = col4X - colGap - col3W;
+  const col2X = col3X - colGap - col2W;
+  const col1X = innerX;
 
-  const selected = new Set((data.selectedAddOns || []).map((s) => String(s).toLowerCase()));
   const isAddonChecked = () => false;
 
   const headingSize = PEST_LABEL_SIZE;
@@ -398,7 +393,17 @@ function drawPestsSection(page, data, fonts) {
   const includedItemGap = 6.5;
   const checkItemHeight = 7;
   const headingBaseline = groupTopY - 2;
-  const itemsStartY = groupTopY - 5;
+  const itemsStartY = groupTopY - LABEL_TAG_HEIGHT - 5;
+  const addonItemsStartY = itemsStartY - 4;
+
+  drawUnderlinedLabel(page, {
+    x: col1X,
+    y: headingBaseline,
+    text: 'Main pest',
+    size: headingSize,
+    font: headingFont,
+    color: TAG_RED,
+  });
 
   drawUnderlinedLabel(page, {
     x: col5X,
@@ -412,11 +417,11 @@ function drawPestsSection(page, data, fonts) {
   const lastIncludedLabel = IQ_INCLUDED_PESTS_COL_D[IQ_INCLUDED_PESTS_COL_D.length - 1];
   const bracketRightLabelX = col4X + 10;
   const bracketRight = bracketRightLabelX + fonts.bold.widthOfTextAtSize(lastIncludedLabel, headingSize) + 18;
-  const bracketLeft = col1X - 10;
+  const bracketLeft = col2X - 10;
   const bracketTop = headingBaseline - 0.5;
   const includedItemCount = IQ_INCLUDED_PESTS_COL_A.length;
   const priorBracketBottom = itemsStartY - (includedItemCount - 1) * includedItemGap - checkItemHeight - 3;
-  const priorSideHeight = (groupTopY + 1) - priorBracketBottom;
+  const priorSideHeight = (groupTopY - LABEL_TAG_HEIGHT + 1) - priorBracketBottom;
   const bracketSideDrop = priorSideHeight * 0.05;
 
   drawInvertedBracket(page, {
@@ -478,8 +483,8 @@ function drawPestsSection(page, data, fonts) {
     x: col5X,
     width: col5W,
     items: IQ_ADDON_PESTS,
-    startY: itemsStartY,
-    itemGap: 7,
+    startY: addonItemsStartY,
+    itemGap: 8,
     font: fonts.bold,
     isChecked: isAddonChecked,
   });
@@ -517,15 +522,18 @@ function drawMiddleRow(page, schedule, fonts) {
   const rx = x + leftW + GAP;
   drawBubblePanel(page, { x: rx, y, w: rightW, h, title: IQ_SUBSCRIPTION_TITLE, font: fonts.bold });
 
+  const tileGap = 1;
   const tileW = (rightW - 14) / 6;
   const tileH = CALENDAR_TILE_H;
   const months = schedule?.scheduleMonths ?? [];
+  const calendarBodyTop = bodyStartY(y, h);
+  const firstRowBottomY = calendarBodyTop - CALENDAR_PANEL_PAD - tileH;
   months.forEach((month, index) => {
     const row = Math.floor(index / 6);
     const col = index % 6;
     drawPaymentTile(page, month.label, formatInsectQuarterlyPaymentText(month), {
-      x: rx + 4 + col * (tileW + 1),
-      y: bodyStartY(y, h) - 4 - (row + 1) * (tileH + CALENDAR_TILE_GAP),
+      x: rx + 4 + col * (tileW + tileGap),
+      y: firstRowBottomY - row * (tileH + CALENDAR_TILE_GAP),
       w: tileW,
       h: tileH,
       font: fonts.regular,
