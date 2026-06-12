@@ -142,8 +142,10 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
       expect(text).toContain(pest);
     }
     expect(text).not.toContain('Included Pests');
+    expect(text).not.toContain('Main pest');
+    expect(text).not.toContain('Included');
     expect(text).toContain('Mice/Rats');
-    expect(text).toContain('Main pest');
+    expect(text).toContain('Add-ons');
   });
 
   it('renders quarterly service description in Service Details only', async () => {
@@ -238,6 +240,20 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     expect(source).not.toContain('Service Agreements.pdf');
     expect(source).toContain('PDFDocument.create');
     expect(source).toContain('generateAgreementSchedule');
+  });
+
+  it('renders Covered Pests without internal grouping lines or subheadings', async () => {
+    const source = await import('fs').then((fs) =>
+      fs.readFileSync(join(__dirname, '..', 'insectQuarterlyAgreementPdf.js'), 'utf8'),
+    );
+    expect(source).not.toContain('drawInvertedBracket');
+    expect(source).not.toContain('Main pest');
+
+    const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
+    const { text } = await extractPdfText(outBytes);
+    expect(text).toContain('Covered Pests and Upgrades');
+    expect(text).not.toContain('Main pest');
+    expect(text).not.toContain('Included');
   });
 });
 

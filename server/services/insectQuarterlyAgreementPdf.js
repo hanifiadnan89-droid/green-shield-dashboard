@@ -28,7 +28,6 @@ import {
   BODY_TOP_PAD,
   drawBubblePanel,
   drawCompanyLogo,
-  drawInvertedBracket,
   drawPaymentTile,
   drawPestChecklistColumn,
   drawPriceRows,
@@ -43,7 +42,6 @@ import {
   HEADER_GREEN,
   LABEL_SIZE,
   LABEL_TAG_HEIGHT,
-  LOGO_GRAY,
   TAG_RED,
   TITLE_BUBBLE_FILL,
   bodyStartY as layoutBodyStartY,
@@ -374,11 +372,11 @@ function drawPestsSection(page, data, fonts) {
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
   const groupTopY = bodyStartY(y, h);
-  const colGap = 4;
+  const colGap = 6;
   const col5W = innerW * 0.14;
-  const col4W = innerW * 0.215;
-  const col3W = innerW * 0.215;
-  const col2W = innerW * 0.215;
+  const col4W = innerW * 0.21;
+  const col3W = innerW * 0.21;
+  const col2W = innerW * 0.21;
   const col1W = innerW - col2W - col3W - col4W - col5W - colGap * 4;
   const col5X = innerX + innerW - col5W;
   const col4X = col5X - colGap - col4W;
@@ -391,19 +389,9 @@ function drawPestsSection(page, data, fonts) {
   const headingSize = PEST_LABEL_SIZE;
   const headingFont = fonts.bold;
   const includedItemGap = 6.5;
-  const checkItemHeight = 7;
   const headingBaseline = groupTopY - 2;
-  const itemsStartY = groupTopY - LABEL_TAG_HEIGHT - 5;
-  const addonItemsStartY = itemsStartY - 4;
-
-  drawUnderlinedLabel(page, {
-    x: col1X,
-    y: headingBaseline,
-    text: 'Main pest',
-    size: headingSize,
-    font: headingFont,
-    color: TAG_RED,
-  });
+  const coveredItemsStartY = groupTopY - 4;
+  const addonItemsStartY = groupTopY - LABEL_TAG_HEIGHT - 9;
 
   drawUnderlinedLabel(page, {
     x: col5X,
@@ -414,44 +402,11 @@ function drawPestsSection(page, data, fonts) {
     color: TAG_RED,
   });
 
-  const lastIncludedLabel = IQ_INCLUDED_PESTS_COL_D[IQ_INCLUDED_PESTS_COL_D.length - 1];
-  const bracketRightLabelX = col4X + 10;
-  const bracketRight = bracketRightLabelX + fonts.bold.widthOfTextAtSize(lastIncludedLabel, headingSize) + 18;
-  const bracketLeft = col2X - 10;
-  const bracketTop = headingBaseline - 0.5;
-  const includedItemCount = IQ_INCLUDED_PESTS_COL_A.length;
-  const priorBracketBottom = itemsStartY - (includedItemCount - 1) * includedItemGap - checkItemHeight - 3;
-  const priorSideHeight = (groupTopY - LABEL_TAG_HEIGHT + 1) - priorBracketBottom;
-  const bracketSideDrop = priorSideHeight * 0.05;
-
-  drawInvertedBracket(page, {
-    left: bracketLeft,
-    top: bracketTop,
-    right: bracketRight,
-    drop: bracketSideDrop,
-  });
-
-  const headerFontSize = 7.5;
-  const headerTextWidth = fonts.bold.widthOfTextAtSize(IQ_COVERED_PESTS_SECTION_TITLE, headerFontSize);
-  const headerTextX = x + Math.max(6, (w - headerTextWidth) / 2);
-  const coveredVCenterX = headerTextX
-    + fonts.bold.widthOfTextAtSize('Co', headerFontSize)
-    + fonts.bold.widthOfTextAtSize('v', headerFontSize) / 2;
-  const headerConnectorBottom = y + h - HEADER_BAR_H;
-  const headerConnectorGap = 3;
-  const headerConnectorTop = headerConnectorBottom - headerConnectorGap;
-  page.drawLine({
-    start: { x: coveredVCenterX, y: headerConnectorTop },
-    end: { x: coveredVCenterX, y: bracketTop },
-    thickness: 0.6,
-    color: LOGO_GRAY,
-  });
-
   drawPestChecklistColumn(page, {
     x: col1X,
     width: col1W,
     items: IQ_INCLUDED_PESTS_COL_A,
-    startY: itemsStartY,
+    startY: coveredItemsStartY,
     itemGap: includedItemGap,
     font: fonts.bold,
   });
@@ -459,7 +414,7 @@ function drawPestsSection(page, data, fonts) {
     x: col2X,
     width: col2W,
     items: IQ_INCLUDED_PESTS_COL_B,
-    startY: itemsStartY,
+    startY: coveredItemsStartY,
     itemGap: includedItemGap,
     font: fonts.bold,
   });
@@ -467,7 +422,7 @@ function drawPestsSection(page, data, fonts) {
     x: col3X,
     width: col3W,
     items: IQ_INCLUDED_PESTS_COL_C,
-    startY: itemsStartY,
+    startY: coveredItemsStartY,
     itemGap: includedItemGap,
     font: fonts.bold,
   });
@@ -475,7 +430,7 @@ function drawPestsSection(page, data, fonts) {
     x: col4X,
     width: col4W,
     items: IQ_INCLUDED_PESTS_COL_D,
-    startY: itemsStartY,
+    startY: coveredItemsStartY,
     itemGap: includedItemGap,
     font: fonts.bold,
   });
