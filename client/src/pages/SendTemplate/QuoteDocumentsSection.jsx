@@ -249,15 +249,24 @@ export default function QuoteDocumentsSection({
                   <p className="text-sm font-semibold text-gs-text truncate">{f.name}</p>
                   <p className="text-[10px] text-gs-muted uppercase tracking-wide mt-0.5">PDF · {(f.size / 1024).toFixed(0)} KB</p>
                 </div>
-                <a
-                  href={api.documents.fileUrl('quotes', f.index)}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="send-doc-card__preview text-xs text-gs-info hover:underline shrink-0"
-                >
-                  Preview
-                </a>
+                {f.serviceType ? (
+                  <span
+                    className="send-doc-card__preview text-xs text-gs-muted shrink-0"
+                    title="Use Preview PDF or Download PDF below — this is not the filled agreement"
+                  >
+                    Template
+                  </span>
+                ) : (
+                  <a
+                    href={api.documents.fileUrl('quotes', f.index)}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="send-doc-card__preview text-xs text-gs-info hover:underline shrink-0"
+                  >
+                    Blank
+                  </a>
+                )}
               </motion.button>
             ))}
           </div>
@@ -391,17 +400,15 @@ export default function QuoteDocumentsSection({
             : <p className="send-command-alert send-command-alert--error">{emailResult.error}</p>
         )}
 
-        {isBedBug && (
-          <button
-            onClick={handlePreview}
-            disabled={!selected || previewing || generating || emailing}
-            className={`send-command-secondary ${
-              !selected || previewing || generating || emailing ? 'send-command-secondary--disabled' : ''
-            }`}
-          >
-            {previewing ? <><Spinner size={12} /> Previewing...</> : <><Eye size={12} /> Preview PDF</>}
-          </button>
-        )}
+        <button
+          onClick={handlePreview}
+          disabled={!selected || previewing || generating || emailing}
+          className={`send-command-secondary ${
+            !selected || previewing || generating || emailing ? 'send-command-secondary--disabled' : ''
+          }`}
+        >
+          {previewing ? <><Spinner size={12} /> Previewing...</> : <><Eye size={12} /> Preview PDF</>}
+        </button>
 
         {/* Download */}
         <button
@@ -455,15 +462,20 @@ export default function QuoteDocumentsSection({
           <p className="text-gs-muted text-xs text-center">No email on this lead — can't send directly</p>
         )}
 
-        {selected && !isBedBug && (
+        {selected && !isBedBug && !selected.serviceType && (
           <a
             href={api.documents.fileUrl('quotes', selected.index)}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center justify-center gap-1.5 text-gs-info text-xs hover:underline"
+            className="flex items-center justify-center gap-1.5 text-gs-muted text-xs hover:underline"
           >
-            <ExternalLink size={11} /> Preview template: {selected.name}
+            <ExternalLink size={11} /> View blank template: {selected.name}
           </a>
+        )}
+        {selected?.serviceType && (
+          <p className="text-[10px] text-gs-muted text-center">
+            Use Preview PDF or Download PDF for the filled agreement. Blank template links do not apply to service agreements.
+          </p>
         )}
       </div>
     </div>
