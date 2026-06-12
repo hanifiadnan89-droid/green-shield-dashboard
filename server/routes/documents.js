@@ -416,7 +416,7 @@ async function buildQuotePdf({
     if (!serviceType || SERVICE_TYPE_PAGE[serviceType] === undefined) {
       throw Object.assign(new Error('serviceType required for Service Agreements.pdf'), { status: 400 });
     }
-    if (serviceType === 'insect_quarterly' && isInsectQuarterlyVectorPdfEnabled()) {
+if (serviceType === 'insect_quarterly' && isInsectQuarterlyVectorPdfEnabled()) {
       return buildInsectQuarterlyAgreementPdf({
         lead,
         pricing,
