@@ -2,8 +2,9 @@
 
 export const IQ_TITLE = 'Insect Quarterly Service Agreement';
 
-export const IQ_SERVICE_TYPE = 'INSECT QUARTERLY';
-export const IQ_SERVICE_FREQUENCY = 'Every 90 days';
+/** Service Details panel — quarterly insect treatment description (Bed Bug paragraph style). */
+export const IQ_SERVICE_DETAILS_TEXT =
+  'Our quarterly insect treatment begins with a thorough inspection of your property to identify active insect activity, potential entry points, and conditions conducive to infestations. We will apply targeted treatments around the exterior perimeter and key interior areas to eliminate existing insects and create a strong preventative barrier against common pests such as ants, spiders, beetles, stink bugs, wasps, and other seasonal invaders. Follow-up visits are performed quarterly to maintain consistent protection throughout the year, with in-between visits available at no extra cost should any new activity arise, ensuring long-term protection for your property.';
 
 export const IQ_COMPANY = {
   name: 'Green Shield Pest Solutions',
@@ -42,8 +43,7 @@ export const IQ_INCLUDED_PESTS_COL_D = [
 ];
 
 export const IQ_ADDON_PESTS = [
-  'Mice',
-  'Rats',
+  'Mice/Rats',
   'Moles/Voles',
   'Ticks/Mosquitoes',
 ];

@@ -142,14 +142,18 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
       expect(text).toContain(pest);
     }
     expect(text).not.toContain('Included Pests');
-    expect(text).not.toContain('Mice/Rats');
+    expect(text).toContain('Mice/Rats');
+    expect(text).toContain('Main pest');
   });
 
-  it('renders service details without marketing paragraph', async () => {
+  it('renders quarterly service description in Service Details only', async () => {
     const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
-    expect(text).toContain('INSECT QUARTERLY');
-    expect(text).toContain('Every 90 days');
+    expect(text).toContain('Our quarterly insect treatment begins');
+    expect(text).toContain('Follow-up visits are performed quarterly');
+    expect(text).not.toContain('Service Type:');
+    expect(text).not.toContain('INSECT QUARTERLY');
+    expect(text).not.toContain('Every 90 days');
     expect(text).not.toContain('bed bug service begins');
   });
 
