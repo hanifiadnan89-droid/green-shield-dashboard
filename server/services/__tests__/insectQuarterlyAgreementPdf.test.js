@@ -162,7 +162,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
   it('renders production expectations paragraph verbatim', async () => {
     const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
-    expect(text).toContain('Year Round Pest Barriers');
+    expect(text).not.toContain('Year Round Pest Barriers');
     expect(text).toContain(IQ_EXPECTATIONS_TEXT.slice(0, 40));
     expect(text).toContain('marked with an "S" below');
   });

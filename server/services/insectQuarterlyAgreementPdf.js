@@ -11,7 +11,6 @@ import {
   IQ_AUTHORIZATION_TITLE,
   IQ_COMPANY,
   IQ_COVERED_PESTS_SECTION_TITLE,
-  IQ_EXPECTATIONS_SUBHEADING,
   IQ_EXPECTATIONS_TEXT,
   IQ_HEADER_CONTACT_EMAIL,
   IQ_INCLUDED_PESTS_COL_A,
@@ -65,8 +64,6 @@ const VALUE_SIZE = 7.5;
 const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
 const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1;
 const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1 * 1.1;
-const EXPECTATIONS_SUBHEADING_SIZE = 6.8 * 1.1;
-
 const COMPANY_INFO_SIZE = 6.5 * 1.1 * 1.1;
 /** Leading tuned for six company lines within the 50pt header band at +10% size. */
 const COMPANY_INFO_LEADING = 8.2;
@@ -389,9 +386,10 @@ function drawPestsSection(page, data, fonts) {
   const headingSize = PEST_LABEL_SIZE;
   const headingFont = fonts.bold;
   const includedItemGap = 6.5;
+  const addonItemGap = 8;
   const headingBaseline = groupTopY - 2;
-  const coveredItemsStartY = groupTopY - 4;
-  const addonItemsStartY = groupTopY - LABEL_TAG_HEIGHT - 9;
+  /** Shared first-row baseline so covered and add-on checkboxes align horizontally. */
+  const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9;
 
   drawUnderlinedLabel(page, {
     x: col5X,
@@ -406,7 +404,7 @@ function drawPestsSection(page, data, fonts) {
     x: col1X,
     width: col1W,
     items: IQ_INCLUDED_PESTS_COL_A,
-    startY: coveredItemsStartY,
+    startY: checkboxStartY,
     itemGap: includedItemGap,
     font: fonts.bold,
   });
@@ -414,7 +412,7 @@ function drawPestsSection(page, data, fonts) {
     x: col2X,
     width: col2W,
     items: IQ_INCLUDED_PESTS_COL_B,
-    startY: coveredItemsStartY,
+    startY: checkboxStartY,
     itemGap: includedItemGap,
     font: fonts.bold,
   });
@@ -422,7 +420,7 @@ function drawPestsSection(page, data, fonts) {
     x: col3X,
     width: col3W,
     items: IQ_INCLUDED_PESTS_COL_C,
-    startY: coveredItemsStartY,
+    startY: checkboxStartY,
     itemGap: includedItemGap,
     font: fonts.bold,
   });
@@ -430,7 +428,7 @@ function drawPestsSection(page, data, fonts) {
     x: col4X,
     width: col4W,
     items: IQ_INCLUDED_PESTS_COL_D,
-    startY: coveredItemsStartY,
+    startY: checkboxStartY,
     itemGap: includedItemGap,
     font: fonts.bold,
   });
@@ -438,8 +436,8 @@ function drawPestsSection(page, data, fonts) {
     x: col5X,
     width: col5W,
     items: IQ_ADDON_PESTS,
-    startY: addonItemsStartY,
-    itemGap: 8,
+    startY: checkboxStartY,
+    itemGap: addonItemGap,
     font: fonts.bold,
     isChecked: isAddonChecked,
   });
@@ -457,17 +455,9 @@ function drawMiddleRow(page, schedule, fonts) {
   drawBubblePanel(page, { x, y, w: leftW, h, title: 'Expectations / Scheduling', font: fonts.bold });
 
   const contentTop = bodyStartY(y, h);
-  drawUnderlinedLabel(page, {
-    x: x + 6,
-    y: contentTop,
-    text: IQ_EXPECTATIONS_SUBHEADING,
-    size: EXPECTATIONS_SUBHEADING_SIZE,
-    font: fonts.bold,
-    color: COLORS.text,
-  });
   drawWrappedText(page, IQ_EXPECTATIONS_TEXT, {
     x: x + 6,
-    y: contentTop - EXPECTATIONS_SUBHEADING_SIZE - 4,
+    y: contentTop,
     w: leftW - 12,
     font: fonts.regular,
     size: BODY_TEXT_SIZE_EXPECTATIONS,
