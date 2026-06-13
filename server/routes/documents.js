@@ -14,6 +14,8 @@ import {
 } from '../services/bedBugAgreementPdf.js';
 import { buildInsectQuarterlyAgreementPdf } from '../services/insectQuarterlyAgreementPdf.js';
 import { isInsectQuarterlyVectorPdfEnabled } from '../services/insectQuarterlyVectorPdfFlag.js';
+import { buildRodentInsectTriannualAgreementPdf } from '../services/rodentInsectTriannualAgreementPdf.js';
+import { isRodentInsectTriannualVectorPdfEnabled } from '../services/rodentInsectTriannualVectorPdfFlag.js';
 import {
   BED_BUG_EMAIL_DISABLED,
   BED_BUG_EMAIL_DISABLED_MESSAGE,
@@ -418,6 +420,18 @@ async function buildQuotePdf({
     }
 if (serviceType === 'insect_quarterly' && isInsectQuarterlyVectorPdfEnabled()) {
       return buildInsectQuarterlyAgreementPdf({
+        lead,
+        pricing,
+        address,
+        startDate,
+        agreementStartDate,
+        serviceStartDate,
+        initialServiceDate,
+        selectedStartDate,
+      });
+    }
+    if (serviceType === 'rodent_insect_triannual' && isRodentInsectTriannualVectorPdfEnabled()) {
+      return buildRodentInsectTriannualAgreementPdf({
         lead,
         pricing,
         address,
