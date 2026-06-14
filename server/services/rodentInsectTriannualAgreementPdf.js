@@ -41,6 +41,7 @@ import {
   HEADER_BAR_H,
   HEADER_GREEN,
   LABEL_SIZE,
+  LABEL_TAG_HEIGHT,
   TAG_RED,
   TITLE_BUBBLE_FILL,
   bodyStartY as layoutBodyStartY,
