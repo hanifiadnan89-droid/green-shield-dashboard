@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   BED_BUG_EMAIL_PREVIEW_CID,
   BED_BUG_EMAIL_PREVIEW_MAX_WIDTH_PX,
+  QUOTE_EMAIL_PREVIEW_CID,
+  QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX,
   buildBedBugPreviewInlineAttachment,
   buildBedBugQuoteEmailHtml,
+  buildQuotePreviewInlineAttachment,
   buildStandardQuoteEmailHtml,
 } from '../bedBugAgreementEmail.js';
 
@@ -14,6 +17,28 @@ describe('bedBugAgreementEmail', () => {
     expect(html).toContain('your personalized quote');
     expect(html).not.toContain('cid:');
     expect(html).toContain('max-width:560px');
+  });
+
+  it('builds standard quote email with large inline preview image', () => {
+    const html = buildStandardQuoteEmailHtml({
+      firstName: 'Jane',
+      hasPrepGuide: false,
+      includePreview: true,
+    });
+    expect(html).toContain(`cid:${QUOTE_EMAIL_PREVIEW_CID}`);
+    expect(html).toContain(`max-width:${QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX}px`);
+    expect(html).toContain('width:100%');
+    expect(html).toContain('Service agreement preview');
+    expect(html).toContain('Read your agreement above at full size');
+  });
+
+  it('builds nodemailer inline attachment for standard quotes', () => {
+    const png = Buffer.from('fake-png');
+    const attachment = buildQuotePreviewInlineAttachment(png);
+    expect(attachment.filename).toBe('agreement-preview.png');
+    expect(attachment.cid).toBe(QUOTE_EMAIL_PREVIEW_CID);
+    expect(attachment.contentType).toBe('image/png');
+    expect(attachment.content).toBe(png);
   });
 
   it('builds Bed Bug email with large inline preview image', () => {
