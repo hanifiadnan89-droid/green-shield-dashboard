@@ -93,6 +93,18 @@ const RIT_CALENDAR_TILE_STYLE = {
   paySizeLong: CALENDAR_PAY_SIZE_LONG,
 };
 
+/** June initial tile uses the long pay size; lock all (S) months to that same size. */
+const RIT_SERVICE_PAY_SIZE = CALENDAR_PAY_SIZE_LONG;
+
+function ritCalendarTileStyleForPayment(paymentText) {
+  if (!paymentText.includes('(S)')) return RIT_CALENDAR_TILE_STYLE;
+  return {
+    ...RIT_CALENDAR_TILE_STYLE,
+    paySize: RIT_SERVICE_PAY_SIZE,
+    paySizeLong: RIT_SERVICE_PAY_SIZE,
+  };
+}
+
 function layoutTop(...segments) {
   return MARGIN_Y + LAYOUT_HEADER_H + segments.reduce((sum, n) => sum + n, 0);
 }
@@ -426,9 +438,10 @@ function drawPestsSection(page, fonts) {
     color: TAG_RED,
   });
 
+  const addonItemGap = includedItemGap + 2;
   drawCheckItem(page, RIT_ADDON_PESTS[0], {
     x: col5X,
-    y: checkboxStartY - includedItemGap,
+    y: checkboxStartY - addonItemGap,
     font: fonts.bold,
     checked: false,
     labelSize: pestLabelSize,
@@ -484,14 +497,15 @@ function drawMiddleRow(page, schedule, fonts) {
   months.forEach((month, index) => {
     const row = Math.floor(index / 6);
     const col = index % 6;
-    drawPaymentTile(page, month.label, formatRodentInsectTriannualPaymentText(month), {
+    const paymentText = formatRodentInsectTriannualPaymentText(month);
+    drawPaymentTile(page, month.label, paymentText, {
       x: rx + 4 + col * (tileW + tileGap),
       y: firstRowBottomY - row * (tileH + CALENDAR_TILE_GAP),
       w: tileW,
       h: tileH,
       font: fonts.regular,
       fontBold: fonts.bold,
-      tileStyle: RIT_CALENDAR_TILE_STYLE,
+      tileStyle: ritCalendarTileStyleForPayment(paymentText),
     });
   });
 }
