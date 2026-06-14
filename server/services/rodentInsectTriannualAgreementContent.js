@@ -16,7 +16,11 @@ export const RIT_HEADER_CONTACT_EMAIL = 'ahanifi@gshieldpest.com';
 export const RIT_SERVICE_DETAILS_TEXT =
   'Our rodent and insect tri-annual treatment begins with a thorough inspection of both the interior and exterior of your property to identify entry points, nesting areas, insect activity, and conditions conducive to infestations. We will install and service professional bait stations for rodents and apply targeted treatments for general insects to eliminate existing activity and create a strong preventative barrier. Follow-up includes a one-month visit after the initial service and then every four months thereafter to monitor activity, maintain protection, and make any necessary adjustments to the treatment program. Should any concerns arise between scheduled services, our team is available to assist as needed, ensuring long-term protection for your property from both rodents and insects.';
 
-export const RIT_COVERED_PESTS_SECTION_TITLE = 'Covered Pests';
+export const RIT_COVERED_PESTS_SECTION_TITLE = 'Covered Pests and Upgrades';
+
+export const RIT_ADDONS_HEADING = 'Add-ons';
+
+export const RIT_ADDON_PESTS = ['Ticks/Mosquitoes'];
 
 /** Row-major 4×4 grid — column A is row 1–4 col 1, etc. */
 export const RIT_INCLUDED_PESTS_COL_A = [

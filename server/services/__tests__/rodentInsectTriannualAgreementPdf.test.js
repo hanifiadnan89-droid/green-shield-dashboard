@@ -20,6 +20,8 @@ import {
   RIT_INCLUDED_PESTS_COL_B,
   RIT_INCLUDED_PESTS_COL_C,
   RIT_INCLUDED_PESTS_COL_D,
+  RIT_ADDON_PESTS,
+  RIT_COVERED_PESTS_SECTION_TITLE,
   RIT_SERVICE_DETAILS_TEXT,
   RIT_SUBSCRIPTION_TITLE,
   RIT_TITLE,
@@ -106,7 +108,7 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).toContain('Service Address');
     expect(text).toContain('Customer Information');
     expect(text).toContain('Service Details');
-    expect(text).toContain('Covered Pests');
+    expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
     expect(text).toContain('Expectations / Scheduling');
     expect(text).toContain(RIT_SUBSCRIPTION_TITLE);
     expect(text).toContain('Initial Service');
@@ -151,9 +153,8 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).not.toContain('Mice/Rats');
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
-    expect(text).not.toContain('Add-ons');
-    expect(text).not.toContain('Ticks/Mosquitoes');
-    expect(text).not.toContain('Upgrades');
+    expect(text).toContain('Add-ons');
+    expect(text).toContain(RIT_ADDON_PESTS[0]);
   });
 
   it('renders rodent & insect service description in Service Details', async () => {
@@ -278,16 +279,19 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(source).toContain('generateAgreementSchedule');
   });
 
-  it('renders Covered Pests without internal grouping lines or add-ons', async () => {
+  it('renders Covered Pests and Upgrades with add-ons column', async () => {
     const source = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
     );
     expect(source).not.toContain('drawInvertedBracket');
-    expect(source).not.toContain('Add-ons');
+    expect(source).toContain('Add-ons');
+    expect(source).toContain('TAG_RED');
 
     const { outBytes } = await buildRodentInsectTriannualAgreementPdf(ritSamplePayload);
     const { text } = await extractPdfText(outBytes);
-    expect(text).toContain('Covered Pests');
+    expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
+    expect(text).toContain('Add-ons');
+    expect(text).toContain(RIT_ADDON_PESTS[0]);
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
   });
