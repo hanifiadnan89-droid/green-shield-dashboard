@@ -392,6 +392,22 @@ function drawPestsSection(page, fonts, pestImages) {
   const col2X = col3X - colGap - col2W;
   const col1X = layoutX;
 
+  const dividerXs = [
+    col2X - colGap / 2,
+    col3X - colGap / 2,
+    col4X - colGap / 2,
+    col5X - colGap / 2,
+  ];
+
+  for (const dividerX of dividerXs) {
+    page.drawLine({
+      start: { x: dividerX, y: bodyBottomY + 1 },
+      end: { x: dividerX, y: bodyTopY - 1 },
+      thickness: 0.35,
+      color: COLORS.border,
+    });
+  }
+
   const includedColumns = [
     { x: col1X, width: col1W, items: RIT_INCLUDED_PESTS_COL_A },
     { x: col2X, width: col2W, items: RIT_INCLUDED_PESTS_COL_B },

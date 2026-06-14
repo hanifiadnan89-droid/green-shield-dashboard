@@ -6,10 +6,10 @@ import { truncateText, AGREEMENT_COLORS } from './pdf/agreementLayout.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const RIT_PEST_ASSETS_DIR = join(__dirname, '..', '..', 'assets', 'pests');
-export const RIT_PEST_LARGE_IMAGE_WIDTH = 72;
-export const RIT_PEST_SMALL_IMAGE_WIDTH = 22;
-export const RIT_PEST_LARGE_MAX_HEIGHT = 80;
-export const RIT_PEST_IMAGE_TEXT_GAP = 6;
+export const RIT_PEST_LARGE_IMAGE_WIDTH = 76;
+export const RIT_PEST_SMALL_IMAGE_WIDTH = 21;
+export const RIT_PEST_LARGE_MAX_HEIGHT = 78;
+export const RIT_PEST_IMAGE_TEXT_GAP = 5;
 export const RIT_PEST_ROW_GAP = 8;
 export const RIT_PEST_HEADING_GAP = 5;
 export const RIT_PEST_HEADING_SIZE = 7;
@@ -286,8 +286,8 @@ export function drawRitAddonsColumn(page, {
     const img = pestImages.large[largeKey];
     const { width: imgW, height: imgH } = measureLargePestImage(
       img,
-      largeImageWidth,
-      RIT_PEST_LARGE_MAX_HEIGHT,
+      Math.min(largeImageWidth, 52),
+      66,
     );
     const bodyMidY = (bodyTopY + bodyBottomY) / 2;
     drawEmbeddedPestImage(page, img, {
