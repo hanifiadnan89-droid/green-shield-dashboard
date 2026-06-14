@@ -178,5 +178,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body)
     })
+  },
+
+  signing: {
+    sessions: (params = {}) => {
+      const qs = new URLSearchParams();
+      if (params.leadRow != null) qs.set('leadRow', String(params.leadRow));
+      if (params.status) qs.set('status', params.status);
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return request(`/signing/sessions${suffix}`);
+    },
+    session: (token) => request(`/signing/sessions/${encodeURIComponent(token)}`),
+    signedPdfUrl: (token) => `${BASE}/signing/sessions/${encodeURIComponent(token)}/signed.pdf`,
   }
 };

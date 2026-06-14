@@ -32,10 +32,12 @@ export default function QuoteDocumentsSection({
   const [previewing, setPreviewing]   = useState(false);
   const [emailing, setEmailing]       = useState(false);
   const [emailResult, setEmailResult] = useState(null);
+  const [signingSessions, setSigningSessions] = useState([]);
   const [genError, setGenError]       = useState(null);
   const [missing, setMissing]         = useState(false);
 
   const isBedBug = selected?.templateKind === 'bed_bug' || selected?.name === 'Bed Bug.pdf';
+  const isRitSigning = selected?.serviceType === 'rodent_insect_triannual';
   const currentFingerprint = useMemo(
     () => (isBedBug && bedBugForm ? bedBugFormFingerprint(bedBugForm, pricing, address, agreementStartDate) : null),
     [isBedBug, bedBugForm, pricing, address, agreementStartDate],
@@ -82,11 +84,26 @@ export default function QuoteDocumentsSection({
     onStateChange?.({ pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified });
   }, [pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified, onStateChange]);
 
+  useEffect(() => {
+    if (!lead?.row_number || !isRitSigning) {
+      setSigningSessions([]);
+      return;
+    }
+    api.signing.sessions({ leadRow: lead.row_number })
+      .then((data) => setSigningSessions(data.sessions || []))
+      .catch(() => setSigningSessions([]));
+  }, [lead?.row_number, isRitSigning, emailResult]);
+
   function buildPayload(extra = {}) {
     const base = {
       index:            selected.index,
       serviceType:      selected.serviceType || null,
-      lead:             { name: lead?.name, email: lead?.email, phone: lead?.phone },
+      lead:             {
+        row_number: lead?.row_number,
+        name: lead?.name,
+        email: lead?.email,
+        phone: lead?.phone,
+      },
       pricing,
       notes,
       address,
@@ -183,8 +200,12 @@ export default function QuoteDocumentsSection({
     setGenError(null);
     setEmailResult(null);
     try {
-      await api.documents.emailQuote(buildPayload({ previewVerified: true }));
-      setEmailResult({ ok: true, to: lead.email });
+      const result = await api.documents.emailQuote(buildPayload({ previewVerified: true }));
+      setEmailResult({
+        ok: true,
+        to: lead.email,
+        signing: result.signing || null,
+      });
     } catch (err) {
       setEmailResult({ ok: false, error: err.message });
     } finally {
@@ -394,9 +415,19 @@ export default function QuoteDocumentsSection({
         )}
         {emailResult && (
           emailResult.ok
-            ? <p className="send-command-alert send-command-alert--success flex items-center gap-1.5">
-                <CheckCircle size={11} /> Quote sent to {emailResult.to}
-              </p>
+            ? <div className="space-y-1">
+                <p className="send-command-alert send-command-alert--success flex items-center gap-1.5">
+                  <CheckCircle size={11} />
+                  {emailResult.signing
+                    ? `Signing link sent to ${emailResult.to}`
+                    : `Quote sent to ${emailResult.to}`}
+                </p>
+                {emailResult.signing?.signUrl ? (
+                  <p className="text-[11px] text-gs-muted break-all">
+                    Sign link: {emailResult.signing.signUrl}
+                  </p>
+                ) : null}
+              </div>
             : <p className="send-command-alert send-command-alert--error">{emailResult.error}</p>
         )}
 
@@ -442,7 +473,7 @@ export default function QuoteDocumentsSection({
         >
           {emailing
             ? <><Spinner size={12} /> Sending...</>
-            : <><Send size={12} /> Email Quote to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
+            : <><Send size={12} /> {isRitSigning ? 'Email Signing Link' : 'Email Quote'} to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
           }
         </button>
 
@@ -476,6 +507,28 @@ export default function QuoteDocumentsSection({
           <p className="text-[10px] text-gs-muted text-center">
             Use Preview PDF or Download PDF for the filled agreement. Blank template links do not apply to service agreements.
           </p>
+        )}
+
+        {isRitSigning && signingSessions.length > 0 && (
+          <div className="rounded-lg border border-gs-border bg-gs-card/40 p-3 space-y-2">
+            <p className="text-xs font-semibold text-gs-text">Agreement signing records</p>
+            {signingSessions.slice(0, 3).map((session) => (
+              <div key={session.token} className="text-[11px] text-gs-muted flex items-center justify-between gap-2">
+                <span className="truncate">
+                  {session.status === 'signed' ? 'Signed' : 'Awaiting signature'}
+                  {session.signedAt ? ` · ${new Date(session.signedAt).toLocaleDateString()}` : ''}
+                </span>
+                {session.status === 'signed' ? (
+                  <a
+                    href={api.signing.signedPdfUrl(session.token)}
+                    className="text-gs-info hover:underline shrink-0"
+                  >
+                    Download
+                  </a>
+                ) : null}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

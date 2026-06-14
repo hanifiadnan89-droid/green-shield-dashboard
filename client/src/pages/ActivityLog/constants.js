@@ -7,6 +7,8 @@ export const ACTION_LABELS = {
   lead_stopped: 'Lead Stopped',
   lead_unstopped: 'Lead Unstopped',
   lead_deleted: 'Lead Deleted',
+  agreement_signing_sent: 'Agreement Signing Link Sent',
+  agreement_signed: 'Agreement Signed',
 };
 
 export function getActionLabel(action) {
