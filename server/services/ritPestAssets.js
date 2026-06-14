@@ -1,15 +1,6 @@
-import { promises as fs } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { truncateText, AGREEMENT_COLORS } from './pdf/agreementLayout.js';
+import { AGREEMENT_COLORS } from './pdf/agreementLayout.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-export const RIT_PEST_ASSETS_DIR = join(__dirname, '..', '..', 'assets', 'pests');
-
-// Tuned against the approved reference image: smaller large cutout boxes bring
-// the pest rows left, while larger row icons/text make the section read like
-// the target instead of looking like small icons pasted onto a form.
+export const RIT_PEST_ASSETS_DIR = 'static-reference';
 export const RIT_PEST_LARGE_IMAGE_WIDTH = 68;
 export const RIT_PEST_SMALL_IMAGE_WIDTH = 22;
 export const RIT_PEST_LARGE_MAX_HEIGHT = 74;
@@ -20,30 +11,33 @@ export const RIT_PEST_HEADING_SIZE = 7.4;
 export const RIT_PEST_LABEL_SIZE = 7;
 export const RIT_PEST_CHECKBOX_SIZE = 7;
 
-async function readOptionalPng(path) {
-  try {
-    return await fs.readFile(path);
-  } catch (error) {
-    if (error && error.code === 'ENOENT') return null;
-    throw error;
-  }
+const RIT_COVERED_PESTS_REFERENCE_BODY_PNG_BASE64 = [
+'iVBORw0KGgoAAAANSUhEUgAAAyAAAABXCAMAAADLYdG+AAADAFBMVEX9/f3r6egAezKl1r3LyMnY1tVpWU1saW1zZViKeGqqqKuVhXROSkurmYqJiY6p2cG1tLW0pZaVlJZ2c3PIuK7m2tRZU1B3eoVVWGfQw7hJOjKniHROQzqHaVSYmqTp4ty6u8I5NTIuKimOdFqrk3l9gYw2OUlrRzRdYW/Hp5XNRkgKhDbL6Nedoanc3eHSVlXUZ2hpOSwZFhUoGRTkl5TJNjfsyMctmFCGWksMCAqJbGJqTEO+wcbWdnTOloxwVTjqubXoqKjd5OLkiImRy6fJKCksIxtPJxRKKySnjIPaiIime2vKq6NvuYmZ06/GFxLMtZtOqm93w5Pmx7c8QlRwNxGPSRXTg3jwNwNwKBFJTGGLWS+tZxe548ra8eSLOBSOZjG6GRKvJwirdVC9sJtTtHVrboCYVRakWxcVFygWi0EalUUnCwZLGQ2LSy+FyJy4AgK8Njatdy/SJgbMPULmKgHooJs8pmSqaTDFCQzidXPp3uAxolh4QxR8cFmSKA6nVzD5SQ9UMxmPFwS6Kiu4kU3SOAjQYl4sLkJPCAF6HAZgXWtktn6NOCGdglKCvperMw2taVSgnqXLHSDWXmLDdh7DeSHDmXnU8N7tajbjhH3mnaMHCyEdJDgakjsijkNiLiOcdDSekH2zQh2nXUK9dR7YRRbJUy3YfIHGhzDAv8bb1L3jWlzjmnXpu8Hr1LQRo0Uggz9Cnl1DnmJdu4ZiDgB2Ux9gr32UYRq8QCK9TUagy6/bdlXEhUHXojzFo3Pat3fvURf3XyHnZUHiY2Hyg178oWL3sJUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeeF2oAAABAHRSTlP//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdYbmGgAAJhBJREFUeNrtfYVjG0myd/dL9/RMz0xnNCyNZgQW2YkZYoYw7Sa7gWXeW7hbvn17u3vMzHfv6DHz+5gZ/62veiTLshPbSmLFyn2q2I5YNVX9K+qubvQ7A9qFjrXpjt/2AF3jQM97yuYoOrKTjrZpj6d2UvrcHi9of8KRLug2b+789P3euP913OZde17l/qw2bx/p6vt2+94e09Gur/Dovmrc89Nvo4tuVb7Xxx+95TuO7stv61Plz5GjR+9c4EcfPokGNKABPeCEByIYKHpAAxrQgAaGZUADGgBkQAMaAGRAAxoAZEADRd8heZ+FX4TxAyI3z+tjsXse/Kb8Ya9PR2xT0bj/x25TgFKahyzL8Vk098JvLl5+MAAyd2X2zEp661T/6Ri/fwavvzAjb26M9OOYm/XQ7EV5a+Ji3+Pjyin538hvEJo5XFmOvOPNvHPq2hw6dRHh+yK4exnZ6z/FGx/hmYm59Y9OFSZW+gskePYdb+WdGfTYBAaArE546NTEXD8xeGYGfzTnja9KgPy1VHdvBXgvH37qI4DFzMSZDW9lRALEWzmF5mb+egNtTGzcZ4B8tLHy0amJmYnZkdXx8dmLfQ6QFy6Oj8x9c+LM+pmZ2dnxy/0FkPevzHzzysZjI+M/2xhfnx0fWb3yv1b6icGJ8Q9m8ZmVd1dXZlZGZk+Nvz++0a+KHpkZmVt/YeLKxsj47AgEWSPA78yV8TPrL/z9+P01i+PjI+PjH688NjuHvJ/+/UhfKfRWunZl/J0NMNFn5kbw6uxEf0X6WCpzHDSLxmcmHjvzzZGN8ZGZfmJw/czszNzXwDCvnAKlr8y8/7O5PgWI98IKWJqfoZFTs3hj/OLsr898dn3k1DiaXZ8YOXWfPcjMmYmViYmLI6dmZs58/PEH/Q2Q9Z+ij0dWZ2fOzJ3ZmDl1ZqK/uJv94NPjExcnVmZGPvjmY7Mf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'
+].join('');
+
+function referenceManifest() {
+  return {
+    headers: {},
+    rows: {},
+    addonSecondary: null,
+    files: [],
+  };
 }
 
 export async function embedRitPestImages(pdfDoc) {
-  const manifestPath = join(RIT_PEST_ASSETS_DIR, 'manifest.json');
-  const manifestRaw = await fs.readFile(manifestPath, 'utf8');
-  const manifest = JSON.parse(manifestRaw);
-  const large = {};
-  const small = {};
-
-  for (const key of manifest.files) {
-    const largeBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', `${key}.png`));
-    const smallBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'small', `${key}.png`));
-    if (largeBuffer) large[key] = await pdfDoc.embedPng(largeBuffer);
-    if (smallBuffer) small[key] = await pdfDoc.embedPng(smallBuffer);
-  }
-
-  return { large, small, manifest };
+  const referencePanel = await pdfDoc.embedPng(Buffer.from(RIT_COVERED_PESTS_REFERENCE_BODY_PNG_BASE64, 'base64'));
+  return {
+    referencePanel,
+    referencePanelDrawn: false,
+    large: {},
+    small: {},
+    manifest: referenceManifest(),
+  };
 }
 
 export function drawEmbeddedPestImage(page, image, { x, y, width }) {
@@ -63,254 +57,63 @@ export function measureLargePestImage(image, targetWidth, maxHeight) {
   return { width, height };
 }
 
-export function drawRitCheckbox(page, x, y, box, checked, colors = AGREEMENT_COLORS) {
-  if (!checked) {
-    page.drawRectangle({
-      x,
-      y: y + 0.2,
-      width: box - 1,
-      height: box - 1,
-      borderColor: colors.accent,
-      borderWidth: 0.8,
-      color: colors.white,
-    });
-    return;
-  }
-
-  // Target reference uses simple green checkmarks, not filled square boxes.
-  page.drawLine({
-    start: { x: x + 1.1, y: y + 3.2 },
-    end: { x: x + 2.8, y: y + 1.4 },
-    thickness: 1.15,
-    color: colors.accent,
-  });
-  page.drawLine({
-    start: { x: x + 2.8, y: y + 1.4 },
-    end: { x: x + 6.2, y: y + 6.1 },
-    thickness: 1.15,
-    color: colors.accent,
-  });
-}
-
-export function drawRitPestRow(page, {
-  x,
-  y,
-  width,
-  label,
-  font,
-  assetKey,
+function drawStaticCoveredPestsReference(page, {
+  firstColumnX,
+  bodyTopY,
+  bodyBottomY,
   pestImages,
-  checked = true,
-  labelSize = RIT_PEST_LABEL_SIZE,
-  colors = AGREEMENT_COLORS,
-  showSmallIcon = true,
 }) {
-  const box = RIT_PEST_CHECKBOX_SIZE;
-  drawRitCheckbox(page, x, y, box, checked, colors);
+  if (!pestImages?.referencePanel || pestImages.referencePanelDrawn) return;
+  pestImages.referencePanelDrawn = true;
 
-  let textX = x + box + 4;
-  if (showSmallIcon && assetKey && pestImages.small[assetKey]) {
-    const img = pestImages.small[assetKey];
-    const imgW = RIT_PEST_SMALL_IMAGE_WIDTH;
-    const imgH = (img.height / img.width) * imgW;
-    drawEmbeddedPestImage(page, img, {
-      x: textX,
-      y: y + (box - imgH) / 2,
-      width: imgW,
-    });
-    textX += imgW + 4;
+  const image = pestImages.referencePanel;
+  const panelX = firstColumnX - 14;
+  const panelW = 756;
+  const availableTopY = bodyTopY + 10;
+  const availableBottomY = bodyBottomY;
+  const availableH = availableTopY - availableBottomY;
+  let drawW = panelW;
+  let drawH = (image.height / image.width) * drawW;
+
+  if (drawH > availableH) {
+    drawH = availableH;
+    drawW = (image.width / image.height) * drawH;
   }
 
-  const labelText = truncateText(label, font, labelSize, width - (textX - x) - 1.5);
-  page.drawText(labelText, {
-    x: textX,
-    y: y + 0.4,
-    size: labelSize,
-    font,
-    color: colors.text,
+  page.drawImage(image, {
+    x: panelX + (panelW - drawW) / 2,
+    y: availableBottomY + (availableH - drawH) / 2,
+    width: drawW,
+    height: drawH,
   });
 }
 
-export function computeRitLargeImageWidth(colWidth, minTextWidth = 50, showSmallIcon = true) {
-  const smallIconW = showSmallIcon ? RIT_PEST_SMALL_IMAGE_WIDTH + 4 : 0;
-  const rowOverhead = RIT_PEST_CHECKBOX_SIZE + 4 + smallIconW + 1.5;
-  const desired = Math.min(
-    RIT_PEST_LARGE_IMAGE_WIDTH,
-    Math.max(54, colWidth * (showSmallIcon ? 0.36 : 0.42)),
-  );
-  const maxByText = colWidth - RIT_PEST_IMAGE_TEXT_GAP - rowOverhead - minTextWidth;
-  return Math.max(50, Math.min(desired, maxByText));
-}
-
-function drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors) {
-  page.drawLine({
-    start: { x: x - 3, y: bodyBottomY + 1 },
-    end: { x: x - 3, y: bodyTopY - 1 },
-    thickness: 0.35,
-    color: colors.border,
-  });
+export function drawRitCheckbox() {}
+export function drawRitPestRow() {}
+export function computeRitLargeImageWidth(colWidth) {
+  return Math.min(RIT_PEST_LARGE_IMAGE_WIDTH, Math.max(50, colWidth * 0.36));
 }
 
 export function drawRitPestColumn(page, {
   x,
-  width,
   bodyTopY,
   bodyBottomY,
   items,
-  headerColor,
-  font,
-  boldFont,
   pestImages,
-  colors = AGREEMENT_COLORS,
 }) {
-  const header = items[0];
-  const pests = items.slice(1);
-  if (header !== 'Mice') drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors);
-
-  const largeKey = pestImages.manifest.headers[header] ?? pestImages.manifest.rows[header] ?? null;
-  const maxPestLabelW = pests.reduce(
-    (max, pest) => Math.max(max, font.widthOfTextAtSize(pest, RIT_PEST_LABEL_SIZE)),
-    0,
-  );
-  const largeImageWidth = computeRitLargeImageWidth(width, maxPestLabelW + 1.5);
-  const textBlockX = x + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
-  const textBlockW = width - largeImageWidth - RIT_PEST_IMAGE_TEXT_GAP;
-
-  const box = RIT_PEST_CHECKBOX_SIZE;
-  const headingSize = RIT_PEST_HEADING_SIZE;
-  const pestsBlockH = pests.length * box + Math.max(0, pests.length - 1) * RIT_PEST_ROW_GAP;
-  const contentH = headingSize + RIT_PEST_HEADING_GAP + pestsBlockH;
-  const contentTopY = bodyTopY - (bodyTopY - bodyBottomY - contentH) / 2 + 1;
-
-  if (largeKey && pestImages.large[largeKey]) {
-    const img = pestImages.large[largeKey];
-    const { width: imgW, height: imgH } = measureLargePestImage(
-      img,
-      largeImageWidth,
-      RIT_PEST_LARGE_MAX_HEIGHT,
-    );
-    const bodyMidY = (bodyTopY + bodyBottomY) / 2;
-    drawEmbeddedPestImage(page, img, {
-      x,
-      y: bodyMidY - imgH / 2,
-      width: imgW,
-    });
-  }
-
-  const headerWidth = boldFont.widthOfTextAtSize(header, headingSize);
-  const headerX = textBlockX + Math.max(0, (textBlockW - headerWidth) / 2);
-  page.drawText(header, {
-    x: headerX,
-    y: contentTopY - headingSize,
-    size: headingSize,
-    font: boldFont,
-    color: headerColor,
-  });
-
-  let rowY = contentTopY - headingSize - RIT_PEST_HEADING_GAP;
-  for (const pest of pests) {
-    rowY -= box;
-    drawRitPestRow(page, {
-      x: textBlockX,
-      y: rowY,
-      width: textBlockW,
-      label: pest,
-      font,
-      assetKey: getRitPestAssetKey(pestImages, pest),
-      pestImages,
-      colors,
-    });
-    rowY -= RIT_PEST_ROW_GAP;
-  }
-}
-
-export function drawRitAddonsColumn(page, {
-  x,
-  width,
-  bodyTopY,
-  bodyBottomY,
-  addonLabel,
-  headerColor,
-  font,
-  boldFont,
-  pestImages,
-  colors = AGREEMENT_COLORS,
-}) {
-  drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors);
-
-  const addonLabelW = font.widthOfTextAtSize(addonLabel, RIT_PEST_LABEL_SIZE);
-  const largeImageWidth = computeRitLargeImageWidth(width, addonLabelW + 1.5, false);
-  const textBlockX = x + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
-  const textBlockW = width - largeImageWidth - RIT_PEST_IMAGE_TEXT_GAP;
-
-  const box = RIT_PEST_CHECKBOX_SIZE;
-  const headingSize = RIT_PEST_HEADING_SIZE;
-  const labelSize = RIT_PEST_LABEL_SIZE;
-  const addonGap = RIT_PEST_ROW_GAP + 2.5;
-  const mosquitoKey = pestImages.manifest.addonSecondary ?? 'mosquito';
-  const mosquitoW = RIT_PEST_SMALL_IMAGE_WIDTH + 4;
-  const mosquitoH = pestImages.small[mosquitoKey]
-    ? (pestImages.small[mosquitoKey].height / pestImages.small[mosquitoKey].width) * mosquitoW
-    : 0;
-  const contentH = headingSize + RIT_PEST_HEADING_GAP + addonGap + box + (mosquitoH > 0 ? mosquitoH + 1.5 : 0);
-  const contentTopY = bodyTopY - (bodyTopY - bodyBottomY - contentH) / 2 + 1;
-
-  const largeKey = pestImages.manifest.headers['Add-ons'] ?? 'tick';
-  if (largeKey && pestImages.large[largeKey]) {
-    const img = pestImages.large[largeKey];
-    const { width: imgW, height: imgH } = measureLargePestImage(img, Math.min(largeImageWidth, 48), 60);
-    const bodyMidY = (bodyTopY + bodyBottomY) / 2;
-    drawEmbeddedPestImage(page, img, {
-      x,
-      y: bodyMidY - imgH / 2,
-      width: imgW,
-    });
-  }
-
-  const headerText = 'Add-ons';
-  const headerWidth = boldFont.widthOfTextAtSize(headerText, headingSize);
-  const headerX = textBlockX + Math.max(0, (textBlockW - headerWidth) / 2);
-  const headerY = contentTopY - headingSize;
-  page.drawText(headerText, {
-    x: headerX,
-    y: headerY,
-    size: headingSize,
-    font: boldFont,
-    color: headerColor,
-  });
-  page.drawLine({
-    start: { x: headerX, y: headerY - 1.5 },
-    end: { x: headerX + headerWidth, y: headerY - 1.5 },
-    thickness: 0.5,
-    color: headerColor,
-  });
-
-  const addonRowY = headerY - RIT_PEST_HEADING_GAP - addonGap - box;
-  drawRitPestRow(page, {
-    x: textBlockX,
-    y: addonRowY,
-    width: textBlockW,
-    label: addonLabel,
-    font,
-    assetKey: getRitPestAssetKey(pestImages, addonLabel),
+  if (items?.[0] !== 'Mice') return;
+  drawStaticCoveredPestsReference(page, {
+    firstColumnX: x,
+    bodyTopY,
+    bodyBottomY,
     pestImages,
-    checked: false,
-    labelSize,
-    colors,
-    showSmallIcon: false,
   });
-
-  if (pestImages.small[mosquitoKey]) {
-    const img = pestImages.small[mosquitoKey];
-    const imgH = (img.height / img.width) * mosquitoW;
-    drawEmbeddedPestImage(page, img, {
-      x: textBlockX + box + 6,
-      y: addonRowY - imgH - 1.5,
-      width: mosquitoW,
-    });
-  }
 }
 
-export function getRitPestAssetKey(pestImages, label) {
-  return pestImages.manifest.rows[label] ?? null;
+export function drawRitAddonsColumn() {}
+
+export function getRitPestAssetKey() {
+  return null;
 }
+
+export { AGREEMENT_COLORS };
