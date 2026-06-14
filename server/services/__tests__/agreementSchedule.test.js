@@ -57,7 +57,7 @@ describe('generateAgreementSchedule service markers', () => {
     expect(serviceIndexes).toEqual([0, 3, 6, 9]);
   });
 
-  it('marks triannual months 0, 1, 4, 8 for RIT including one-month follow-up', () => {
+  it('marks triannual months 0, 1, 5, 9 for RIT including one-month follow-up', () => {
     const { scheduleMonths } = generateAgreementSchedule({
       agreementType: 'rodent_insect_triannual',
       startDate: '2026-06-15',
@@ -65,9 +65,12 @@ describe('generateAgreementSchedule service markers', () => {
       recurringPayment: 65,
     });
     const serviceIndexes = scheduleMonths.filter(m => m.isServiceMonth).map(m => m.index);
-    expect(serviceIndexes).toEqual([0, 1, 4, 8]);
+    expect(serviceIndexes).toEqual([0, 1, 5, 9]);
     expect(scheduleMonths[1].label).toBe("Jul '26");
     expect(scheduleMonths[1].serviceMarker).toBe('S');
+    expect(scheduleMonths[5].label).toBe("Nov '26");
+    expect(scheduleMonths[5].serviceMarker).toBe('S');
+    expect(scheduleMonths[4].serviceMarker).toBeNull();
   });
 
   it('marks every month for commercial monthly', () => {

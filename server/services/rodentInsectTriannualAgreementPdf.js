@@ -40,7 +40,6 @@ import {
   HEADER_BAR_H,
   HEADER_GREEN,
   LABEL_SIZE,
-  LABEL_TAG_HEIGHT,
   TITLE_BUBBLE_FILL,
   bodyStartY as layoutBodyStartY,
   yFromTop as layoutYFromTop,
@@ -375,7 +374,11 @@ function drawPestsSection(page, fonts) {
   const col1X = innerX;
 
   const includedItemGap = 6.5;
-  const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9;
+  const pestRowCount = 4;
+  const pestBoxHeight = 6;
+  const pestBlockHeight = (pestRowCount - 1) * includedItemGap + pestBoxHeight;
+  const bodyBottomY = y + SECTION_PAD;
+  const checkboxStartY = groupTopY - (groupTopY - bodyBottomY - pestBlockHeight) / 2;
 
   const columns = [
     { x: col1X, items: RIT_INCLUDED_PESTS_COL_A },
