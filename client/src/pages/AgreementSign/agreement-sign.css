@@ -1,0 +1,276 @@
+.agreement-sign-page {
+  min-height: 100vh;
+  background: #f3f7f4;
+  color: #102018;
+}
+
+.agreement-sign-page__shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.agreement-sign-page__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.agreement-sign-page__brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #148a43;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.agreement-sign-page__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.agreement-sign-page__subtitle {
+  margin: 4px 0 0;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.agreement-sign-page__preview {
+  background: #fff;
+  border: 1px solid #d7e3d8;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(16, 32, 24, 0.06);
+  margin-bottom: 18px;
+}
+
+.agreement-sign-page__preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.agreement-sign-page__panel {
+  background: #fff;
+  border: 1px solid #d7e3d8;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.agreement-sign-page__panel h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.agreement-sign-page__panel p {
+  margin: 0 0 14px;
+  color: #4b5563;
+  font-size: 0.92rem;
+}
+
+.agreement-sign-page__fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .agreement-sign-page__fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agreement-sign-page__field {
+  border: 1px solid #d7e3d8;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fafdfa;
+  text-align: left;
+}
+
+.agreement-sign-page__field--done {
+  border-color: #148a43;
+  background: #f2fbf5;
+}
+
+.agreement-sign-page__field-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #4b5563;
+  margin-bottom: 8px;
+}
+
+.agreement-sign-page__field-preview {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #cbd5e1;
+  margin-bottom: 10px;
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.agreement-sign-page__field-preview img {
+  max-width: 100%;
+  max-height: 48px;
+  object-fit: contain;
+}
+
+.agreement-sign-page__field-preview span {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.agreement-sign-page__field button {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #148a43;
+  color: #fff;
+}
+
+.agreement-sign-page__date-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 1rem;
+}
+
+.agreement-sign-page__consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 16px 0;
+  font-size: 0.92rem;
+  color: #334155;
+}
+
+.agreement-sign-page__submit {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  background: #148a43;
+  color: #fff;
+  cursor: pointer;
+}
+
+.agreement-sign-page__submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.agreement-sign-page__alert {
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 0.92rem;
+}
+
+.agreement-sign-page__alert--error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.agreement-sign-page__alert--success {
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.agreement-sign-page__modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.agreement-sign-page__modal {
+  width: min(720px, 100%);
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+}
+
+.agreement-sign-page__modal-close {
+  margin-top: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.signature-pad__title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.signature-pad__hint {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.signature-pad__canvas {
+  width: 100%;
+  height: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  touch-action: none;
+  display: block;
+  margin-top: 10px;
+}
+
+.signature-pad__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.signature-pad__secondary,
+.signature-pad__primary {
+  flex: 1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.signature-pad__secondary {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+}
+
+.signature-pad__primary {
+  border: 0;
+  background: #148a43;
+  color: #fff;
+}
+
+.signature-pad__primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -15,6 +15,7 @@ server/probe_*.js
 data/fieldroutes-sample.json
 data/routes/
 data/*.json
+server/data/agreement-signing/
 playwright/.auth/
 *.har
 .env

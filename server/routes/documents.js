@@ -16,6 +16,11 @@ import { buildInsectQuarterlyAgreementPdf } from '../services/insectQuarterlyAgr
 import { isInsectQuarterlyVectorPdfEnabled } from '../services/insectQuarterlyVectorPdfFlag.js';
 import { buildRodentInsectTriannualAgreementPdf } from '../services/rodentInsectTriannualAgreementPdf.js';
 import { isRodentInsectTriannualVectorPdfEnabled } from '../services/rodentInsectTriannualVectorPdfFlag.js';
+import { createRitSigningSession } from '../services/agreementSigning/ritSigning.js';
+import { sendSigningRequestEmail } from '../services/agreementSigning/email.js';
+import { readPreviewPng } from '../services/agreementSigning/storage.js';
+import { appendLog } from '../services/activity.js';
+import { updateLead } from '../services/sheets.js';
 import {
   BED_BUG_EMAIL_DISABLED,
   BED_BUG_EMAIL_DISABLED_MESSAGE,
@@ -773,8 +778,8 @@ router.post('/email-quote', async (req, res) => {
     });
 
     const MIME_MAP = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
-    const attachments = [{ filename: outName, content: Buffer.from(outBytes), contentType: 'application/pdf' }];
     const prepGuideAttached = [];
+    const prepGuideAttachments = [];
 
     const prepGuidesAllowed = !NO_PREP_GUIDE.has(serviceType);
     if (prepGuidesAllowed && prepGuideIndices.length > 0) {
@@ -796,12 +801,100 @@ router.post('/email-quote', async (req, res) => {
         const pgPath = join(PREP_GUIDE_DIR, pgFilename);
         try {
           const pgContent = readFileSync(pgPath);
-          attachments.push({ filename: pgFilename, content: pgContent, contentType: MIME_MAP[ext(pgFilename)] || 'application/octet-stream' });
+          const pgAttachment = {
+            filename: pgFilename,
+            content: pgContent,
+            contentType: MIME_MAP[ext(pgFilename)] || 'application/octet-stream',
+          };
+          prepGuideAttachments.push(pgAttachment);
           prepGuideAttached.push(pgFilename);
         } catch (err) {
           console.error(`[email-quote] Failed to attach prep guide "${pgFilename}": ${err.message}`);
         }
       }
+    }
+
+    const useRitSigning = serviceType === 'rodent_insect_triannual'
+      && isRodentInsectTriannualVectorPdfEnabled();
+
+    if (useRitSigning) {
+      const quotePayload = {
+        index,
+        lead,
+        pricing,
+        notes,
+        address,
+        serviceType,
+        startDate,
+        agreementStartDate,
+        serviceStartDate,
+        initialServiceDate,
+        selectedStartDate,
+      };
+
+      const { session, signUrl } = await createRitSigningSession({
+        quotePayload,
+        lead,
+        outBytes,
+        outName,
+        req,
+      });
+
+      let previewPngBuffer = null;
+      try {
+        previewPngBuffer = await readPreviewPng(session.token);
+      } catch {
+        previewPngBuffer = null;
+      }
+
+      const firstName = (lead.name || '').split(' ')[0] || 'there';
+      await sendSigningRequestEmail({
+        to: lead.email,
+        firstName,
+        signUrl,
+        hasPrepGuide: prepGuideAttached.length > 0,
+        previewPngBuffer,
+        prepGuideAttachments,
+      });
+
+      appendLog({
+        type: 'agreement_signing_sent',
+        action: 'agreement_signing_sent',
+        agreementType: 'rodent_insect_triannual',
+        token: session.token,
+        signUrl,
+        customerName: lead.name ?? '',
+        customerEmail: lead.email ?? '',
+        leadRowNumber: lead.row_number ?? null,
+      });
+
+      if (lead.row_number) {
+        try {
+          await updateLead(lead.row_number, { status: 'agreement_sent' });
+        } catch (err) {
+          console.warn('[email-quote] Lead status update failed:', err.message);
+        }
+      }
+
+      console.log(`[email-quote] RIT signing link sent to ${lead.email} — ${signUrl}`);
+
+      return res.json({
+        success: true,
+        to: lead.email,
+        filename: outName,
+        prepGuides: prepGuideAttached,
+        signing: {
+          token: session.token,
+          signUrl,
+          status: session.status,
+          expiresAt: session.expiresAt,
+        },
+      });
+    }
+
+    const attachments = [{ filename: outName, content: Buffer.from(outBytes), contentType: 'application/pdf' }];
+    for (const pgAttachment of prepGuideAttachments) {
+      attachments.push(pgAttachment);
     }
 
     const transporter = nodemailer.createTransport({

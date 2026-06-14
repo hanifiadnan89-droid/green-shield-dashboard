@@ -611,7 +611,7 @@ function drawAuthorizationSection(page, fonts) {
   });
 }
 
-function drawSignatureSection(page, data, fonts) {
+function drawSignatureSection(page, data, fonts, signatureAssets = {}) {
   const top = layoutTop(
     GAP,
     LAYOUT_TOP_ROW_H,
@@ -656,28 +656,54 @@ function drawSignatureSection(page, data, fonts) {
   const fieldGap = 16;
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
   const sigTopY = y + 16;
+  const dateValue = signatureAssets.signatureDateDisplay
+    ? String(signatureAssets.signatureDateDisplay)
+    : (data.agreementDateDisplay ? String(data.agreementDateDisplay) : '');
+
   const fields = [
-    { label: 'Customer Initials:', value: '' },
-    { label: 'Customer Signature:', value: '' },
-    { label: 'Date:', value: data.agreementDateDisplay ? String(data.agreementDateDisplay) : '' },
+    { label: 'Customer Initials:', value: '', kind: 'initials' },
+    { label: 'Customer Signature:', value: '', kind: 'signature' },
+    { label: 'Date:', value: dateValue, kind: 'date' },
   ];
+
   fields.forEach((field, index) => {
-    drawSignatureField(page, {
-      x: x + SECTION_PAD + index * (fieldW + fieldGap),
+    const fieldX = x + SECTION_PAD + index * (fieldW + fieldGap);
+    const lineY = drawSignatureField(page, {
+      x: fieldX,
       y: sigTopY,
       label: field.label,
-      value: field.value,
+      value: field.kind === 'date' ? field.value : '',
       width: fieldW,
       font: fonts.regular,
       boldFont: fonts.bold,
     });
+
+    const imageTop = lineY + 2;
+    const imageHeight = 20;
+    if (field.kind === 'initials' && signatureAssets.initialsImage) {
+      page.drawImage(signatureAssets.initialsImage, {
+        x: fieldX + 2,
+        y: imageTop,
+        width: fieldW - 4,
+        height: imageHeight,
+      });
+    }
+    if (field.kind === 'signature' && signatureAssets.signatureImage) {
+      page.drawImage(signatureAssets.signatureImage, {
+        x: fieldX + 2,
+        y: imageTop,
+        width: fieldW - 4,
+        height: imageHeight,
+      });
+    }
   });
 }
 
 /**
  * Build a vector Rodent & Insect Triannual agreement PDF (Bed Bug design system).
  */
-export async function buildRodentInsectTriannualAgreementPdf(input = {}) {
+export async function buildRodentInsectTriannualAgreementPdf(input = {}, options = {}) {
+  const { signatures = null } = options;
   const data = normalizeRodentInsectTriannualAgreementData(input);
   console.log('[rit-pdf] building vector agreement for', data.customerName || '(no name)');
 
@@ -702,13 +728,24 @@ export async function buildRodentInsectTriannualAgreementPdf(input = {}) {
 
   const pestImages = await embedRitPestImages(pdfDoc);
 
+  const signatureAssets = {};
+  if (signatures?.initialsPng) {
+    signatureAssets.initialsImage = await pdfDoc.embedPng(signatures.initialsPng);
+  }
+  if (signatures?.signaturePng) {
+    signatureAssets.signatureImage = await pdfDoc.embedPng(signatures.signaturePng);
+  }
+  if (signatures?.signatureDate) {
+    signatureAssets.signatureDateDisplay = signatures.signatureDate;
+  }
+
   await drawHeader(pdfDoc, page, fonts);
   drawTopRow(page, data, fonts);
   drawPestsSection(page, fonts, pestImages);
   drawMiddleRow(page, schedule, fonts);
   drawPricingRow(page, data, fonts);
   drawAuthorizationSection(page, fonts);
-  drawSignatureSection(page, data, fonts);
+  drawSignatureSection(page, data, fonts, signatureAssets);
 
   applyCustomerFriendlyViewerPreferences(pdfDoc);
   const outBytes = await pdfDoc.save();

@@ -20,6 +20,7 @@ import activityRouter from './routes/activity.js';
 import activityErrorsRouter from './routes/activityErrors.js';
 import driveRouter from './routes/drive.js';
 import documentsRouter from './routes/documents.js';
+import { signingPublicRouter, signingStaffRouter } from './routes/signing.js';
 import routesRouter from './routes/routes.js';
 import aiRouter from './routes/ai.js';
 import geocodeRouter from './routes/geocode.js';
@@ -92,6 +93,10 @@ app.use(rateLimit({
   legacyHeaders: false
 }));
 app.use(express.json());
+
+// Customer e-sign routes (no dashboard login)
+app.use('/api/signing/public', signingPublicRouter);
+
 app.use(requireDashboardLogin);
 
 app.get('/api/health', (req, res) => {
@@ -120,6 +125,7 @@ app.use('/api/activity', activityRouter);
 app.use('/api/activity-errors', activityErrorsRouter);
 app.use('/api/drive', driveRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/signing', signingStaffRouter);
 app.use('/api/routes', routesRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/geocode', geocodeRouter);

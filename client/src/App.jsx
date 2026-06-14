@@ -14,6 +14,7 @@ const Followups        = lazy(() => import('./pages/Followups.jsx'));
 const ActivityLog      = lazy(() => import('./pages/ActivityLog.jsx'));
 const ComponentPreview = lazy(() => import('./pages/ComponentPreview.jsx'));
 const RouteFinderPage  = lazy(() => import('./pages/RouteFinder/RouteFinderPage.jsx'));
+const AgreementSignPage = lazy(() => import('./pages/AgreementSign/AgreementSignPage.jsx'));
 
 function googleCredsBannerMessage(googleCreds) {
   if (googleCreds?.message) return googleCreds.message;
@@ -67,6 +68,11 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/sign/:token" element={
+        <Suspense fallback={<div className="p-6 text-sm text-gs-muted">Loading agreement…</div>}>
+          <AgreementSignPage />
+        </Suspense>
+      } />
       <Route path="/dashboard-classic" element={<Navigate to="/" replace />} />
       <Route element={<AppShell testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} />}>
         <Route path="/" element={<CRMPreview />} />
