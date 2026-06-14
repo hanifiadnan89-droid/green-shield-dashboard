@@ -15,8 +15,9 @@ LARGE_DIR = ROOT / 'assets' / 'pests' / 'large'
 SMALL_DIR = ROOT / 'assets' / 'pests' / 'small'
 MANIFEST_PATH = ROOT / 'assets' / 'pests' / 'manifest.json'
 
-LARGE_WIDTH = 64
-SMALL_WIDTH = 16
+LARGE_WIDTH = 72
+SMALL_WIDTH = 22
+LARGE_MAX_HEIGHT = 80
 
 SOURCE_FILES = {
     'mice': 'mice-source.png',
@@ -109,6 +110,7 @@ def main() -> None:
     manifest = {
         'largeWidth': LARGE_WIDTH,
         'smallWidth': SMALL_WIDTH,
+        'largeMaxHeight': LARGE_MAX_HEIGHT,
         'headers': HEADER_KEYS,
         'rows': ROW_KEYS,
         'addonSecondary': 'mosquito',

@@ -1,6 +1,7 @@
 {
-  "largeWidth": 64,
-  "smallWidth": 16,
+  "largeWidth": 72,
+  "smallWidth": 22,
+  "largeMaxHeight": 80,
   "headers": {
     "Mice": "mice",
     "Rats": "rats",

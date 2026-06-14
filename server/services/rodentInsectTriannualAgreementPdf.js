@@ -19,16 +19,14 @@ import {
   RIT_INCLUDED_PESTS_COL_C,
   RIT_INCLUDED_PESTS_COL_D,
   RIT_INITIALS_TEXT,
-  RIT_RED_RODENT_PESTS,
   RIT_SERVICE_DETAILS_TEXT,
   RIT_SUBSCRIPTION_TITLE,
   RIT_TITLE,
 } from './rodentInsectTriannualAgreementContent.js';
 import {
   embedRitPestImages,
-  drawRitAddonRow,
-  drawRitPestImageRow,
-  getRitPestAssetKey,
+  drawRitAddonsColumn,
+  drawRitPestColumn,
 } from './ritPestAssets.js';
 import {
   AGREEMENT_COLORS as COLORS,
@@ -52,8 +50,6 @@ import {
   bodyStartY as layoutBodyStartY,
   yFromTop as layoutYFromTop,
 } from './pdf/agreementLayout.js';
-
-const RIT_RED_RODENT_PEST_SET = new Set(RIT_RED_RODENT_PESTS);
 
 const AGREEMENT_TYPE = 'rodent_insect_triannual';
 
@@ -87,11 +83,11 @@ const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
 const LAYOUT_TOP_ROW_H = 90;
-const LAYOUT_PESTS_H = 88;
-const LAYOUT_MIDDLE_ROW_H = 118;
+const LAYOUT_PESTS_H = 110;
+const LAYOUT_MIDDLE_ROW_H = 110;
 const LAYOUT_PRICING_H = 76;
-const LAYOUT_AUTH_H = 76;
-const LAYOUT_SIGNATURE_H = 62;
+const LAYOUT_AUTH_H = 72;
+const LAYOUT_SIGNATURE_H = 60;
 
 const RIT_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
@@ -378,32 +374,23 @@ function drawPestsSection(page, fonts, pestImages) {
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
-  const groupTopY = bodyStartY(y, h);
+  const bodyTopY = bodyStartY(y, h);
   const bodyBottomY = y + SECTION_PAD;
 
   const contentInsetX = 4;
   const layoutX = innerX + contentInsetX;
   const layoutW = innerW - contentInsetX * 2;
   const colGap = 6;
-  const col5W = Math.max(layoutW * 0.14, 88);
-  const col4W = layoutW * 0.21;
-  const col3W = layoutW * 0.21;
-  const col2W = layoutW * 0.21;
+  const col5W = Math.max(layoutW * 0.17, 132);
+  const col4W = layoutW * 0.22;
+  const col3W = layoutW * 0.19;
+  const col2W = layoutW * 0.19;
   const col1W = layoutW - col2W - col3W - col4W - col5W - colGap * 4;
   const col5X = layoutX + layoutW - col5W;
   const col4X = col5X - colGap - col4W;
   const col3X = col4X - colGap - col3W;
   const col2X = col3X - colGap - col2W;
   const col1X = layoutX;
-
-  const includedItemGap = 7.5;
-  const pestCheckboxH = 6;
-  const pestRowCount = 4;
-  const pestGridHeight = (pestRowCount - 1) * includedItemGap + pestCheckboxH;
-  const blockTopY = groupTopY - (groupTopY - bodyBottomY - pestGridHeight) / 2;
-  const checkboxStartY = blockTopY;
-  const pestLabelSize = 6.5;
-  const addonItemGap = includedItemGap + 2;
 
   const includedColumns = [
     { x: col1X, width: col1W, items: RIT_INCLUDED_PESTS_COL_A },
@@ -413,49 +400,29 @@ function drawPestsSection(page, fonts, pestImages) {
   ];
 
   for (const col of includedColumns) {
-    let rowY = checkboxStartY;
-    for (let index = 0; index < col.items.length; index += 1) {
-      const item = col.items[index];
-      drawRitPestImageRow(page, {
-        imageX: col.x,
-        y: rowY,
-        width: col.width,
-        label: item,
-        font: fonts.bold,
-        checked: true,
-        labelColor: RIT_RED_RODENT_PEST_SET.has(item) ? TAG_RED : undefined,
-        labelSize: pestLabelSize,
-        assetKey: getRitPestAssetKey(pestImages, item),
-        pestImages,
-        isHeaderRow: index === 0,
-      });
-      rowY -= includedItemGap;
-    }
+    drawRitPestColumn(page, {
+      x: col.x,
+      width: col.width,
+      bodyTopY,
+      bodyBottomY,
+      items: col.items,
+      headerColor: TAG_RED,
+      font: fonts.regular,
+      boldFont: fonts.bold,
+      pestImages,
+    });
   }
 
-  drawRitPestImageRow(page, {
-    imageX: col5X,
-    y: checkboxStartY,
+  drawRitAddonsColumn(page, {
+    x: col5X,
     width: col5W,
-    label: 'Add-ons',
-    font: fonts.bold,
-    checked: null,
-    labelColor: TAG_RED,
-    labelSize: pestLabelSize,
-    assetKey: pestImages.manifest.headers['Add-ons'],
+    bodyTopY,
+    bodyBottomY,
+    addonLabel: RIT_ADDON_PESTS[0],
+    headerColor: TAG_RED,
+    font: fonts.regular,
+    boldFont: fonts.bold,
     pestImages,
-    isHeaderRow: true,
-    underline: true,
-  });
-
-  drawRitAddonRow(page, {
-    imageX: col5X,
-    y: checkboxStartY - addonItemGap,
-    width: col5W,
-    label: RIT_ADDON_PESTS[0],
-    font: fonts.bold,
-    pestImages,
-    labelSize: pestLabelSize,
   });
 }
 
