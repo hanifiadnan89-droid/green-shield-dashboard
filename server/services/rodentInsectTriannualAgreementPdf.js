@@ -83,10 +83,10 @@ const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
 const LAYOUT_TOP_ROW_H = 90;
-const LAYOUT_PESTS_H = 110;
-const LAYOUT_MIDDLE_ROW_H = 110;
-const LAYOUT_PRICING_H = 76;
-const LAYOUT_AUTH_H = 72;
+const LAYOUT_PESTS_H = 145;
+const LAYOUT_MIDDLE_ROW_H = 95;
+const LAYOUT_PRICING_H = 70;
+const LAYOUT_AUTH_H = 60;
 const LAYOUT_SIGNATURE_H = 60;
 
 const RIT_CALENDAR_TILE_STYLE = {
