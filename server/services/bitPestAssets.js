@@ -2,7 +2,6 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { rgb } from 'pdf-lib';
 import {
-  embedRitPestImages,
   drawRitCheckbox,
   drawRitPestRow,
   RIT_PEST_HEADING_SIZE,
@@ -12,11 +11,26 @@ import {
   RIT_PEST_SMALL_IMAGE_WIDTH,
   RIT_PEST_ASSETS_DIR,
 } from './ritPestAssets.js';
+import {
+  BIT_ADDON_PESTS,
+  BIT_INCLUDED_PESTS_COL_A,
+  BIT_INCLUDED_PESTS_COL_B,
+  BIT_INCLUDED_PESTS_COL_C,
+} from './bedBugInsectTriannualAgreementContent.js';
 import { AGREEMENT_COLORS, drawUnderlinedLabel } from './pdf/agreementLayout.js';
 
 const TAG_RED = rgb(185 / 255, 28 / 255, 28 / 255);
 const BED_BUG_VECTOR = rgb(0, 0, 0);
 const SHADOW = rgb(115 / 255, 115 / 255, 115 / 255);
+
+async function readOptionalPng(path) {
+  try {
+    return await fs.readFile(path);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
 
 function measureImageFit(image, maxWidth, maxHeight) {
   if (!image) return { width: 0, height: 0 };
@@ -71,17 +85,65 @@ function drawImageFit(page, image, { x, y, width, height, shadow = false, shadow
   });
 }
 
-export async function embedBitPestImages(pdfDoc) {
-  const pestImages = await embedRitPestImages(pdfDoc);
-  const bedBugPath = join(RIT_PEST_ASSETS_DIR, 'large', 'bed-bug.png');
-  try {
-    const bedBugBuffer = await fs.readFile(bedBugPath);
-    pestImages.large['bed-bug'] = await pdfDoc.embedPng(bedBugBuffer);
-    pestImages.bedBugKey = 'bed-bug';
-  } catch {
-    pestImages.bedBugKey = null;
+function collectBitRowAssetKeys() {
+  const keys = new Set();
+  for (const item of [
+    ...BIT_INCLUDED_PESTS_COL_A,
+    ...BIT_INCLUDED_PESTS_COL_B,
+    ...BIT_INCLUDED_PESTS_COL_C,
+    ...BIT_ADDON_PESTS,
+  ]) {
+    keys.add(item.assetKey);
   }
-  return pestImages;
+  return keys;
+}
+
+function getBitRowImage(pestImages, assetKey) {
+  if (!assetKey) return null;
+  return pestImages.small?.[assetKey] ?? pestImages.large?.[assetKey] ?? null;
+}
+
+/** Embed only the pest PNGs used by the BIT layout (small row icons + large bedbug hero). */
+export async function embedBitPestImages(pdfDoc) {
+  const large = {};
+  const small = {};
+
+  for (const key of collectBitRowAssetKeys()) {
+    const smallBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'small', `${key}.png`));
+    if (smallBuffer) {
+      small[key] = await pdfDoc.embedPng(smallBuffer);
+      continue;
+    }
+    const largeBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', `${key}.png`));
+    if (largeBuffer) {
+      large[key] = await pdfDoc.embedPng(largeBuffer);
+    }
+  }
+
+  const bedbugBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', 'bedbug.png'));
+  if (bedbugBuffer) {
+    large.bedbug = await pdfDoc.embedPng(bedbugBuffer);
+  }
+
+  return {
+    large,
+    small,
+    bedBugKey: large.bedbug ? 'bedbug' : null,
+  };
+}
+
+function drawBitPestRow(page, options) {
+  const { assetKey, pestImages, ...rest } = options;
+  const img = getBitRowImage(pestImages, assetKey);
+  drawRitPestRow(page, {
+    ...rest,
+    assetKey,
+    pestImages: {
+      ...pestImages,
+      large: img ? { [assetKey]: img } : {},
+      small: img ? { [assetKey]: img } : {},
+    },
+  });
 }
 
 function drawVectorBedBugHero(page, { x, y, width, height }) {
@@ -202,7 +264,7 @@ export function drawBitIncludedPestColumn(page, {
   let rowY = bodyTopY - 28;
 
   for (const item of items) {
-    drawRitPestRow(page, {
+    drawBitPestRow(page, {
       x: rowX,
       y: rowY,
       width: rowW,
@@ -245,7 +307,7 @@ export function drawBitAddonsColumn(page, {
   const rowW = width - 16;
 
   for (const item of items) {
-    drawRitPestRow(page, {
+    drawBitPestRow(page, {
       x: rowX,
       y: rowY,
       width: rowW,

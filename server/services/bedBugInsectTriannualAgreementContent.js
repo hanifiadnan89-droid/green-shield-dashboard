@@ -36,9 +36,9 @@ export const BIT_INCLUDED_PESTS_COL_B = [
 
 export const BIT_INCLUDED_PESTS_COL_C = [
   { label: 'Crickets/Earwigs', assetKey: 'cricket' },
-  { label: 'Yellow Jackets/Hornets', assetKey: 'wasp' },
-  { label: 'Silverfish', assetKey: 'silverfish' },
-  { label: 'Stink Bugs', assetKey: 'cockroach' },
+  { label: 'Yellow Jackets/Hornets', assetKey: 'yellow-jacket' },
+  { label: 'Silverfish', assetKey: 'silver-fish' },
+  { label: 'Stink Bugs', assetKey: 'stink-bug' },
 ];
 
 /** Add-on rows — empty checkbox, icon, combined label. */

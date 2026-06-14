@@ -25,11 +25,16 @@
     "Voles": "voles",
     "Wasps": "wasp",
     "Fall Invaders": "lady-beetle",
-    "Springtails/Silverfish": "silverfish",
-    "Ticks/Mosquitoes": "tick"
+    "Springtails/Silverfish": "silver-fish",
+    "Silverfish": "silver-fish",
+    "Stink Bugs": "stink-bug",
+    "Yellow Jackets/Hornets": "yellow-jacket",
+    "Ticks/Mosquitoes": "tick",
+    "Bed Bugs": "bedbug"
   },
   "addonSecondary": "mosquito",
   "files": [
+    "bedbug",
     "carpenter-ant",
     "carpenter-bee",
     "centipede",
@@ -43,10 +48,13 @@
     "odorous-ant",
     "pavement-ant",
     "rats",
+    "silver-fish",
     "silverfish",
     "spider",
+    "stink-bug",
     "tick",
     "voles",
-    "wasp"
+    "wasp",
+    "yellow-jacket"
   ]
 }
