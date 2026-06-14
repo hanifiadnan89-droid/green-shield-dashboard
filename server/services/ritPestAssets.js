@@ -298,17 +298,20 @@ export function drawRitPestColumn(page, {
   const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
   let rowY = bodyBottomY + 30;
 
-  for (const pest of pests) {
+  const blockW = pests.reduce((max, pest) => {
     const assetKey = getRitPestAssetKey(pestImages, pest);
-    const rowContentW = measureRitPestRowWidth(pest, font, pestImages, assetKey);
-    const rowX = x + (width - rowContentW) / 2;
+    return Math.max(max, measureRitPestRowWidth(pest, font, pestImages, assetKey));
+  }, 0);
+  const rowX = x + (width - blockW) / 2;
+
+  for (const pest of pests) {
     drawRitPestRow(page, {
       x: rowX,
       y: rowY,
-      width: rowContentW,
+      width: blockW,
       label: pest,
       font,
-      assetKey,
+      assetKey: getRitPestAssetKey(pestImages, pest),
       pestImages,
       colors,
     });

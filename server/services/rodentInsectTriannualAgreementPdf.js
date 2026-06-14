@@ -513,7 +513,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
     ...spacing,
   });
 
-  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 2;
+  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 3;
   drawStackedField(page, {
     x: leftX,
     y: row2Y,
@@ -572,12 +572,12 @@ function drawPricingRow(page, data, fonts) {
     if (box.billing) {
       drawBillingGridBlock(page, {
         x: x + SECTION_PAD,
-        y: bodyStartY(y, h) - LABEL_SIZE + 13,
+        y: bodyStartY(y, h) - LABEL_SIZE + 5,
         width: innerW,
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: { gap: 7, fieldSpacing: 6, valueSize: 7.5 },
+        spacing: { gap: 9, fieldSpacing: 8, valueSize: 7.5 },
       });
     } else {
       drawPriceRows(page, {
