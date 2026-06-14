@@ -171,6 +171,16 @@ function getBestRowImage(pestImages, assetKey) {
   return pestImages.large?.[assetKey] ?? pestImages.small?.[assetKey] ?? null;
 }
 
+function measureRitPestRowWidth(label, font, pestImages, assetKey, labelSize = RIT_PEST_LABEL_SIZE) {
+  const box = RIT_PEST_CHECKBOX_SIZE;
+  let width = box + 4;
+  if (getBestRowImage(pestImages, assetKey)) {
+    width += RIT_PEST_SMALL_IMAGE_WIDTH + 4;
+  }
+  width += font.widthOfTextAtSize(label, labelSize);
+  return width;
+}
+
 export function drawRitPestRow(page, {
   x,
   y,
@@ -226,15 +236,6 @@ function drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors) {
   });
 }
 
-function drawSubtleRule(page, x, y, width, colors) {
-  page.drawLine({
-    start: { x, y },
-    end: { x: x + width, y },
-    thickness: 0.35,
-    color: colors.border,
-  });
-}
-
 function drawColumnTitle(page, { text, x, width, y, font, size, color, underline = false }) {
   const titleWidth = font.widthOfTextAtSize(text, size);
   const titleX = x + Math.max(0, (width - titleWidth) / 2);
@@ -282,7 +283,7 @@ export function drawRitPestColumn(page, {
   const imageBoxW = Math.min(width - 14, computeRitLargeImageWidth(width));
   const imageBoxH = Math.min(RIT_PEST_LARGE_MAX_HEIGHT, Math.max(40, bodyH * 0.43));
   const imageBoxX = x + (width - imageBoxW) / 2;
-  const imageBoxY = bodyBottomY + 48;
+  const imageBoxY = bodyBottomY + 41;
   if (largeKey && pestImages.large[largeKey]) {
     drawImageFit(page, pestImages.large[largeKey], {
       x: imageBoxX,
@@ -294,19 +295,20 @@ export function drawRitPestColumn(page, {
     });
   }
 
-  const ruleY = bodyBottomY + 42;
-  drawSubtleRule(page, x + 5, ruleY, width - 10, colors);
-
-  const rowX = x + 12;
-  const rowW = width - 18;
   const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
   let rowY = bodyBottomY + 30;
+
+  const blockW = pests.reduce((max, pest) => {
+    const assetKey = getRitPestAssetKey(pestImages, pest);
+    return Math.max(max, measureRitPestRowWidth(pest, font, pestImages, assetKey));
+  }, 0);
+  const rowX = x + (width - blockW) / 2;
 
   for (const pest of pests) {
     drawRitPestRow(page, {
       x: rowX,
       y: rowY,
-      width: rowW,
+      width: blockW,
       label: pest,
       font,
       assetKey: getRitPestAssetKey(pestImages, pest),
