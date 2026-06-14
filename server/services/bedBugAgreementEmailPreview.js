@@ -63,3 +63,7 @@ export async function tryRenderBedBugAgreementPreviewPng(pdfBytes, options = {})
     return { ok: false, error: err.message };
   }
 }
+
+/** Generic alias — works for any single-page agreement PDF. */
+export const tryRenderAgreementPreviewPng = tryRenderBedBugAgreementPreviewPng;
+export const renderAgreementPreviewPng = renderBedBugAgreementPreviewPng;
