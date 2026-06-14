@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { rgb } from 'pdf-lib';
+import { PDFBool, PDFName, rgb } from 'pdf-lib';
 import { truncateText, AGREEMENT_COLORS } from './pdf/agreementLayout.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -32,6 +32,18 @@ async function readOptionalPng(path) {
   }
 }
 
+function enableImageInterpolation(pdfDoc, image) {
+  try {
+    const imageDict = pdfDoc.context.lookup(image.ref);
+    if (imageDict?.set) {
+      imageDict.set(PDFName.of('Interpolate'), PDFBool.True);
+    }
+  } catch (error) {
+    console.warn('[rit-pdf] unable to enable image interpolation', error?.message || error);
+  }
+  return image;
+}
+
 export async function embedRitPestImages(pdfDoc) {
   const manifestPath = join(RIT_PEST_ASSETS_DIR, 'manifest.json');
   const manifestRaw = await fs.readFile(manifestPath, 'utf8');
@@ -42,8 +54,8 @@ export async function embedRitPestImages(pdfDoc) {
   for (const key of manifest.files) {
     const largeBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', `${key}.png`));
     const smallBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'small', `${key}.png`));
-    if (largeBuffer) large[key] = await pdfDoc.embedPng(largeBuffer);
-    if (smallBuffer) small[key] = await pdfDoc.embedPng(smallBuffer);
+    if (largeBuffer) large[key] = enableImageInterpolation(pdfDoc, await pdfDoc.embedPng(largeBuffer));
+    if (smallBuffer) small[key] = enableImageInterpolation(pdfDoc, await pdfDoc.embedPng(smallBuffer));
   }
 
   return { large, small, manifest };
@@ -66,14 +78,23 @@ function measureImageFit(image, maxWidth, maxHeight) {
 }
 
 function drawSoftShadow(page, { x, y, width, height, opacity = 0.16 }) {
-  page.drawEllipse({
-    x: x + width / 2,
-    y,
-    xScale: width / 2,
-    yScale: height / 2,
-    color: SHADOW,
-    opacity,
-  });
+  const centerX = x + width / 2;
+  const layers = [
+    { widthScale: 1, heightScale: 1, opacityScale: 0.32, yOffset: 0 },
+    { widthScale: 0.76, heightScale: 0.72, opacityScale: 0.44, yOffset: 0.25 },
+    { widthScale: 0.48, heightScale: 0.46, opacityScale: 0.42, yOffset: 0.5 },
+  ];
+
+  for (const layer of layers) {
+    page.drawEllipse({
+      x: centerX,
+      y: y + layer.yOffset,
+      xScale: (width * layer.widthScale) / 2,
+      yScale: (height * layer.heightScale) / 2,
+      color: SHADOW,
+      opacity: opacity * layer.opacityScale,
+    });
+  }
 }
 
 function drawImageFit(page, image, { x, y, width, height, shadow = false, shadowScale = 0.68 }) {
@@ -85,10 +106,10 @@ function drawImageFit(page, image, { x, y, width, height, shadow = false, shadow
   if (shadow) {
     drawSoftShadow(page, {
       x: drawX + dims.width * (1 - shadowScale) / 2,
-      y: drawY + Math.max(1.5, dims.height * 0.04),
+      y: drawY + Math.max(1.2, dims.height * 0.035),
       width: dims.width * shadowScale,
-      height: Math.max(3.4, dims.height * 0.12),
-      opacity: 0.16,
+      height: Math.max(3.2, dims.height * 0.11),
+      opacity: 0.22,
     });
   }
 
@@ -269,7 +290,7 @@ export function drawRitPestColumn(page, {
       width: imageBoxW,
       height: imageBoxH,
       shadow: true,
-      shadowScale: 0.76,
+      shadowScale: 0.78,
     });
   }
 
