@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""One-time cleanup for RIT hero rodent PNG backgrounds (mice/rats/moles/voles).
+"""In-place RIT hero rodent PNG background cleanup (mice/rats/moles/voles).
 
-Removes checkerboard / near-gray edge-connected background via flood fill from
-image borders, then lightly defringes halos. Re-exports at the existing bundled
-large-asset dimensions so PDF placement stays unchanged.
+Edits the bundled large assets only. Canvas size and animal placement are
+preserved exactly; only background / fringe pixels are removed, then empty
+areas are flattened to pure white (#FFFFFF) so they blend into the PDF.
 """
 
 from __future__ import annotations
@@ -14,37 +14,50 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-ARTIFACTS = Path('/opt/cursor/artifacts/assets')
 LARGE_DIR = ROOT / 'assets' / 'pests' / 'large'
-
 HERO_KEYS = ('mice', 'rats', 'moles', 'voles')
-LARGE_WIDTH = 72
+WHITE = (255, 255, 255, 255)
 
 
-def is_background_pixel(r: int, g: int, b: int, a: int) -> bool:
+def composites_on_white(r: int, g: int, b: int, a: int) -> tuple[float, float, float]:
+    t = a / 255
+    return (
+        r * t + 255 * (1 - t),
+        g * t + 255 * (1 - t),
+        b * t + 255 * (1 - t),
+    )
+
+
+def is_removable_background(r: int, g: int, b: int, a: int) -> bool:
     if a == 0:
         return True
 
-    min_c = min(r, g, b)
-    max_c = max(r, g, b)
-    saturation = max_c - min_c
-    luminance = (r + g + b) / 3
+    br, bg, bb = composites_on_white(r, g, b, a)
+    min_c = min(br, bg, bb)
+    max_c = max(br, bg, bb)
+    spread = max_c - min_c
 
-    # Checkerboard / studio backdrop: near-white or neutral light gray.
-    if luminance >= 175 and saturation <= 28:
+    # How the pixel actually looks on a white PDF page.
+    if min_c >= 246 and spread <= 24:
         return True
 
-    # Common checkerboard tones (e.g. 192/255, 204/255 pairs).
+    min_rgb = min(r, g, b)
+    max_rgb = max(r, g, b)
+    saturation = max_rgb - min_rgb
+    luminance = (r + g + b) / 3
+
+    if luminance >= 170 and saturation <= 30:
+        return True
+
     if (
-        184 <= r <= 255
-        and 184 <= g <= 255
-        and 184 <= b <= 255
-        and saturation <= 20
+        180 <= r <= 255
+        and 180 <= g <= 255
+        and 180 <= b <= 255
+        and saturation <= 22
     ):
         return True
 
-    # Semi-transparent fringe left from poor matting.
-    if a < 250 and luminance >= 135 and saturation <= 42:
+    if a < 252 and luminance >= 120 and saturation <= 50:
         return True
 
     return False
@@ -60,7 +73,7 @@ def flood_remove_background(img: Image.Image) -> Image.Image:
     def try_seed(x: int, y: int) -> None:
         if background[y][x]:
             return
-        if is_background_pixel(*pixels[x, y]):
+        if is_removable_background(*pixels[x, y]):
             background[y][x] = True
             queue.append((x, y))
 
@@ -75,7 +88,7 @@ def flood_remove_background(img: Image.Image) -> Image.Image:
         x, y = queue.popleft()
         for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
             if 0 <= nx < width and 0 <= ny < height and not background[ny][nx]:
-                if is_background_pixel(*pixels[nx, ny]):
+                if is_removable_background(*pixels[nx, ny]):
                     background[ny][nx] = True
                     queue.append((nx, ny))
 
@@ -87,7 +100,19 @@ def flood_remove_background(img: Image.Image) -> Image.Image:
     return img
 
 
-def defringe_halos(img: Image.Image, passes: int = 5) -> Image.Image:
+def touches_exterior(pixels, width, height, x, y) -> bool:
+    for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+        if not (0 <= nx < width and 0 <= ny < height):
+            return True
+        r, g, b, a = pixels[nx, ny]
+        if a == 0:
+            return True
+        if a == 255 and r >= 250 and g >= 250 and b >= 250:
+            return True
+    return False
+
+
+def defringe_halos(img: Image.Image, passes: int = 12) -> Image.Image:
     img = img.convert('RGBA')
     width, height = img.size
     pixels = img.load()
@@ -99,22 +124,9 @@ def defringe_halos(img: Image.Image, passes: int = 5) -> Image.Image:
                 r, g, b, a = pixels[x, y]
                 if a == 0:
                     continue
-                touches_transparent = False
-                for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-                    if 0 <= nx < width and 0 <= ny < height and pixels[nx, ny][3] == 0:
-                        touches_transparent = True
-                        break
-                if not touches_transparent:
+                if not touches_exterior(pixels, width, height, x, y):
                     continue
-
-                min_c = min(r, g, b)
-                max_c = max(r, g, b)
-                saturation = max_c - min_c
-                luminance = (r + g + b) / 3
-
-                if luminance >= 205 and saturation <= 24:
-                    to_clear.append((x, y))
-                elif a < 245 and luminance >= 125 and saturation <= 48:
+                if is_removable_background(r, g, b, a):
                     to_clear.append((x, y))
 
         if not to_clear:
@@ -125,48 +137,80 @@ def defringe_halos(img: Image.Image, passes: int = 5) -> Image.Image:
     return img
 
 
-def trim_transparent(img: Image.Image) -> Image.Image:
-    bbox = img.getbbox()
-    return img.crop(bbox) if bbox else img
+def scrub_near_white_edges(img: Image.Image) -> Image.Image:
+    """After flattening, force edge-connected near-white pixels to pure white."""
+    img = img.convert('RGBA')
+    width, height = img.size
+    pixels = img.load()
+
+    def is_scrubbable(r: int, g: int, b: int, a: int) -> bool:
+        if a == 0:
+            return True
+        min_c = min(r, g, b)
+        max_c = max(r, g, b)
+        return min_c >= 198 and (max_c - min_c) <= 40
+
+    background = [[False] * width for _ in range(height)]
+    queue: deque[tuple[int, int]] = deque()
+
+    def seed(x: int, y: int) -> None:
+        if background[y][x]:
+            return
+        r, g, b, a = pixels[x, y]
+        if a == 255 and r >= 250 and g >= 250 and b >= 250:
+            background[y][x] = True
+            queue.append((x, y))
+
+    for x in range(width):
+        seed(x, 0)
+        seed(x, height - 1)
+    for y in range(height):
+        seed(0, y)
+        seed(width - 1, y)
+
+    while queue:
+        x, y = queue.popleft()
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if 0 <= nx < width and 0 <= ny < height and not background[ny][nx]:
+                if is_scrubbable(*pixels[nx, ny]):
+                    background[ny][nx] = True
+                    queue.append((nx, ny))
+
+    for y in range(height):
+        for x in range(width):
+            if background[y][x]:
+                pixels[x, y] = WHITE
+
+    return img
 
 
-def resize_to_width(img: Image.Image, width: int) -> Image.Image:
-    ratio = width / img.width
-    height = max(1, round(img.height * ratio))
-    return img.resize((width, height), Image.Resampling.LANCZOS)
+def flatten_to_white(img: Image.Image) -> Image.Image:
+    img = img.convert('RGBA')
+    white_bg = Image.new('RGBA', img.size, WHITE)
+    return Image.alpha_composite(white_bg, img)
 
 
-def fit_to_canvas(img: Image.Image, canvas_size: tuple[int, int]) -> Image.Image:
-    canvas = Image.new('RGBA', canvas_size, (0, 0, 0, 0))
-    x = (canvas_size[0] - img.width) // 2
-    y = (canvas_size[1] - img.height) // 2
-    canvas.paste(img, (x, y), img)
-    return canvas
+def clean_in_place(path: Path) -> None:
+    original_size = Image.open(path).size
+    img = Image.open(path).convert('RGBA')
+    if img.size != original_size:
+        raise ValueError(f'Unexpected size change for {path}')
 
-
-def process_hero(key: str) -> None:
-    out_path = LARGE_DIR / f'{key}.png'
-    if not out_path.exists():
-        raise FileNotFoundError(f'Missing bundled asset: {out_path}')
-
-    target_size = Image.open(out_path).size
-    source_path = ARTIFACTS / f'{key}-source.png'
-    if not source_path.exists():
-        raise FileNotFoundError(f'Missing source image: {source_path}')
-
-    img = Image.open(source_path)
     img = flood_remove_background(img)
     img = defringe_halos(img)
-    img = trim_transparent(img)
-    img = resize_to_width(img, LARGE_WIDTH)
-    img = fit_to_canvas(img, target_size)
-    img.save(out_path, format='PNG')
-    print(f'Cleaned {key}: {target_size[0]}x{target_size[1]} -> {out_path}')
+    img = flatten_to_white(img)
+    img = scrub_near_white_edges(img)
+
+    if img.size != original_size:
+        raise ValueError(f'Size changed during cleanup for {path}')
+
+    img.save(path, format='PNG')
+    print(f'Cleaned in place: {path.name} {original_size[0]}x{original_size[1]}')
 
 
 def main() -> None:
     for key in HERO_KEYS:
-        process_hero(key)
+        clean_in_place(LARGE_DIR / f'{key}.png')
 
 
 if __name__ == '__main__':
