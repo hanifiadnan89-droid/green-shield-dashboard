@@ -6,14 +6,14 @@ import { truncateText, AGREEMENT_COLORS } from './pdf/agreementLayout.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const RIT_PEST_ASSETS_DIR = join(__dirname, '..', '..', 'assets', 'pests');
-export const RIT_PEST_LARGE_IMAGE_WIDTH = 72;
-export const RIT_PEST_SMALL_IMAGE_WIDTH = 22;
-export const RIT_PEST_LARGE_MAX_HEIGHT = 80;
-export const RIT_PEST_IMAGE_TEXT_GAP = 6;
-export const RIT_PEST_ROW_GAP = 8;
-export const RIT_PEST_HEADING_GAP = 5;
+export const RIT_PEST_LARGE_IMAGE_WIDTH = 78;
+export const RIT_PEST_SMALL_IMAGE_WIDTH = 19;
+export const RIT_PEST_LARGE_MAX_HEIGHT = 84;
+export const RIT_PEST_IMAGE_TEXT_GAP = 4;
+export const RIT_PEST_ROW_GAP = 8.2;
+export const RIT_PEST_HEADING_GAP = 4.8;
 export const RIT_PEST_HEADING_SIZE = 7;
-export const RIT_PEST_LABEL_SIZE = 6.5;
+export const RIT_PEST_LABEL_SIZE = 6.3;
 export const RIT_PEST_CHECKBOX_SIZE = 6;
 
 /**
@@ -132,7 +132,7 @@ export function drawRitPestRow(page, {
   const box = RIT_PEST_CHECKBOX_SIZE;
   drawRitCheckbox(page, x, y, box, checked, colors);
 
-  let textX = x + box + 4;
+  let textX = x + box + 3.5;
   if (showSmallIcon && assetKey && pestImages.small[assetKey]) {
     const img = pestImages.small[assetKey];
     const imgW = RIT_PEST_SMALL_IMAGE_WIDTH;
@@ -145,10 +145,10 @@ export function drawRitPestRow(page, {
     textX += imgW + 3;
   }
 
-  const labelText = truncateText(label, font, labelSize, width - (textX - x) - 2);
+  const labelText = truncateText(label, font, labelSize, width - (textX - x) - 1.5);
   page.drawText(labelText, {
     x: textX,
-    y: y + 0.5,
+    y: y + 0.6,
     size: labelSize,
     font,
     color: colors.text,
@@ -160,12 +160,15 @@ export function drawRitPestRow(page, {
  * @param {number} colWidth
  * @param {number} minTextWidth
  */
-export function computeRitLargeImageWidth(colWidth, minTextWidth = 52, showSmallIcon = true) {
+export function computeRitLargeImageWidth(colWidth, minTextWidth = 50, showSmallIcon = true) {
   const smallIconW = showSmallIcon ? RIT_PEST_SMALL_IMAGE_WIDTH + 3 : 0;
-  const rowOverhead = RIT_PEST_CHECKBOX_SIZE + 4 + smallIconW + 2;
-  const neededTextBlock = rowOverhead + minTextWidth;
-  const available = colWidth - RIT_PEST_IMAGE_TEXT_GAP - neededTextBlock;
-  return Math.max(42, Math.min(RIT_PEST_LARGE_IMAGE_WIDTH, available));
+  const rowOverhead = RIT_PEST_CHECKBOX_SIZE + 3.5 + smallIconW + 1.5;
+  const desired = Math.min(
+    RIT_PEST_LARGE_IMAGE_WIDTH,
+    Math.max(50, colWidth * (showSmallIcon ? 0.4 : 0.46)),
+  );
+  const maxByText = colWidth - RIT_PEST_IMAGE_TEXT_GAP - rowOverhead - minTextWidth;
+  return Math.max(48, Math.min(desired, maxByText));
 }
 
 /**
@@ -194,7 +197,7 @@ export function drawRitPestColumn(page, {
     (max, pest) => Math.max(max, font.widthOfTextAtSize(pest, RIT_PEST_LABEL_SIZE)),
     0,
   );
-  const largeImageWidth = computeRitLargeImageWidth(width, maxPestLabelW + 2);
+  const largeImageWidth = computeRitLargeImageWidth(width, maxPestLabelW + 1.5);
   const textBlockX = imageX + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
   const textBlockW = width - largeImageWidth - RIT_PEST_IMAGE_TEXT_GAP;
 
@@ -266,14 +269,14 @@ export function drawRitAddonsColumn(page, {
 }) {
   const imageX = x;
   const addonLabelW = font.widthOfTextAtSize(addonLabel, RIT_PEST_LABEL_SIZE);
-  const largeImageWidth = computeRitLargeImageWidth(width, addonLabelW + 2, false);
+  const largeImageWidth = computeRitLargeImageWidth(width, addonLabelW + 1.5, false);
   const textBlockX = imageX + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
   const textBlockW = width - largeImageWidth - RIT_PEST_IMAGE_TEXT_GAP;
 
   const box = RIT_PEST_CHECKBOX_SIZE;
   const headingSize = RIT_PEST_HEADING_SIZE;
   const labelSize = RIT_PEST_LABEL_SIZE;
-  const addonGap = RIT_PEST_ROW_GAP + 2;
+  const addonGap = RIT_PEST_ROW_GAP + 2.5;
   const mosquitoKey = pestImages.manifest.addonSecondary ?? 'mosquito';
   const mosquitoH = pestImages.small[mosquitoKey]
     ? (pestImages.small[mosquitoKey].height / pestImages.small[mosquitoKey].width) * RIT_PEST_SMALL_IMAGE_WIDTH
@@ -332,11 +335,11 @@ export function drawRitAddonsColumn(page, {
 
   if (pestImages.small[mosquitoKey]) {
     const img = pestImages.small[mosquitoKey];
-    const imgW = RIT_PEST_SMALL_IMAGE_WIDTH;
+    const imgW = RIT_PEST_SMALL_IMAGE_WIDTH + 6;
     const imgH = (img.height / img.width) * imgW;
     drawEmbeddedPestImage(page, img, {
-      x: textBlockX + box + 4,
-      y: addonRowY - imgH - 2,
+      x: textBlockX + box + 6,
+      y: addonRowY - imgH - 1.5,
       width: imgW,
     });
   }
