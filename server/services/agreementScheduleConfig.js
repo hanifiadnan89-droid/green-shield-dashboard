@@ -22,7 +22,8 @@ export const AGREEMENT_SCHEDULE_CONFIG = {
     label: 'Rodent Insect Triannual',
     contractMonths: 12,
     serviceIntervalMonths: 4,
-    serviceMonthIndexes: [0, 4, 8],
+    /** Initial month, mandatory one-month follow-up, then triannual months 4 and 8. */
+    serviceMonthIndexes: [0, 1, 4, 8],
     serviceMarker: 'S',
     initialPaymentTextTemplate: '{initialTotalFormatted}',
     recurringPaymentTextTemplate: '{recurringTotalFormatted}',
