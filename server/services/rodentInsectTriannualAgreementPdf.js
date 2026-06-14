@@ -50,6 +50,7 @@ import {
   bodyStartY as layoutBodyStartY,
   yFromTop as layoutYFromTop,
 } from './pdf/agreementLayout.js';
+import { applyCustomerFriendlyViewerPreferences } from './pdf/customerViewerPreferences.js';
 
 const AGREEMENT_TYPE = 'rodent_insect_triannual';
 
@@ -709,6 +710,7 @@ export async function buildRodentInsectTriannualAgreementPdf(input = {}) {
   drawAuthorizationSection(page, fonts);
   drawSignatureSection(page, data, fonts);
 
+  applyCustomerFriendlyViewerPreferences(pdfDoc);
   const outBytes = await pdfDoc.save();
   console.log('[rit-pdf] generated', outBytes.length, 'bytes, schedule months:', schedule.scheduleMonths?.length ?? 0);
 

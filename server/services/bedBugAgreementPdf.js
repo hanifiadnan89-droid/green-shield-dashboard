@@ -42,6 +42,7 @@ import {
   bodyStartY as layoutBodyStartY,
   yFromTop as layoutYFromTop,
 } from './pdf/agreementLayout.js';
+import { applyCustomerFriendlyViewerPreferences } from './pdf/customerViewerPreferences.js';
 
 const AGREEMENT_TYPE = 'bed_bug_insect_triannual';
 
@@ -883,6 +884,7 @@ export async function buildBedBugAgreementPdf(input = {}) {
   drawAuthorizationSection(page, fonts);
   drawSignatureSection(page, data, fonts);
 
+  applyCustomerFriendlyViewerPreferences(pdfDoc);
   const outBytes = await pdfDoc.save();
   console.log('[bed-bug-pdf] generated', outBytes.length, 'bytes, schedule months:', schedule.scheduleMonths?.length ?? 0);
 

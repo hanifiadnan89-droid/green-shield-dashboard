@@ -46,6 +46,7 @@ import {
   bodyStartY as layoutBodyStartY,
   yFromTop as layoutYFromTop,
 } from './pdf/agreementLayout.js';
+import { applyCustomerFriendlyViewerPreferences } from './pdf/customerViewerPreferences.js';
 
 const AGREEMENT_TYPE = 'insect_quarterly';
 
@@ -708,6 +709,7 @@ export async function buildInsectQuarterlyAgreementPdf(input = {}) {
   drawAuthorizationSection(page, fonts);
   drawSignatureSection(page, data, fonts);
 
+  applyCustomerFriendlyViewerPreferences(pdfDoc);
   const outBytes = await pdfDoc.save();
   console.log('[iq-pdf] generated', outBytes.length, 'bytes, schedule months:', schedule.scheduleMonths?.length ?? 0);
 
