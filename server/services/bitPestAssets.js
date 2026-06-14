@@ -6,7 +6,6 @@ import {
   RIT_PEST_HEADING_SIZE,
   RIT_PEST_LABEL_SIZE,
   RIT_PEST_CHECKBOX_SIZE,
-  RIT_PEST_ROW_GAP,
   RIT_PEST_ASSETS_DIR,
 } from './ritPestAssets.js';
 import {
@@ -21,7 +20,8 @@ const TAG_RED = rgb(185 / 255, 28 / 255, 28 / 255);
 const BED_BUG_VECTOR = rgb(0, 0, 0);
 const SHADOW = rgb(115 / 255, 115 / 255, 115 / 255);
 /** Row icon draw size (pt). Source PNGs are 96px wide for sharp downscaling. */
-const BIT_ROW_ICON_PT = 22;
+const BIT_ROW_ICON_PT = 22 * 1.15;
+const BIT_ROW_STEP = BIT_ROW_ICON_PT + 8;
 
 async function readOptionalPng(path) {
   try {
@@ -236,24 +236,28 @@ export function drawBitMainPestColumn(page, {
   bodyTopY,
   bodyBottomY,
   pestImages,
-  font,
   boldFont,
   colors = AGREEMENT_COLORS,
 }) {
-  const titleY = bodyTopY - 16;
+  const titleY = bodyTopY - 12;
+  const titleSize = RIT_PEST_HEADING_SIZE;
+  const titleText = 'Main pest';
+  const titleW = boldFont.widthOfTextAtSize(titleText, titleSize);
+  const titleX = x + (width - titleW) / 2;
+
   drawUnderlinedLabel(page, {
-    x: x + 2,
+    x: titleX,
     y: titleY,
-    text: 'Main pest',
-    size: RIT_PEST_HEADING_SIZE,
+    text: titleText,
+    size: titleSize,
     font: boldFont,
     color: TAG_RED,
   });
 
   const imageBoxW = width - 6;
-  const imageBoxH = Math.min(58, (bodyTopY - bodyBottomY) * 0.52);
+  const imageBoxH = Math.min(62, (bodyTopY - bodyBottomY) * 0.58);
   const imageBoxX = x + (width - imageBoxW) / 2;
-  const imageBoxY = bodyBottomY + 38;
+  const imageBoxY = titleY - 14 - imageBoxH;
 
   if (pestImages.bedBugKey && pestImages.large[pestImages.bedBugKey]) {
     drawImageFit(page, pestImages.large[pestImages.bedBugKey], {
@@ -272,20 +276,6 @@ export function drawBitMainPestColumn(page, {
       height: imageBoxH,
     });
   }
-
-  const rowY = bodyBottomY + 24;
-  const box = RIT_PEST_CHECKBOX_SIZE;
-  const label = 'Bed Bugs';
-  const labelW = font.widthOfTextAtSize(label, RIT_PEST_LABEL_SIZE);
-  const rowX = x + (width - box - 4 - labelW) / 2;
-  drawRitCheckbox(page, rowX, rowY, box, true, colors);
-  page.drawText(label, {
-    x: rowX + box + 4,
-    y: rowY + 0.35,
-    size: RIT_PEST_LABEL_SIZE,
-    font: boldFont,
-    color: colors.text,
-  });
 }
 
 function drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors) {
@@ -310,10 +300,9 @@ export function drawBitIncludedPestColumn(page, {
 }) {
   if (showLeftDivider) drawColumnDivider(page, x - 3, bodyTopY, bodyBottomY, colors);
 
-  const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
   const rowX = x + 2;
   const rowW = width - 4;
-  let rowY = bodyTopY - 28;
+  let rowY = bodyTopY - 10;
 
   for (const item of items) {
     drawBitPestRow(page, {
@@ -327,7 +316,7 @@ export function drawBitIncludedPestColumn(page, {
       checked: true,
       colors,
     });
-    rowY -= rowStep;
+    rowY -= BIT_ROW_STEP;
   }
 }
 
@@ -345,18 +334,17 @@ export function drawBitAddonsColumn(page, {
   drawColumnDivider(page, x - 3, bodyTopY, bodyBottomY, colors);
 
   drawUnderlinedLabel(page, {
-    x: x + 4,
-    y: bodyTopY - 16,
+    x: x + 2,
+    y: bodyTopY - 14,
     text: 'Add-ons',
     size: RIT_PEST_HEADING_SIZE,
     font: boldFont,
     color: TAG_RED,
   });
 
-  const rowStep = 28;
-  let rowY = bodyTopY - 42;
   const rowX = x + 8;
   const rowW = width - 16;
+  let rowY = bodyTopY - 26;
 
   for (const item of items) {
     drawBitPestRow(page, {
@@ -370,6 +358,6 @@ export function drawBitAddonsColumn(page, {
       checked: false,
       colors,
     });
-    rowY -= rowStep;
+    rowY -= BIT_ROW_STEP;
   }
 }

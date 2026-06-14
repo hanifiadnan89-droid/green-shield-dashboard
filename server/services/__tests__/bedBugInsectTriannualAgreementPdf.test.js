@@ -107,8 +107,7 @@ describe('buildBedBugInsectTriannualAgreementPdf', () => {
     expect(text).toContain(BIT_TITLE);
     expect(text).toContain(BIT_COVERED_PESTS_SECTION_TITLE);
     expect(text).toContain('Main pest');
-    expect(text).toContain('Bed Bugs');
-    expect(text).toContain('Included pests');
+    expect(text).not.toContain('Included pests');
     expect(text).toContain('Add-ons');
   });
 
@@ -167,8 +166,8 @@ describe('buildBedBugInsectTriannualAgreementPdf', () => {
     );
     expect(source).toContain('embedBitPestImages');
     expect(source).toContain('drawBitMainPestColumn');
-    expect(source).toContain('drawInvertedBracket');
-    expect(source).toContain('LAYOUT_PESTS_H = 135');
+    expect(source).not.toContain('drawInvertedBracket');
+    expect(source).toContain('LAYOUT_PESTS_H = 158');
     expect(source).not.toContain('drawRitPestColumn');
   });
 

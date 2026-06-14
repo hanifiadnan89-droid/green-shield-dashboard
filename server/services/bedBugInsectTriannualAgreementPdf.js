@@ -34,7 +34,6 @@ import {
   BODY_TOP_PAD,
   drawBubblePanel,
   drawCompanyLogo,
-  drawInvertedBracket,
   drawPaymentTile,
   drawPriceRows,
   drawRoundedSection,
@@ -47,7 +46,6 @@ import {
   HEADER_BAR_H,
   HEADER_GREEN,
   LABEL_SIZE,
-  LOGO_GRAY,
   TAG_RED,
   TITLE_BUBBLE_FILL,
   bodyStartY as layoutBodyStartY,
@@ -82,7 +80,7 @@ const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
 const LAYOUT_TOP_ROW_H = 90;
-const LAYOUT_PESTS_H = 135;
+const LAYOUT_PESTS_H = 158;
 const LAYOUT_MIDDLE_ROW_H = 95;
 const LAYOUT_PRICING_H = 70;
 const LAYOUT_AUTH_H = 60;
@@ -310,53 +308,14 @@ function drawPestsSection(page, fonts, pestImages) {
   const bodyBottomY = y + SECTION_PAD;
   const colGap = 4;
 
-  const col1W = innerW * 0.17;
-  const col5W = innerW * 0.14;
+  const col1W = innerW * 0.15;
+  const col5W = innerW * 0.155;
   const colMidW = (innerW - col1W - col5W - colGap * 4) / 3;
   const col5X = innerX + innerW - col5W;
   const col4X = col5X - colGap - colMidW;
   const col3X = col4X - colGap - colMidW;
   const col2X = col3X - colGap - colMidW;
   const col1X = innerX;
-
-  const headingBaseline = bodyTopY - 2;
-  const includedTitle = 'Included pests';
-  const includedTitleW = fonts.bold.widthOfTextAtSize(includedTitle, 7.5);
-  const includedTitleX = col2X + ((col4X + colMidW - col2X) - includedTitleW) / 2;
-
-  drawUnderlinedLabel(page, {
-    x: includedTitleX,
-    y: headingBaseline,
-    text: includedTitle,
-    size: 7.5,
-    font: fonts.bold,
-    color: COLORS.headerBg,
-  });
-
-  const bracketLeft = col2X - 6;
-  const bracketRight = col4X + colMidW + 6;
-  const bracketTop = headingBaseline - 0.5;
-  const bracketDrop = (bodyTopY - bodyBottomY) * 0.12;
-  drawInvertedBracket(page, {
-    left: bracketLeft,
-    top: bracketTop,
-    right: bracketRight,
-    drop: bracketDrop,
-  });
-
-  const headerFontSize = 7.5;
-  const headerTextWidth = fonts.bold.widthOfTextAtSize(BIT_COVERED_PESTS_SECTION_TITLE, headerFontSize);
-  const headerTextX = x + Math.max(6, (w - headerTextWidth) / 2);
-  const coveredVCenterX = headerTextX
-    + fonts.bold.widthOfTextAtSize('Co', headerFontSize)
-    + fonts.bold.widthOfTextAtSize('v', headerFontSize) / 2;
-  const headerConnectorBottom = y + h - HEADER_BAR_H;
-  page.drawLine({
-    start: { x: coveredVCenterX, y: headerConnectorBottom - 3 },
-    end: { x: coveredVCenterX, y: bracketTop },
-    thickness: 0.6,
-    color: LOGO_GRAY,
-  });
 
   drawBitMainPestColumn(page, {
     x: col1X,
