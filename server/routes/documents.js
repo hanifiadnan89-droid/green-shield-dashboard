@@ -31,6 +31,7 @@ import {
   listQuoteDocuments,
   resolveQuoteTemplateFilename,
 } from '../services/quoteDocumentsList.js';
+import { applyCustomerFriendlyViewerPreferences } from '../services/pdf/customerViewerPreferences.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
@@ -639,8 +640,10 @@ if (serviceType === 'insect_quarterly' && isInsectQuarterlyVectorPdfEnabled()) {
     const singleDoc    = await PDFDocument.create();
     const [copiedPage] = await singleDoc.copyPages(pdfDoc, [pageIndex]);
     singleDoc.addPage(copiedPage);
+    applyCustomerFriendlyViewerPreferences(singleDoc);
     outBytes = await singleDoc.save();
   } else {
+    applyCustomerFriendlyViewerPreferences(pdfDoc);
     outBytes = await pdfDoc.save();
   }
 
