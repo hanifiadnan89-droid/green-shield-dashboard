@@ -654,7 +654,7 @@ function drawSignatureSection(page, data, fonts) {
 
   const fieldGap = 16;
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
-  const sigTopY = y + 22;
+  const sigTopY = y + 16;
   const fields = [
     { label: 'Customer Initials:', value: '' },
     { label: 'Customer Signature:', value: '' },
