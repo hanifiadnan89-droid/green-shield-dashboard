@@ -171,6 +171,16 @@ function getBestRowImage(pestImages, assetKey) {
   return pestImages.large?.[assetKey] ?? pestImages.small?.[assetKey] ?? null;
 }
 
+function measureRitPestRowWidth(label, font, pestImages, assetKey, labelSize = RIT_PEST_LABEL_SIZE) {
+  const box = RIT_PEST_CHECKBOX_SIZE;
+  let width = box + 4;
+  if (getBestRowImage(pestImages, assetKey)) {
+    width += RIT_PEST_SMALL_IMAGE_WIDTH + 4;
+  }
+  width += font.widthOfTextAtSize(label, labelSize);
+  return width;
+}
+
 export function drawRitPestRow(page, {
   x,
   y,
@@ -285,19 +295,20 @@ export function drawRitPestColumn(page, {
     });
   }
 
-  const rowX = x + 12;
-  const rowW = width - 18;
   const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
   let rowY = bodyBottomY + 30;
 
   for (const pest of pests) {
+    const assetKey = getRitPestAssetKey(pestImages, pest);
+    const rowContentW = measureRitPestRowWidth(pest, font, pestImages, assetKey);
+    const rowX = x + (width - rowContentW) / 2;
     drawRitPestRow(page, {
       x: rowX,
       y: rowY,
-      width: rowW,
+      width: rowContentW,
       label: pest,
       font,
-      assetKey: getRitPestAssetKey(pestImages, pest),
+      assetKey,
       pestImages,
       colors,
     });
