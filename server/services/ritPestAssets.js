@@ -226,15 +226,6 @@ function drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors) {
   });
 }
 
-function drawSubtleRule(page, x, y, width, colors) {
-  page.drawLine({
-    start: { x, y },
-    end: { x: x + width, y },
-    thickness: 0.35,
-    color: colors.border,
-  });
-}
-
 function drawColumnTitle(page, { text, x, width, y, font, size, color, underline = false }) {
   const titleWidth = font.widthOfTextAtSize(text, size);
   const titleX = x + Math.max(0, (width - titleWidth) / 2);
@@ -282,7 +273,7 @@ export function drawRitPestColumn(page, {
   const imageBoxW = Math.min(width - 14, computeRitLargeImageWidth(width));
   const imageBoxH = Math.min(RIT_PEST_LARGE_MAX_HEIGHT, Math.max(40, bodyH * 0.43));
   const imageBoxX = x + (width - imageBoxW) / 2;
-  const imageBoxY = bodyBottomY + 48;
+  const imageBoxY = bodyBottomY + 41;
   if (largeKey && pestImages.large[largeKey]) {
     drawImageFit(page, pestImages.large[largeKey], {
       x: imageBoxX,
@@ -293,9 +284,6 @@ export function drawRitPestColumn(page, {
       shadowScale: 0.78,
     });
   }
-
-  const ruleY = bodyBottomY + 42;
-  drawSubtleRule(page, x + 5, ruleY, width - 10, colors);
 
   const rowX = x + 12;
   const rowW = width - 18;
