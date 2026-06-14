@@ -163,8 +163,8 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
       fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
     );
     expect(source).toContain('RIT_RED_RODENT_PEST_SET');
-    expect(source).toContain('getLabelColor');
     expect(source).toContain('TAG_RED');
+    expect(source).toContain('drawRitPestImageRow');
   });
 
   it('renders rodent & insect service description in Service Details', async () => {
@@ -309,13 +309,14 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(source).toMatch(/addonItemGap = includedItemGap \+ 2/);
   });
 
-  it('renders Covered Pests and Upgrades with five-column layout', async () => {
+  it('renders Covered Pests and Upgrades with illustrated five-column layout', async () => {
     const source = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
     );
     expect(source).not.toContain('drawInvertedBracket');
-    expect(source).toContain('drawUnderlinedLabel');
-    expect(source).toContain('drawCheckItem');
+    expect(source).toContain('embedRitPestImages');
+    expect(source).toContain('drawRitPestImageRow');
+    expect(source).toContain('drawRitAddonRow');
     expect(source).toContain('contentInsetX');
     expect(source).toContain('pestGridHeight');
 
@@ -323,6 +324,8 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
     expect(text).toContain('Add-ons');
+    expect(text).toContain('Crickets/Earwigs');
+    expect(text).toContain('Springtails/Silverfish');
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
   });
