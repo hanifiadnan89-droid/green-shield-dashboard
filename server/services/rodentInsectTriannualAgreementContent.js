@@ -18,6 +18,9 @@ export const RIT_SERVICE_DETAILS_TEXT =
 
 export const RIT_COVERED_PESTS_SECTION_TITLE = 'Covered Pests';
 
+/** Rodent pests rendered in red within the Covered Pests grid. */
+export const RIT_RED_RODENT_PESTS = ['Mice', 'Rats', 'Moles', 'Voles'];
+
 /** Row-major 4×4 grid — column A is row 1–4 col 1, etc. */
 export const RIT_INCLUDED_PESTS_COL_A = [
   'Mice',
