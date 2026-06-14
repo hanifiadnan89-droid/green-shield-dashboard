@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'fs';
+import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { truncateText, AGREEMENT_COLORS } from './pdf/agreementLayout.js';
@@ -6,56 +6,42 @@ import { truncateText, AGREEMENT_COLORS } from './pdf/agreementLayout.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const RIT_PEST_ASSETS_DIR = join(__dirname, '..', '..', 'assets', 'pests');
-export const RIT_PEST_LARGE_IMAGE_WIDTH = 78;
-export const RIT_PEST_SMALL_IMAGE_WIDTH = 19;
-export const RIT_PEST_LARGE_MAX_HEIGHT = 84;
-export const RIT_PEST_IMAGE_TEXT_GAP = 4;
+export const RIT_PEST_LARGE_IMAGE_WIDTH = 76;
+export const RIT_PEST_SMALL_IMAGE_WIDTH = 21;
+export const RIT_PEST_LARGE_MAX_HEIGHT = 78;
+export const RIT_PEST_IMAGE_TEXT_GAP = 5;
 export const RIT_PEST_ROW_GAP = 8.2;
 export const RIT_PEST_HEADING_GAP = 4.8;
 export const RIT_PEST_HEADING_SIZE = 7;
-export const RIT_PEST_LABEL_SIZE = 6.3;
+export const RIT_PEST_LABEL_SIZE = 6.5;
 export const RIT_PEST_CHECKBOX_SIZE = 6;
 
-/**
- * @typedef {object} RitPestImageBundle
- * @property {Record<string, import('pdf-lib').PDFImage>} large
- * @property {Record<string, import('pdf-lib').PDFImage>} small
- * @property {object} manifest
- */
+async function readOptionalPng(path) {
+  try {
+    return await fs.readFile(path);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
 
-/**
- * @param {import('pdf-lib').PDFDocument} pdfDoc
- * @returns {Promise<RitPestImageBundle>}
- */
 export async function embedRitPestImages(pdfDoc) {
   const manifestPath = join(RIT_PEST_ASSETS_DIR, 'manifest.json');
-  if (!existsSync(manifestPath)) {
-    throw new Error(`RIT pest manifest not found at ${manifestPath}`);
-  }
-
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const manifestRaw = await fs.readFile(manifestPath, 'utf8');
+  const manifest = JSON.parse(manifestRaw);
   const large = {};
   const small = {};
 
   for (const key of manifest.files) {
-    const largePath = join(RIT_PEST_ASSETS_DIR, 'large', `${key}.png`);
-    const smallPath = join(RIT_PEST_ASSETS_DIR, 'small', `${key}.png`);
-    if (existsSync(largePath)) {
-      large[key] = await pdfDoc.embedPng(readFileSync(largePath));
-    }
-    if (existsSync(smallPath)) {
-      small[key] = await pdfDoc.embedPng(readFileSync(smallPath));
-    }
+    const largeBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', `${key}.png`));
+    const smallBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'small', `${key}.png`));
+    if (largeBuffer) large[key] = await pdfDoc.embedPng(largeBuffer);
+    if (smallBuffer) small[key] = await pdfDoc.embedPng(smallBuffer);
   }
 
   return { large, small, manifest };
 }
 
-/**
- * @param {import('pdf-lib').PDFPage} page
- * @param {import('pdf-lib').PDFImage | undefined} image
- * @param {{ x: number, y: number, width: number }} opts
- */
 export function drawEmbeddedPestImage(page, image, { x, y, width }) {
   if (!image) return 0;
   const height = (image.height / image.width) * width;
@@ -63,11 +49,6 @@ export function drawEmbeddedPestImage(page, image, { x, y, width }) {
   return height;
 }
 
-/**
- * @param {import('pdf-lib').PDFImage} image
- * @param {number} targetWidth
- * @param {number} maxHeight
- */
 export function measureLargePestImage(image, targetWidth, maxHeight) {
   let width = targetWidth;
   let height = (image.height / image.width) * width;
@@ -78,14 +59,6 @@ export function measureLargePestImage(image, targetWidth, maxHeight) {
   return { width, height };
 }
 
-/**
- * @param {import('pdf-lib').PDFPage} page
- * @param {number} x
- * @param {number} y
- * @param {number} box
- * @param {boolean} checked
- * @param {object} colors
- */
 export function drawRitCheckbox(page, x, y, box, checked, colors = AGREEMENT_COLORS) {
   page.drawRectangle({
     x,
@@ -112,10 +85,6 @@ export function drawRitCheckbox(page, x, y, box, checked, colors = AGREEMENT_COL
   }
 }
 
-/**
- * @param {import('pdf-lib').PDFPage} page
- * @param {object} opts
- */
 export function drawRitPestRow(page, {
   x,
   y,
@@ -155,11 +124,6 @@ export function drawRitPestRow(page, {
   });
 }
 
-/**
- * Fit the large pest image within the column while preserving row text space.
- * @param {number} colWidth
- * @param {number} minTextWidth
- */
 export function computeRitLargeImageWidth(colWidth, minTextWidth = 50, showSmallIcon = true) {
   const smallIconW = showSmallIcon ? RIT_PEST_SMALL_IMAGE_WIDTH + 3 : 0;
   const rowOverhead = RIT_PEST_CHECKBOX_SIZE + 3.5 + smallIconW + 1.5;
@@ -171,11 +135,15 @@ export function computeRitLargeImageWidth(colWidth, minTextWidth = 50, showSmall
   return Math.max(48, Math.min(desired, maxByText));
 }
 
-/**
- * Draw one included-pest column: large animal image left, red heading + pest rows right.
- * @param {import('pdf-lib').PDFPage} page
- * @param {object} opts
- */
+function drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors) {
+  page.drawLine({
+    start: { x: x - 3, y: bodyBottomY + 1 },
+    end: { x: x - 3, y: bodyTopY - 1 },
+    thickness: 0.35,
+    color: colors.border,
+  });
+}
+
 export function drawRitPestColumn(page, {
   x,
   width,
@@ -190,15 +158,15 @@ export function drawRitPestColumn(page, {
 }) {
   const header = items[0];
   const pests = items.slice(1);
-  const largeKey = pestImages.manifest.headers[header] ?? pestImages.manifest.rows[header] ?? null;
+  if (header !== 'Mice') drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors);
 
-  const imageX = x;
+  const largeKey = pestImages.manifest.headers[header] ?? pestImages.manifest.rows[header] ?? null;
   const maxPestLabelW = pests.reduce(
     (max, pest) => Math.max(max, font.widthOfTextAtSize(pest, RIT_PEST_LABEL_SIZE)),
     0,
   );
   const largeImageWidth = computeRitLargeImageWidth(width, maxPestLabelW + 1.5);
-  const textBlockX = imageX + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
+  const textBlockX = x + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
   const textBlockW = width - largeImageWidth - RIT_PEST_IMAGE_TEXT_GAP;
 
   const box = RIT_PEST_CHECKBOX_SIZE;
@@ -216,16 +184,15 @@ export function drawRitPestColumn(page, {
     );
     const bodyMidY = (bodyTopY + bodyBottomY) / 2;
     drawEmbeddedPestImage(page, img, {
-      x: imageX,
+      x,
       y: bodyMidY - imgH / 2,
       width: imgW,
     });
   }
 
-  const headerText = header;
-  const headerWidth = boldFont.widthOfTextAtSize(headerText, headingSize);
+  const headerWidth = boldFont.widthOfTextAtSize(header, headingSize);
   const headerX = textBlockX + Math.max(0, (textBlockW - headerWidth) / 2);
-  page.drawText(headerText, {
+  page.drawText(header, {
     x: headerX,
     y: contentTopY - headingSize,
     size: headingSize,
@@ -250,11 +217,6 @@ export function drawRitPestColumn(page, {
   }
 }
 
-/**
- * Draw the Add-ons column: large tick left, underlined heading, optional pest row, mosquito accent.
- * @param {import('pdf-lib').PDFPage} page
- * @param {object} opts
- */
 export function drawRitAddonsColumn(page, {
   x,
   width,
@@ -267,10 +229,11 @@ export function drawRitAddonsColumn(page, {
   pestImages,
   colors = AGREEMENT_COLORS,
 }) {
-  const imageX = x;
+  drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors);
+
   const addonLabelW = font.widthOfTextAtSize(addonLabel, RIT_PEST_LABEL_SIZE);
   const largeImageWidth = computeRitLargeImageWidth(width, addonLabelW + 1.5, false);
-  const textBlockX = imageX + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
+  const textBlockX = x + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
   const textBlockW = width - largeImageWidth - RIT_PEST_IMAGE_TEXT_GAP;
 
   const box = RIT_PEST_CHECKBOX_SIZE;
@@ -278,23 +241,20 @@ export function drawRitAddonsColumn(page, {
   const labelSize = RIT_PEST_LABEL_SIZE;
   const addonGap = RIT_PEST_ROW_GAP + 2.5;
   const mosquitoKey = pestImages.manifest.addonSecondary ?? 'mosquito';
+  const mosquitoW = RIT_PEST_SMALL_IMAGE_WIDTH + 4;
   const mosquitoH = pestImages.small[mosquitoKey]
-    ? (pestImages.small[mosquitoKey].height / pestImages.small[mosquitoKey].width) * RIT_PEST_SMALL_IMAGE_WIDTH
+    ? (pestImages.small[mosquitoKey].height / pestImages.small[mosquitoKey].width) * mosquitoW
     : 0;
-  const contentH = headingSize + RIT_PEST_HEADING_GAP + addonGap + box + (mosquitoH > 0 ? mosquitoH + 2 : 0);
+  const contentH = headingSize + RIT_PEST_HEADING_GAP + addonGap + box + (mosquitoH > 0 ? mosquitoH + 1.5 : 0);
   const contentTopY = bodyTopY - (bodyTopY - bodyBottomY - contentH) / 2;
 
   const largeKey = pestImages.manifest.headers['Add-ons'] ?? 'tick';
   if (largeKey && pestImages.large[largeKey]) {
     const img = pestImages.large[largeKey];
-    const { width: imgW, height: imgH } = measureLargePestImage(
-      img,
-      largeImageWidth,
-      RIT_PEST_LARGE_MAX_HEIGHT,
-    );
+    const { width: imgW, height: imgH } = measureLargePestImage(img, Math.min(largeImageWidth, 52), 66);
     const bodyMidY = (bodyTopY + bodyBottomY) / 2;
     drawEmbeddedPestImage(page, img, {
-      x: imageX,
+      x,
       y: bodyMidY - imgH / 2,
       width: imgW,
     });
@@ -335,12 +295,11 @@ export function drawRitAddonsColumn(page, {
 
   if (pestImages.small[mosquitoKey]) {
     const img = pestImages.small[mosquitoKey];
-    const imgW = RIT_PEST_SMALL_IMAGE_WIDTH + 6;
-    const imgH = (img.height / img.width) * imgW;
+    const imgH = (img.height / img.width) * mosquitoW;
     drawEmbeddedPestImage(page, img, {
       x: textBlockX + box + 6,
       y: addonRowY - imgH - 1.5,
-      width: imgW,
+      width: mosquitoW,
     });
   }
 }
