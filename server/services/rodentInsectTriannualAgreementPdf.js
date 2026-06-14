@@ -65,10 +65,11 @@ const PAGE_W = RIT_PAGE_SIZE.width;
 const PAGE_H = RIT_PAGE_SIZE.height;
 const MARGIN_X = 18;
 const MARGIN_Y = 12;
-const GAP = 6;
+const GAP = 5;
 const GAP_AFTER_PESTS = 0;
 const SECTION_PAD = 10;
 const VALUE_SIZE = 7.5;
+const LAYOUT_BOTTOM_MARGIN = 12;
 
 const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
 const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1;
@@ -86,10 +87,10 @@ const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
 const LAYOUT_TOP_ROW_H = 90;
-const LAYOUT_PESTS_H = 90;
-const LAYOUT_MIDDLE_ROW_H = 122;
+const LAYOUT_PESTS_H = 88;
+const LAYOUT_MIDDLE_ROW_H = 118;
 const LAYOUT_PRICING_H = 76;
-const LAYOUT_AUTH_H = 80;
+const LAYOUT_AUTH_H = 76;
 const LAYOUT_SIGNATURE_H = 62;
 
 const RIT_CALENDAR_TILE_STYLE = {
@@ -686,7 +687,7 @@ function drawSignatureSection(page, data, fonts) {
 
   const fieldGap = 16;
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
-  const sigTopY = y + 17;
+  const sigTopY = y + 22;
   const fields = [
     { label: 'Customer Initials:', value: '' },
     { label: 'Customer Signature:', value: '' },
