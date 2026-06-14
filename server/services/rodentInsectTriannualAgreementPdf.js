@@ -9,6 +9,7 @@ import {
   RIT_AUTHORIZATION_TEXT,
   RIT_AUTHORIZATION_TITLE,
   RIT_COMPANY,
+  RIT_ADDON_PESTS,
   RIT_COVERED_PESTS_SECTION_TITLE,
   RIT_EXPECTATIONS_LEFT,
   RIT_EXPECTATIONS_RIGHT,
@@ -41,7 +42,6 @@ import {
   HEADER_BAR_H,
   HEADER_GREEN,
   LABEL_SIZE,
-  LABEL_TAG_HEIGHT,
   TAG_RED,
   TITLE_BUBBLE_FILL,
   bodyStartY as layoutBodyStartY,
@@ -372,27 +372,46 @@ function drawPestsSection(page, fonts) {
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
   const groupTopY = bodyStartY(y, h);
+  const bodyBottomY = y + SECTION_PAD;
   const colGap = 6;
-  const colW = (innerW - colGap * 3) / 4;
-  const col4X = innerX + innerW - colW;
-  const col3X = col4X - colGap - colW;
-  const col2X = col3X - colGap - colW;
+  const col5W = innerW * 0.14;
+  const col4W = innerW * 0.21;
+  const col3W = innerW * 0.21;
+  const col2W = innerW * 0.21;
+  const col1W = innerW - col2W - col3W - col4W - col5W - colGap * 4;
+  const col5X = innerX + innerW - col5W;
+  const col4X = col5X - colGap - col4W;
+  const col3X = col4X - colGap - col3W;
+  const col2X = col3X - colGap - col2W;
   const col1X = innerX;
 
   const includedItemGap = 6.5;
-  const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9;
+  const addonItemGap = 8;
+  const pestRowCount = 4;
+  const pestBoxHeight = 6;
+  const pestBlockHeight = (pestRowCount - 1) * includedItemGap + pestBoxHeight;
+  const checkboxStartY = groupTopY - (groupTopY - bodyBottomY - pestBlockHeight) / 2;
 
-  const columns = [
-    { x: col1X, items: RIT_INCLUDED_PESTS_COL_A },
-    { x: col2X, items: RIT_INCLUDED_PESTS_COL_B },
-    { x: col3X, items: RIT_INCLUDED_PESTS_COL_C },
-    { x: col4X, items: RIT_INCLUDED_PESTS_COL_D },
+  drawUnderlinedLabel(page, {
+    x: col5X,
+    y: groupTopY - 2,
+    text: 'Add-ons',
+    size: PEST_LABEL_SIZE,
+    font: fonts.bold,
+    color: TAG_RED,
+  });
+
+  const includedColumns = [
+    { x: col1X, width: col1W, items: RIT_INCLUDED_PESTS_COL_A },
+    { x: col2X, width: col2W, items: RIT_INCLUDED_PESTS_COL_B },
+    { x: col3X, width: col3W, items: RIT_INCLUDED_PESTS_COL_C },
+    { x: col4X, width: col4W, items: RIT_INCLUDED_PESTS_COL_D },
   ];
 
-  for (const col of columns) {
+  for (const col of includedColumns) {
     drawPestChecklistColumn(page, {
       x: col.x,
-      width: colW,
+      width: col.width,
       items: col.items,
       startY: checkboxStartY,
       itemGap: includedItemGap,
@@ -400,6 +419,16 @@ function drawPestsSection(page, fonts) {
       getLabelColor: (item) => (RIT_RED_RODENT_PEST_SET.has(item) ? TAG_RED : undefined),
     });
   }
+
+  drawPestChecklistColumn(page, {
+    x: col5X,
+    width: col5W,
+    items: RIT_ADDON_PESTS,
+    startY: checkboxStartY,
+    itemGap: addonItemGap,
+    font: fonts.bold,
+    isChecked: () => false,
+  });
 }
 
 function drawMiddleRow(page, schedule, fonts) {
