@@ -292,6 +292,23 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(source).toContain('generateAgreementSchedule');
   });
 
+  it('uses uniform (S) payment text size across all RIT service months', async () => {
+    const source = await import('fs').then((fs) =>
+      fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
+    );
+    expect(source).toContain('RIT_SERVICE_PAY_SIZE');
+    expect(source).toContain('ritCalendarTileStyleForPayment');
+    expect(source).toContain('CALENDAR_PAY_SIZE_LONG');
+  });
+
+  it('adds breathing room between Add-ons and Ticks/Mosquitoes', async () => {
+    const source = await import('fs').then((fs) =>
+      fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
+    );
+    expect(source).toContain('addonItemGap');
+    expect(source).toMatch(/addonItemGap = includedItemGap \+ 2/);
+  });
+
   it('renders Covered Pests and Upgrades with five-column layout', async () => {
     const source = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
