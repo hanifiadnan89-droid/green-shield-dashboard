@@ -91,19 +91,8 @@ const RIT_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
   paySize: CALENDAR_PAY_SIZE,
   paySizeLong: CALENDAR_PAY_SIZE_LONG,
+  uniformPriceSize: CALENDAR_PAY_SIZE,
 };
-
-/** June initial tile uses the long pay size; lock all (S) months to that same size. */
-const RIT_SERVICE_PAY_SIZE = CALENDAR_PAY_SIZE_LONG;
-
-function ritCalendarTileStyleForPayment(paymentText) {
-  if (!paymentText.includes('(S)')) return RIT_CALENDAR_TILE_STYLE;
-  return {
-    ...RIT_CALENDAR_TILE_STYLE,
-    paySize: RIT_SERVICE_PAY_SIZE,
-    paySizeLong: RIT_SERVICE_PAY_SIZE,
-  };
-}
 
 function layoutTop(...segments) {
   return MARGIN_Y + LAYOUT_HEADER_H + segments.reduce((sum, n) => sum + n, 0);
@@ -505,7 +494,7 @@ function drawMiddleRow(page, schedule, fonts) {
       h: tileH,
       font: fonts.regular,
       fontBold: fonts.bold,
-      tileStyle: ritCalendarTileStyleForPayment(paymentText),
+      tileStyle: RIT_CALENDAR_TILE_STYLE,
     });
   });
 }

@@ -503,6 +503,8 @@ export function drawWrappedText(page, text, {
  * @param {number} [tileStyle.monthSize]
  * @param {number} [tileStyle.paySize]
  * @param {number} [tileStyle.paySizeLong]
+ * @param {number} [tileStyle.uniformPriceSize] When set, price text always uses this size; (S) is drawn separately.
+ * @param {number} [tileStyle.serviceMarkerSize] Size for (S) when uniformPriceSize is set (defaults to uniformPriceSize).
  * @param {import('pdf-lib').RGB} [tileStyle.serviceMarkerColor]
  */
 export function drawPaymentTile(page, monthLabel, paymentText, {
@@ -521,7 +523,6 @@ export function drawPaymentTile(page, monthLabel, paymentText, {
   const serviceMarkerColor = tileStyle.serviceMarkerColor ?? SERVICE_MARKER_RED;
 
   page.drawRectangle({ x, y, width: w, height: h, color: colors.tileBg, borderColor: colors.border, borderWidth: 0.5 });
-  const resolvedPaySize = paymentText.length > 10 ? paySizeLong : paySize;
   const monthWidth = fontBold.widthOfTextAtSize(monthLabel, monthSize);
   page.drawText(monthLabel, {
     x: x + (w - monthWidth) / 2,
@@ -531,20 +532,53 @@ export function drawPaymentTile(page, monthLabel, paymentText, {
     color: colors.text,
   });
   if (paymentText) {
-    const clipped = truncateText(paymentText, font, resolvedPaySize, w - 4);
-    const parts = clipped.split(/(\(S\))/);
-    const totalWidth = parts.reduce((sum, part) => sum + font.widthOfTextAtSize(part, resolvedPaySize), 0);
-    let payX = x + (w - totalWidth) / 2;
-    for (const part of parts) {
-      if (!part) continue;
-      page.drawText(part, {
+    const uniformPriceSize = tileStyle.uniformPriceSize;
+    if (uniformPriceSize != null) {
+      const serviceMarker = '(S)';
+      const hasMarker = paymentText.includes(serviceMarker);
+      const priceText = hasMarker
+        ? paymentText.slice(paymentText.indexOf(serviceMarker) + serviceMarker.length)
+        : paymentText;
+      const markerSize = tileStyle.serviceMarkerSize ?? uniformPriceSize;
+      const markerWidth = hasMarker ? font.widthOfTextAtSize(serviceMarker, markerSize) : 0;
+      const clippedPrice = truncateText(priceText, font, uniformPriceSize, w - 4 - markerWidth);
+      const priceWidth = font.widthOfTextAtSize(clippedPrice, uniformPriceSize);
+      const totalWidth = markerWidth + priceWidth;
+      let payX = x + (w - totalWidth) / 2;
+      if (hasMarker) {
+        page.drawText(serviceMarker, {
+          x: payX,
+          y: y + 3,
+          size: markerSize,
+          font,
+          color: serviceMarkerColor,
+        });
+        payX += markerWidth;
+      }
+      page.drawText(clippedPrice, {
         x: payX,
         y: y + 3,
-        size: resolvedPaySize,
+        size: uniformPriceSize,
         font,
-        color: part === '(S)' ? serviceMarkerColor : colors.accent,
+        color: colors.accent,
       });
-      payX += font.widthOfTextAtSize(part, resolvedPaySize);
+    } else {
+      const resolvedPaySize = paymentText.length > 10 ? paySizeLong : paySize;
+      const clipped = truncateText(paymentText, font, resolvedPaySize, w - 4);
+      const parts = clipped.split(/(\(S\))/);
+      const totalWidth = parts.reduce((sum, part) => sum + font.widthOfTextAtSize(part, resolvedPaySize), 0);
+      let payX = x + (w - totalWidth) / 2;
+      for (const part of parts) {
+        if (!part) continue;
+        page.drawText(part, {
+          x: payX,
+          y: y + 3,
+          size: resolvedPaySize,
+          font,
+          color: part === '(S)' ? serviceMarkerColor : colors.accent,
+        });
+        payX += font.widthOfTextAtSize(part, resolvedPaySize);
+      }
     }
   }
 }
