@@ -12,8 +12,10 @@ import {
   normalizeRodentInsectTriannualAgreementData,
 } from '../rodentInsectTriannualAgreementPdf.js';
 import {
+  RIT_ADDON_PESTS,
   RIT_AUTHORIZATION_TEXT,
   RIT_COMPANY,
+  RIT_COVERED_PESTS_SECTION_TITLE,
   RIT_EXPECTATIONS_LEFT,
   RIT_EXPECTATIONS_RIGHT,
   RIT_INCLUDED_PESTS_COL_A,
@@ -106,7 +108,7 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).toContain('Service Address');
     expect(text).toContain('Customer Information');
     expect(text).toContain('Service Details');
-    expect(text).toContain('Covered Pests');
+    expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
     expect(text).toContain('Expectations / Scheduling');
     expect(text).toContain(RIT_SUBSCRIPTION_TITLE);
     expect(text).toContain('Initial Service');
@@ -135,7 +137,7 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).toContain(`License #: ${RIT_COMPANY.license}`);
   });
 
-  it('renders production pest list with separate Mice and Rats boxes', async () => {
+  it('renders production pest list with add-ons column', async () => {
     const { outBytes } = await buildRodentInsectTriannualAgreementPdf(ritSamplePayload);
     const { text } = await extractPdfText(outBytes);
     for (const pest of [
@@ -143,6 +145,7 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
       ...RIT_INCLUDED_PESTS_COL_B,
       ...RIT_INCLUDED_PESTS_COL_C,
       ...RIT_INCLUDED_PESTS_COL_D,
+      ...RIT_ADDON_PESTS,
     ]) {
       expect(text).toContain(pest);
     }
@@ -151,9 +154,8 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).not.toContain('Mice/Rats');
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
-    expect(text).not.toContain('Add-ons');
-    expect(text).not.toContain('Ticks/Mosquitoes');
-    expect(text).not.toContain('Upgrades');
+    expect(text).toContain('Add-ons');
+    expect(text).toContain('Ticks/Mosquitoes');
   });
 
   it('renders rodent pests (Mice, Rats, Moles, Voles) with red labels', async () => {
@@ -170,9 +172,12 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain(RIT_SERVICE_DETAILS_TEXT.slice(0, 40));
     expect(text).toContain('one-month visit after the initial service');
+    expect(text).toContain('ensuring long-term protection for your property.');
+    expect(text).not.toContain('from both rodents and insects');
     expect(text).not.toContain('Service Type:');
     expect(text).not.toContain('Frequency:');
     expect(text).not.toContain('Our quarterly insect treatment begins');
+    expect(RIT_SERVICE_DETAILS_TEXT.endsWith('ensuring long-term protection for your property.')).toBe(true);
   });
 
   it('renders production expectations verbatim without subheading', async () => {
@@ -287,16 +292,20 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(source).toContain('generateAgreementSchedule');
   });
 
-  it('renders Covered Pests without internal grouping lines or add-ons', async () => {
+  it('renders Covered Pests and Upgrades with five-column layout', async () => {
     const source = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
     );
     expect(source).not.toContain('drawInvertedBracket');
-    expect(source).not.toContain('Add-ons');
+    expect(source).toContain('drawUnderlinedLabel');
+    expect(source).toContain('RIT_ADDON_PESTS');
+    expect(source).toContain('contentInsetX');
+    expect(source).toContain('totalBlockHeight');
 
     const { outBytes } = await buildRodentInsectTriannualAgreementPdf(ritSamplePayload);
     const { text } = await extractPdfText(outBytes);
-    expect(text).toContain('Covered Pests');
+    expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
+    expect(text).toContain('Add-ons');
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
   });
