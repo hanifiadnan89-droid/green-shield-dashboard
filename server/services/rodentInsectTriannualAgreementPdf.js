@@ -28,6 +28,7 @@ import {
   AGREEMENT_COLORS as COLORS,
   BODY_TOP_PAD,
   drawBubblePanel,
+  drawCheckItem,
   drawCompanyLogo,
   drawPaymentTile,
   drawPestChecklistColumn,
@@ -62,7 +63,6 @@ const MARGIN_X = 18;
 const MARGIN_Y = 12;
 const GAP = 6;
 const SECTION_PAD = 10;
-const PEST_LABEL_SIZE = 6.5 * 1.15;
 const VALUE_SIZE = 7.5;
 
 const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
@@ -392,22 +392,11 @@ function drawPestsSection(page, fonts) {
   const includedItemGap = 6.5;
   const pestCheckboxH = 6;
   const pestRowCount = 4;
-  const headingToCheckboxGap = 9;
-  const headingRowHeight = PEST_LABEL_SIZE + headingToCheckboxGap;
   const pestGridHeight = (pestRowCount - 1) * includedItemGap + pestCheckboxH;
-  const totalBlockHeight = headingRowHeight + pestGridHeight;
-  const blockTopY = groupTopY - (groupTopY - bodyBottomY - totalBlockHeight) / 2;
-  const addonsHeadingY = blockTopY - 2;
-  const checkboxStartY = blockTopY - headingRowHeight;
-
-  drawUnderlinedLabel(page, {
-    x: col5X,
-    y: addonsHeadingY,
-    text: 'Add-ons',
-    size: PEST_LABEL_SIZE,
-    font: fonts.bold,
-    color: TAG_RED,
-  });
+  const blockTopY = groupTopY - (groupTopY - bodyBottomY - pestGridHeight) / 2;
+  const checkboxStartY = blockTopY;
+  const pestLabelSize = 6.5;
+  const pestLabelXOffset = 10;
 
   const includedColumns = [
     { x: col1X, width: col1W, items: RIT_INCLUDED_PESTS_COL_A },
@@ -428,14 +417,22 @@ function drawPestsSection(page, fonts) {
     });
   }
 
-  drawPestChecklistColumn(page, {
-    x: col5X,
-    width: col5W,
-    items: RIT_ADDON_PESTS,
-    startY: checkboxStartY,
-    itemGap: includedItemGap,
+  drawUnderlinedLabel(page, {
+    x: col5X + pestLabelXOffset,
+    y: checkboxStartY + 0.5,
+    text: 'Add-ons',
+    size: pestLabelSize,
     font: fonts.bold,
-    isChecked: () => false,
+    color: TAG_RED,
+  });
+
+  drawCheckItem(page, RIT_ADDON_PESTS[0], {
+    x: col5X,
+    y: checkboxStartY - includedItemGap,
+    font: fonts.bold,
+    checked: false,
+    labelSize: pestLabelSize,
+    maxWidth: col5W,
   });
 }
 
