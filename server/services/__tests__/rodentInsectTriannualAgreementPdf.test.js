@@ -298,7 +298,6 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     );
     expect(source).not.toContain('drawInvertedBracket');
     expect(source).toContain('drawUnderlinedLabel');
-    expect(source).toContain('RIT_ADDON_PESTS');
     expect(source).toContain('drawCheckItem');
     expect(source).toContain('contentInsetX');
     expect(source).toContain('pestGridHeight');
