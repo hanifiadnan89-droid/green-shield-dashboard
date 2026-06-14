@@ -12,8 +12,9 @@ export const RIT_COMPANY = {
 
 export const RIT_HEADER_CONTACT_EMAIL = 'ahanifi@gshieldpest.com';
 
-export const RIT_SERVICE_TYPE = 'RODENT & INSECT TRIANNUAL';
-export const RIT_SERVICE_FREQUENCY = 'Every 120 Days';
+/** Service Details panel — rodent & insect tri-annual treatment description. */
+export const RIT_SERVICE_DETAILS_TEXT =
+  'Our rodent and insect tri-annual treatment begins with a thorough inspection of both the interior and exterior of your property to identify entry points, nesting areas, insect activity, and conditions conducive to infestations. We will install and service professional bait stations for rodents and apply targeted treatments for general insects to eliminate existing activity and create a strong preventative barrier. Follow-up includes a one-month visit after the initial service and then every four months thereafter to monitor activity, maintain protection, and make any necessary adjustments to the treatment program. Should any concerns arise between scheduled services, our team is available to assist as needed, ensuring long-term protection for your property from both rodents and insects.';
 
 export const RIT_COVERED_PESTS_SECTION_TITLE = 'Covered Pests';
 

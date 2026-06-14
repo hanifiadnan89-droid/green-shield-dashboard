@@ -18,8 +18,7 @@ import {
   RIT_INCLUDED_PESTS_COL_C,
   RIT_INCLUDED_PESTS_COL_D,
   RIT_INITIALS_TEXT,
-  RIT_SERVICE_FREQUENCY,
-  RIT_SERVICE_TYPE,
+  RIT_SERVICE_DETAILS_TEXT,
   RIT_SUBSCRIPTION_TITLE,
   RIT_TITLE,
 } from './rodentInsectTriannualAgreementContent.js';
@@ -34,7 +33,6 @@ import {
   drawRoundedSection,
   drawSignatureField,
   drawStackedField,
-  drawStackedFields,
   drawSvgRoundedRect,
   drawTwoColumnAddressBlock,
   drawUnderlinedLabel,
@@ -299,18 +297,14 @@ function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacin
   });
 }
 
-function drawServiceDetailsBlock(page, { x, y, width, font, boldFont }) {
-  drawStackedFields(page, {
+function drawServiceDetailsBlock(page, { x, y, width, font }) {
+  drawWrappedText(page, RIT_SERVICE_DETAILS_TEXT, {
     x,
     y,
-    width,
-    fields: [
-      { label: 'Service Type:', value: RIT_SERVICE_TYPE },
-      { label: 'Frequency:', value: RIT_SERVICE_FREQUENCY },
-    ],
+    w: width,
     font,
-    boldFont,
-    fieldSpacing: 12,
+    size: 6.4,
+    lineHeight: 7.2,
   });
 }
 
@@ -357,7 +351,6 @@ function drawTopRow(page, data, fonts) {
         y: bodyStartY(y, h),
         width: innerW,
         font: fonts.regular,
-        boldFont: fonts.bold,
       });
     }
   });
