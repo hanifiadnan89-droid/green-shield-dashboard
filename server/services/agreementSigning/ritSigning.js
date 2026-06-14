@@ -1,5 +1,5 @@
 import { buildRodentInsectTriannualAgreementPdf } from '../rodentInsectTriannualAgreementPdf.js';
-import { tryRenderAgreementPreviewPng } from '../bedBugAgreementEmailPreview.js';
+import { tryRenderBedBugAgreementPreviewPng } from '../bedBugAgreementEmailPreview.js';
 import {
   buildSigningExpiryDate,
   buildSigningUrl,
@@ -80,7 +80,7 @@ export async function createRitSigningSession({
   await saveSigningSession(session);
   await saveUnsignedPdf(token, outBytes);
 
-  const preview = await tryRenderAgreementPreviewPng(outBytes);
+  const preview = await tryRenderBedBugAgreementPreviewPng(outBytes);
   if (preview.ok) {
     await savePreviewPng(token, preview.pngBuffer);
     session.hasPreview = true;

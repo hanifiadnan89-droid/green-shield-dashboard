@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX } from '../bedBugAgreementEmail.js';
+import { BED_BUG_EMAIL_PREVIEW_MAX_WIDTH_PX } from '../bedBugAgreementEmail.js';
 
 const COMPANY_FOOTER = `
           <p style="color:#555;font-size:13px">
@@ -24,13 +24,13 @@ export function buildRitSigningRequestEmailHtml({
             <img
               src="cid:quote-agreement-preview"
               alt="Agreement preview"
-              style="width:100%;max-width:${QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX}px;height:auto;display:block;border:1px solid #d9d9d9;border-radius:4px;"
+              style="width:100%;max-width:${BED_BUG_EMAIL_PREVIEW_MAX_WIDTH_PX}px;height:auto;display:block;border:1px solid #d9d9d9;border-radius:4px;"
             />
           </div>`
     : '';
 
   return `
-        <div style="font-family:Arial,sans-serif;max-width:${QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX}px;color:#1a1a1a">
+        <div style="font-family:Arial,sans-serif;max-width:${BED_BUG_EMAIL_PREVIEW_MAX_WIDTH_PX}px;color:#1a1a1a">
           <p>Hi ${firstName},</p>
           ${previewBlock}
           <p>Please review and sign ${attachmentText} using the secure link below.</p>
