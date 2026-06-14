@@ -9,6 +9,7 @@ import {
   RIT_AUTHORIZATION_TEXT,
   RIT_AUTHORIZATION_TITLE,
   RIT_COMPANY,
+  RIT_ADDON_PESTS,
   RIT_COVERED_PESTS_SECTION_TITLE,
   RIT_EXPECTATIONS_LEFT,
   RIT_EXPECTATIONS_RIGHT,
@@ -41,7 +42,6 @@ import {
   HEADER_BAR_H,
   HEADER_GREEN,
   LABEL_SIZE,
-  LABEL_TAG_HEIGHT,
   TAG_RED,
   TITLE_BUBBLE_FILL,
   bodyStartY as layoutBodyStartY,
@@ -304,9 +304,9 @@ function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacin
 
 function drawServiceDetailsBlock(page, { x, y, width, font }) {
   drawWrappedText(page, RIT_SERVICE_DETAILS_TEXT, {
-    x,
+    x: x + 2,
     y,
-    w: width,
+    w: width - 4,
     font,
     size: 6.4,
     lineHeight: 7.2,
@@ -372,27 +372,54 @@ function drawPestsSection(page, fonts) {
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
   const groupTopY = bodyStartY(y, h);
+  const bodyBottomY = y + SECTION_PAD;
+
+  const contentInsetX = 4;
+  const layoutX = innerX + contentInsetX;
+  const layoutW = innerW - contentInsetX * 2;
   const colGap = 6;
-  const colW = (innerW - colGap * 3) / 4;
-  const col4X = innerX + innerW - colW;
-  const col3X = col4X - colGap - colW;
-  const col2X = col3X - colGap - colW;
-  const col1X = innerX;
+  const col5W = Math.max(layoutW * 0.16, 92);
+  const col4W = layoutW * 0.20;
+  const col3W = layoutW * 0.20;
+  const col2W = layoutW * 0.20;
+  const col1W = layoutW - col2W - col3W - col4W - col5W - colGap * 4;
+  const col5X = layoutX + layoutW - col5W;
+  const col4X = col5X - colGap - col4W;
+  const col3X = col4X - colGap - col3W;
+  const col2X = col3X - colGap - col2W;
+  const col1X = layoutX;
 
   const includedItemGap = 6.5;
-  const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9;
+  const pestCheckboxH = 6;
+  const pestRowCount = 4;
+  const headingToCheckboxGap = 9;
+  const headingRowHeight = PEST_LABEL_SIZE + headingToCheckboxGap;
+  const pestGridHeight = (pestRowCount - 1) * includedItemGap + pestCheckboxH;
+  const totalBlockHeight = headingRowHeight + pestGridHeight;
+  const blockTopY = groupTopY - (groupTopY - bodyBottomY - totalBlockHeight) / 2;
+  const addonsHeadingY = blockTopY - 2;
+  const checkboxStartY = blockTopY - headingRowHeight;
 
-  const columns = [
-    { x: col1X, items: RIT_INCLUDED_PESTS_COL_A },
-    { x: col2X, items: RIT_INCLUDED_PESTS_COL_B },
-    { x: col3X, items: RIT_INCLUDED_PESTS_COL_C },
-    { x: col4X, items: RIT_INCLUDED_PESTS_COL_D },
+  drawUnderlinedLabel(page, {
+    x: col5X,
+    y: addonsHeadingY,
+    text: 'Add-ons',
+    size: PEST_LABEL_SIZE,
+    font: fonts.bold,
+    color: TAG_RED,
+  });
+
+  const includedColumns = [
+    { x: col1X, width: col1W, items: RIT_INCLUDED_PESTS_COL_A },
+    { x: col2X, width: col2W, items: RIT_INCLUDED_PESTS_COL_B },
+    { x: col3X, width: col3W, items: RIT_INCLUDED_PESTS_COL_C },
+    { x: col4X, width: col4W, items: RIT_INCLUDED_PESTS_COL_D },
   ];
 
-  for (const col of columns) {
+  for (const col of includedColumns) {
     drawPestChecklistColumn(page, {
       x: col.x,
-      width: colW,
+      width: col.width,
       items: col.items,
       startY: checkboxStartY,
       itemGap: includedItemGap,
@@ -400,6 +427,16 @@ function drawPestsSection(page, fonts) {
       getLabelColor: (item) => (RIT_RED_RODENT_PEST_SET.has(item) ? TAG_RED : undefined),
     });
   }
+
+  drawPestChecklistColumn(page, {
+    x: col5X,
+    width: col5W,
+    items: RIT_ADDON_PESTS,
+    startY: checkboxStartY,
+    itemGap: includedItemGap,
+    font: fonts.bold,
+    isChecked: () => false,
+  });
 }
 
 function drawMiddleRow(page, schedule, fonts) {
