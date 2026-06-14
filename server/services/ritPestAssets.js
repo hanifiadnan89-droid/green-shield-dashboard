@@ -7,17 +7,18 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const RIT_PEST_ASSETS_DIR = join(__dirname, '..', '..', 'assets', 'pests');
 
-// Tuned against the approved reference image: smaller large cutout boxes bring
-// the pest rows left, while larger row icons/text make the section read like
-// the target instead of looking like small icons pasted onto a form.
-export const RIT_PEST_LARGE_IMAGE_WIDTH = 68;
-export const RIT_PEST_SMALL_IMAGE_WIDTH = 22;
-export const RIT_PEST_LARGE_MAX_HEIGHT = 74;
+// Keep the animal cutouts visible while giving the pest rows enough text space.
+// Row icons are rendered from the high-resolution large assets when available
+// and scaled down in the PDF, which produces a cleaner result than enlarging
+// the small thumbnails.
+export const RIT_PEST_LARGE_IMAGE_WIDTH = 56;
+export const RIT_PEST_SMALL_IMAGE_WIDTH = 18;
+export const RIT_PEST_LARGE_MAX_HEIGHT = 60;
 export const RIT_PEST_IMAGE_TEXT_GAP = 4;
-export const RIT_PEST_ROW_GAP = 8.4;
+export const RIT_PEST_ROW_GAP = 8.3;
 export const RIT_PEST_HEADING_GAP = 5;
-export const RIT_PEST_HEADING_SIZE = 7.4;
-export const RIT_PEST_LABEL_SIZE = 7;
+export const RIT_PEST_HEADING_SIZE = 7.3;
+export const RIT_PEST_LABEL_SIZE = 6.1;
 export const RIT_PEST_CHECKBOX_SIZE = 7;
 
 async function readOptionalPng(path) {
@@ -65,31 +66,42 @@ export function measureLargePestImage(image, targetWidth, maxHeight) {
 
 export function drawRitCheckbox(page, x, y, box, checked, colors = AGREEMENT_COLORS) {
   if (!checked) {
-    page.drawRectangle({
-      x,
-      y: y + 0.2,
-      width: box - 1,
-      height: box - 1,
-      borderColor: colors.accent,
-      borderWidth: 0.8,
-      color: colors.white,
-    });
+    drawRitXMark(page, x + 0.3, y + 0.3, box - 0.6, colors.danger ?? colors.red ?? colors.accent);
     return;
   }
 
-  // Target reference uses simple green checkmarks, not filled square boxes.
   page.drawLine({
     start: { x: x + 1.1, y: y + 3.2 },
     end: { x: x + 2.8, y: y + 1.4 },
-    thickness: 1.15,
+    thickness: 1.1,
     color: colors.accent,
   });
   page.drawLine({
     start: { x: x + 2.8, y: y + 1.4 },
     end: { x: x + 6.2, y: y + 6.1 },
-    thickness: 1.15,
+    thickness: 1.1,
     color: colors.accent,
   });
+}
+
+export function drawRitXMark(page, x, y, size, color) {
+  page.drawLine({
+    start: { x, y },
+    end: { x: x + size, y: y + size },
+    thickness: 1,
+    color,
+  });
+  page.drawLine({
+    start: { x, y: y + size },
+    end: { x: x + size, y },
+    thickness: 1,
+    color,
+  });
+}
+
+function getBestRowImage(pestImages, assetKey) {
+  if (!assetKey) return null;
+  return pestImages.large?.[assetKey] ?? pestImages.small?.[assetKey] ?? null;
 }
 
 export function drawRitPestRow(page, {
@@ -108,38 +120,33 @@ export function drawRitPestRow(page, {
   const box = RIT_PEST_CHECKBOX_SIZE;
   drawRitCheckbox(page, x, y, box, checked, colors);
 
-  let textX = x + box + 4;
-  if (showSmallIcon && assetKey && pestImages.small[assetKey]) {
-    const img = pestImages.small[assetKey];
-    const imgW = RIT_PEST_SMALL_IMAGE_WIDTH;
-    const imgH = (img.height / img.width) * imgW;
-    drawEmbeddedPestImage(page, img, {
-      x: textX,
-      y: y + (box - imgH) / 2,
-      width: imgW,
-    });
-    textX += imgW + 4;
+  let textX = x + box + 3.5;
+  if (showSmallIcon) {
+    const img = getBestRowImage(pestImages, assetKey);
+    if (img) {
+      const imgW = RIT_PEST_SMALL_IMAGE_WIDTH;
+      const imgH = (img.height / img.width) * imgW;
+      drawEmbeddedPestImage(page, img, {
+        x: textX,
+        y: y + (box - imgH) / 2,
+        width: imgW,
+      });
+      textX += imgW + 3.2;
+    }
   }
 
-  const labelText = truncateText(label, font, labelSize, width - (textX - x) - 1.5);
+  const labelText = truncateText(label, font, labelSize, width - (textX - x) - 1);
   page.drawText(labelText, {
     x: textX,
-    y: y + 0.4,
+    y: y + 0.5,
     size: labelSize,
     font,
     color: colors.text,
   });
 }
 
-export function computeRitLargeImageWidth(colWidth, minTextWidth = 50, showSmallIcon = true) {
-  const smallIconW = showSmallIcon ? RIT_PEST_SMALL_IMAGE_WIDTH + 4 : 0;
-  const rowOverhead = RIT_PEST_CHECKBOX_SIZE + 4 + smallIconW + 1.5;
-  const desired = Math.min(
-    RIT_PEST_LARGE_IMAGE_WIDTH,
-    Math.max(54, colWidth * (showSmallIcon ? 0.36 : 0.42)),
-  );
-  const maxByText = colWidth - RIT_PEST_IMAGE_TEXT_GAP - rowOverhead - minTextWidth;
-  return Math.max(50, Math.min(desired, maxByText));
+export function computeRitLargeImageWidth(colWidth) {
+  return Math.max(48, Math.min(RIT_PEST_LARGE_IMAGE_WIDTH, colWidth * 0.42));
 }
 
 function drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors) {
@@ -168,19 +175,19 @@ export function drawRitPestColumn(page, {
   if (header !== 'Mice') drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors);
 
   const largeKey = pestImages.manifest.headers[header] ?? pestImages.manifest.rows[header] ?? null;
-  const maxPestLabelW = pests.reduce(
-    (max, pest) => Math.max(max, font.widthOfTextAtSize(pest, RIT_PEST_LABEL_SIZE)),
-    0,
-  );
-  const largeImageWidth = computeRitLargeImageWidth(width, maxPestLabelW + 1.5);
-  const textBlockX = x + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
-  const textBlockW = width - largeImageWidth - RIT_PEST_IMAGE_TEXT_GAP;
+  const largeImageWidth = computeRitLargeImageWidth(width);
+  const animalX = x + 5;
+  const animalTopY = bodyTopY - 30;
 
-  const box = RIT_PEST_CHECKBOX_SIZE;
-  const headingSize = RIT_PEST_HEADING_SIZE;
-  const pestsBlockH = pests.length * box + Math.max(0, pests.length - 1) * RIT_PEST_ROW_GAP;
-  const contentH = headingSize + RIT_PEST_HEADING_GAP + pestsBlockH;
-  const contentTopY = bodyTopY - (bodyTopY - bodyBottomY - contentH) / 2 + 1;
+  const headerWidth = boldFont.widthOfTextAtSize(header, RIT_PEST_HEADING_SIZE);
+  const headerX = animalX + Math.max(0, (largeImageWidth - headerWidth) / 2);
+  page.drawText(header, {
+    x: headerX,
+    y: bodyTopY - 18,
+    size: RIT_PEST_HEADING_SIZE,
+    font: boldFont,
+    color: headerColor,
+  });
 
   if (largeKey && pestImages.large[largeKey]) {
     const img = pestImages.large[largeKey];
@@ -189,38 +196,29 @@ export function drawRitPestColumn(page, {
       largeImageWidth,
       RIT_PEST_LARGE_MAX_HEIGHT,
     );
-    const bodyMidY = (bodyTopY + bodyBottomY) / 2;
     drawEmbeddedPestImage(page, img, {
-      x,
-      y: bodyMidY - imgH / 2,
+      x: animalX + (largeImageWidth - imgW) / 2,
+      y: animalTopY - imgH,
       width: imgW,
     });
   }
 
-  const headerWidth = boldFont.widthOfTextAtSize(header, headingSize);
-  const headerX = textBlockX + Math.max(0, (textBlockW - headerWidth) / 2);
-  page.drawText(header, {
-    x: headerX,
-    y: contentTopY - headingSize,
-    size: headingSize,
-    font: boldFont,
-    color: headerColor,
-  });
+  const rowX = x + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP + 5;
+  const rowW = width - (rowX - x) - 1;
+  let rowY = bodyTopY - 43;
 
-  let rowY = contentTopY - headingSize - RIT_PEST_HEADING_GAP;
   for (const pest of pests) {
-    rowY -= box;
     drawRitPestRow(page, {
-      x: textBlockX,
+      x: rowX,
       y: rowY,
-      width: textBlockW,
+      width: rowW,
       label: pest,
       font,
       assetKey: getRitPestAssetKey(pestImages, pest),
       pestImages,
       colors,
     });
-    rowY -= RIT_PEST_ROW_GAP;
+    rowY -= RIT_PEST_ROW_GAP + RIT_PEST_CHECKBOX_SIZE;
   }
 }
 
@@ -229,7 +227,6 @@ export function drawRitAddonsColumn(page, {
   width,
   bodyTopY,
   bodyBottomY,
-  addonLabel,
   headerColor,
   font,
   boldFont,
@@ -238,43 +235,14 @@ export function drawRitAddonsColumn(page, {
 }) {
   drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors);
 
-  const addonLabelW = font.widthOfTextAtSize(addonLabel, RIT_PEST_LABEL_SIZE);
-  const largeImageWidth = computeRitLargeImageWidth(width, addonLabelW + 1.5, false);
-  const textBlockX = x + largeImageWidth + RIT_PEST_IMAGE_TEXT_GAP;
-  const textBlockW = width - largeImageWidth - RIT_PEST_IMAGE_TEXT_GAP;
-
-  const box = RIT_PEST_CHECKBOX_SIZE;
-  const headingSize = RIT_PEST_HEADING_SIZE;
-  const labelSize = RIT_PEST_LABEL_SIZE;
-  const addonGap = RIT_PEST_ROW_GAP + 2.5;
-  const mosquitoKey = pestImages.manifest.addonSecondary ?? 'mosquito';
-  const mosquitoW = RIT_PEST_SMALL_IMAGE_WIDTH + 4;
-  const mosquitoH = pestImages.small[mosquitoKey]
-    ? (pestImages.small[mosquitoKey].height / pestImages.small[mosquitoKey].width) * mosquitoW
-    : 0;
-  const contentH = headingSize + RIT_PEST_HEADING_GAP + addonGap + box + (mosquitoH > 0 ? mosquitoH + 1.5 : 0);
-  const contentTopY = bodyTopY - (bodyTopY - bodyBottomY - contentH) / 2 + 1;
-
-  const largeKey = pestImages.manifest.headers['Add-ons'] ?? 'tick';
-  if (largeKey && pestImages.large[largeKey]) {
-    const img = pestImages.large[largeKey];
-    const { width: imgW, height: imgH } = measureLargePestImage(img, Math.min(largeImageWidth, 48), 60);
-    const bodyMidY = (bodyTopY + bodyBottomY) / 2;
-    drawEmbeddedPestImage(page, img, {
-      x,
-      y: bodyMidY - imgH / 2,
-      width: imgW,
-    });
-  }
-
   const headerText = 'Add-ons';
-  const headerWidth = boldFont.widthOfTextAtSize(headerText, headingSize);
-  const headerX = textBlockX + Math.max(0, (textBlockW - headerWidth) / 2);
-  const headerY = contentTopY - headingSize;
+  const headerWidth = boldFont.widthOfTextAtSize(headerText, RIT_PEST_HEADING_SIZE);
+  const headerX = x + Math.max(0, (width - headerWidth) / 2);
+  const headerY = bodyTopY - 18;
   page.drawText(headerText, {
     x: headerX,
     y: headerY,
-    size: headingSize,
+    size: RIT_PEST_HEADING_SIZE,
     font: boldFont,
     color: headerColor,
   });
@@ -285,29 +253,29 @@ export function drawRitAddonsColumn(page, {
     color: headerColor,
   });
 
-  const addonRowY = headerY - RIT_PEST_HEADING_GAP - addonGap - box;
-  drawRitPestRow(page, {
-    x: textBlockX,
-    y: addonRowY,
-    width: textBlockW,
-    label: addonLabel,
-    font,
-    assetKey: getRitPestAssetKey(pestImages, addonLabel),
-    pestImages,
-    checked: false,
-    labelSize,
-    colors,
-    showSmallIcon: false,
-  });
+  const rows = [
+    { label: 'Ticks', assetKey: 'tick' },
+    { label: 'Mosquitoes', assetKey: pestImages.manifest.addonSecondary ?? 'mosquito' },
+  ];
+  const rowX = x + Math.max(10, width * 0.28);
+  const rowW = width - (rowX - x) - 3;
+  let rowY = bodyTopY - 48;
 
-  if (pestImages.small[mosquitoKey]) {
-    const img = pestImages.small[mosquitoKey];
-    const imgH = (img.height / img.width) * mosquitoW;
-    drawEmbeddedPestImage(page, img, {
-      x: textBlockX + box + 6,
-      y: addonRowY - imgH - 1.5,
-      width: mosquitoW,
+  for (const row of rows) {
+    drawRitPestRow(page, {
+      x: rowX,
+      y: rowY,
+      width: rowW,
+      label: row.label,
+      font,
+      assetKey: row.assetKey,
+      pestImages,
+      checked: false,
+      labelSize: RIT_PEST_LABEL_SIZE,
+      colors,
+      showSmallIcon: true,
     });
+    rowY -= RIT_PEST_ROW_GAP + RIT_PEST_CHECKBOX_SIZE + 4;
   }
 }
 
