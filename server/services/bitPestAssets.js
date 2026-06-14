@@ -1,14 +1,12 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { rgb } from 'pdf-lib';
+import { PDFBool, PDFName, rgb } from 'pdf-lib';
 import {
   drawRitCheckbox,
-  drawRitPestRow,
   RIT_PEST_HEADING_SIZE,
   RIT_PEST_LABEL_SIZE,
   RIT_PEST_CHECKBOX_SIZE,
   RIT_PEST_ROW_GAP,
-  RIT_PEST_SMALL_IMAGE_WIDTH,
   RIT_PEST_ASSETS_DIR,
 } from './ritPestAssets.js';
 import {
@@ -17,11 +15,13 @@ import {
   BIT_INCLUDED_PESTS_COL_B,
   BIT_INCLUDED_PESTS_COL_C,
 } from './bedBugInsectTriannualAgreementContent.js';
-import { AGREEMENT_COLORS, drawUnderlinedLabel } from './pdf/agreementLayout.js';
+import { AGREEMENT_COLORS, drawUnderlinedLabel, truncateText } from './pdf/agreementLayout.js';
 
 const TAG_RED = rgb(185 / 255, 28 / 255, 28 / 255);
 const BED_BUG_VECTOR = rgb(0, 0, 0);
 const SHADOW = rgb(115 / 255, 115 / 255, 115 / 255);
+/** Row icon draw size (pt). Source PNGs are 96px wide for sharp downscaling. */
+const BIT_ROW_ICON_PT = 22;
 
 async function readOptionalPng(path) {
   try {
@@ -30,6 +30,23 @@ async function readOptionalPng(path) {
     if (error && error.code === 'ENOENT') return null;
     throw error;
   }
+}
+
+function enableImageInterpolation(pdfDoc, image) {
+  try {
+    const imageDict = pdfDoc.context.lookup(image.ref);
+    if (imageDict?.set) {
+      imageDict.set(PDFName.of('Interpolate'), PDFBool.True);
+    }
+  } catch {
+    // non-fatal
+  }
+  return image;
+}
+
+async function embedPng(pdfDoc, buffer) {
+  if (!buffer) return null;
+  return enableImageInterpolation(pdfDoc, await pdfDoc.embedPng(buffer));
 }
 
 function measureImageFit(image, maxWidth, maxHeight) {
@@ -100,49 +117,84 @@ function collectBitRowAssetKeys() {
 
 function getBitRowImage(pestImages, assetKey) {
   if (!assetKey) return null;
-  return pestImages.small?.[assetKey] ?? pestImages.large?.[assetKey] ?? null;
+  return pestImages.row?.[assetKey] ?? pestImages.large?.[assetKey] ?? null;
 }
 
-/** Embed only the pest PNGs used by the BIT layout (small row icons + large bedbug hero). */
+const ROW_ICON_ALIASES = {
+  'silver-fish': ['silver-fish', 'silverfish'],
+};
+
+async function readRowIconBuffer(key) {
+  const candidates = ROW_ICON_ALIASES[key] ?? [key];
+  for (const candidate of candidates) {
+    const smallBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'small', `${candidate}.png`));
+    if (smallBuffer) return smallBuffer;
+  }
+  for (const candidate of candidates) {
+    const largeBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', `${candidate}.png`));
+    if (largeBuffer) return largeBuffer;
+  }
+  return null;
+}
+
+/** Embed row icons (96px small PNGs) + full-res bedbug hero. */
 export async function embedBitPestImages(pdfDoc) {
   const large = {};
-  const small = {};
+  const row = {};
 
   for (const key of collectBitRowAssetKeys()) {
-    const smallBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'small', `${key}.png`));
-    if (smallBuffer) {
-      small[key] = await pdfDoc.embedPng(smallBuffer);
-      continue;
-    }
-    const largeBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', `${key}.png`));
-    if (largeBuffer) {
-      large[key] = await pdfDoc.embedPng(largeBuffer);
-    }
+    const buffer = await readRowIconBuffer(key);
+    const embedded = await embedPng(pdfDoc, buffer);
+    if (embedded) row[key] = embedded;
   }
 
   const bedbugBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', 'bedbug.png'));
-  if (bedbugBuffer) {
-    large.bedbug = await pdfDoc.embedPng(bedbugBuffer);
-  }
+  const bedbugImage = await embedPng(pdfDoc, bedbugBuffer);
+  if (bedbugImage) large.bedbug = bedbugImage;
 
   return {
     large,
-    small,
+    small: row,
+    row,
     bedBugKey: large.bedbug ? 'bedbug' : null,
   };
 }
 
-function drawBitPestRow(page, options) {
-  const { assetKey, pestImages, ...rest } = options;
+function drawBitPestRow(page, {
+  x,
+  y,
+  width,
+  label,
+  font,
+  assetKey,
+  pestImages,
+  checked = true,
+  colors = AGREEMENT_COLORS,
+}) {
+  const box = RIT_PEST_CHECKBOX_SIZE;
+  drawRitCheckbox(page, x, y, box, checked, colors);
+
+  let textX = x + box + 4;
   const img = getBitRowImage(pestImages, assetKey);
-  drawRitPestRow(page, {
-    ...rest,
-    assetKey,
-    pestImages: {
-      ...pestImages,
-      large: img ? { [assetKey]: img } : {},
-      small: img ? { [assetKey]: img } : {},
-    },
+  if (img) {
+    drawImageFit(page, img, {
+      x: textX,
+      y: y - 5,
+      width: BIT_ROW_ICON_PT,
+      height: BIT_ROW_ICON_PT,
+      shadow: true,
+      shadowScale: 0.52,
+    });
+    textX += BIT_ROW_ICON_PT + 4;
+  }
+
+  const labelText = truncateText(label, font, RIT_PEST_LABEL_SIZE, width - (textX - x) - 1);
+  page.drawText(labelText, {
+    x: textX,
+    y: y + 0.35,
+    size: RIT_PEST_LABEL_SIZE,
+    font,
+    color: colors.text,
   });
 }
 
@@ -198,8 +250,8 @@ export function drawBitMainPestColumn(page, {
     color: TAG_RED,
   });
 
-  const imageBoxW = width - 10;
-  const imageBoxH = Math.min(52, (bodyTopY - bodyBottomY) * 0.48);
+  const imageBoxW = width - 6;
+  const imageBoxH = Math.min(58, (bodyTopY - bodyBottomY) * 0.52);
   const imageBoxX = x + (width - imageBoxW) / 2;
   const imageBoxY = bodyBottomY + 38;
 
