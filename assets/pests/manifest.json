@@ -1,0 +1,52 @@
+{
+  "largeWidth": 78,
+  "smallWidth": 19,
+  "largeMaxHeight": 84,
+  "headers": {
+    "Mice": "mice",
+    "Rats": "rats",
+    "Moles": "moles",
+    "Voles": "voles",
+    "Add-ons": "tick"
+  },
+  "rows": {
+    "Mice": "mice",
+    "Carpenter Ants": "carpenter-ant",
+    "Carpenter Bees": "carpenter-bee",
+    "Cockroaches": "cockroach",
+    "Rats": "rats",
+    "Odorous Ants": "odorous-ant",
+    "Fleas": "flea",
+    "Centi/Millipedes": "centipede",
+    "Moles": "moles",
+    "Pavement Ants": "pavement-ant",
+    "Spiders": "spider",
+    "Crickets/Earwigs": "cricket",
+    "Voles": "voles",
+    "Wasps": "wasp",
+    "Fall Invaders": "lady-beetle",
+    "Springtails/Silverfish": "silverfish",
+    "Ticks/Mosquitoes": "tick"
+  },
+  "addonSecondary": "mosquito",
+  "files": [
+    "carpenter-ant",
+    "carpenter-bee",
+    "centipede",
+    "cockroach",
+    "cricket",
+    "flea",
+    "lady-beetle",
+    "mice",
+    "moles",
+    "mosquito",
+    "odorous-ant",
+    "pavement-ant",
+    "rats",
+    "silverfish",
+    "spider",
+    "tick",
+    "voles",
+    "wasp"
+  ]
+}

@@ -44,7 +44,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 </script></body></html>`;
 
 const browser = await chromium.launch();
-const page = await browser.newPage();
+const page = await browser.newPage({ viewport: { width: 1700, height: 1300 } });
 await page.setContent(html, { waitUntil: 'networkidle' });
 await page.waitForFunction(() => window.__done === true, { timeout: 60000 });
 await page.screenshot({ path: outPath, fullPage: true });

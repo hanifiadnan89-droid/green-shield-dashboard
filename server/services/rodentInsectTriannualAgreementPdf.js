@@ -19,19 +19,21 @@ import {
   RIT_INCLUDED_PESTS_COL_C,
   RIT_INCLUDED_PESTS_COL_D,
   RIT_INITIALS_TEXT,
-  RIT_RED_RODENT_PESTS,
   RIT_SERVICE_DETAILS_TEXT,
   RIT_SUBSCRIPTION_TITLE,
   RIT_TITLE,
 } from './rodentInsectTriannualAgreementContent.js';
 import {
+  embedRitPestImages,
+  drawRitAddonsColumn,
+  drawRitPestColumn,
+} from './ritPestAssets.js';
+import {
   AGREEMENT_COLORS as COLORS,
   BODY_TOP_PAD,
   drawBubblePanel,
-  drawCheckItem,
   drawCompanyLogo,
   drawPaymentTile,
-  drawPestChecklistColumn,
   drawPriceRows,
   drawRoundedSection,
   drawSignatureField,
@@ -49,8 +51,6 @@ import {
   yFromTop as layoutYFromTop,
 } from './pdf/agreementLayout.js';
 
-const RIT_RED_RODENT_PEST_SET = new Set(RIT_RED_RODENT_PESTS);
-
 const AGREEMENT_TYPE = 'rodent_insect_triannual';
 
 
@@ -61,9 +61,11 @@ const PAGE_W = RIT_PAGE_SIZE.width;
 const PAGE_H = RIT_PAGE_SIZE.height;
 const MARGIN_X = 18;
 const MARGIN_Y = 12;
-const GAP = 6;
+const GAP = 5;
+const GAP_AFTER_PESTS = 0;
 const SECTION_PAD = 10;
 const VALUE_SIZE = 7.5;
+const LAYOUT_BOTTOM_MARGIN = 12;
 
 const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
 const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1;
@@ -81,11 +83,11 @@ const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
 const LAYOUT_TOP_ROW_H = 90;
-const LAYOUT_PESTS_H = 68;
-const LAYOUT_MIDDLE_ROW_H = 122;
+const LAYOUT_PESTS_H = 110;
+const LAYOUT_MIDDLE_ROW_H = 110;
 const LAYOUT_PRICING_H = 76;
-const LAYOUT_AUTH_H = 80;
-const LAYOUT_SIGNATURE_H = 62;
+const LAYOUT_AUTH_H = 72;
+const LAYOUT_SIGNATURE_H = 60;
 
 const RIT_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
@@ -362,7 +364,7 @@ function drawTopRow(page, data, fonts) {
   });
 }
 
-function drawPestsSection(page, fonts) {
+function drawPestsSection(page, fonts, pestImages) {
   const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP);
   const h = LAYOUT_PESTS_H;
   const w = PAGE_W - MARGIN_X * 2;
@@ -372,32 +374,23 @@ function drawPestsSection(page, fonts) {
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
-  const groupTopY = bodyStartY(y, h);
+  const bodyTopY = bodyStartY(y, h);
   const bodyBottomY = y + SECTION_PAD;
 
   const contentInsetX = 4;
   const layoutX = innerX + contentInsetX;
   const layoutW = innerW - contentInsetX * 2;
   const colGap = 6;
-  const col5W = Math.max(layoutW * 0.16, 92);
-  const col4W = layoutW * 0.20;
-  const col3W = layoutW * 0.20;
-  const col2W = layoutW * 0.20;
+  const col5W = Math.max(layoutW * 0.17, 132);
+  const col4W = layoutW * 0.22;
+  const col3W = layoutW * 0.19;
+  const col2W = layoutW * 0.19;
   const col1W = layoutW - col2W - col3W - col4W - col5W - colGap * 4;
   const col5X = layoutX + layoutW - col5W;
   const col4X = col5X - colGap - col4W;
   const col3X = col4X - colGap - col3W;
   const col2X = col3X - colGap - col2W;
   const col1X = layoutX;
-
-  const includedItemGap = 6.5;
-  const pestCheckboxH = 6;
-  const pestRowCount = 4;
-  const pestGridHeight = (pestRowCount - 1) * includedItemGap + pestCheckboxH;
-  const blockTopY = groupTopY - (groupTopY - bodyBottomY - pestGridHeight) / 2;
-  const checkboxStartY = blockTopY;
-  const pestLabelSize = 6.5;
-  const pestLabelXOffset = 10;
 
   const includedColumns = [
     { x: col1X, width: col1W, items: RIT_INCLUDED_PESTS_COL_A },
@@ -407,39 +400,34 @@ function drawPestsSection(page, fonts) {
   ];
 
   for (const col of includedColumns) {
-    drawPestChecklistColumn(page, {
+    drawRitPestColumn(page, {
       x: col.x,
       width: col.width,
+      bodyTopY,
+      bodyBottomY,
       items: col.items,
-      startY: checkboxStartY,
-      itemGap: includedItemGap,
-      font: fonts.bold,
-      getLabelColor: (item) => (RIT_RED_RODENT_PEST_SET.has(item) ? TAG_RED : undefined),
+      headerColor: TAG_RED,
+      font: fonts.regular,
+      boldFont: fonts.bold,
+      pestImages,
     });
   }
 
-  drawUnderlinedLabel(page, {
-    x: col5X + pestLabelXOffset,
-    y: checkboxStartY + 0.5,
-    text: 'Add-ons',
-    size: pestLabelSize,
-    font: fonts.bold,
-    color: TAG_RED,
-  });
-
-  const addonItemGap = includedItemGap + 2;
-  drawCheckItem(page, RIT_ADDON_PESTS[0], {
+  drawRitAddonsColumn(page, {
     x: col5X,
-    y: checkboxStartY - addonItemGap,
-    font: fonts.bold,
-    checked: false,
-    labelSize: pestLabelSize,
-    maxWidth: col5W,
+    width: col5W,
+    bodyTopY,
+    bodyBottomY,
+    addonLabel: RIT_ADDON_PESTS[0],
+    headerColor: TAG_RED,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    pestImages,
   });
 }
 
 function drawMiddleRow(page, schedule, fonts) {
-  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP);
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP_AFTER_PESTS);
   const h = LAYOUT_MIDDLE_ROW_H;
   const w = PAGE_W - MARGIN_X * 2;
   const leftW = w * 0.48;
@@ -549,7 +537,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
 }
 
 function drawPricingRow(page, data, fonts) {
-  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP, LAYOUT_MIDDLE_ROW_H, GAP);
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP_AFTER_PESTS, LAYOUT_MIDDLE_ROW_H, GAP);
   const h = LAYOUT_PRICING_H;
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
@@ -606,7 +594,7 @@ function drawPricingRow(page, data, fonts) {
 }
 
 function drawAuthorizationSection(page, fonts) {
-  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP, LAYOUT_MIDDLE_ROW_H, GAP, LAYOUT_PRICING_H, GAP);
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP_AFTER_PESTS, LAYOUT_MIDDLE_ROW_H, GAP, LAYOUT_PRICING_H, GAP);
   const h = LAYOUT_AUTH_H;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
@@ -628,7 +616,7 @@ function drawSignatureSection(page, data, fonts) {
     LAYOUT_TOP_ROW_H,
     GAP,
     LAYOUT_PESTS_H,
-    GAP,
+    GAP_AFTER_PESTS,
     LAYOUT_MIDDLE_ROW_H,
     GAP,
     LAYOUT_PRICING_H,
@@ -666,7 +654,7 @@ function drawSignatureSection(page, data, fonts) {
 
   const fieldGap = 16;
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
-  const sigTopY = y + 17;
+  const sigTopY = y + 22;
   const fields = [
     { label: 'Customer Initials:', value: '' },
     { label: 'Customer Signature:', value: '' },
@@ -711,9 +699,11 @@ export async function buildRodentInsectTriannualAgreementPdf(input = {}) {
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const fonts = { regular: font, bold: fontBold };
 
+  const pestImages = await embedRitPestImages(pdfDoc);
+
   await drawHeader(pdfDoc, page, fonts);
   drawTopRow(page, data, fonts);
-  drawPestsSection(page, fonts);
+  drawPestsSection(page, fonts, pestImages);
   drawMiddleRow(page, schedule, fonts);
   drawPricingRow(page, data, fonts);
   drawAuthorizationSection(page, fonts);

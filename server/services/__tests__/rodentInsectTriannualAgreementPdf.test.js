@@ -162,9 +162,9 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     const source = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
     );
-    expect(source).toContain('RIT_RED_RODENT_PEST_SET');
-    expect(source).toContain('getLabelColor');
     expect(source).toContain('TAG_RED');
+    expect(source).toContain('drawRitPestColumn');
+    expect(source).toContain('headerColor: TAG_RED');
   });
 
   it('renders rodent & insect service description in Service Details', async () => {
@@ -303,26 +303,35 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
 
   it('adds breathing room between Add-ons and Ticks/Mosquitoes', async () => {
     const source = await import('fs').then((fs) =>
-      fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
+      fs.readFileSync(join(__dirname, '..', 'ritPestAssets.js'), 'utf8'),
     );
-    expect(source).toContain('addonItemGap');
-    expect(source).toMatch(/addonItemGap = includedItemGap \+ 2/);
+    expect(source).toContain('RIT_PEST_HEADING_GAP');
+    expect(source).toMatch(/addonGap = RIT_PEST_ROW_GAP \+ 2/);
   });
 
-  it('renders Covered Pests and Upgrades with five-column layout', async () => {
+  it('renders Covered Pests and Upgrades with illustrated five-column layout', async () => {
     const source = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
     );
     expect(source).not.toContain('drawInvertedBracket');
-    expect(source).toContain('drawUnderlinedLabel');
-    expect(source).toContain('drawCheckItem');
+    expect(source).toContain('embedRitPestImages');
+    expect(source).toContain('drawRitPestColumn');
+    expect(source).toContain('drawRitAddonsColumn');
     expect(source).toContain('contentInsetX');
-    expect(source).toContain('pestGridHeight');
+    expect(source).toContain('LAYOUT_PESTS_H = 110');
+
+    const pestAssets = await import('fs').then((fs) =>
+      fs.readFileSync(join(__dirname, '..', 'ritPestAssets.js'), 'utf8'),
+    );
+    expect(pestAssets).toContain('RIT_PEST_LARGE_IMAGE_WIDTH = 72');
+    expect(pestAssets).toContain('RIT_PEST_SMALL_IMAGE_WIDTH = 22');
 
     const { outBytes } = await buildRodentInsectTriannualAgreementPdf(ritSamplePayload);
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
     expect(text).toContain('Add-ons');
+    expect(text).toContain('Crickets/Earwigs');
+    expect(text).toContain('Springtails/Silverfish');
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
   });
