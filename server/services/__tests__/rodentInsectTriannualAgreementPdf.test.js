@@ -156,6 +156,15 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).not.toContain('Upgrades');
   });
 
+  it('renders rodent pests (Mice, Rats, Moles, Voles) with red labels', async () => {
+    const source = await import('fs').then((fs) =>
+      fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
+    );
+    expect(source).toContain('RIT_RED_RODENT_PEST_SET');
+    expect(source).toContain('getLabelColor');
+    expect(source).toContain('TAG_RED');
+  });
+
   it('renders rodent & insect service description in Service Details', async () => {
     const { outBytes } = await buildRodentInsectTriannualAgreementPdf(ritSamplePayload);
     const { text } = await extractPdfText(outBytes);

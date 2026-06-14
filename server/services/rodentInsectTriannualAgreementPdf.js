@@ -18,6 +18,7 @@ import {
   RIT_INCLUDED_PESTS_COL_C,
   RIT_INCLUDED_PESTS_COL_D,
   RIT_INITIALS_TEXT,
+  RIT_RED_RODENT_PESTS,
   RIT_SERVICE_DETAILS_TEXT,
   RIT_SUBSCRIPTION_TITLE,
   RIT_TITLE,
@@ -40,13 +41,16 @@ import {
   HEADER_BAR_H,
   HEADER_GREEN,
   LABEL_SIZE,
-  LABEL_TAG_HEIGHT,
+  TAG_RED,
   TITLE_BUBBLE_FILL,
   bodyStartY as layoutBodyStartY,
   yFromTop as layoutYFromTop,
 } from './pdf/agreementLayout.js';
 
+const RIT_RED_RODENT_PEST_SET = new Set(RIT_RED_RODENT_PESTS);
+
 const AGREEMENT_TYPE = 'rodent_insect_triannual';
+
 
 /** Landscape letter: 11in × 8.5in — same as Bed Bug / IQ. */
 export const RIT_PAGE_SIZE = { width: 792, height: 612 };
@@ -392,6 +396,7 @@ function drawPestsSection(page, fonts) {
       startY: checkboxStartY,
       itemGap: includedItemGap,
       font: fonts.bold,
+      getLabelColor: (item) => (RIT_RED_RODENT_PEST_SET.has(item) ? TAG_RED : undefined),
     });
   }
 }

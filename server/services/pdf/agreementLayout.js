@@ -557,6 +557,7 @@ export function drawCheckItem(page, label, {
   labelSize = 6.5,
   maxWidth,
   colors = AGREEMENT_COLORS,
+  labelColor,
 }) {
   const box = 6;
   page.drawRectangle({
@@ -575,7 +576,13 @@ export function drawCheckItem(page, label, {
   const labelText = maxWidth
     ? truncateText(label, font, labelSize, maxWidth - box - 4)
     : String(label);
-  page.drawText(labelText, { x: x + box + 4, y: y + 0.5, size: labelSize, font, color: colors.text });
+  page.drawText(labelText, {
+    x: x + box + 4,
+    y: y + 0.5,
+    size: labelSize,
+    font,
+    color: labelColor ?? colors.text,
+  });
 }
 
 function detectImageKind(bytes) {
@@ -652,6 +659,7 @@ export function drawPestChecklistColumn(page, {
   itemGap,
   font,
   isChecked = () => true,
+  getLabelColor,
   colors = AGREEMENT_COLORS,
 }) {
   const labelSize = 6.5;
@@ -665,6 +673,7 @@ export function drawPestChecklistColumn(page, {
       labelSize,
       maxWidth: width - 10,
       colors,
+      labelColor: getLabelColor?.(item),
     });
     itemY -= itemGap;
   }
