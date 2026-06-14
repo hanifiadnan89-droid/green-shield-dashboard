@@ -19,6 +19,8 @@ import {
   RIT_INCLUDED_PESTS_COL_A,
   RIT_INCLUDED_PESTS_COL_B,
   RIT_INCLUDED_PESTS_COL_C,
+  RIT_ADDON_PESTS,
+  RIT_COVERED_PESTS_SECTION_TITLE,
   RIT_INCLUDED_PESTS_COL_D,
   RIT_SERVICE_DETAILS_TEXT,
   RIT_SUBSCRIPTION_TITLE,
@@ -106,7 +108,7 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).toContain('Service Address');
     expect(text).toContain('Customer Information');
     expect(text).toContain('Service Details');
-    expect(text).toContain('Covered Pests');
+    expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
     expect(text).toContain('Expectations / Scheduling');
     expect(text).toContain(RIT_SUBSCRIPTION_TITLE);
     expect(text).toContain('Initial Service');
@@ -151,9 +153,8 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).not.toContain('Mice/Rats');
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
-    expect(text).not.toContain('Add-ons');
-    expect(text).not.toContain('Ticks/Mosquitoes');
-    expect(text).not.toContain('Upgrades');
+    expect(text).toContain('Add-ons');
+    expect(text).toContain(RIT_ADDON_PESTS[0]);
   });
 
   it('renders rodent pests (Mice, Rats, Moles, Voles) with red labels', async () => {
@@ -170,6 +171,8 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain(RIT_SERVICE_DETAILS_TEXT.slice(0, 40));
     expect(text).toContain('one-month visit after the initial service');
+    expect(text).toContain('ensuring long-term protection for your property.');
+    expect(text).not.toContain('from both rodents and insects');
     expect(text).not.toContain('Service Type:');
     expect(text).not.toContain('Frequency:');
     expect(text).not.toContain('Our quarterly insect treatment begins');
@@ -287,16 +290,20 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(source).toContain('generateAgreementSchedule');
   });
 
-  it('renders Covered Pests without internal grouping lines or add-ons', async () => {
+  it('renders Covered Pests and Upgrades with add-ons column', async () => {
     const source = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'rodentInsectTriannualAgreementPdf.js'), 'utf8'),
     );
     expect(source).not.toContain('drawInvertedBracket');
-    expect(source).not.toContain('Add-ons');
+    expect(source).toContain('Add-ons');
+    expect(source).toContain('TAG_RED');
+    expect(source).toContain('pestBlockHeight');
 
     const { outBytes } = await buildRodentInsectTriannualAgreementPdf(ritSamplePayload);
     const { text } = await extractPdfText(outBytes);
-    expect(text).toContain('Covered Pests');
+    expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
+    expect(text).toContain('Add-ons');
+    expect(text).toContain(RIT_ADDON_PESTS[0]);
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
   });
