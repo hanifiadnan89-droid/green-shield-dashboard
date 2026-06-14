@@ -161,6 +161,8 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain(RIT_SERVICE_DETAILS_TEXT.slice(0, 40));
     expect(text).toContain('one-month visit after the initial service');
+    expect(text).toContain('ensuring long-term protection for your property.');
+    expect(text).not.toContain('from both rodents and insects');
     expect(text).not.toContain('Service Type:');
     expect(text).not.toContain('Frequency:');
     expect(text).not.toContain('Our quarterly insect treatment begins');
@@ -204,7 +206,7 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(text).not.toContain('Billing Info');
   });
 
-  it('buildRodentInsectTriannualSchedule returns 12 months with service months 0,1,4,8', async () => {
+  it('buildRodentInsectTriannualSchedule returns 12 months with service months 0,1,5,9', async () => {
     const data = normalizeRodentInsectTriannualAgreementData(ritSamplePayload);
     const schedule = buildRodentInsectTriannualSchedule({
       agreementStartDate: data.agreementStartDate,
@@ -214,11 +216,11 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(schedule.scheduleMonths).toHaveLength(12);
     expect(schedule.scheduleMonths[0].label).toBe("Jun '26");
     expect(schedule.scheduleMonths[1].label).toBe("Jul '26");
-    expect(schedule.scheduleMonths[4].label).toBe("Oct '26");
-    expect(schedule.scheduleMonths[8].label).toBe("Feb '27");
+    expect(schedule.scheduleMonths[5].label).toBe("Nov '26");
+    expect(schedule.scheduleMonths[9].label).toBe("Mar '27");
     const serviceMonths = schedule.scheduleMonths.filter((m) => m.isServiceMonth);
     expect(serviceMonths).toHaveLength(4);
-    expect(serviceMonths.map((m) => m.index)).toEqual([0, 1, 4, 8]);
+    expect(serviceMonths.map((m) => m.index)).toEqual([0, 1, 5, 9]);
   });
 
   it('marks initial and one-month follow-up with (S) on the calendar', async () => {
@@ -231,8 +233,9 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(formatRodentInsectTriannualPaymentText(schedule.scheduleMonths[0])).toBe('(S)$449.00');
     expect(formatRodentInsectTriannualPaymentText(schedule.scheduleMonths[1])).toBe('(S)65.00');
     expect(formatRodentInsectTriannualPaymentText(schedule.scheduleMonths[2])).toBe('$65.00');
-    expect(formatRodentInsectTriannualPaymentText(schedule.scheduleMonths[4])).toBe('(S)65.00');
-    expect(formatRodentInsectTriannualPaymentText(schedule.scheduleMonths[8])).toBe('(S)65.00');
+    expect(formatRodentInsectTriannualPaymentText(schedule.scheduleMonths[4])).toBe('$65.00');
+    expect(formatRodentInsectTriannualPaymentText(schedule.scheduleMonths[5])).toBe('(S)65.00');
+    expect(formatRodentInsectTriannualPaymentText(schedule.scheduleMonths[9])).toBe('(S)65.00');
   });
 
   it('marks service months with (S) on recurring payments, not 2x(S)', () => {
