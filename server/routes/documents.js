@@ -14,6 +14,8 @@ import {
 } from '../services/bedBugAgreementPdf.js';
 import { buildInsectQuarterlyAgreementPdf } from '../services/insectQuarterlyAgreementPdf.js';
 import { isInsectQuarterlyVectorPdfEnabled } from '../services/insectQuarterlyVectorPdfFlag.js';
+import { buildBedBugInsectTriannualAgreementPdf } from '../services/bedBugInsectTriannualAgreementPdf.js';
+import { isBedBugInsectTriannualVectorPdfEnabled } from '../services/bedBugInsectTriannualVectorPdfFlag.js';
 import { buildRodentInsectTriannualAgreementPdf } from '../services/rodentInsectTriannualAgreementPdf.js';
 import { isRodentInsectTriannualVectorPdfEnabled } from '../services/rodentInsectTriannualVectorPdfFlag.js';
 import { createRitSigningSession } from '../services/agreementSigning/ritSigning.js';
@@ -402,7 +404,7 @@ async function buildQuotePdf({
   const filename = supported[idx];
 
   if (filename === BED_BUG_TEMPLATE) {
-    return buildBedBugAgreementPdf({
+    const bedBugPayload = {
       lead,
       pricing,
       address,
@@ -413,7 +415,11 @@ async function buildQuotePdf({
       serviceStartDate,
       initialServiceDate,
       selectedStartDate,
-    });
+    };
+    if (isBedBugInsectTriannualVectorPdfEnabled()) {
+      return buildBedBugInsectTriannualAgreementPdf(bedBugPayload);
+    }
+    return buildBedBugAgreementPdf(bedBugPayload);
   }
 
   let prefix, pageIndex;
