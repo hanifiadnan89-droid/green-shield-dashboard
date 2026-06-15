@@ -143,6 +143,7 @@ publicRouter.post('/:token/submit', submitLimiter, async (req, res) => {
     });
 
     const firstName = (session.lead?.name || '').split(' ')[0] || 'there';
+    const agreementLabel = getAgreementTypeLabel(session.agreementType);
     if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
       await sendSignedAgreementEmails({
         customerEmail: session.lead?.email,
@@ -154,7 +155,6 @@ publicRouter.post('/:token/submit', submitLimiter, async (req, res) => {
       });
     }
 
-    const agreementLabel = getAgreementTypeLabel(session.agreementType);
     const noteLine = `${agreementLabel} agreement e-signed ${dateDisplay} (${session.token.slice(0, 8)}…)`;
     if (session.lead?.row_number) {
       try {
