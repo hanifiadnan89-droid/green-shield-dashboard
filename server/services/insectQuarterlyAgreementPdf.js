@@ -85,11 +85,16 @@ const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
 const LAYOUT_TOP_ROW_H = 90;
-const LAYOUT_PESTS_H = 68;
-const LAYOUT_MIDDLE_ROW_H = 122;
+const LAYOUT_PESTS_H = 86;
+const LAYOUT_MIDDLE_ROW_H = 106;
 const LAYOUT_PRICING_H = 76;
-const LAYOUT_AUTH_H = 80;
+const LAYOUT_AUTH_H = 58;
 const LAYOUT_SIGNATURE_H = 62;
+
+/** Nudge included pest rows upward so they do not sit on the panel bottom. */
+const IQ_INCLUDED_PEST_SHIFT_UP = 8;
+/** Space below the Add-ons label before the first add-on row. */
+const IQ_ADDON_LABEL_CLEARANCE = 16;
 
 const IQ_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
@@ -400,7 +405,7 @@ function drawIqAddonsColumn(page, {
   pestImages,
 }) {
   const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
-  const contentTopY = headingBaselineY - 8;
+  const contentTopY = headingBaselineY - IQ_ADDON_LABEL_CLEARANCE;
   const contentBottomY = panelBottomY + 5;
   let rowY = computeCenteredColumnStartY(contentTopY, contentBottomY, items.length, rowStep);
 
@@ -446,8 +451,8 @@ function drawPestsSection(page, data, fonts, pestImages) {
   const headingSize = PEST_LABEL_SIZE;
   const headingFont = fonts.bold;
   const headingBaseline = groupTopY - 2;
-  /** Shared first-row baseline so covered pest checkboxes align horizontally. */
-  const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9;
+  /** Shared first-row baseline for included pests — shifted up from panel bottom. */
+  const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9 + IQ_INCLUDED_PEST_SHIFT_UP;
 
   drawUnderlinedLabel(page, {
     x: col5X,
@@ -665,7 +670,7 @@ function drawAuthorizationSection(page, fonts) {
     w: w - 12,
     font: fonts.regular,
     size: BODY_TEXT_SIZE_AUTHORIZATION,
-    lineHeight: BODY_TEXT_SIZE_AUTHORIZATION * 1.21,
+    lineHeight: BODY_TEXT_SIZE_AUTHORIZATION * 1.12,
   });
 }
 
