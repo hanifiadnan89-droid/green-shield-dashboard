@@ -35,7 +35,6 @@ import {
   drawBubblePanel,
   drawCompanyLogo,
   drawPaymentTile,
-  drawPestChecklistColumn,
   drawPriceRows,
   drawRoundedSection,
   drawSignatureField,
@@ -385,6 +384,42 @@ function drawIqIncludedPestColumn(page, { x, width, items, startY, font, pestIma
   }
 }
 
+function computeCenteredColumnStartY(contentTopY, contentBottomY, rowCount, rowStep) {
+  const blockSpan = (rowCount - 1) * rowStep;
+  const contentH = contentTopY - contentBottomY;
+  return contentTopY - (contentH - blockSpan) / 2;
+}
+
+function drawIqAddonsColumn(page, {
+  x,
+  width,
+  panelBottomY,
+  headingBaselineY,
+  items,
+  font,
+  pestImages,
+}) {
+  const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
+  const contentTopY = headingBaselineY - 8;
+  const contentBottomY = panelBottomY + 5;
+  let rowY = computeCenteredColumnStartY(contentTopY, contentBottomY, items.length, rowStep);
+
+  for (const item of items) {
+    drawRitPestRow(page, {
+      x: x + 1,
+      y: rowY,
+      width: width - 2,
+      label: item.label,
+      font,
+      assetKey: item.assetKey,
+      pestImages,
+      checked: false,
+      labelSize: PEST_LABEL_SIZE,
+    });
+    rowY -= rowStep;
+  }
+}
+
 function drawPestsSection(page, data, fonts, pestImages) {
   const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP);
   const h = LAYOUT_PESTS_H;
@@ -408,13 +443,10 @@ function drawPestsSection(page, data, fonts, pestImages) {
   const col2X = col3X - colGap - col2W;
   const col1X = innerX;
 
-  const isAddonChecked = () => false;
-
   const headingSize = PEST_LABEL_SIZE;
   const headingFont = fonts.bold;
-  const addonItemGap = 8;
   const headingBaseline = groupTopY - 2;
-  /** Shared first-row baseline so covered and add-on checkboxes align horizontally. */
+  /** Shared first-row baseline so covered pest checkboxes align horizontally. */
   const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9;
 
   drawUnderlinedLabel(page, {
@@ -458,14 +490,14 @@ function drawPestsSection(page, data, fonts, pestImages) {
     font: fonts.bold,
     pestImages,
   });
-  drawPestChecklistColumn(page, {
+  drawIqAddonsColumn(page, {
     x: col5X,
     width: col5W,
+    panelBottomY: y,
+    headingBaselineY: headingBaseline,
     items: IQ_ADDON_PESTS,
-    startY: checkboxStartY,
-    itemGap: addonItemGap,
     font: fonts.bold,
-    isChecked: isAddonChecked,
+    pestImages,
   });
 }
 
@@ -770,7 +802,11 @@ export async function buildInsectQuarterlyAgreementPdf(input = {}, options = {})
     ...IQ_INCLUDED_PESTS_COL_C,
     ...IQ_INCLUDED_PESTS_COL_D,
   ];
-  const pestImages = await embedRitPestImagesForLabels(pdfDoc, includedPestLabels);
+  const pestImages = await embedRitPestImagesForLabels(
+    pdfDoc,
+    includedPestLabels,
+    IQ_ADDON_PESTS.map((item) => item.assetKey),
+  );
   drawTopRow(page, data, fonts);
   drawPestsSection(page, data, fonts, pestImages);
   drawMiddleRow(page, schedule, fonts);

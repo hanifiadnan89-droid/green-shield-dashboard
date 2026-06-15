@@ -43,9 +43,10 @@ export const IQ_INCLUDED_PESTS_COL_D = [
 ];
 
 export const IQ_ADDON_PESTS = [
-  'Mice/Rats',
-  'Moles/Voles',
-  'Ticks/Mosquitoes',
+  { label: 'Mice/Rats', assetKey: 'rats' },
+  { label: 'Moles/Voles', assetKey: 'moles' },
+  { label: 'Ticks/Mosquitoes', assetKey: 'tick' },
+  { label: 'Cockroaches', assetKey: 'cockroach' },
 ];
 
 export const IQ_EXPECTATIONS_SUBHEADING = 'Year Round Pest Barriers';

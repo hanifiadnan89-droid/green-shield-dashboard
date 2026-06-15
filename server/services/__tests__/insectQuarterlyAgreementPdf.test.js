@@ -138,7 +138,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
       ...IQ_INCLUDED_PESTS_COL_B,
       ...IQ_INCLUDED_PESTS_COL_C,
       ...IQ_INCLUDED_PESTS_COL_D,
-      ...IQ_ADDON_PESTS,
+      ...IQ_ADDON_PESTS.map((item) => item.label),
     ]) {
       expect(text).toContain(pest);
     }
@@ -146,6 +146,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     expect(text).not.toContain('Main pest');
     expect(text).not.toContain('Included');
     expect(text).toContain('Mice/Rats');
+    expect(text).toContain('Cockroaches');
     expect(text).toContain('Add-ons');
   });
 
@@ -252,6 +253,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     expect(source).not.toContain('Main pest');
     expect(source).toContain('embedRitPestImagesForLabels');
     expect(source).toContain('drawRitPestRow');
+    expect(source).toContain('drawIqAddonsColumn');
 
     const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
@@ -260,7 +262,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     expect(text).not.toContain('Included');
     expect(text).toContain('Yellow Jackets/Hornets');
     expect(text).toContain('Stink Bugs');
-    expect(text).not.toContain('Cockroaches');
+    expect(text).toContain('Cockroaches');
     expect(text).not.toContain('Springtails/Silverfish');
   });
 });
