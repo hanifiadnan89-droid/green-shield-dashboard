@@ -191,6 +191,7 @@ function drawBitPestRow(page, {
   width,
   label,
   font,
+  boldFont,
   assetKey,
   pestImages,
   checked = true,
@@ -213,12 +214,13 @@ function drawBitPestRow(page, {
     textX += BIT_ROW_ICON_PT + 4;
   }
 
-  const labelText = truncateText(label, font, RIT_PEST_LABEL_SIZE, width - (textX - x) - 1);
+  const labelFont = boldFont ?? font;
+  const labelText = truncateText(label, labelFont, RIT_PEST_LABEL_SIZE, width - (textX - x) - 1);
   page.drawText(labelText, {
     x: textX,
     y: y + 0.35,
     size: RIT_PEST_LABEL_SIZE,
-    font,
+    font: labelFont,
     color: colors.text,
   });
 }
@@ -320,6 +322,7 @@ export function drawBitIncludedPestColumn(page, {
   items,
   pestImages,
   font,
+  boldFont,
   colors = AGREEMENT_COLORS,
   showLeftDivider = true,
 }) {
@@ -339,6 +342,7 @@ export function drawBitIncludedPestColumn(page, {
       width: rowW,
       label: item.label,
       font,
+      boldFont,
       assetKey: item.assetKey,
       pestImages,
       checked: true,
@@ -398,6 +402,7 @@ export function drawBitAddonsColumn(page, {
       width: rowW,
       label: item.label,
       font,
+      boldFont,
       assetKey: item.assetKey,
       pestImages,
       checked: false,
