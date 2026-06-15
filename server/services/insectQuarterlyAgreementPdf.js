@@ -10,6 +10,7 @@ import {
   getRitPestAssetKey,
   RIT_PEST_CHECKBOX_SIZE,
   RIT_PEST_ROW_GAP,
+  RIT_PEST_SMALL_IMAGE_WIDTH,
 } from './ritPestAssets.js';
 import {
   IQ_ADDON_PESTS,
@@ -93,8 +94,8 @@ const LAYOUT_SIGNATURE_H = 62;
 
 /** Nudge included pest rows upward so they do not sit on the panel bottom. */
 const IQ_INCLUDED_PEST_SHIFT_UP = 8;
-/** Space below the Add-ons label before the first add-on row. */
-const IQ_ADDON_LABEL_CLEARANCE = 16;
+/** Gap between the Add-ons label and the first add-on row baseline. */
+const IQ_ADDON_LABEL_ABOVE_ROW = 9;
 
 const IQ_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
@@ -389,26 +390,61 @@ function drawIqIncludedPestColumn(page, { x, width, items, startY, font, pestIma
   }
 }
 
-function computeCenteredColumnStartY(contentTopY, contentBottomY, rowCount, rowStep) {
-  const blockSpan = (rowCount - 1) * rowStep;
-  const contentH = contentTopY - contentBottomY;
-  return contentTopY - (contentH - blockSpan) / 2;
+function measureIqAddonLabelAnchor(x, label, font, pestImages, assetKey, labelSize) {
+  const rowX = x + 1;
+  const box = RIT_PEST_CHECKBOX_SIZE;
+  const iconStartX = rowX + box + 4;
+  const hasIcon = Boolean(pestImages.large?.[assetKey] ?? pestImages.small?.[assetKey]);
+  const iconWidth = hasIcon ? RIT_PEST_SMALL_IMAGE_WIDTH : 0;
+  const textX = iconStartX + (hasIcon ? RIT_PEST_SMALL_IMAGE_WIDTH + 4 : 0);
+  const labelWidth = font.widthOfTextAtSize(label, labelSize);
+  const betweenIconAndText = iconStartX + iconWidth + (textX - (iconStartX + iconWidth)) / 2;
+  const overText = textX + labelWidth / 2;
+  return betweenIconAndText * 0.35 + overText * 0.65;
 }
 
 function drawIqAddonsColumn(page, {
   x,
   width,
   panelBottomY,
-  headingBaselineY,
+  bodyTopY,
   items,
   font,
+  boldFont,
   pestImages,
 }) {
   const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
-  const contentTopY = headingBaselineY - IQ_ADDON_LABEL_CLEARANCE;
-  const contentBottomY = panelBottomY + 5;
-  let rowY = computeCenteredColumnStartY(contentTopY, contentBottomY, items.length, rowStep);
+  const rowsSpan = (items.length - 1) * rowStep;
+  const totalBlock = IQ_ADDON_LABEL_ABOVE_ROW + rowsSpan;
+  const bodyBottomY = panelBottomY + 5;
+  const blockTopY = bodyBottomY + (bodyTopY - bodyBottomY + totalBlock) / 2;
+  const firstRowY = blockTopY - IQ_ADDON_LABEL_ABOVE_ROW;
 
+  const firstItem = items[0];
+  const anchorX = measureIqAddonLabelAnchor(
+    x,
+    firstItem.label,
+    font,
+    pestImages,
+    firstItem.assetKey,
+    PEST_LABEL_SIZE,
+  );
+  const addonsLabel = 'Add-ons';
+  const labelFont = boldFont ?? font;
+  const labelW = labelFont.widthOfTextAtSize(addonsLabel, PEST_LABEL_SIZE);
+  const labelX = anchorX - labelW / 2;
+  const labelY = firstRowY + IQ_ADDON_LABEL_ABOVE_ROW - 1;
+
+  drawUnderlinedLabel(page, {
+    x: labelX,
+    y: labelY,
+    text: addonsLabel,
+    size: PEST_LABEL_SIZE,
+    font: labelFont,
+    color: TAG_RED,
+  });
+
+  let rowY = firstRowY;
   for (const item of items) {
     drawRitPestRow(page, {
       x: x + 1,
@@ -448,20 +484,8 @@ function drawPestsSection(page, data, fonts, pestImages) {
   const col2X = col3X - colGap - col2W;
   const col1X = innerX;
 
-  const headingSize = PEST_LABEL_SIZE;
-  const headingFont = fonts.bold;
-  const headingBaseline = groupTopY - 2;
   /** Shared first-row baseline for included pests — shifted up from panel bottom. */
   const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9 + IQ_INCLUDED_PEST_SHIFT_UP;
-
-  drawUnderlinedLabel(page, {
-    x: col5X,
-    y: headingBaseline,
-    text: 'Add-ons',
-    size: headingSize,
-    font: headingFont,
-    color: TAG_RED,
-  });
 
   drawIqIncludedPestColumn(page, {
     x: col1X,
@@ -499,9 +523,10 @@ function drawPestsSection(page, data, fonts, pestImages) {
     x: col5X,
     width: col5W,
     panelBottomY: y,
-    headingBaselineY: headingBaseline,
+    bodyTopY: groupTopY,
     items: IQ_ADDON_PESTS,
     font: fonts.bold,
+    boldFont: fonts.bold,
     pestImages,
   });
 }

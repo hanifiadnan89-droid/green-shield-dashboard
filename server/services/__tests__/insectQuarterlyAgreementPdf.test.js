@@ -298,8 +298,8 @@ describe('buildQuotePdf insect_quarterly feature flag', () => {
     expect(text).toContain(IQ_SUBSCRIPTION_TITLE);
   });
 
-  it('uses legacy AcroForm path when flag is unset', async () => {
-    delete process.env.INSECT_QUARTERLY_VECTOR_PDF;
+  it('uses legacy AcroForm path when flag is explicitly disabled', async () => {
+    process.env.INSECT_QUARTERLY_VECTOR_PDF = 'false';
     const index = await resolveServiceAgreementsIndex();
     const { outBytes, outName } = await buildQuotePdf({ index, ...samplePayload });
     expect(outName).toBe('Jane_Doe_Insect_Quarterly.pdf');
