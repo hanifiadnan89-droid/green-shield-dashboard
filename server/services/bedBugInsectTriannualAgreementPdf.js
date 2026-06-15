@@ -337,6 +337,7 @@ function drawPestsSection(page, fonts, pestImages) {
     items: BIT_INCLUDED_PESTS_COL_A,
     pestImages,
     font: fonts.regular,
+    boldFont: fonts.bold,
     showLeftDivider: true,
   });
   drawBitIncludedPestColumn(page, {
@@ -347,6 +348,7 @@ function drawPestsSection(page, fonts, pestImages) {
     items: BIT_INCLUDED_PESTS_COL_B,
     pestImages,
     font: fonts.regular,
+    boldFont: fonts.bold,
     showLeftDivider: true,
   });
   drawBitIncludedPestColumn(page, {
@@ -357,6 +359,7 @@ function drawPestsSection(page, fonts, pestImages) {
     items: BIT_INCLUDED_PESTS_COL_C,
     pestImages,
     font: fonts.regular,
+    boldFont: fonts.bold,
     showLeftDivider: true,
   });
 
