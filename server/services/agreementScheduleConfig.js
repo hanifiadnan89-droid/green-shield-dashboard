@@ -3,6 +3,13 @@
  * Drives calendar months, service markers, and payment text templates.
  */
 
+import {
+  BED_BUG_INITIAL_PAYMENT_TEXT_TEMPLATE,
+  BED_BUG_RECURRING_PAYMENT_TEXT_TEMPLATE,
+  BED_BUG_SERVICE_INTERVAL_MONTHS,
+  BED_BUG_SERVICE_MONTH_INDEXES,
+} from './bedBugScheduleConfig.js';
+
 /** @typedef {import('./agreementSchedule.js').AgreementScheduleConfig} AgreementScheduleConfig */
 
 /** @type {Record<string, AgreementScheduleConfig>} */
@@ -32,11 +39,12 @@ export const AGREEMENT_SCHEDULE_CONFIG = {
     agreementType: 'bed_bug_insect_triannual',
     label: 'Bed Bug & Insect Triannual',
     contractMonths: 12,
-    serviceIntervalMonths: 4,
-    serviceMonthIndexes: [0, 4, 8],
+    serviceIntervalMonths: BED_BUG_SERVICE_INTERVAL_MONTHS,
+    /** Month 0 = initial + 2-week follow-up (2x(S)); then every four months. */
+    serviceMonthIndexes: [...BED_BUG_SERVICE_MONTH_INDEXES],
     serviceMarker: 'S',
-    initialPaymentTextTemplate: '2x(S){initialTotal}',
-    recurringPaymentTextTemplate: '{recurringTotalFormatted}',
+    initialPaymentTextTemplate: BED_BUG_INITIAL_PAYMENT_TEXT_TEMPLATE,
+    recurringPaymentTextTemplate: BED_BUG_RECURRING_PAYMENT_TEXT_TEMPLATE,
   },
   tick_mosquito_monthly: {
     agreementType: 'tick_mosquito_monthly',

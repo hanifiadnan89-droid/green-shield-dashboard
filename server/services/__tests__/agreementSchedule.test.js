@@ -112,6 +112,23 @@ describe('generateAgreementSchedule payments and edge cases', () => {
     expect(scheduleMonths[0].serviceMarker).toBe('S');
   });
 
+  it('marks triannual months 0, 4, 8 for bed bug with 2x(S) initial month only', () => {
+    const { scheduleMonths } = generateAgreementSchedule({
+      agreementType: 'bed_bug_insect_triannual',
+      startDate: '2026-06-15',
+      initialPayment: 599,
+      recurringPayment: 65,
+    });
+    const serviceIndexes = scheduleMonths.filter(m => m.isServiceMonth).map(m => m.index);
+    expect(serviceIndexes).toEqual([0, 4, 8]);
+    expect(scheduleMonths[1].isServiceMonth).toBe(false);
+    expect(scheduleMonths[4].label).toBe("Oct '26");
+    expect(scheduleMonths[8].label).toBe("Feb '27");
+    expect(scheduleMonths[0].paymentText).toBe('2x(S)599.00');
+    expect(scheduleMonths[4].paymentText).toBe('$65.00');
+    expect(scheduleMonths[8].paymentText).toBe('$65.00');
+  });
+
   it('uses fallback start date when missing', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-20T12:00:00'));
