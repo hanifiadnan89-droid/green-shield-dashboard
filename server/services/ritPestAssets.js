@@ -61,6 +61,33 @@ export async function embedRitPestImages(pdfDoc) {
   return { large, small, manifest };
 }
 
+/**
+ * Embed only the row icons needed for a checklist of pest labels.
+ * Prefers small PNGs to keep agreement PDFs lightweight.
+ */
+export async function embedRitPestImagesForLabels(pdfDoc, labels = []) {
+  const manifestPath = join(RIT_PEST_ASSETS_DIR, 'manifest.json');
+  const manifestRaw = await fs.readFile(manifestPath, 'utf8');
+  const manifest = JSON.parse(manifestRaw);
+  const large = {};
+  const small = {};
+  const keys = [...new Set(labels.map((label) => manifest.rows[label]).filter(Boolean))];
+
+  for (const key of keys) {
+    const smallBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'small', `${key}.png`));
+    if (smallBuffer) {
+      small[key] = enableImageInterpolation(pdfDoc, await pdfDoc.embedPng(smallBuffer));
+      continue;
+    }
+    const largeBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', `${key}.png`));
+    if (largeBuffer) {
+      large[key] = enableImageInterpolation(pdfDoc, await pdfDoc.embedPng(largeBuffer));
+    }
+  }
+
+  return { large, small, manifest };
+}
+
 export function drawEmbeddedPestImage(page, image, { x, y, width }) {
   if (!image) return 0;
   const height = (image.height / image.width) * width;

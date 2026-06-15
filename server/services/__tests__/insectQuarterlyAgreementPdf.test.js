@@ -20,6 +20,7 @@ import {
   IQ_INCLUDED_PESTS_COL_B,
   IQ_INCLUDED_PESTS_COL_C,
   IQ_INCLUDED_PESTS_COL_D,
+  IQ_SERVICE_DETAILS_TEXT,
   IQ_SUBSCRIPTION_TITLE,
   IQ_TITLE,
 } from '../insectQuarterlyAgreementContent.js';
@@ -151,12 +152,13 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
   it('renders quarterly service description in Service Details only', async () => {
     const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
-    expect(text).toContain('Our quarterly insect treatment begins');
-    expect(text).toContain('Follow-up visits are performed quarterly');
+    expect(text).toContain(IQ_SERVICE_DETAILS_TEXT.slice(0, 40));
+    expect(text).toContain('any covered issues between regular services are included at no additional cost');
     expect(text).not.toContain('Service Type:');
     expect(text).not.toContain('INSECT QUARTERLY');
     expect(text).not.toContain('Every 90 days');
     expect(text).not.toContain('bed bug service begins');
+    expect(text).not.toContain('Our quarterly insect treatment begins');
   });
 
   it('renders production expectations paragraph verbatim', async () => {
@@ -248,12 +250,18 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     );
     expect(source).not.toContain('drawInvertedBracket');
     expect(source).not.toContain('Main pest');
+    expect(source).toContain('embedRitPestImagesForLabels');
+    expect(source).toContain('drawRitPestRow');
 
     const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain('Covered Pests and Upgrades');
     expect(text).not.toContain('Main pest');
     expect(text).not.toContain('Included');
+    expect(text).toContain('Yellow Jackets/Hornets');
+    expect(text).toContain('Stink Bugs');
+    expect(text).not.toContain('Cockroaches');
+    expect(text).not.toContain('Springtails/Silverfish');
   });
 });
 
