@@ -3,10 +3,10 @@ import rateLimit from 'express-rate-limit';
 import { appendLog } from '../services/activity.js';
 import { updateLead } from '../services/sheets.js';
 import {
-  buildSignedRitAgreementPdf,
+  buildSignedAgreementPdf,
+  getAgreementTypeLabel,
   parseSigningSubmissionBody,
-  RIT_AGREEMENT_TYPE,
-} from '../services/agreementSigning/ritSigning.js';
+} from '../services/agreementSigning/agreementSigning.js';
 import {
   sendSignedAgreementEmails,
 } from '../services/agreementSigning/email.js';
@@ -90,9 +90,6 @@ publicRouter.post('/:token/submit', submitLimiter, async (req, res) => {
   try {
     const session = await loadSigningSession(req.params.token);
     if (!session) return res.status(404).json({ error: 'Signing link not found' });
-    if (session.agreementType !== RIT_AGREEMENT_TYPE) {
-      return res.status(400).json({ error: 'Unsupported agreement type' });
-    }
     if (session.status === 'signed') {
       return res.status(409).json({ error: 'This agreement has already been signed' });
     }
@@ -107,8 +104,8 @@ publicRouter.post('/:token/submit', submitLimiter, async (req, res) => {
     }
 
     const signedAt = new Date().toISOString();
-    const { outBytes, outName, dateDisplay } = await buildSignedRitAgreementPdf(
-      session.quotePayload,
+    const { outBytes, outName, dateDisplay } = await buildSignedAgreementPdf(
+      session,
       submission,
     );
 
@@ -153,10 +150,12 @@ publicRouter.post('/:token/submit', submitLimiter, async (req, res) => {
         customerName: session.lead?.name,
         signedFilename: outName,
         signedPdfBytes: outBytes,
+        agreementLabel,
       });
     }
 
-    const noteLine = `RIT agreement e-signed ${dateDisplay} (${session.token.slice(0, 8)}…)`;
+    const agreementLabel = getAgreementTypeLabel(session.agreementType);
+    const noteLine = `${agreementLabel} agreement e-signed ${dateDisplay} (${session.token.slice(0, 8)}…)`;
     if (session.lead?.row_number) {
       try {
         const leadPatch = { status: 'agreement_signed' };
