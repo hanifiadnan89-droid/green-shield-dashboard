@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildBedBugAgreementPdf } from '../bedBugAgreementPdf.js';
+import { buildBedBugInsectTriannualAgreementPdf } from '../bedBugInsectTriannualAgreementPdf.js';
 import { getPlaywrightChromiumDiagnostics } from '../playwrightRuntime.js';
 import { renderBedBugAgreementPreviewPng } from '../bedBugAgreementEmailPreview.js';
 
@@ -23,7 +23,7 @@ describe('renderBedBugAgreementPreviewPng', () => {
       return;
     }
 
-    const { outBytes } = await buildBedBugAgreementPdf(samplePayload);
+    const { outBytes } = await buildBedBugInsectTriannualAgreementPdf(samplePayload);
     const pngBuffer = await renderBedBugAgreementPreviewPng(outBytes);
 
     expect(Buffer.isBuffer(pngBuffer)).toBe(true);
