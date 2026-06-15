@@ -2,9 +2,9 @@
 
 export const IQ_TITLE = 'Insect Quarterly Service Agreement';
 
-/** Service Details panel — quarterly insect treatment description (Bed Bug paragraph style). */
+/** Service Details panel — quarterly insect treatment description. */
 export const IQ_SERVICE_DETAILS_TEXT =
-  'Our quarterly insect treatment begins with a thorough inspection of your property to identify active insect activity, potential entry points, and conditions conducive to infestations. We will apply targeted treatments around the exterior perimeter and key interior areas to eliminate existing insects and create a strong preventative barrier against common pests such as ants, spiders, beetles, stink bugs, wasps, and other seasonal invaders. Follow-up visits are performed quarterly to maintain consistent protection throughout the year, with in-between visits available at no extra cost should any new activity arise, ensuring long-term protection for your property.';
+  'General insect quarterly service includes a full interior and exterior preventive treatment for ants, spiders, centipedes, earwigs, silverfish, and other general crawling insects. The service is performed quarterly, and any covered issues between regular services are included at no additional cost.';
 
 export const IQ_COMPANY = {
   name: 'Green Shield Pest Solutions',
@@ -19,27 +19,27 @@ export const IQ_HEADER_CONTACT_EMAIL = 'ahanifi@gshieldpest.com';
 export const IQ_COVERED_PESTS_SECTION_TITLE = 'Covered Pests and Upgrades';
 
 export const IQ_INCLUDED_PESTS_COL_A = [
+  'Odorous Ants',
+  'Pavement Ants',
   'Carpenter Ants',
-  'Carpenter Bees',
-  'Cockroaches',
 ];
 
 export const IQ_INCLUDED_PESTS_COL_B = [
-  'Odorous Ants',
-  'Fleas',
-  'Centi/Millipedes',
+  'Carpenter Bees',
+  'Spiders',
+  'Fall Invaders',
 ];
 
 export const IQ_INCLUDED_PESTS_COL_C = [
-  'Pavement Ants',
-  'Spiders',
+  'Fleas',
+  'Centi/Millipedes',
   'Crickets/Earwigs',
 ];
 
 export const IQ_INCLUDED_PESTS_COL_D = [
-  'Wasps',
-  'Fall Invaders',
-  'Springtails/Silverfish',
+  'Yellow Jackets/Hornets',
+  'Silverfish',
+  'Stink Bugs',
 ];
 
 export const IQ_ADDON_PESTS = [

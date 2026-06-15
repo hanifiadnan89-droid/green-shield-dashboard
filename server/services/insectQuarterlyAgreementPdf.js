@@ -5,6 +5,13 @@ import {
   parseCityStateZip,
 } from './bedBugAgreementPdf.js';
 import {
+  embedRitPestImagesForLabels,
+  drawRitPestRow,
+  getRitPestAssetKey,
+  RIT_PEST_CHECKBOX_SIZE,
+  RIT_PEST_ROW_GAP,
+} from './ritPestAssets.js';
+import {
   IQ_ADDON_PESTS,
   IQ_AGREEMENT_PERIOD_TEXT,
   IQ_AUTHORIZATION_TEXT,
@@ -359,7 +366,26 @@ function drawTopRow(page, data, fonts) {
   });
 }
 
-function drawPestsSection(page, data, fonts) {
+function drawIqIncludedPestColumn(page, { x, width, items, startY, font, pestImages }) {
+  const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
+  let rowY = startY;
+  for (const label of items) {
+    drawRitPestRow(page, {
+      x,
+      y: rowY,
+      width,
+      label,
+      font,
+      assetKey: getRitPestAssetKey(pestImages, label),
+      pestImages,
+      checked: true,
+      labelSize: PEST_LABEL_SIZE,
+    });
+    rowY -= rowStep;
+  }
+}
+
+function drawPestsSection(page, data, fonts, pestImages) {
   const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP);
   const h = LAYOUT_PESTS_H;
   const w = PAGE_W - MARGIN_X * 2;
@@ -386,7 +412,6 @@ function drawPestsSection(page, data, fonts) {
 
   const headingSize = PEST_LABEL_SIZE;
   const headingFont = fonts.bold;
-  const includedItemGap = 6.5;
   const addonItemGap = 8;
   const headingBaseline = groupTopY - 2;
   /** Shared first-row baseline so covered and add-on checkboxes align horizontally. */
@@ -401,37 +426,37 @@ function drawPestsSection(page, data, fonts) {
     color: TAG_RED,
   });
 
-  drawPestChecklistColumn(page, {
+  drawIqIncludedPestColumn(page, {
     x: col1X,
     width: col1W,
     items: IQ_INCLUDED_PESTS_COL_A,
     startY: checkboxStartY,
-    itemGap: includedItemGap,
     font: fonts.bold,
+    pestImages,
   });
-  drawPestChecklistColumn(page, {
+  drawIqIncludedPestColumn(page, {
     x: col2X,
     width: col2W,
     items: IQ_INCLUDED_PESTS_COL_B,
     startY: checkboxStartY,
-    itemGap: includedItemGap,
     font: fonts.bold,
+    pestImages,
   });
-  drawPestChecklistColumn(page, {
+  drawIqIncludedPestColumn(page, {
     x: col3X,
     width: col3W,
     items: IQ_INCLUDED_PESTS_COL_C,
     startY: checkboxStartY,
-    itemGap: includedItemGap,
     font: fonts.bold,
+    pestImages,
   });
-  drawPestChecklistColumn(page, {
+  drawIqIncludedPestColumn(page, {
     x: col4X,
     width: col4W,
     items: IQ_INCLUDED_PESTS_COL_D,
     startY: checkboxStartY,
-    itemGap: includedItemGap,
     font: fonts.bold,
+    pestImages,
   });
   drawPestChecklistColumn(page, {
     x: col5X,
@@ -739,8 +764,15 @@ export async function buildInsectQuarterlyAgreementPdf(input = {}, options = {})
   }
 
   await drawHeader(pdfDoc, page, fonts);
+  const includedPestLabels = [
+    ...IQ_INCLUDED_PESTS_COL_A,
+    ...IQ_INCLUDED_PESTS_COL_B,
+    ...IQ_INCLUDED_PESTS_COL_C,
+    ...IQ_INCLUDED_PESTS_COL_D,
+  ];
+  const pestImages = await embedRitPestImagesForLabels(pdfDoc, includedPestLabels);
   drawTopRow(page, data, fonts);
-  drawPestsSection(page, data, fonts);
+  drawPestsSection(page, data, fonts, pestImages);
   drawMiddleRow(page, schedule, fonts);
   drawPricingRow(page, data, fonts);
   drawAuthorizationSection(page, fonts);
