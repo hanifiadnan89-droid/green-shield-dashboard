@@ -4,7 +4,6 @@ import { PDFBool, PDFName, rgb } from 'pdf-lib';
 import {
   drawRitCheckbox,
   RIT_PEST_HEADING_SIZE,
-  RIT_PEST_LABEL_SIZE,
   RIT_PEST_CHECKBOX_SIZE,
   RIT_PEST_ASSETS_DIR,
 } from './ritPestAssets.js';
@@ -26,6 +25,8 @@ const BIT_ADDON_ROW_STEP = BIT_ROW_ICON_PT + 7;
 const BIT_INCLUDED_SHIFT_FRACTION = 0.75;
 const BIT_ADDON_SHIFT_FRACTION = 0.70;
 const BIT_ROW_BOTTOM_MARGIN_FRACTION = 0.30;
+/** Row label size — slightly larger + bold so pest names read clearly in the PDF. */
+export const BIT_PEST_LABEL_SIZE = 6.5;
 
 /**
  * Place pest rows lower in the covered-pests body toward the bottom
@@ -191,6 +192,7 @@ function drawBitPestRow(page, {
   width,
   label,
   font,
+  boldFont,
   assetKey,
   pestImages,
   checked = true,
@@ -213,12 +215,13 @@ function drawBitPestRow(page, {
     textX += BIT_ROW_ICON_PT + 4;
   }
 
-  const labelText = truncateText(label, font, RIT_PEST_LABEL_SIZE, width - (textX - x) - 1);
+  const labelFont = boldFont ?? font;
+  const labelText = truncateText(label, labelFont, BIT_PEST_LABEL_SIZE, width - (textX - x) - 1);
   page.drawText(labelText, {
     x: textX,
     y: y + 0.35,
-    size: RIT_PEST_LABEL_SIZE,
-    font,
+    size: BIT_PEST_LABEL_SIZE,
+    font: labelFont,
     color: colors.text,
   });
 }
@@ -320,6 +323,7 @@ export function drawBitIncludedPestColumn(page, {
   items,
   pestImages,
   font,
+  boldFont,
   colors = AGREEMENT_COLORS,
   showLeftDivider = true,
 }) {
@@ -339,6 +343,7 @@ export function drawBitIncludedPestColumn(page, {
       width: rowW,
       label: item.label,
       font,
+      boldFont,
       assetKey: item.assetKey,
       pestImages,
       checked: true,
@@ -398,6 +403,7 @@ export function drawBitAddonsColumn(page, {
       width: rowW,
       label: item.label,
       font,
+      boldFont,
       assetKey: item.assetKey,
       pestImages,
       checked: false,
