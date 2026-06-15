@@ -157,8 +157,17 @@ describe('buildBedBugInsectTriannualAgreementPdf', () => {
       initialTotal: data.initialSubtotal,
       recurringCharge: data.recurringCharge,
     });
+    const serviceIndexes = schedule.scheduleMonths.filter(m => m.isServiceMonth).map(m => m.index);
+    expect(serviceIndexes).toEqual([0, 4, 8]);
     expect(formatBedBugPaymentText(schedule.scheduleMonths[0])).toBe('2x(S)599.00');
+    expect(formatBedBugPaymentText(schedule.scheduleMonths[4])).toBe('(S)123.00');
+    expect(formatBedBugPaymentText(schedule.scheduleMonths[8])).toBe('(S)123.00');
     expect(formatBedBugPaymentText(schedule.scheduleMonths[1])).toBe('123.00');
+
+    const { outBytes } = await buildBedBugInsectTriannualAgreementPdf(samplePayload);
+    const { text } = await extractPdfText(outBytes);
+    expect(text.replace(/\s/g, '')).toContain('2x(S)599.00');
+    expect(text.replace(/\s/g, '')).toContain('(S)123.00');
   });
 
   it('uses illustrated main-pest layout with pest assets module', async () => {
