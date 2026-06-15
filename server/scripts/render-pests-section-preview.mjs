@@ -43,20 +43,24 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 })();
 </script></body></html>`;
 
+// Covered Pests panel bounds on landscape letter (792×612), matched to BIT layout constants.
+const PESTS_PANEL_TOP_FRACTION = 148 / 612;
+const PESTS_PANEL_HEIGHT_FRACTION = 168 / 612;
+
 const browser = await chromium.launch();
 const page = await browser.newPage();
 await page.setContent(html, { waitUntil: 'networkidle' });
 await page.waitForFunction(() => window.__done === true, { timeout: 60000 });
 
-const clip = await page.evaluate((s) => {
+const clip = await page.evaluate(({ topFraction, heightFraction }) => {
   const canvas = document.getElementById('c');
   return {
     x: 0,
-    y: Math.round(canvas.height * 0.19),
+    y: Math.round(canvas.height * topFraction),
     width: canvas.width,
-    height: Math.round(canvas.height * 0.30),
+    height: Math.round(canvas.height * heightFraction),
   };
-}, scale);
+}, { topFraction: PESTS_PANEL_TOP_FRACTION, heightFraction: PESTS_PANEL_HEIGHT_FRACTION });
 
 await page.locator('#wrap').screenshot({ path: outPath, clip });
 await browser.close();
