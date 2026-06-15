@@ -20,8 +20,9 @@ const TAG_RED = rgb(185 / 255, 28 / 255, 28 / 255);
 const BED_BUG_VECTOR = rgb(0, 0, 0);
 const SHADOW = rgb(115 / 255, 115 / 255, 115 / 255);
 /** Row icon draw size (pt). Source PNGs are 96px wide for sharp downscaling. */
-const BIT_ROW_ICON_PT = 22 * 1.15;
-const BIT_ROW_STEP = BIT_ROW_ICON_PT + 8;
+const BIT_ROW_ICON_PT = 22 * 1.15 * 0.98;
+const BIT_INCLUDED_ROW_STEP = BIT_ROW_ICON_PT + 5;
+const BIT_ADDON_ROW_STEP = BIT_ROW_ICON_PT + 7;
 
 async function readOptionalPng(path) {
   try {
@@ -241,7 +242,7 @@ export function drawBitMainPestColumn(page, {
 }) {
   const titleY = bodyTopY - 12;
   const titleSize = RIT_PEST_HEADING_SIZE;
-  const titleText = 'Main pest';
+  const titleText = 'Bed Bugs';
   const titleW = boldFont.widthOfTextAtSize(titleText, titleSize);
   const titleX = x + (width - titleW) / 2;
 
@@ -302,7 +303,7 @@ export function drawBitIncludedPestColumn(page, {
 
   const rowX = x + 2;
   const rowW = width - 4;
-  let rowY = bodyTopY - 10;
+  let rowY = bodyTopY - 8;
 
   for (const item of items) {
     drawBitPestRow(page, {
@@ -316,7 +317,7 @@ export function drawBitIncludedPestColumn(page, {
       checked: true,
       colors,
     });
-    rowY -= BIT_ROW_STEP;
+    rowY -= BIT_INCLUDED_ROW_STEP;
   }
 }
 
@@ -333,18 +334,23 @@ export function drawBitAddonsColumn(page, {
 }) {
   drawColumnDivider(page, x - 3, bodyTopY, bodyBottomY, colors);
 
+  const rowX = x + 8;
+  const rowW = width - 16;
+  let rowY = bodyTopY - 20;
+
+  const labelSize = RIT_PEST_HEADING_SIZE;
+  const labelText = 'Add-ons';
+  const iconAreaX = rowX + RIT_PEST_CHECKBOX_SIZE + 4;
+  const labelW = boldFont.widthOfTextAtSize(labelText, labelSize);
+  const labelX = iconAreaX + BIT_ROW_ICON_PT / 2 - labelW / 2;
   drawUnderlinedLabel(page, {
-    x: x + 2,
-    y: bodyTopY - 14,
-    text: 'Add-ons',
-    size: RIT_PEST_HEADING_SIZE,
+    x: labelX,
+    y: rowY + 9,
+    text: labelText,
+    size: labelSize,
     font: boldFont,
     color: TAG_RED,
   });
-
-  const rowX = x + 8;
-  const rowW = width - 16;
-  let rowY = bodyTopY - 26;
 
   for (const item of items) {
     drawBitPestRow(page, {
@@ -358,6 +364,6 @@ export function drawBitAddonsColumn(page, {
       checked: false,
       colors,
     });
-    rowY -= BIT_ROW_STEP;
+    rowY -= BIT_ADDON_ROW_STEP;
   }
 }

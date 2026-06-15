@@ -106,7 +106,8 @@ describe('buildBedBugInsectTriannualAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain(BIT_TITLE);
     expect(text).toContain(BIT_COVERED_PESTS_SECTION_TITLE);
-    expect(text).toContain('Main pest');
+    expect(text).toContain('Bed Bugs');
+    expect(text).not.toContain('Main pest');
     expect(text).not.toContain('Included pests');
     expect(text).toContain('Add-ons');
   });
