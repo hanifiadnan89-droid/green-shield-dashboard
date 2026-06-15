@@ -8,14 +8,12 @@ import { PDFDocument, PDFName, PDFDict, rgb, StandardFonts } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 import { applyAgreementScheduleToPdf } from '../services/applyAgreementScheduleToPdf.js';
 import {
-  buildBedBugAgreementPdf,
   normalizeBedBugAgreementData,
   validateBedBugAgreementData,
 } from '../services/bedBugAgreementPdf.js';
 import { buildInsectQuarterlyAgreementPdf } from '../services/insectQuarterlyAgreementPdf.js';
 import { isInsectQuarterlyVectorPdfEnabled } from '../services/insectQuarterlyVectorPdfFlag.js';
 import { buildBedBugInsectTriannualAgreementPdf } from '../services/bedBugInsectTriannualAgreementPdf.js';
-import { isBedBugInsectTriannualVectorPdfEnabled } from '../services/bedBugInsectTriannualVectorPdfFlag.js';
 import { buildRodentInsectTriannualAgreementPdf } from '../services/rodentInsectTriannualAgreementPdf.js';
 import { isRodentInsectTriannualVectorPdfEnabled } from '../services/rodentInsectTriannualVectorPdfFlag.js';
 import { createRitSigningSession } from '../services/agreementSigning/ritSigning.js';
@@ -416,10 +414,7 @@ async function buildQuotePdf({
       initialServiceDate,
       selectedStartDate,
     };
-    if (isBedBugInsectTriannualVectorPdfEnabled()) {
-      return buildBedBugInsectTriannualAgreementPdf(bedBugPayload);
-    }
-    return buildBedBugAgreementPdf(bedBugPayload);
+    return buildBedBugInsectTriannualAgreementPdf(bedBugPayload);
   }
 
   let prefix, pageIndex;
@@ -497,7 +492,7 @@ if (serviceType === 'insect_quarterly' && isInsectQuarterlyVectorPdfEnabled()) {
     } catch {}
   }
 
-  // Safe field writer (Service Agreements only — Bed Bug uses buildBedBugAgreementPdf)
+  // Safe field writer (Service Agreements only — Bed Bug uses buildBedBugInsectTriannualAgreementPdf)
   function fill(name, value) {
     if (value === null || value === undefined) return;
     try {

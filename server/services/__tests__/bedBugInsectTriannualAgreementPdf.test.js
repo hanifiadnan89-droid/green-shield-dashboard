@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { dirname, join } from 'path';
@@ -181,7 +181,7 @@ describe('buildBedBugInsectTriannualAgreementPdf', () => {
   });
 });
 
-describe('buildQuotePdf bed_bug feature flag', () => {
+describe('buildQuotePdf bed_bug routing', () => {
   const samplePayload = {
     lead: { name: 'Jane Doe', email: 'jane@example.com', phone: '207-555-0100' },
     address: { street: '123 Main St', cityState: 'Saco, ME 04072' },
@@ -190,19 +190,7 @@ describe('buildQuotePdf bed_bug feature flag', () => {
     bedBugAgreement: { agreementDate: '2026-06-14' },
   };
 
-  let previousFlag;
-
-  beforeEach(() => {
-    previousFlag = process.env.BED_BUG_INSECT_TRIANNUAL_VECTOR_PDF;
-  });
-
-  afterEach(() => {
-    if (previousFlag === undefined) delete process.env.BED_BUG_INSECT_TRIANNUAL_VECTOR_PDF;
-    else process.env.BED_BUG_INSECT_TRIANNUAL_VECTOR_PDF = previousFlag;
-  });
-
-  it('uses vector builder when BED_BUG_INSECT_TRIANNUAL_VECTOR_PDF=true', async () => {
-    process.env.BED_BUG_INSECT_TRIANNUAL_VECTOR_PDF = 'true';
+  it('uses vector Bed Bug & Insect Triannual builder for Bed Bug.pdf', async () => {
     const index = await resolveBedBugTemplateIndex();
     const { outBytes, outName } = await buildQuotePdf({ index, ...samplePayload });
     expect(outName).toBe('Jane_Doe_Bed_Bug_Insect_Triannual.pdf');
@@ -211,14 +199,5 @@ describe('buildQuotePdf bed_bug feature flag', () => {
     expect(text).toContain(BIT_TITLE);
     expect(text).toContain(BIT_COVERED_PESTS_SECTION_TITLE);
     expect(text).toContain(BIT_SUBSCRIPTION_TITLE);
-  });
-
-  it('uses legacy bed bug builder when flag is unset', async () => {
-    delete process.env.BED_BUG_INSECT_TRIANNUAL_VECTOR_PDF;
-    const index = await resolveBedBugTemplateIndex();
-    const { outBytes, outName } = await buildQuotePdf({ index, ...samplePayload });
-    expect(outName).toBe('Jane_Doe_Bed_Bug.pdf');
-    const { text } = await extractPdfText(outBytes);
-    expect(text).not.toContain('Included pests');
   });
 });
