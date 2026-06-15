@@ -23,16 +23,19 @@ const SHADOW = rgb(115 / 255, 115 / 255, 115 / 255);
 const BIT_ROW_ICON_PT = 22 * 1.15 * 0.98;
 const BIT_INCLUDED_ROW_STEP = BIT_ROW_ICON_PT + 5;
 const BIT_ADDON_ROW_STEP = BIT_ROW_ICON_PT + 7;
-const BIT_ROW_SHIFT_FRACTION = 0.40;
+const BIT_INCLUDED_SHIFT_FRACTION = 0.75;
+const BIT_ADDON_SHIFT_FRACTION = 0.70;
 const BIT_ROW_BOTTOM_MARGIN_FRACTION = 0.30;
 
 /**
- * Place pest rows lower in the covered-pests body (~40% toward the bottom)
- * while keeping icons below the section header and ~30% margin above the bottom.
+ * Place pest rows lower in the covered-pests body toward the bottom
+ * while keeping icons below the section header and margin above the bottom.
  */
 function computeBitPestColumnStartY(bodyTopY, bodyBottomY, rowCount, rowStep, {
   headerInset = 8,
   topClearanceExtra = 0,
+  shiftFraction = BIT_INCLUDED_SHIFT_FRACTION,
+  maxRowY,
 } = {}) {
   const bodyH = Math.max(1, bodyTopY - bodyBottomY);
   const blockSpan = (rowCount - 1) * rowStep;
@@ -40,7 +43,9 @@ function computeBitPestColumnStartY(bodyTopY, bodyBottomY, rowCount, rowStep, {
   const headerClearStart = bodyTopY - BIT_ROW_ICON_PT - topClearanceExtra - 4;
   const bottomAlignedStart = bodyBottomY + bodyH * BIT_ROW_BOTTOM_MARGIN_FRACTION + blockSpan;
   const targetStart = Math.min(headerClearStart, bottomAlignedStart);
-  return currentStart - BIT_ROW_SHIFT_FRACTION * (currentStart - targetStart);
+  let startY = currentStart - shiftFraction * (currentStart - targetStart);
+  if (maxRowY !== undefined) startY = Math.min(startY, maxRowY);
+  return startY;
 }
 
 async function readOptionalPng(path) {
@@ -322,7 +327,9 @@ export function drawBitIncludedPestColumn(page, {
 
   const rowX = x + 2;
   const rowW = width - 4;
-  const rowY = computeBitPestColumnStartY(bodyTopY, bodyBottomY, items.length, BIT_INCLUDED_ROW_STEP);
+  const rowY = computeBitPestColumnStartY(bodyTopY, bodyBottomY, items.length, BIT_INCLUDED_ROW_STEP, {
+    shiftFraction: BIT_INCLUDED_SHIFT_FRACTION,
+  });
 
   let cursorY = rowY;
   for (const item of items) {
@@ -356,27 +363,33 @@ export function drawBitAddonsColumn(page, {
 
   const rowX = x + 8;
   const rowW = width - 16;
-  const rowY = computeBitPestColumnStartY(
-    bodyTopY,
-    bodyBottomY,
-    items.length,
-    BIT_ADDON_ROW_STEP,
-    { topClearanceExtra: 12 },
-  );
 
   const labelSize = RIT_PEST_HEADING_SIZE;
   const labelText = 'Add-ons';
   const iconAreaX = rowX + RIT_PEST_CHECKBOX_SIZE + 4;
   const labelW = boldFont.widthOfTextAtSize(labelText, labelSize);
   const labelX = iconAreaX + BIT_ROW_ICON_PT / 2 - labelW / 2;
+  const labelY = bodyTopY - 12;
   drawUnderlinedLabel(page, {
     x: labelX,
-    y: rowY + 9,
+    y: labelY,
     text: labelText,
     size: labelSize,
     font: boldFont,
     color: TAG_RED,
   });
+
+  const maxRowY = labelY - labelSize - 10;
+  const rowY = computeBitPestColumnStartY(
+    bodyTopY,
+    bodyBottomY,
+    items.length,
+    BIT_ADDON_ROW_STEP,
+    {
+      shiftFraction: BIT_ADDON_SHIFT_FRACTION,
+      maxRowY,
+    },
+  );
 
   let cursorY = rowY;
   for (const item of items) {
