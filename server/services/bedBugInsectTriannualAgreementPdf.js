@@ -62,7 +62,7 @@ const MARGIN_Y = 10;
 const GAP = 4;
 const GAP_AFTER_PESTS = 0;
 const SECTION_PAD = 8;
-const BIT_BODY_TOP_PAD = 5;
+const BIT_BODY_TOP_PAD = 7;
 
 const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
 const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1;
@@ -76,15 +76,15 @@ const CALENDAR_TILE_H = 24 * 1.1 * 1.1;
 const CALENDAR_TILE_GAP = 2 * 1.1 * 1.1;
 const CALENDAR_PANEL_PAD = 1;
 
-/** Tighter field stacking for top-row and pricing panels. */
-const SPACING_TOP_ROW = { gap: 6, fieldSpacing: 5, valueSize: 7.5 };
-const SPACING_FORM = { gap: 6, fieldSpacing: 5, valueSize: 7.5 };
+/** Label-to-value and field-group spacing for form panels. */
+const SPACING_TOP_ROW = { gap: 8, fieldSpacing: 8, valueSize: 7.5 };
+const SPACING_FORM = { gap: 8, fieldSpacing: 8, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
-const LAYOUT_TOP_ROW_H = 74;
+const LAYOUT_TOP_ROW_H = 78;
 const LAYOUT_PESTS_H = 158;
 const LAYOUT_MIDDLE_ROW_H = 86;
-const LAYOUT_PRICING_H = 62;
+const LAYOUT_PRICING_H = 66;
 const LAYOUT_AUTH_H = 52;
 const LAYOUT_SIGNATURE_H = 54;
 
@@ -263,7 +263,7 @@ function drawTopRow(page, data, fonts) {
     const y = yFromTop(top, h);
     const innerW = colW - SECTION_PAD * 2;
     const innerX = x + SECTION_PAD;
-    const fieldY = bodyStartY(y, h) - LABEL_SIZE;
+    const fieldY = bodyStartY(y, h) - LABEL_SIZE - 2;
     drawBubblePanel(page, { x, y, w: colW, h, title: box.title, font: fonts.bold });
     if (box.kind === 'address') {
       drawServiceAddressGridBlock(page, {
@@ -288,7 +288,7 @@ function drawTopRow(page, data, fonts) {
     } else {
       drawServiceDetailsBlock(page, {
         x: innerX,
-        y: bodyStartY(y, h),
+        y: bodyStartY(y, h) - 5,
         width: innerW,
         font: fonts.regular,
       });
@@ -497,7 +497,7 @@ function drawPricingRow(page, data, fonts) {
     if (box.billing) {
       drawBillingGridBlock(page, {
         x: bx + SECTION_PAD,
-        y: bodyStartY(by, h) - LABEL_SIZE + 2,
+        y: bodyStartY(by, h) - LABEL_SIZE,
         width: innerW,
         data,
         font: fonts.regular,

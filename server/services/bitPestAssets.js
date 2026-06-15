@@ -366,9 +366,8 @@ export function drawBitAddonsColumn(page, {
 
   const labelSize = RIT_PEST_HEADING_SIZE;
   const labelText = 'Add-ons';
-  const iconAreaX = rowX + RIT_PEST_CHECKBOX_SIZE + 4;
   const labelW = boldFont.widthOfTextAtSize(labelText, labelSize);
-  const labelX = iconAreaX + BIT_ROW_ICON_PT / 2 - labelW / 2;
+  const labelX = x + (width - labelW) / 2;
   const labelY = bodyTopY - 12;
   drawUnderlinedLabel(page, {
     x: labelX,
