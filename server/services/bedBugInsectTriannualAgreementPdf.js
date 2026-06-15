@@ -31,7 +31,6 @@ import {
 } from './bitPestAssets.js';
 import {
   AGREEMENT_COLORS as COLORS,
-  BODY_TOP_PAD,
   drawBubblePanel,
   drawCompanyLogo,
   drawPaymentTile,
@@ -59,10 +58,11 @@ export const BIT_PAGE_SIZE = { width: 792, height: 612 };
 const PAGE_W = BIT_PAGE_SIZE.width;
 const PAGE_H = BIT_PAGE_SIZE.height;
 const MARGIN_X = 18;
-const MARGIN_Y = 12;
-const GAP = 5;
+const MARGIN_Y = 10;
+const GAP = 4;
 const GAP_AFTER_PESTS = 0;
-const SECTION_PAD = 10;
+const SECTION_PAD = 8;
+const BIT_BODY_TOP_PAD = 5;
 
 const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
 const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1;
@@ -74,17 +74,19 @@ const CALENDAR_PAY_SIZE = 6 * 1.1 * 1.1;
 const CALENDAR_PAY_SIZE_LONG = 5.5 * 1.1 * 1.1;
 const CALENDAR_TILE_H = 24 * 1.1 * 1.1;
 const CALENDAR_TILE_GAP = 2 * 1.1 * 1.1;
-const CALENDAR_PANEL_PAD = 2;
+const CALENDAR_PANEL_PAD = 1;
 
-const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
+/** Tighter field stacking for top-row and pricing panels. */
+const SPACING_TOP_ROW = { gap: 6, fieldSpacing: 5, valueSize: 7.5 };
+const SPACING_FORM = { gap: 6, fieldSpacing: 5, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
-const LAYOUT_TOP_ROW_H = 90;
+const LAYOUT_TOP_ROW_H = 74;
 const LAYOUT_PESTS_H = 158;
-const LAYOUT_MIDDLE_ROW_H = 95;
-const LAYOUT_PRICING_H = 70;
-const LAYOUT_AUTH_H = 60;
-const LAYOUT_SIGNATURE_H = 60;
+const LAYOUT_MIDDLE_ROW_H = 86;
+const LAYOUT_PRICING_H = 62;
+const LAYOUT_AUTH_H = 52;
+const LAYOUT_SIGNATURE_H = 54;
 
 const BIT_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
@@ -102,7 +104,7 @@ function yFromTop(yTop, height = 0) {
 }
 
 function bodyStartY(panelBottom, panelHeight) {
-  return layoutBodyStartY(panelBottom, panelHeight, HEADER_BAR_H, BODY_TOP_PAD);
+  return layoutBodyStartY(panelBottom, panelHeight, HEADER_BAR_H, BIT_BODY_TOP_PAD);
 }
 
 export function normalizeBedBugInsectTriannualAgreementData(input = {}) {
@@ -168,7 +170,7 @@ async function drawHeader(pdfDoc, page, fonts) {
   }
 }
 
-function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_TOP_ROW }) {
   const colW = (width - 10) / 2;
   const leftX = x;
   const rightX = x + colW + 10;
@@ -194,7 +196,7 @@ function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, 
     ...spacing,
   });
 
-  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 4;
+  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 2;
   drawStackedField(page, {
     x: leftX,
     y: row2Y,
@@ -217,7 +219,7 @@ function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, 
   });
 }
 
-function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_TOP_ROW }) {
   drawTwoColumnAddressBlock(page, {
     x,
     y,
@@ -271,7 +273,7 @@ function drawTopRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_SIGNATURE,
+        spacing: SPACING_TOP_ROW,
       });
     } else if (box.kind === 'customer') {
       drawCustomerGridBlock(page, {
@@ -281,7 +283,7 @@ function drawTopRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_SIGNATURE,
+        spacing: SPACING_TOP_ROW,
       });
     } else {
       drawServiceDetailsBlock(page, {
@@ -386,7 +388,7 @@ function drawMiddleRow(page, schedule, fonts) {
     w: leftW - 12,
     font: fonts.regular,
     size: BODY_TEXT_SIZE_EXPECTATIONS,
-    lineHeight: BODY_TEXT_SIZE_EXPECTATIONS * 1.25,
+    lineHeight: BODY_TEXT_SIZE_EXPECTATIONS * 1.2,
   });
 
   const rx = x + leftW + GAP;
@@ -413,7 +415,7 @@ function drawMiddleRow(page, schedule, fonts) {
   });
 }
 
-function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_FORM }) {
   const colW = (width - 10) / 2;
   const leftX = x;
   const rightX = x + colW + 10;
@@ -495,20 +497,20 @@ function drawPricingRow(page, data, fonts) {
     if (box.billing) {
       drawBillingGridBlock(page, {
         x: bx + SECTION_PAD,
-        y: bodyStartY(by, h) - LABEL_SIZE + 5,
+        y: bodyStartY(by, h) - LABEL_SIZE + 2,
         width: innerW,
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: { gap: 9, fieldSpacing: 8, valueSize: 7.5 },
+        spacing: SPACING_FORM,
       });
     } else {
       drawPriceRows(page, {
         x: bx + SECTION_PAD,
-        y: bodyStartY(by, h) - 7.5,
+        y: bodyStartY(by, h) - 6,
         width: innerW,
         rows: box.rows,
-        rowHeight: 14,
+        rowHeight: 12,
         font: fonts.regular,
         boldFont: fonts.bold,
       });
@@ -539,7 +541,7 @@ function drawAuthorizationSection(page, fonts) {
     w: w - 12,
     font: fonts.regular,
     size: BODY_TEXT_SIZE_AUTHORIZATION,
-    lineHeight: BODY_TEXT_SIZE_AUTHORIZATION * 1.21,
+    lineHeight: BODY_TEXT_SIZE_AUTHORIZATION * 1.18,
   });
 }
 
@@ -566,7 +568,7 @@ function drawSignatureSection(page, data, fonts) {
   const periodSize = LABEL_SIZE;
   const periodWidth = fonts.bold.widthOfTextAtSize(BIT_AGREEMENT_PERIOD_TEXT, periodSize);
   const periodX = x + (w - periodWidth) / 2;
-  const periodY = y + h - SECTION_PAD - 2;
+  const periodY = y + h - SECTION_PAD;
   drawUnderlinedLabel(page, {
     x: periodX,
     y: periodY,
@@ -578,16 +580,16 @@ function drawSignatureSection(page, data, fonts) {
 
   drawWrappedText(page, BIT_INITIALS_TEXT, {
     x: x + SECTION_PAD,
-    y: y + h - SECTION_PAD - 14,
+    y: y + h - SECTION_PAD - 12,
     w: w - SECTION_PAD * 2,
     font: fonts.regular,
     size: BODY_TEXT_SIZE_INITIALS,
-    lineHeight: BODY_TEXT_SIZE_INITIALS * 1.11,
+    lineHeight: BODY_TEXT_SIZE_INITIALS * 1.08,
   });
 
-  const fieldGap = 16;
+  const fieldGap = 14;
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
-  const sigTopY = y + 16;
+  const sigTopY = y + 12;
   const fields = [
     { label: 'Customer Initials:', value: data.customerInitials },
     { label: 'Customer Signature:', value: data.customerSignatureName },
