@@ -77,16 +77,16 @@ const CALENDAR_TILE_GAP = 2 * 1.1 * 1.1;
 const CALENDAR_PANEL_PAD = 1;
 
 /** Label-to-value and field-group spacing for form panels. */
-const SPACING_TOP_ROW = { gap: 8, fieldSpacing: 8, valueSize: 7.5 };
-const SPACING_FORM = { gap: 8, fieldSpacing: 8, valueSize: 7.5 };
+const SPACING_TOP_ROW = { gap: 11, fieldSpacing: 9, valueSize: 7.5 };
+const SPACING_FORM = { gap: 11, fieldSpacing: 9, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
-const LAYOUT_TOP_ROW_H = 78;
+const LAYOUT_TOP_ROW_H = 84;
 const LAYOUT_PESTS_H = 158;
 const LAYOUT_MIDDLE_ROW_H = 86;
-const LAYOUT_PRICING_H = 66;
+const LAYOUT_PRICING_H = 72;
 const LAYOUT_AUTH_H = 52;
-const LAYOUT_SIGNATURE_H = 54;
+const LAYOUT_SIGNATURE_H = 60;
 
 const BIT_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
@@ -589,7 +589,7 @@ function drawSignatureSection(page, data, fonts) {
 
   const fieldGap = 14;
   const fieldW = (w - SECTION_PAD * 2 - fieldGap * 2) / 3;
-  const sigTopY = y + 12;
+  const sigTopY = y + 14;
   const fields = [
     { label: 'Customer Initials:', value: data.customerInitials },
     { label: 'Customer Signature:', value: data.customerSignatureName },
