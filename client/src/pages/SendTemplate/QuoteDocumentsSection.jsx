@@ -11,6 +11,7 @@ import {
   mergeBedBugPayload,
   validateBedBugForm,
 } from './bedBugAgreementUtils.js';
+import { buildCustomerAddressFromLead, prefillEmptyFields } from './customerPrefill.js';
 
 /* ── Quote Documents Section ── */
 export default function QuoteDocumentsSection({
@@ -37,7 +38,7 @@ export default function QuoteDocumentsSection({
   const [missing, setMissing]         = useState(false);
 
   const isBedBug = selected?.templateKind === 'bed_bug' || selected?.name === 'Bed Bug.pdf';
-  const isRitSigning = selected?.serviceType === 'rodent_insect_triannual';
+  const useSigningFlow = Boolean(lead?.email);
   const currentFingerprint = useMemo(
     () => (isBedBug && bedBugForm ? bedBugFormFingerprint(bedBugForm, pricing, address, agreementStartDate) : null),
     [isBedBug, bedBugForm, pricing, address, agreementStartDate],
@@ -53,13 +54,19 @@ export default function QuoteDocumentsSection({
   }, []);
 
   useEffect(() => {
+    if (!lead) return;
+    setAddress((prev) => buildCustomerAddressFromLead(lead, prev));
+  }, [lead?.row_number]);
+
+  useEffect(() => {
     if (isBedBug && lead) {
-      setBedBugForm((prev) => prev ?? buildBedBugAgreementState(lead, address, pricing, agreementStartDate));
+      const base = buildBedBugAgreementState(lead, address, pricing, agreementStartDate);
+      setBedBugForm((prev) => (prev ? prefillEmptyFields(prev, base) : base));
     } else if (!isBedBug) {
       setBedBugForm(null);
       setPreviewFingerprint(null);
     }
-  }, [isBedBug, lead, address, pricing, agreementStartDate]);
+  }, [isBedBug, lead?.row_number, address.street, address.city, address.state, address.zip, address.cityState, pricing.initial, pricing.discounted, pricing.recurring, agreementStartDate]);
 
   useEffect(() => {
     if (!isBedBug || !bedBugForm) return;
@@ -85,16 +92,18 @@ export default function QuoteDocumentsSection({
   }, [pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified, onStateChange]);
 
   useEffect(() => {
-    if (!lead?.row_number || !isRitSigning) {
+    if (!lead?.row_number || !selected) {
       setSigningSessions([]);
       return;
     }
     api.signing.sessions({ leadRow: lead.row_number })
       .then((data) => setSigningSessions(data.sessions || []))
       .catch(() => setSigningSessions([]));
-  }, [lead?.row_number, isRitSigning, emailResult]);
+  }, [lead?.row_number, selected?.key, emailResult]);
 
   function buildPayload(extra = {}) {
+    const cityState = address.cityState
+      || [address.city, [address.state, address.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
     const base = {
       index:            selected.index,
       serviceType:      selected.serviceType || null,
@@ -106,7 +115,10 @@ export default function QuoteDocumentsSection({
       },
       pricing,
       notes,
-      address,
+      address: {
+        ...address,
+        cityState,
+      },
       agreementStartDate: agreementStartDate || undefined,
       startDate: agreementStartDate || undefined,
       prepGuideIndices,
@@ -335,10 +347,30 @@ export default function QuoteDocumentsSection({
                   value={address.street}
                   onChange={e => setAddress(p => ({ ...p, street: e.target.value }))}
                 />
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    className="send-command-input text-sm"
+                    placeholder="City"
+                    value={address.city || ''}
+                    onChange={e => setAddress(p => ({ ...p, city: e.target.value }))}
+                  />
+                  <input
+                    className="send-command-input text-sm"
+                    placeholder="State"
+                    value={address.state || ''}
+                    onChange={e => setAddress(p => ({ ...p, state: e.target.value }))}
+                  />
+                  <input
+                    className="send-command-input text-sm"
+                    placeholder="ZIP"
+                    value={address.zip || ''}
+                    onChange={e => setAddress(p => ({ ...p, zip: e.target.value }))}
+                  />
+                </div>
                 <input
                   className="send-command-input text-sm"
-                  placeholder="City, State ZIP"
-                  value={address.cityState}
+                  placeholder="City, State ZIP (optional combined)"
+                  value={address.cityState || ''}
                   onChange={e => setAddress(p => ({ ...p, cityState: e.target.value }))}
                 />
               </div>
@@ -473,7 +505,7 @@ export default function QuoteDocumentsSection({
         >
           {emailing
             ? <><Spinner size={12} /> Sending...</>
-            : <><Send size={12} /> {isRitSigning ? 'Email Signing Link' : 'Email Quote'} to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
+            : <><Send size={12} /> {useSigningFlow ? 'Email Signing Link' : 'Email Quote'} to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
           }
         </button>
 
@@ -509,7 +541,7 @@ export default function QuoteDocumentsSection({
           </p>
         )}
 
-        {isRitSigning && signingSessions.length > 0 && (
+        {useSigningFlow && signingSessions.length > 0 && (
           <div className="rounded-lg border border-gs-border bg-gs-card/40 p-3 space-y-2">
             <p className="text-xs font-semibold text-gs-text">Agreement signing records</p>
             {signingSessions.slice(0, 3).map((session) => (

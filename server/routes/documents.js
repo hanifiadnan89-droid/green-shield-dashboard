@@ -16,7 +16,7 @@ import { isInsectQuarterlyVectorPdfEnabled } from '../services/insectQuarterlyVe
 import { buildBedBugInsectTriannualAgreementPdf } from '../services/bedBugInsectTriannualAgreementPdf.js';
 import { buildRodentInsectTriannualAgreementPdf } from '../services/rodentInsectTriannualAgreementPdf.js';
 import { isRodentInsectTriannualVectorPdfEnabled } from '../services/rodentInsectTriannualVectorPdfFlag.js';
-import { createRitSigningSession } from '../services/agreementSigning/ritSigning.js';
+import { createAgreementSigningSession, getAgreementTypeLabel, resolveAgreementType } from '../services/agreementSigning/agreementSigning.js';
 import { sendSigningRequestEmail } from '../services/agreementSigning/email.js';
 import { readPreviewPng } from '../services/agreementSigning/storage.js';
 import { appendLog } from '../services/activity.js';
@@ -815,10 +815,10 @@ router.post('/email-quote', async (req, res) => {
       }
     }
 
-    const useRitSigning = serviceType === 'rodent_insect_triannual'
-      && isRodentInsectTriannualVectorPdfEnabled();
+    const agreementType = resolveAgreementType({ templateName, serviceType });
+    const useSigningFlow = Boolean(lead.email);
 
-    if (useRitSigning) {
+    if (useSigningFlow) {
       const quotePayload = {
         index,
         lead,
@@ -831,9 +831,12 @@ router.post('/email-quote', async (req, res) => {
         serviceStartDate,
         initialServiceDate,
         selectedStartDate,
+        bedBugAgreement,
+        cardLastFour,
       };
 
-      const { session, signUrl } = await createRitSigningSession({
+      const { session, signUrl } = await createAgreementSigningSession({
+        agreementType,
         quotePayload,
         lead,
         outBytes,
@@ -849,10 +852,12 @@ router.post('/email-quote', async (req, res) => {
       }
 
       const firstName = (lead.name || '').split(' ')[0] || 'there';
+      const agreementLabel = getAgreementTypeLabel(agreementType);
       await sendSigningRequestEmail({
         to: lead.email,
         firstName,
         signUrl,
+        agreementLabel,
         hasPrepGuide: prepGuideAttached.length > 0,
         previewPngBuffer,
         prepGuideAttachments,
@@ -861,7 +866,7 @@ router.post('/email-quote', async (req, res) => {
       appendLog({
         type: 'agreement_signing_sent',
         action: 'agreement_signing_sent',
-        agreementType: 'rodent_insect_triannual',
+        agreementType,
         token: session.token,
         signUrl,
         customerName: lead.name ?? '',
@@ -877,7 +882,7 @@ router.post('/email-quote', async (req, res) => {
         }
       }
 
-      console.log(`[email-quote] RIT signing link sent to ${lead.email} — ${signUrl}`);
+      console.log(`[email-quote] Signing link sent to ${lead.email} (${agreementType}) — ${signUrl}`);
 
       return res.json({
         success: true,

@@ -8,15 +8,16 @@ const COMPANY_FOOTER = `
             11 Eastview Pkwy Unit 106, Saco, ME 04072
           </p>`;
 
-export function buildRitSigningRequestEmailHtml({
+export function buildSigningRequestEmailHtml({
   firstName,
   signUrl,
+  agreementLabel = 'service',
   hasPrepGuide,
   includePreview,
 }) {
   const attachmentText = hasPrepGuide
-    ? 'your Rodent &amp; Insect Triannual agreement and preparation guide'
-    : 'your Rodent &amp; Insect Triannual agreement';
+    ? `your ${agreementLabel} agreement and preparation guide`
+    : `your ${agreementLabel} agreement`;
 
   const previewBlock = includePreview
     ? `
@@ -52,14 +53,15 @@ export function buildRitSigningRequestEmailHtml({
       `;
 }
 
-export function buildRitSigningCompleteEmailHtml({
+export function buildSigningCompleteEmailHtml({
   firstName,
   forCustomer = true,
   customerName,
+  agreementLabel = 'service',
 }) {
   const greeting = forCustomer
-    ? `<p>Hi ${firstName},</p><p>Thank you — your signed Rodent &amp; Insect Triannual agreement is attached.</p>`
-    : `<p>${customerName || 'A customer'} has signed their Rodent &amp; Insect Triannual agreement.</p><p>The signed PDF is attached for your records.</p>`;
+    ? `<p>Hi ${firstName},</p><p>Thank you — your signed ${agreementLabel} agreement is attached.</p>`
+    : `<p>${customerName || 'A customer'} has signed their ${agreementLabel} agreement.</p><p>The signed PDF is attached for your records.</p>`;
 
   return `
         <div style="font-family:Arial,sans-serif;max-width:560px;color:#1a1a1a">
@@ -79,10 +81,17 @@ export function getSigningNotifyEmail() {
   );
 }
 
+/** @deprecated Use buildSigningRequestEmailHtml */
+export const buildRitSigningRequestEmailHtml = buildSigningRequestEmailHtml;
+
+/** @deprecated Use buildSigningCompleteEmailHtml */
+export const buildRitSigningCompleteEmailHtml = buildSigningCompleteEmailHtml;
+
 export async function sendSigningRequestEmail({
   to,
   firstName,
   signUrl,
+  agreementLabel = 'service',
   hasPrepGuide,
   previewPngBuffer,
   prepGuideAttachments = [],
@@ -107,7 +116,7 @@ export async function sendSigningRequestEmail({
     from: `Green Shield Pest Solutions <${process.env.GMAIL_USER}>`,
     to,
     subject: 'Please Review & Sign Your Green Shield Agreement',
-    html: buildRitSigningRequestEmailHtml({ firstName, signUrl, hasPrepGuide, includePreview }),
+    html: buildSigningRequestEmailHtml({ firstName, signUrl, agreementLabel, hasPrepGuide, includePreview }),
     attachments,
   });
 }
@@ -118,6 +127,7 @@ export async function sendSignedAgreementEmails({
   customerName,
   signedFilename,
   signedPdfBytes,
+  agreementLabel = 'service',
 }) {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -138,9 +148,10 @@ export async function sendSignedAgreementEmails({
       from: `Green Shield Pest Solutions <${process.env.GMAIL_USER}>`,
       to: customerEmail,
       subject: 'Your Signed Green Shield Agreement',
-      html: buildRitSigningCompleteEmailHtml({
+      html: buildSigningCompleteEmailHtml({
         firstName: customerFirstName,
         forCustomer: true,
+        agreementLabel,
       }),
       attachments: [pdfAttachment],
     }));
@@ -150,9 +161,10 @@ export async function sendSignedAgreementEmails({
     from: `Green Shield Pest Solutions <${process.env.GMAIL_USER}>`,
     to: notifyEmail,
     subject: `Signed agreement received — ${customerName || customerEmail || 'Customer'}`,
-    html: buildRitSigningCompleteEmailHtml({
+    html: buildSigningCompleteEmailHtml({
       customerName,
       forCustomer: false,
+      agreementLabel,
     }),
     attachments: [pdfAttachment],
   }));
