@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import SignaturePad from './SignaturePad.jsx';
+import TypedInitialsInput from './TypedInitialsInput.jsx';
+import { renderInitialsToPngDataUrl } from './initialsToPng.js';
 import './agreement-sign.css';
 
 function todayIsoDate() {
@@ -36,11 +38,13 @@ export default function AgreementSignPage() {
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
 
+  const [typedInitials, setTypedInitials] = useState('');
   const [initialsPng, setInitialsPng] = useState(null);
   const [signaturePng, setSignaturePng] = useState(null);
   const [signatureDate, setSignatureDate] = useState(todayIsoDate());
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [activePad, setActivePad] = useState(null);
+  const [showInitialsInput, setShowInitialsInput] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +71,8 @@ export default function AgreementSignPage() {
   );
 
   const canSubmit = Boolean(
-    initialsPng
+    typedInitials
+    && initialsPng
     && signaturePng
     && signatureDate
     && consentAccepted
@@ -84,6 +89,7 @@ export default function AgreementSignPage() {
         initialsPng,
         signaturePng,
         signatureDate,
+        typedInitials,
         consentAccepted: true,
       });
       setCompleted(true);
@@ -158,20 +164,20 @@ export default function AgreementSignPage() {
           <div className="agreement-sign-page__panel">
             <h2>Sign your agreement</h2>
             <p>
-              Tap each field below to add your initials, signature, and signing date.
+              Type your initials, draw your signature, and confirm the signing date.
               When everything is complete, submit the agreement.
             </p>
 
             <div className="agreement-sign-page__fields">
-              <div className={`agreement-sign-page__field ${initialsPng ? 'agreement-sign-page__field--done' : ''}`}>
+              <div className={`agreement-sign-page__field ${typedInitials ? 'agreement-sign-page__field--done' : ''}`}>
                 <div className="agreement-sign-page__field-label">Customer Initials</div>
-                <div className="agreement-sign-page__field-preview">
-                  {initialsPng
-                    ? <img src={initialsPng} alt="Initials preview" />
-                    : <span>Tap to add initials</span>}
+                <div className="agreement-sign-page__field-preview agreement-sign-page__field-preview--initials">
+                  {typedInitials
+                    ? <span className="agreement-sign-page__initials-text">{typedInitials}</span>
+                    : <span>Tap to type your initials</span>}
                 </div>
-                <button type="button" onClick={() => setActivePad('initials')}>
-                  {initialsPng ? 'Edit Initials' : 'Add Initials'}
+                <button type="button" onClick={() => setShowInitialsInput(true)}>
+                  {typedInitials ? 'Edit Initials' : 'Type Initials'}
                 </button>
               </div>
 
@@ -223,16 +229,39 @@ export default function AgreementSignPage() {
         ) : null}
       </div>
 
-      {activePad ? (
+      {showInitialsInput ? (
+        <div className="agreement-sign-page__modal-backdrop" role="presentation">
+          <div className="agreement-sign-page__modal" role="dialog" aria-modal="true">
+            <TypedInitialsInput
+              initialValue={typedInitials}
+              onDone={(value) => {
+                const png = renderInitialsToPngDataUrl(value);
+                if (!png) return;
+                setTypedInitials(value);
+                setInitialsPng(png);
+                setShowInitialsInput(false);
+              }}
+            />
+            <button
+              type="button"
+              className="agreement-sign-page__modal-close"
+              onClick={() => setShowInitialsInput(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {activePad === 'signature' ? (
         <div className="agreement-sign-page__modal-backdrop" role="presentation">
           <div className="agreement-sign-page__modal" role="dialog" aria-modal="true">
             <SignaturePad
-              label={activePad === 'initials' ? 'Draw your initials' : 'Draw your signature'}
+              label="Draw your signature"
               hint="Use your finger or mouse, then tap Done."
-              height={activePad === 'initials' ? 120 : 180}
+              height={180}
               onDone={(dataUrl) => {
-                if (activePad === 'initials') setInitialsPng(dataUrl);
-                else setSignaturePng(dataUrl);
+                setSignaturePng(dataUrl);
                 setActivePad(null);
               }}
             />

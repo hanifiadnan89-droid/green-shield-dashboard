@@ -274,3 +274,92 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+.typed-initials-input__title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.typed-initials-input__hint {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.typed-initials-input__field {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.typed-initials-input__preview-label {
+  margin: 14px 0 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.typed-initials-input__preview {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #111827;
+}
+
+.typed-initials-input__preview-placeholder {
+  color: #94a3b8;
+  font-size: 1rem;
+  font-family: system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.typed-initials-input__actions {
+  margin-top: 12px;
+}
+
+.typed-initials-input__primary {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #148a43;
+  color: #fff;
+}
+
+.typed-initials-input__primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.agreement-sign-page__field-preview--initials {
+  min-height: 64px;
+}
+
+.agreement-sign-page__initials-text {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #111827;
+}
