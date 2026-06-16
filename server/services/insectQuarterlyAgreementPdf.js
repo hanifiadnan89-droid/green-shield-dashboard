@@ -461,6 +461,15 @@ function drawIqAddonsColumn(page, {
   }
 }
 
+function drawIqPestColumnDivider(page, dividerX, bodyTopY, bodyBottomY) {
+  page.drawLine({
+    start: { x: dividerX - 3, y: bodyBottomY + 1 },
+    end: { x: dividerX - 3, y: bodyTopY - 1 },
+    thickness: 0.35,
+    color: COLORS.border,
+  });
+}
+
 function drawPestsSection(page, data, fonts, pestImages) {
   const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP);
   const h = LAYOUT_PESTS_H;
@@ -483,6 +492,11 @@ function drawPestsSection(page, data, fonts, pestImages) {
   const col3X = col4X - colGap - col3W;
   const col2X = col3X - colGap - col2W;
   const col1X = innerX;
+  const bodyBottomY = y + 5;
+
+  for (const dividerX of [col2X, col3X, col4X, col5X]) {
+    drawIqPestColumnDivider(page, dividerX, groupTopY, bodyBottomY);
+  }
 
   /** Shared first-row baseline for included pests — shifted up from panel bottom. */
   const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9 + IQ_INCLUDED_PEST_SHIFT_UP;

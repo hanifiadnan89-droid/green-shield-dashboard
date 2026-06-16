@@ -254,6 +254,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     expect(source).toContain('embedRitPestImagesForLabels');
     expect(source).toContain('drawRitPestRow');
     expect(source).toContain('drawIqAddonsColumn');
+    expect(source).toContain('drawIqPestColumnDivider');
 
     const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
