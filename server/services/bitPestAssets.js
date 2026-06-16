@@ -163,6 +163,17 @@ async function readRowIconBuffer(key) {
   return null;
 }
 
+/** Embed row icons (96px small PNGs) for an explicit list of asset keys. */
+export async function embedBitRowPestImagesForAssetKeys(pdfDoc, assetKeys = []) {
+  const row = {};
+  for (const key of [...new Set(assetKeys.filter(Boolean))]) {
+    const buffer = await readRowIconBuffer(key);
+    const embedded = await embedPng(pdfDoc, buffer);
+    if (embedded) row[key] = embedded;
+  }
+  return { large: {}, small: row, row, bedBugKey: null };
+}
+
 /** Embed row icons (96px small PNGs) + full-res bedbug hero. */
 export async function embedBitPestImages(pdfDoc) {
   const large = {};

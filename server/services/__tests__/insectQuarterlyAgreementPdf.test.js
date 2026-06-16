@@ -138,9 +138,9 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
       ...IQ_INCLUDED_PESTS_COL_B,
       ...IQ_INCLUDED_PESTS_COL_C,
       ...IQ_INCLUDED_PESTS_COL_D,
-      ...IQ_ADDON_PESTS.map((item) => item.label),
+      ...IQ_ADDON_PESTS,
     ]) {
-      expect(text).toContain(pest);
+      expect(text).toContain(pest.label);
     }
     expect(text).not.toContain('Included Pests');
     expect(text).not.toContain('Main pest');
@@ -251,10 +251,10 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     );
     expect(source).not.toContain('drawInvertedBracket');
     expect(source).not.toContain('Main pest');
-    expect(source).toContain('embedRitPestImagesForLabels');
-    expect(source).toContain('drawRitPestRow');
-    expect(source).toContain('drawIqAddonsColumn');
-    expect(source).toContain('drawIqPestColumnDivider');
+    expect(source).toContain('embedBitRowPestImagesForAssetKeys');
+    expect(source).toContain('drawBitIncludedPestColumn');
+    expect(source).toContain('drawBitAddonsColumn');
+    expect(source).toContain('LAYOUT_PESTS_H = 158');
 
     const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
