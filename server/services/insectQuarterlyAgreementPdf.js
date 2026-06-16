@@ -94,8 +94,8 @@ const LAYOUT_SIGNATURE_H = 62;
 
 /** Nudge included pest rows upward so they do not sit on the panel bottom. */
 const IQ_INCLUDED_PEST_SHIFT_UP = 8;
-/** Gap between the Add-ons label and the first add-on row baseline. */
-const IQ_ADDON_LABEL_ABOVE_ROW = 9;
+/** Gap between the Add-ons label and the first add-on row (clears icon height above baseline). */
+const IQ_ADDON_LABEL_ABOVE_ROW = 17;
 
 const IQ_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
