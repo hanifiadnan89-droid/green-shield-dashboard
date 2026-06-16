@@ -64,9 +64,12 @@ const GAP_AFTER_PESTS = 0;
 const SECTION_PAD = 8;
 const VALUE_SIZE = 7.5;
 
-const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
-const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1;
-const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1 * 1.1;
+const BODY_TEXT_SIZE_SERVICE_DETAILS = 6.4 * 1.2;
+const BODY_TEXT_SIZE_SERVICE_DETAILS_LEADING = 7.2 * 1.2;
+const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1 * 1.05;
+const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1 * 1.05;
+const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1 * 1.1 * 1.05;
+const IQ_AGREEMENT_PERIOD_SIZE = LABEL_SIZE * 1.05;
 const COMPANY_INFO_SIZE = 6.5 * 1.1 * 1.1;
 /** Leading tuned for six company lines within the 50pt header band at +10% size. */
 const COMPANY_INFO_LEADING = 8.2;
@@ -78,6 +81,8 @@ const CALENDAR_TILE_GAP = 2 * 1.1 * 1.1;
 const CALENDAR_PANEL_PAD = 2;
 
 const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
+/** Extra label-to-value breathing room for top-row and billing form grids. */
+const SPACING_FORM_GRID = { gap: 13, fieldSpacing: 9, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
 const LAYOUT_TOP_ROW_H = 84;
@@ -241,7 +246,7 @@ async function drawHeader(pdfDoc, page, fonts) {
   }
 }
 
-function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_FORM_GRID }) {
   const colW = (width - 10) / 2;
   const leftX = x;
   const rightX = x + colW + 10;
@@ -290,7 +295,7 @@ function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, 
   });
 }
 
-function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_FORM_GRID }) {
   drawTwoColumnAddressBlock(page, {
     x,
     y,
@@ -314,8 +319,8 @@ function drawServiceDetailsBlock(page, { x, y, width, font }) {
     y,
     w: width,
     font,
-    size: 6.4,
-    lineHeight: 7.2,
+    size: BODY_TEXT_SIZE_SERVICE_DETAILS,
+    lineHeight: BODY_TEXT_SIZE_SERVICE_DETAILS_LEADING,
   });
 }
 
@@ -344,7 +349,7 @@ function drawTopRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_SIGNATURE,
+        spacing: SPACING_FORM_GRID,
       });
     } else if (box.kind === 'customer') {
       drawCustomerGridBlock(page, {
@@ -354,7 +359,7 @@ function drawTopRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_SIGNATURE,
+        spacing: SPACING_FORM_GRID,
       });
     } else {
       drawServiceDetailsBlock(page, {
@@ -499,7 +504,7 @@ function drawMiddleRow(page, schedule, fonts) {
   });
 }
 
-function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_FORM_GRID }) {
   const colW = (width - 10) / 2;
   const leftX = x;
   const rightX = x + colW + 10;
@@ -525,7 +530,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
     ...spacing,
   });
 
-  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 4;
+  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 1;
   drawStackedField(page, {
     x: leftX,
     y: row2Y,
@@ -589,7 +594,7 @@ function drawPricingRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_SIGNATURE,
+        spacing: SPACING_FORM_GRID,
       });
     } else {
       drawPriceRows(page, {
@@ -652,7 +657,7 @@ function drawSignatureSection(page, data, fonts, signatureAssets = {}) {
   const y = yFromTop(top, h);
   drawRoundedSection(page, { x, y, w, h });
 
-  const periodSize = LABEL_SIZE;
+  const periodSize = IQ_AGREEMENT_PERIOD_SIZE;
   const periodWidth = fonts.bold.widthOfTextAtSize(IQ_AGREEMENT_PERIOD_TEXT, periodSize);
   const periodX = x + (w - periodWidth) / 2;
   const periodY = y + h - SECTION_PAD - 2;
