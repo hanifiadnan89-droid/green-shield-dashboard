@@ -7,9 +7,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pdfPath = process.argv[2];
 const outPath = process.argv[3] || join(__dirname, '..', '..', 'tmp', 'pests-section-preview.png');
 const scale = Number(process.argv[4] || 3);
+const topFraction = Number(process.argv[5] || 148 / 612);
+const heightFraction = Number(process.argv[6] || 168 / 612);
 
 if (!pdfPath) {
-  console.error('Usage: node render-pests-section-preview.mjs <pdf> [out.png] [scale]');
+  console.error('Usage: node render-pests-section-preview.mjs <pdf> [out.png] [scale] [topFraction] [heightFraction]');
   process.exit(1);
 }
 
@@ -43,9 +45,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 })();
 </script></body></html>`;
 
-// Covered Pests panel bounds on landscape letter (792×612), matched to BIT layout constants.
-const PESTS_PANEL_TOP_FRACTION = 148 / 612;
-const PESTS_PANEL_HEIGHT_FRACTION = 168 / 612;
+// Covered Pests panel bounds on landscape letter (792×612). Override via CLI for IQ vs BIT.
+const PESTS_PANEL_TOP_FRACTION = topFraction;
+const PESTS_PANEL_HEIGHT_FRACTION = heightFraction;
 
 const browser = await chromium.launch();
 const page = await browser.newPage();

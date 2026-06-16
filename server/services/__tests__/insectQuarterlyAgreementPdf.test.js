@@ -138,7 +138,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
       ...IQ_INCLUDED_PESTS_COL_B,
       ...IQ_INCLUDED_PESTS_COL_C,
       ...IQ_INCLUDED_PESTS_COL_D,
-      ...IQ_ADDON_PESTS,
+      ...IQ_ADDON_PESTS.map((item) => item.label),
     ]) {
       expect(text).toContain(pest);
     }
@@ -146,6 +146,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     expect(text).not.toContain('Main pest');
     expect(text).not.toContain('Included');
     expect(text).toContain('Mice/Rats');
+    expect(text).toContain('Cockroaches');
     expect(text).toContain('Add-ons');
   });
 
@@ -252,6 +253,8 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     expect(source).not.toContain('Main pest');
     expect(source).toContain('embedRitPestImagesForLabels');
     expect(source).toContain('drawRitPestRow');
+    expect(source).toContain('drawIqAddonsColumn');
+    expect(source).toContain('drawIqPestColumnDivider');
 
     const { outBytes } = await buildInsectQuarterlyAgreementPdf(samplePayload);
     const { text } = await extractPdfText(outBytes);
@@ -260,7 +263,7 @@ describe('buildInsectQuarterlyAgreementPdf', () => {
     expect(text).not.toContain('Included');
     expect(text).toContain('Yellow Jackets/Hornets');
     expect(text).toContain('Stink Bugs');
-    expect(text).not.toContain('Cockroaches');
+    expect(text).toContain('Cockroaches');
     expect(text).not.toContain('Springtails/Silverfish');
   });
 });
@@ -296,8 +299,8 @@ describe('buildQuotePdf insect_quarterly feature flag', () => {
     expect(text).toContain(IQ_SUBSCRIPTION_TITLE);
   });
 
-  it('uses legacy AcroForm path when flag is unset', async () => {
-    delete process.env.INSECT_QUARTERLY_VECTOR_PDF;
+  it('uses legacy AcroForm path when flag is explicitly disabled', async () => {
+    process.env.INSECT_QUARTERLY_VECTOR_PDF = 'false';
     const index = await resolveServiceAgreementsIndex();
     const { outBytes, outName } = await buildQuotePdf({ index, ...samplePayload });
     expect(outName).toBe('Jane_Doe_Insect_Quarterly.pdf');

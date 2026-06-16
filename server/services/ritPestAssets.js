@@ -65,13 +65,16 @@ export async function embedRitPestImages(pdfDoc) {
  * Embed only the row icons needed for a checklist of pest labels.
  * Prefers small PNGs to keep agreement PDFs lightweight.
  */
-export async function embedRitPestImagesForLabels(pdfDoc, labels = []) {
+export async function embedRitPestImagesForLabels(pdfDoc, labels = [], extraAssetKeys = []) {
   const manifestPath = join(RIT_PEST_ASSETS_DIR, 'manifest.json');
   const manifestRaw = await fs.readFile(manifestPath, 'utf8');
   const manifest = JSON.parse(manifestRaw);
   const large = {};
   const small = {};
-  const keys = [...new Set(labels.map((label) => manifest.rows[label]).filter(Boolean))];
+  const keys = [...new Set([
+    ...labels.map((label) => manifest.rows[label]).filter(Boolean),
+    ...extraAssetKeys.filter(Boolean),
+  ])];
 
   for (const key of keys) {
     const smallBuffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'small', `${key}.png`));

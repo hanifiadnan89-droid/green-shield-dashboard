@@ -65,6 +65,33 @@ describe('agreementSigning', () => {
     expect(pdf.getPageCount()).toBe(1);
   }, 60000);
 
+  it('builds a signed insect quarterly vector PDF with embedded signature images', async () => {
+    const session = {
+      token: 'test-token-iq',
+      agreementType: 'insect_quarterly',
+      quotePayload: {
+        lead: samplePayload.lead,
+        address: samplePayload.address,
+        pricing: samplePayload.pricing,
+        agreementStartDate: samplePayload.agreementStartDate,
+      },
+      outName: 'Jane_Doe_Insect_Quarterly.pdf',
+    };
+    const submission = {
+      signatureDate: '2026-06-15',
+      initialsPng: SAMPLE_PNG,
+      signaturePng: SAMPLE_PNG,
+    };
+
+    const { outBytes, dateDisplay, outName } = await buildSignedAgreementPdf(session, submission);
+    expect(dateDisplay).toBe('06/15/2026');
+    expect(outName).toBe('Jane_Doe_Insect_Quarterly.pdf');
+    expect(outBytes.byteLength).toBeGreaterThan(10_000);
+
+    const pdf = await PDFDocument.load(outBytes);
+    expect(pdf.getPageCount()).toBe(1);
+  }, 60000);
+
   it('stamps signatures onto legacy flattened PDF bytes', async () => {
     const pdfDoc = await PDFDocument.create();
     pdfDoc.addPage([792, 612]);
