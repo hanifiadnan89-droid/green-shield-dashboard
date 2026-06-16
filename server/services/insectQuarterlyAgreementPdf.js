@@ -5,13 +5,10 @@ import {
   parseCityStateZip,
 } from './bedBugAgreementPdf.js';
 import {
-  embedRitPestImagesForLabels,
-  drawRitPestRow,
-  getRitPestAssetKey,
-  RIT_PEST_CHECKBOX_SIZE,
-  RIT_PEST_ROW_GAP,
-  RIT_PEST_SMALL_IMAGE_WIDTH,
-} from './ritPestAssets.js';
+  embedBitRowPestImagesForAssetKeys,
+  drawBitAddonsColumn,
+  drawBitIncludedPestColumn,
+} from './bitPestAssets.js';
 import {
   IQ_ADDON_PESTS,
   IQ_AGREEMENT_PERIOD_TEXT,
@@ -47,8 +44,6 @@ import {
   HEADER_BAR_H,
   HEADER_GREEN,
   LABEL_SIZE,
-  LABEL_TAG_HEIGHT,
-  TAG_RED,
   TITLE_BUBBLE_FILL,
   bodyStartY as layoutBodyStartY,
   yFromTop as layoutYFromTop,
@@ -63,15 +58,18 @@ export const IQ_PAGE_SIZE = { width: 792, height: 612 };
 const PAGE_W = IQ_PAGE_SIZE.width;
 const PAGE_H = IQ_PAGE_SIZE.height;
 const MARGIN_X = 18;
-const MARGIN_Y = 12;
-const GAP = 6;
-const SECTION_PAD = 10;
-const PEST_LABEL_SIZE = 6.5 * 1.15;
+const MARGIN_Y = 10;
+const GAP = 4;
+const GAP_AFTER_PESTS = 0;
+const SECTION_PAD = 8;
 const VALUE_SIZE = 7.5;
 
-const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1;
-const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1;
-const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1 * 1.1;
+const BODY_TEXT_SIZE_SERVICE_DETAILS = 6.4 * 1.2;
+const BODY_TEXT_SIZE_SERVICE_DETAILS_LEADING = 7.2 * 1.2;
+const BODY_TEXT_SIZE_EXPECTATIONS = 6 * 1.1 * 1.1 * 1.05;
+const BODY_TEXT_SIZE_AUTHORIZATION = 5.8 * 1.1 * 1.1 * 1.05;
+const BODY_TEXT_SIZE_INITIALS = 5.4 * 1.1 * 1.1 * 1.1 * 1.05;
+const IQ_AGREEMENT_PERIOD_SIZE = LABEL_SIZE * 1.05;
 const COMPANY_INFO_SIZE = 6.5 * 1.1 * 1.1;
 /** Leading tuned for six company lines within the 50pt header band at +10% size. */
 const COMPANY_INFO_LEADING = 8.2;
@@ -83,19 +81,18 @@ const CALENDAR_TILE_GAP = 2 * 1.1 * 1.1;
 const CALENDAR_PANEL_PAD = 2;
 
 const SPACING_SIGNATURE = { gap: 10, fieldSpacing: 10, valueSize: 7.5 };
+/** Extra label-to-value breathing room for top-row and billing form grids. */
+const SPACING_FORM_GRID = { gap: 13, fieldSpacing: 9, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
-const LAYOUT_TOP_ROW_H = 90;
-const LAYOUT_PESTS_H = 86;
-const LAYOUT_MIDDLE_ROW_H = 106;
-const LAYOUT_PRICING_H = 76;
-const LAYOUT_AUTH_H = 58;
-const LAYOUT_SIGNATURE_H = 62;
-
-/** Nudge included pest rows upward so they do not sit on the panel bottom. */
-const IQ_INCLUDED_PEST_SHIFT_UP = 8;
-/** Gap between the Add-ons label and the first add-on row (clears icon height above baseline). */
-const IQ_ADDON_LABEL_ABOVE_ROW = 17;
+const LAYOUT_TOP_ROW_H = 84;
+const LAYOUT_PESTS_H = 158;
+const LAYOUT_MIDDLE_ROW_H = 86;
+const LAYOUT_PRICING_H = 72;
+const LAYOUT_AUTH_H = 52;
+const LAYOUT_SIGNATURE_H = 60;
+/** Match BIT covered-pests body inset so row spread aligns with the bed bug template. */
+const IQ_PESTS_BODY_TOP_PAD = 7;
 
 const IQ_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
@@ -113,6 +110,10 @@ function yFromTop(yTop, height = 0) {
 
 function bodyStartY(panelBottom, panelHeight) {
   return layoutBodyStartY(panelBottom, panelHeight, HEADER_BAR_H, BODY_TOP_PAD);
+}
+
+function pestsBodyStartY(panelBottom, panelHeight) {
+  return layoutBodyStartY(panelBottom, panelHeight, HEADER_BAR_H, IQ_PESTS_BODY_TOP_PAD);
 }
 
 function parseMoney(value) {
@@ -245,7 +246,7 @@ async function drawHeader(pdfDoc, page, fonts) {
   }
 }
 
-function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_FORM_GRID }) {
   const colW = (width - 10) / 2;
   const leftX = x;
   const rightX = x + colW + 10;
@@ -294,7 +295,7 @@ function drawServiceAddressGridBlock(page, { x, y, width, data, font, boldFont, 
   });
 }
 
-function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawCustomerGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_FORM_GRID }) {
   drawTwoColumnAddressBlock(page, {
     x,
     y,
@@ -318,8 +319,8 @@ function drawServiceDetailsBlock(page, { x, y, width, font }) {
     y,
     w: width,
     font,
-    size: 6.4,
-    lineHeight: 7.2,
+    size: BODY_TEXT_SIZE_SERVICE_DETAILS,
+    lineHeight: BODY_TEXT_SIZE_SERVICE_DETAILS_LEADING,
   });
 }
 
@@ -348,7 +349,7 @@ function drawTopRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_SIGNATURE,
+        spacing: SPACING_FORM_GRID,
       });
     } else if (box.kind === 'customer') {
       drawCustomerGridBlock(page, {
@@ -358,7 +359,7 @@ function drawTopRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_SIGNATURE,
+        spacing: SPACING_FORM_GRID,
       });
     } else {
       drawServiceDetailsBlock(page, {
@@ -368,105 +369,6 @@ function drawTopRow(page, data, fonts) {
         font: fonts.regular,
       });
     }
-  });
-}
-
-function drawIqIncludedPestColumn(page, { x, width, items, startY, font, pestImages }) {
-  const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
-  let rowY = startY;
-  for (const label of items) {
-    drawRitPestRow(page, {
-      x,
-      y: rowY,
-      width,
-      label,
-      font,
-      assetKey: getRitPestAssetKey(pestImages, label),
-      pestImages,
-      checked: true,
-      labelSize: PEST_LABEL_SIZE,
-    });
-    rowY -= rowStep;
-  }
-}
-
-function measureIqAddonLabelAnchor(x, label, font, pestImages, assetKey, labelSize) {
-  const rowX = x + 1;
-  const box = RIT_PEST_CHECKBOX_SIZE;
-  const iconStartX = rowX + box + 4;
-  const hasIcon = Boolean(pestImages.large?.[assetKey] ?? pestImages.small?.[assetKey]);
-  const iconWidth = hasIcon ? RIT_PEST_SMALL_IMAGE_WIDTH : 0;
-  const textX = iconStartX + (hasIcon ? RIT_PEST_SMALL_IMAGE_WIDTH + 4 : 0);
-  const labelWidth = font.widthOfTextAtSize(label, labelSize);
-  const betweenIconAndText = iconStartX + iconWidth + (textX - (iconStartX + iconWidth)) / 2;
-  const overText = textX + labelWidth / 2;
-  return betweenIconAndText * 0.35 + overText * 0.65;
-}
-
-function drawIqAddonsColumn(page, {
-  x,
-  width,
-  panelBottomY,
-  bodyTopY,
-  items,
-  font,
-  boldFont,
-  pestImages,
-}) {
-  const rowStep = RIT_PEST_CHECKBOX_SIZE + RIT_PEST_ROW_GAP;
-  const rowsSpan = (items.length - 1) * rowStep;
-  const totalBlock = IQ_ADDON_LABEL_ABOVE_ROW + rowsSpan;
-  const bodyBottomY = panelBottomY + 5;
-  const blockTopY = bodyBottomY + (bodyTopY - bodyBottomY + totalBlock) / 2;
-  const firstRowY = blockTopY - IQ_ADDON_LABEL_ABOVE_ROW;
-
-  const firstItem = items[0];
-  const anchorX = measureIqAddonLabelAnchor(
-    x,
-    firstItem.label,
-    font,
-    pestImages,
-    firstItem.assetKey,
-    PEST_LABEL_SIZE,
-  );
-  const addonsLabel = 'Add-ons';
-  const labelFont = boldFont ?? font;
-  const labelW = labelFont.widthOfTextAtSize(addonsLabel, PEST_LABEL_SIZE);
-  const labelX = anchorX - labelW / 2;
-  const labelY = firstRowY + IQ_ADDON_LABEL_ABOVE_ROW - 1;
-
-  drawUnderlinedLabel(page, {
-    x: labelX,
-    y: labelY,
-    text: addonsLabel,
-    size: PEST_LABEL_SIZE,
-    font: labelFont,
-    color: TAG_RED,
-  });
-
-  let rowY = firstRowY;
-  for (const item of items) {
-    drawRitPestRow(page, {
-      x: x + 1,
-      y: rowY,
-      width: width - 2,
-      label: item.label,
-      font,
-      assetKey: item.assetKey,
-      pestImages,
-      checked: false,
-      labelSize: PEST_LABEL_SIZE,
-    });
-    rowY -= rowStep;
-  }
-}
-
-function drawIqPestColumnDivider(page, dividerX, bodyTopY, bodyBottomY) {
-  page.drawLine({
-    start: { x: dividerX - 3, y: bodyBottomY + 1 },
-    end: { x: dividerX - 3, y: bodyTopY - 1 },
-    thickness: 0.35,
-    color: COLORS.border,
   });
 }
 
@@ -480,73 +382,85 @@ function drawPestsSection(page, data, fonts, pestImages) {
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
-  const groupTopY = bodyStartY(y, h);
-  const colGap = 6;
-  const col5W = innerW * 0.14;
-  const col4W = innerW * 0.21;
-  const col3W = innerW * 0.21;
-  const col2W = innerW * 0.21;
-  const col1W = innerW - col2W - col3W - col4W - col5W - colGap * 4;
+  const bodyTopY = pestsBodyStartY(y, h);
+  const bodyBottomY = y + SECTION_PAD;
+  const colGap = 4;
+  const col5W = innerW * 0.155;
+  const colMidW = (innerW - col5W - colGap * 4) / 4;
+  const col1W = colMidW;
+  const col2W = colMidW;
+  const col3W = colMidW;
+  const col4W = colMidW;
   const col5X = innerX + innerW - col5W;
   const col4X = col5X - colGap - col4W;
   const col3X = col4X - colGap - col3W;
   const col2X = col3X - colGap - col2W;
   const col1X = innerX;
-  const bodyBottomY = y + 5;
+  const pestColumnOpts = { fillToReference: true };
 
-  for (const dividerX of [col2X, col3X, col4X, col5X]) {
-    drawIqPestColumnDivider(page, dividerX, groupTopY, bodyBottomY);
-  }
-
-  /** Shared first-row baseline for included pests — shifted up from panel bottom. */
-  const checkboxStartY = groupTopY - LABEL_TAG_HEIGHT - 9 + IQ_INCLUDED_PEST_SHIFT_UP;
-
-  drawIqIncludedPestColumn(page, {
+  drawBitIncludedPestColumn(page, {
     x: col1X,
     width: col1W,
+    bodyTopY,
+    bodyBottomY,
     items: IQ_INCLUDED_PESTS_COL_A,
-    startY: checkboxStartY,
-    font: fonts.bold,
     pestImages,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    showLeftDivider: false,
+    ...pestColumnOpts,
   });
-  drawIqIncludedPestColumn(page, {
+  drawBitIncludedPestColumn(page, {
     x: col2X,
     width: col2W,
+    bodyTopY,
+    bodyBottomY,
     items: IQ_INCLUDED_PESTS_COL_B,
-    startY: checkboxStartY,
-    font: fonts.bold,
     pestImages,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    showLeftDivider: true,
+    ...pestColumnOpts,
   });
-  drawIqIncludedPestColumn(page, {
+  drawBitIncludedPestColumn(page, {
     x: col3X,
     width: col3W,
+    bodyTopY,
+    bodyBottomY,
     items: IQ_INCLUDED_PESTS_COL_C,
-    startY: checkboxStartY,
-    font: fonts.bold,
     pestImages,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    showLeftDivider: true,
+    ...pestColumnOpts,
   });
-  drawIqIncludedPestColumn(page, {
+  drawBitIncludedPestColumn(page, {
     x: col4X,
     width: col4W,
+    bodyTopY,
+    bodyBottomY,
     items: IQ_INCLUDED_PESTS_COL_D,
-    startY: checkboxStartY,
-    font: fonts.bold,
     pestImages,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    showLeftDivider: true,
+    ...pestColumnOpts,
   });
-  drawIqAddonsColumn(page, {
+  drawBitAddonsColumn(page, {
     x: col5X,
     width: col5W,
-    panelBottomY: y,
-    bodyTopY: groupTopY,
+    bodyTopY,
+    bodyBottomY,
     items: IQ_ADDON_PESTS,
-    font: fonts.bold,
-    boldFont: fonts.bold,
     pestImages,
+    font: fonts.regular,
+    boldFont: fonts.bold,
+    ...pestColumnOpts,
   });
 }
 
 function drawMiddleRow(page, schedule, fonts) {
-  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP);
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP_AFTER_PESTS);
   const h = LAYOUT_MIDDLE_ROW_H;
   const w = PAGE_W - MARGIN_X * 2;
   const leftW = w * 0.48;
@@ -590,7 +504,7 @@ function drawMiddleRow(page, schedule, fonts) {
   });
 }
 
-function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_SIGNATURE }) {
+function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing = SPACING_FORM_GRID }) {
   const colW = (width - 10) / 2;
   const leftX = x;
   const rightX = x + colW + 10;
@@ -616,7 +530,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
     ...spacing,
   });
 
-  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 4;
+  const row2Y = Math.min(row1LeftEnd, row1RightEnd) - 1;
   drawStackedField(page, {
     x: leftX,
     y: row2Y,
@@ -640,7 +554,7 @@ function drawBillingGridBlock(page, { x, y, width, data, font, boldFont, spacing
 }
 
 function drawPricingRow(page, data, fonts) {
-  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP, LAYOUT_MIDDLE_ROW_H, GAP);
+  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP_AFTER_PESTS, LAYOUT_MIDDLE_ROW_H, GAP);
   const h = LAYOUT_PRICING_H;
   const colW = (PAGE_W - MARGIN_X * 2 - GAP * 2) / 3;
   const boxes = [
@@ -680,7 +594,7 @@ function drawPricingRow(page, data, fonts) {
         data,
         font: fonts.regular,
         boldFont: fonts.bold,
-        spacing: SPACING_SIGNATURE,
+        spacing: SPACING_FORM_GRID,
       });
     } else {
       drawPriceRows(page, {
@@ -697,7 +611,17 @@ function drawPricingRow(page, data, fonts) {
 }
 
 function drawAuthorizationSection(page, fonts) {
-  const top = layoutTop(GAP, LAYOUT_TOP_ROW_H, GAP, LAYOUT_PESTS_H, GAP, LAYOUT_MIDDLE_ROW_H, GAP, LAYOUT_PRICING_H, GAP);
+  const top = layoutTop(
+    GAP,
+    LAYOUT_TOP_ROW_H,
+    GAP,
+    LAYOUT_PESTS_H,
+    GAP_AFTER_PESTS,
+    LAYOUT_MIDDLE_ROW_H,
+    GAP,
+    LAYOUT_PRICING_H,
+    GAP,
+  );
   const h = LAYOUT_AUTH_H;
   const w = PAGE_W - MARGIN_X * 2;
   const x = MARGIN_X;
@@ -719,7 +643,7 @@ function drawSignatureSection(page, data, fonts, signatureAssets = {}) {
     LAYOUT_TOP_ROW_H,
     GAP,
     LAYOUT_PESTS_H,
-    GAP,
+    GAP_AFTER_PESTS,
     LAYOUT_MIDDLE_ROW_H,
     GAP,
     LAYOUT_PRICING_H,
@@ -733,7 +657,7 @@ function drawSignatureSection(page, data, fonts, signatureAssets = {}) {
   const y = yFromTop(top, h);
   drawRoundedSection(page, { x, y, w, h });
 
-  const periodSize = LABEL_SIZE;
+  const periodSize = IQ_AGREEMENT_PERIOD_SIZE;
   const periodWidth = fonts.bold.widthOfTextAtSize(IQ_AGREEMENT_PERIOD_TEXT, periodSize);
   const periodX = x + (w - periodWidth) / 2;
   const periodY = y + h - SECTION_PAD - 2;
@@ -840,17 +764,16 @@ export async function buildInsectQuarterlyAgreementPdf(input = {}, options = {})
   }
 
   await drawHeader(pdfDoc, page, fonts);
-  const includedPestLabels = [
+  const includedAssetKeys = [
     ...IQ_INCLUDED_PESTS_COL_A,
     ...IQ_INCLUDED_PESTS_COL_B,
     ...IQ_INCLUDED_PESTS_COL_C,
     ...IQ_INCLUDED_PESTS_COL_D,
-  ];
-  const pestImages = await embedRitPestImagesForLabels(
-    pdfDoc,
-    includedPestLabels,
-    IQ_ADDON_PESTS.map((item) => item.assetKey),
-  );
+  ].map((item) => item.assetKey);
+  const pestImages = await embedBitRowPestImagesForAssetKeys(pdfDoc, [
+    ...includedAssetKeys,
+    ...IQ_ADDON_PESTS.map((item) => item.assetKey),
+  ]);
   drawTopRow(page, data, fonts);
   drawPestsSection(page, data, fonts, pestImages);
   drawMiddleRow(page, schedule, fonts);

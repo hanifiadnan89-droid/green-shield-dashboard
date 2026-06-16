@@ -19,27 +19,27 @@ export const IQ_HEADER_CONTACT_EMAIL = 'ahanifi@gshieldpest.com';
 export const IQ_COVERED_PESTS_SECTION_TITLE = 'Covered Pests and Upgrades';
 
 export const IQ_INCLUDED_PESTS_COL_A = [
-  'Odorous Ants',
-  'Pavement Ants',
-  'Carpenter Ants',
+  { label: 'Odorous Ants', assetKey: 'odorous-ant' },
+  { label: 'Pavement Ants', assetKey: 'pavement-ant' },
+  { label: 'Carpenter Ants', assetKey: 'carpenter-ant' },
 ];
 
 export const IQ_INCLUDED_PESTS_COL_B = [
-  'Carpenter Bees',
-  'Spiders',
-  'Fall Invaders',
+  { label: 'Carpenter Bees', assetKey: 'carpenter-bee' },
+  { label: 'Spiders', assetKey: 'spider' },
+  { label: 'Fall Invaders', assetKey: 'lady-beetle' },
 ];
 
 export const IQ_INCLUDED_PESTS_COL_C = [
-  'Fleas',
-  'Centi/Millipedes',
-  'Crickets/Earwigs',
+  { label: 'Fleas', assetKey: 'flea' },
+  { label: 'Centi/Millipedes', assetKey: 'centipede' },
+  { label: 'Crickets/Earwigs', assetKey: 'cricket' },
 ];
 
 export const IQ_INCLUDED_PESTS_COL_D = [
-  'Yellow Jackets/Hornets',
-  'Silverfish',
-  'Stink Bugs',
+  { label: 'Yellow Jackets/Hornets', assetKey: 'yellow-jacket' },
+  { label: 'Silverfish', assetKey: 'silver-fish' },
+  { label: 'Stink Bugs', assetKey: 'stink-bug' },
 ];
 
 export const IQ_ADDON_PESTS = [

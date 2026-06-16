@@ -28,6 +28,19 @@ const BIT_ROW_BOTTOM_MARGIN_FRACTION = 0.30;
 /** Row label size — slightly larger + bold so pest names read clearly in the PDF. */
 export const BIT_PEST_LABEL_SIZE = 6.5;
 
+function resolveBitPestRowStep(rowCount, {
+  rowStep,
+  fillToReference = false,
+  referenceRowCount = 4,
+  referenceRowStep = BIT_INCLUDED_ROW_STEP,
+} = {}) {
+  if (rowStep !== undefined) return rowStep;
+  if (fillToReference && rowCount > 1) {
+    return ((referenceRowCount - 1) * referenceRowStep) / (rowCount - 1);
+  }
+  return referenceRowStep;
+}
+
 /**
  * Place pest rows lower in the covered-pests body toward the bottom
  * while keeping icons below the section header and margin above the bottom.
@@ -37,11 +50,12 @@ function computeBitPestColumnStartY(bodyTopY, bodyBottomY, rowCount, rowStep, {
   topClearanceExtra = 0,
   shiftFraction = BIT_INCLUDED_SHIFT_FRACTION,
   maxRowY,
+  iconPt = BIT_ROW_ICON_PT,
 } = {}) {
   const bodyH = Math.max(1, bodyTopY - bodyBottomY);
   const blockSpan = (rowCount - 1) * rowStep;
   const currentStart = bodyTopY - headerInset;
-  const headerClearStart = bodyTopY - BIT_ROW_ICON_PT - topClearanceExtra - 4;
+  const headerClearStart = bodyTopY - iconPt - topClearanceExtra - 4;
   const bottomAlignedStart = bodyBottomY + bodyH * BIT_ROW_BOTTOM_MARGIN_FRACTION + blockSpan;
   const targetStart = Math.min(headerClearStart, bottomAlignedStart);
   let startY = currentStart - shiftFraction * (currentStart - targetStart);
@@ -163,6 +177,17 @@ async function readRowIconBuffer(key) {
   return null;
 }
 
+/** Embed row icons (96px small PNGs) for an explicit list of asset keys. */
+export async function embedBitRowPestImagesForAssetKeys(pdfDoc, assetKeys = []) {
+  const row = {};
+  for (const key of [...new Set(assetKeys.filter(Boolean))]) {
+    const buffer = await readRowIconBuffer(key);
+    const embedded = await embedPng(pdfDoc, buffer);
+    if (embedded) row[key] = embedded;
+  }
+  return { large: {}, small: row, row, bedBugKey: null };
+}
+
 /** Embed row icons (96px small PNGs) + full-res bedbug hero. */
 export async function embedBitPestImages(pdfDoc) {
   const large = {};
@@ -197,6 +222,7 @@ function drawBitPestRow(page, {
   pestImages,
   checked = true,
   colors = AGREEMENT_COLORS,
+  iconPt = BIT_ROW_ICON_PT,
 }) {
   const box = RIT_PEST_CHECKBOX_SIZE;
   drawRitCheckbox(page, x, y, box, checked, colors);
@@ -207,12 +233,12 @@ function drawBitPestRow(page, {
     drawImageFit(page, img, {
       x: textX,
       y: y - 8,
-      width: BIT_ROW_ICON_PT,
-      height: BIT_ROW_ICON_PT,
+      width: iconPt,
+      height: iconPt,
       shadow: true,
       shadowScale: 0.52,
     });
-    textX += BIT_ROW_ICON_PT + 4;
+    textX += iconPt + 4;
   }
 
   const labelFont = boldFont ?? font;
@@ -326,13 +352,22 @@ export function drawBitIncludedPestColumn(page, {
   boldFont,
   colors = AGREEMENT_COLORS,
   showLeftDivider = true,
+  fillToReference = false,
+  rowStep,
+  iconPt = BIT_ROW_ICON_PT,
 }) {
   if (showLeftDivider) drawColumnDivider(page, x - 3, bodyTopY, bodyBottomY, colors);
 
+  const resolvedRowStep = resolveBitPestRowStep(items.length, {
+    rowStep,
+    fillToReference,
+    referenceRowStep: BIT_INCLUDED_ROW_STEP,
+  });
   const rowX = x + 2;
   const rowW = width - 4;
-  const rowY = computeBitPestColumnStartY(bodyTopY, bodyBottomY, items.length, BIT_INCLUDED_ROW_STEP, {
+  const rowY = computeBitPestColumnStartY(bodyTopY, bodyBottomY, items.length, resolvedRowStep, {
     shiftFraction: BIT_INCLUDED_SHIFT_FRACTION,
+    iconPt,
   });
 
   let cursorY = rowY;
@@ -348,8 +383,9 @@ export function drawBitIncludedPestColumn(page, {
       pestImages,
       checked: true,
       colors,
+      iconPt,
     });
-    cursorY -= BIT_INCLUDED_ROW_STEP;
+    cursorY -= resolvedRowStep;
   }
 }
 
@@ -363,9 +399,17 @@ export function drawBitAddonsColumn(page, {
   font,
   boldFont,
   colors = AGREEMENT_COLORS,
+  fillToReference = false,
+  rowStep,
+  iconPt = BIT_ROW_ICON_PT,
 }) {
   drawColumnDivider(page, x - 3, bodyTopY, bodyBottomY, colors);
 
+  const resolvedRowStep = resolveBitPestRowStep(items.length, {
+    rowStep,
+    fillToReference,
+    referenceRowStep: BIT_ADDON_ROW_STEP,
+  });
   const rowX = x + 8;
   const rowW = width - 16;
 
@@ -388,10 +432,11 @@ export function drawBitAddonsColumn(page, {
     bodyTopY,
     bodyBottomY,
     items.length,
-    BIT_ADDON_ROW_STEP,
+    resolvedRowStep,
     {
       shiftFraction: BIT_ADDON_SHIFT_FRACTION,
       maxRowY,
+      iconPt,
     },
   );
 
@@ -408,7 +453,8 @@ export function drawBitAddonsColumn(page, {
       pestImages,
       checked: false,
       colors,
+      iconPt,
     });
-    cursorY -= BIT_ADDON_ROW_STEP;
+    cursorY -= resolvedRowStep;
   }
 }

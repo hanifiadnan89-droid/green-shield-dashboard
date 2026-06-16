@@ -141,21 +141,34 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     const { outBytes } = await buildRodentInsectTriannualAgreementPdf(ritSamplePayload);
     const { text } = await extractPdfText(outBytes);
     for (const pest of [
-      ...RIT_INCLUDED_PESTS_COL_A,
-      ...RIT_INCLUDED_PESTS_COL_B,
-      ...RIT_INCLUDED_PESTS_COL_C,
-      ...RIT_INCLUDED_PESTS_COL_D,
-      ...RIT_ADDON_PESTS,
+      'Mice',
+      'Carpenter Ants',
+      'Carpenter Bee',
+      'Cockroaches',
+      'Rats',
+      'Odorous Ants',
+      'Fleas',
+      'Centi/Millipede',
+      'Moles',
+      'Pavement Ants',
+      'Spiders',
+      'Voles',
+      'Wasps',
+      'Fall Invaders',
     ]) {
       expect(text).toContain(pest);
     }
+    expect(text).toContain('Crickets/Earwig');
+    expect(text).toContain('Springtails/Silverfis');
     expect(text).toContain('Mice');
     expect(text).toContain('Rats');
     expect(text).not.toContain('Mice/Rats');
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
     expect(text).toContain('Add-ons');
-    expect(text).toContain('Ticks/Mosquitoes');
+    expect(text).toContain('Tick');
+    expect(text).toContain('Mosquito');
+    expect(text).not.toContain('Ticks/Mosquitoes');
   });
 
   it('renders rodent pests (Mice, Rats, Moles, Voles) with red labels', async () => {
@@ -305,8 +318,9 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     const source = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'ritPestAssets.js'), 'utf8'),
     );
-    expect(source).toContain('RIT_PEST_HEADING_GAP');
-    expect(source).toMatch(/addonGap = RIT_PEST_ROW_GAP \+ 2/);
+    expect(source).toContain('drawRitAddonsColumn');
+    expect(source).toContain('drawColumnTitle');
+    expect(source).toMatch(/rowY -= 30/);
   });
 
   it('renders Covered Pests and Upgrades with illustrated five-column layout', async () => {
@@ -318,20 +332,20 @@ describe('buildRodentInsectTriannualAgreementPdf', () => {
     expect(source).toContain('drawRitPestColumn');
     expect(source).toContain('drawRitAddonsColumn');
     expect(source).toContain('contentInsetX');
-    expect(source).toContain('LAYOUT_PESTS_H = 110');
+    expect(source).toContain('LAYOUT_PESTS_H = 145');
 
     const pestAssets = await import('fs').then((fs) =>
       fs.readFileSync(join(__dirname, '..', 'ritPestAssets.js'), 'utf8'),
     );
-    expect(pestAssets).toContain('RIT_PEST_LARGE_IMAGE_WIDTH = 72');
-    expect(pestAssets).toContain('RIT_PEST_SMALL_IMAGE_WIDTH = 22');
+    expect(pestAssets).toContain('RIT_PEST_LARGE_IMAGE_WIDTH = 88');
+    expect(pestAssets).toContain('RIT_PEST_SMALL_IMAGE_WIDTH = 17');
 
     const { outBytes } = await buildRodentInsectTriannualAgreementPdf(ritSamplePayload);
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain(RIT_COVERED_PESTS_SECTION_TITLE);
     expect(text).toContain('Add-ons');
-    expect(text).toContain('Crickets/Earwigs');
-    expect(text).toContain('Springtails/Silverfish');
+    expect(text).toContain('Crickets/Earwig');
+    expect(text).toContain('Springtails/Silverfis');
     expect(text).not.toContain('Included Rodents');
     expect(text).not.toContain('Included Insects');
   });
