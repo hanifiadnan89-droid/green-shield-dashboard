@@ -86,6 +86,8 @@ const LAYOUT_MIDDLE_ROW_H = 86;
 const LAYOUT_PRICING_H = 72;
 const LAYOUT_AUTH_H = 52;
 const LAYOUT_SIGNATURE_H = 60;
+/** Match BIT covered-pests body inset so row spread aligns with the bed bug template. */
+const IQ_PESTS_BODY_TOP_PAD = 7;
 
 const IQ_CALENDAR_TILE_STYLE = {
   monthSize: CALENDAR_MONTH_SIZE,
@@ -103,6 +105,10 @@ function yFromTop(yTop, height = 0) {
 
 function bodyStartY(panelBottom, panelHeight) {
   return layoutBodyStartY(panelBottom, panelHeight, HEADER_BAR_H, BODY_TOP_PAD);
+}
+
+function pestsBodyStartY(panelBottom, panelHeight) {
+  return layoutBodyStartY(panelBottom, panelHeight, HEADER_BAR_H, IQ_PESTS_BODY_TOP_PAD);
 }
 
 function parseMoney(value) {
@@ -371,7 +377,7 @@ function drawPestsSection(page, data, fonts, pestImages) {
 
   const innerX = x + SECTION_PAD;
   const innerW = w - SECTION_PAD * 2;
-  const bodyTopY = bodyStartY(y, h);
+  const bodyTopY = pestsBodyStartY(y, h);
   const bodyBottomY = y + SECTION_PAD;
   const colGap = 4;
   const col5W = innerW * 0.155;
@@ -385,6 +391,7 @@ function drawPestsSection(page, data, fonts, pestImages) {
   const col3X = col4X - colGap - col3W;
   const col2X = col3X - colGap - col2W;
   const col1X = innerX;
+  const pestColumnOpts = { fillToReference: true };
 
   drawBitIncludedPestColumn(page, {
     x: col1X,
@@ -396,6 +403,7 @@ function drawPestsSection(page, data, fonts, pestImages) {
     font: fonts.regular,
     boldFont: fonts.bold,
     showLeftDivider: false,
+    ...pestColumnOpts,
   });
   drawBitIncludedPestColumn(page, {
     x: col2X,
@@ -407,6 +415,7 @@ function drawPestsSection(page, data, fonts, pestImages) {
     font: fonts.regular,
     boldFont: fonts.bold,
     showLeftDivider: true,
+    ...pestColumnOpts,
   });
   drawBitIncludedPestColumn(page, {
     x: col3X,
@@ -418,6 +427,7 @@ function drawPestsSection(page, data, fonts, pestImages) {
     font: fonts.regular,
     boldFont: fonts.bold,
     showLeftDivider: true,
+    ...pestColumnOpts,
   });
   drawBitIncludedPestColumn(page, {
     x: col4X,
@@ -429,6 +439,7 @@ function drawPestsSection(page, data, fonts, pestImages) {
     font: fonts.regular,
     boldFont: fonts.bold,
     showLeftDivider: true,
+    ...pestColumnOpts,
   });
   drawBitAddonsColumn(page, {
     x: col5X,
@@ -439,6 +450,7 @@ function drawPestsSection(page, data, fonts, pestImages) {
     pestImages,
     font: fonts.regular,
     boldFont: fonts.bold,
+    ...pestColumnOpts,
   });
 }
 
