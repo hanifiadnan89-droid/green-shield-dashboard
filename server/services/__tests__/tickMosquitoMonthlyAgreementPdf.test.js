@@ -12,6 +12,8 @@ import {
 } from '../tickMosquitoMonthlyAgreementPdf.js';
 import {
   TMM_COVERED_PESTS_SECTION_TITLE,
+  TMM_EXPECTATIONS_LEFT,
+  TMM_EXPECTATIONS_RIGHT,
   TMM_SERVICE_DETAILS_TEXT,
   TMM_SUBSCRIPTION_TITLE,
   TMM_TICK_COLUMN,
@@ -89,15 +91,18 @@ describe('buildTickMosquitoMonthlyAgreementPdf', () => {
     const { text } = await extractPdfText(outBytes);
     expect(text).toContain(TMM_TITLE);
     expect(text).toContain(TMM_COVERED_PESTS_SECTION_TITLE);
-    expect(text).toContain('Ticks');
-    expect(text).toContain('Mosquitoes');
-    for (const item of [...TMM_TICK_COLUMN.coverageItems, ...TMM_MOSQUITO_COLUMN.coverageItems]) {
-      expect(text).toContain(item);
-    }
+    expect(text).not.toContain('Perimeter vegetation');
+    expect(text).not.toContain('Shrubs & ornamentals');
+    expect(text).not.toContain('Ticks');
+    expect(text).not.toContain('Mosquitoes');
     expect(text).toContain(TMM_SUBSCRIPTION_TITLE);
     expect(text).toContain('Billing Method:');
     expect(text).toContain('Service Charge (per visit):');
     expect(text).toContain(TMM_SERVICE_DETAILS_TEXT.slice(0, 40));
+    expect(text).toContain(TMM_EXPECTATIONS_LEFT.slice(0, 40));
+    expect(text).toContain('(207) 815-1003');
+    expect(text).toContain(TMM_EXPECTATIONS_RIGHT.slice(0, 40));
+    expect(text).toContain('visits are indicated below');
   });
 
   it('marks seasonal off-months with em dash on calendar tiles', () => {

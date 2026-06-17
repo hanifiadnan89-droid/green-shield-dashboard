@@ -80,7 +80,7 @@ const SPACING_FORM_GRID = { gap: 13, fieldSpacing: 9, valueSize: 7.5 };
 
 const LAYOUT_HEADER_H = 50;
 const LAYOUT_TOP_ROW_H = 84;
-const LAYOUT_PESTS_H = 130;
+const LAYOUT_PESTS_H = 158;
 const LAYOUT_MIDDLE_ROW_H = 86;
 const LAYOUT_PRICING_H = 72;
 const LAYOUT_AUTH_H = 52;
@@ -384,12 +384,8 @@ function drawCoveredPestsSection(page, fonts, pestImages) {
     width: colW,
     bodyTopY,
     bodyBottomY,
-    title: TMM_TICK_COLUMN.title,
     assetKey: TMM_TICK_COLUMN.assetKey,
-    coverageItems: TMM_TICK_COLUMN.coverageItems,
     pestImages,
-    font: fonts.regular,
-    boldFont: fonts.bold,
     showLeftDivider: false,
   });
   drawTmmCoverageColumn(page, {
@@ -397,12 +393,8 @@ function drawCoveredPestsSection(page, fonts, pestImages) {
     width: colW,
     bodyTopY,
     bodyBottomY,
-    title: TMM_MOSQUITO_COLUMN.title,
     assetKey: TMM_MOSQUITO_COLUMN.assetKey,
-    coverageItems: TMM_MOSQUITO_COLUMN.coverageItems,
     pestImages,
-    font: fonts.regular,
-    boldFont: fonts.bold,
     showLeftDivider: true,
   });
 }

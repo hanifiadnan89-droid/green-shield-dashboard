@@ -1,22 +1,26 @@
 import { promises as fs } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { PDFBool, PDFName, rgb } from 'pdf-lib';
-import {
-  drawRitCheckbox,
-  RIT_PEST_ASSETS_DIR,
-  RIT_PEST_CHECKBOX_SIZE,
-  RIT_PEST_HEADING_SIZE,
-} from './ritPestAssets.js';
-import {
-  AGREEMENT_COLORS,
-  drawUnderlinedLabel,
-  TAG_RED,
-  truncateText,
-} from './pdf/agreementLayout.js';
+import { AGREEMENT_COLORS } from './pdf/agreementLayout.js';
 
-const CHECKLIST_LABEL_SIZE = 6.5;
-const CHECKLIST_ROW_STEP = 11;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const TMM_PEST_ASSETS_DIR = join(__dirname, '..', '..', 'assets', 'pests', 'tmm');
+
 const SHADOW = rgb(115 / 255, 115 / 255, 115 / 255);
+
+/** Small inset below the green section header before hero images. */
+const IMAGE_TOP_PAD = 4;
+const IMAGE_BOTTOM_PAD = 8;
+
+/**
+ * Per-pest fit tuning so a tall tick and wide mosquito feel visually balanced
+ * inside the same column width (dominant dimension scaled to the image zone).
+ */
+const TMM_HERO_FIT = {
+  tick: { dominant: 'height', ratio: 0.98 },
+  mosquito: { dominant: 'height', ratio: 0.98 },
+};
 
 async function readOptionalPng(path) {
   try {
@@ -47,6 +51,30 @@ function measureImageFit(image, maxWidth, maxHeight) {
   };
 }
 
+function measureTmmHeroFit(image, assetKey, zoneW, zoneH) {
+  const fit = TMM_HERO_FIT[assetKey] ?? { dominant: 'height', ratio: 0.9 };
+  let width;
+  let height;
+
+  if (fit.dominant === 'width') {
+    width = zoneW * fit.ratio;
+    height = (width / image.width) * image.height;
+    if (height > zoneH) {
+      height = zoneH;
+      width = (height / image.height) * image.width;
+    }
+  } else {
+    height = zoneH * fit.ratio;
+    width = (height / image.height) * image.width;
+    if (width > zoneW) {
+      width = zoneW;
+      height = (width / image.width) * image.height;
+    }
+  }
+
+  return { width, height };
+}
+
 function drawSoftShadow(page, { x, y, width, height, opacity = 0.16 }) {
   const centerX = x + width / 2;
   page.drawEllipse({
@@ -59,9 +87,9 @@ function drawSoftShadow(page, { x, y, width, height, opacity = 0.16 }) {
   });
 }
 
-function drawImageFit(page, image, { x, y, width, height, shadow = false }) {
+function drawImageFit(page, image, { x, y, width, height, shadow = false, dims: presetDims = null }) {
   if (!image) return;
-  const dims = measureImageFit(image, width, height);
+  const dims = presetDims ?? measureImageFit(image, width, height);
   const drawX = x + (width - dims.width) / 2;
   const drawY = y + (height - dims.height) / 2;
   if (shadow) {
@@ -70,6 +98,7 @@ function drawImageFit(page, image, { x, y, width, height, shadow = false }) {
       y: drawY + Math.max(1.2, dims.height * 0.035),
       width: dims.width * 0.8,
       height: Math.max(3.2, dims.height * 0.11),
+      opacity: 0.14,
     });
   }
   page.drawImage(image, {
@@ -80,29 +109,16 @@ function drawImageFit(page, image, { x, y, width, height, shadow = false }) {
   });
 }
 
-/** Embed large tick and mosquito hero images for the TMM covered-pests section. */
+/** Embed white-background TMM hero PNGs (pre-cleaned assets, not runtime processed). */
 export async function embedTmmPestImages(pdfDoc) {
   const large = {};
   for (const key of ['tick', 'mosquito']) {
-    const buffer = await readOptionalPng(join(RIT_PEST_ASSETS_DIR, 'large', `${key}.png`));
+    const buffer = await readOptionalPng(join(TMM_PEST_ASSETS_DIR, `${key}-hero.png`));
     if (buffer) {
       large[key] = enableImageInterpolation(pdfDoc, await pdfDoc.embedPng(buffer));
     }
   }
   return { large };
-}
-
-function drawChecklistRow(page, { x, y, width, label, font, colors }) {
-  const box = RIT_PEST_CHECKBOX_SIZE;
-  drawRitCheckbox(page, x, y, box, true, colors);
-  const text = truncateText(label, font, CHECKLIST_LABEL_SIZE, width - box - 6);
-  page.drawText(text, {
-    x: x + box + 4,
-    y: y + 0.35,
-    size: CHECKLIST_LABEL_SIZE,
-    font,
-    color: colors.text,
-  });
 }
 
 function drawColumnDivider(page, x, bodyTopY, bodyBottomY, colors) {
@@ -119,60 +135,29 @@ export function drawTmmCoverageColumn(page, {
   width,
   bodyTopY,
   bodyBottomY,
-  title,
   assetKey,
-  coverageItems,
   pestImages,
-  font,
-  boldFont,
-  colors = AGREEMENT_COLORS,
   showLeftDivider = false,
+  colors = AGREEMENT_COLORS,
 }) {
   if (showLeftDivider) drawColumnDivider(page, x - 3, bodyTopY, bodyBottomY, colors);
 
-  const titleSize = RIT_PEST_HEADING_SIZE;
-  const titleW = boldFont.widthOfTextAtSize(title, titleSize);
-  const titleX = x + (width - titleW) / 2;
-  const titleY = bodyTopY - 14;
-  drawUnderlinedLabel(page, {
-    x: titleX,
-    y: titleY,
-    text: title,
-    size: titleSize,
-    font: boldFont,
-    color: TAG_RED,
-  });
-
-  const bodyH = bodyTopY - bodyBottomY;
-  const imageBoxW = width - 24;
-  const imageBoxH = Math.min(72, bodyH * 0.48);
-  const imageBoxX = x + (width - imageBoxW) / 2;
-  const imageBoxY = bodyBottomY + bodyH * 0.34;
+  const imageZoneTop = bodyTopY - IMAGE_TOP_PAD;
+  const imageZoneBottom = bodyBottomY + IMAGE_BOTTOM_PAD;
+  const imageZoneH = Math.max(52, imageZoneTop - imageZoneBottom);
+  const imageZoneW = width - 24;
+  const imageBoxX = x + (width - imageZoneW) / 2;
+  const imageBoxY = imageZoneBottom;
   const image = pestImages.large?.[assetKey];
-  if (image) {
-    drawImageFit(page, image, {
-      x: imageBoxX,
-      y: imageBoxY,
-      width: imageBoxW,
-      height: imageBoxH,
-      shadow: true,
-    });
-  }
+  if (!image) return;
 
-  const checklistBlockH = (coverageItems.length - 1) * CHECKLIST_ROW_STEP;
-  const checklistStartY = bodyBottomY + 16 + checklistBlockH;
-  const rowX = x + 14;
-  const rowW = width - 28;
-  let rowY = checklistStartY;
-  for (const item of coverageItems) {
-    drawChecklistRow(page, {
-      x: rowX,
-      y: rowY,
-      width: rowW,
-      label: item,
-      font,
-      colors,
-    });
-    rowY -= CHECKLIST_ROW_STEP;
-  }
+  const heroDims = measureTmmHeroFit(image, assetKey, imageZoneW, imageZoneH);
+  drawImageFit(page, image, {
+    x: imageBoxX,
+    y: imageBoxY,
+    width: imageZoneW,
+    height: imageZoneH,
+    dims: heroDims,
+    shadow: true,
+  });
 }

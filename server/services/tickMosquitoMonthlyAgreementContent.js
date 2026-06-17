@@ -19,35 +19,23 @@ export const TMM_COMPANY = {
 
 export const TMM_HEADER_CONTACT_EMAIL = 'ahanifi@gshieldpest.com';
 
-export const TMM_COVERED_PESTS_SECTION_TITLE = 'Covered Pests and Service Coverage';
+export const TMM_COVERED_PESTS_SECTION_TITLE = 'Covered Pests';
 
 export const TMM_SERVICE_DETAILS_TEXT =
   'Green Shield tick and mosquito service is a seasonal exterior program focused on lawn edges, ornamental plantings, shrubs, landscaping, and perimeter vegetation. Treatments target tick harborage along wooded edges and mosquito resting and breeding zones so you can enjoy your yard during the active season. Service is performed monthly during the seasonal program below, and visits are billed per treatment after each service.';
 
 export const TMM_TICK_COLUMN = {
-  title: 'Ticks',
   assetKey: 'tick',
-  coverageItems: [
-    'Perimeter vegetation',
-    'Lawn edges',
-    'Shaded harborage areas',
-  ],
 };
 
 export const TMM_MOSQUITO_COLUMN = {
-  title: 'Mosquitoes',
   assetKey: 'mosquito',
-  coverageItems: [
-    'Shrubs & ornamentals',
-    'Resting areas',
-    'Moist breeding zones',
-  ],
 };
 
 export const TMM_EXPECTATIONS_LEFT =
-  'Initially you may see an increase in pest activity as populations are disrupted. Within a few weeks you should see activity decline as products take effect. Over time, pest pressure should continue to decrease as regular seasonal services are performed.';
+  'You can expect an 85% decrease in tick and mosquito activity. If at any time, activity exceeds this, you may call Green Shield Pest Solutions at (207) 815-1003 for a free re-service between the months of April and September (or from your starting month below through the last planned visit of the season).';
 
 export const TMM_EXPECTATIONS_RIGHT =
-  'Tick and mosquito service is seasonal and performed during the active months below. Regular service visits are marked with an "S" on the schedule. We will contact you a few days before each visit via text and email.';
+  'Season long protection typically involves six, 30-day interval tick and mosquito barrier treatments. This involves a thirty day follow-up and four additional treatments from April-September, which may continue into the following year. If plan is different than this standard season, visits are indicated below';
 
 export const TMM_SUBSCRIPTION_TITLE = 'Tick Mosquito Subscription';
