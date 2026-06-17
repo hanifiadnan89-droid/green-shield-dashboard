@@ -2,6 +2,8 @@ import { buildBedBugInsectTriannualAgreementPdf } from '../bedBugInsectTriannual
 import { buildRodentInsectTriannualAgreementPdf } from '../rodentInsectTriannualAgreementPdf.js';
 import { buildInsectQuarterlyAgreementPdf } from '../insectQuarterlyAgreementPdf.js';
 import { isInsectQuarterlyVectorPdfEnabled } from '../insectQuarterlyVectorPdfFlag.js';
+import { buildTickMosquitoMonthlyAgreementPdf } from '../tickMosquitoMonthlyAgreementPdf.js';
+import { isTickMosquitoMonthlyVectorPdfEnabled } from '../tickMosquitoMonthlyVectorPdfFlag.js';
 import { isRodentInsectTriannualVectorPdfEnabled } from '../rodentInsectTriannualVectorPdfFlag.js';
 import { BED_BUG_TEMPLATE_FILENAME } from '../quoteDocumentsList.js';
 import { tryRenderBedBugAgreementPreviewPng } from '../bedBugAgreementEmailPreview.js';
@@ -29,12 +31,14 @@ const VECTOR_SIGNING_TYPES = new Set([
   'bed_bug_insect_triannual',
   'rodent_insect_triannual',
   'insect_quarterly',
+  'tick_mosquito_monthly',
 ]);
 
 function supportsVectorRebuild(agreementType) {
   if (agreementType === 'bed_bug_insect_triannual') return true;
   if (agreementType === 'rodent_insect_triannual') return isRodentInsectTriannualVectorPdfEnabled();
   if (agreementType === 'insect_quarterly') return isInsectQuarterlyVectorPdfEnabled();
+  if (agreementType === 'tick_mosquito_monthly') return isTickMosquitoMonthlyVectorPdfEnabled();
   return false;
 }
 
@@ -118,6 +122,14 @@ async function buildVectorSignedPdf(agreementType, quotePayload, submission) {
 
   if (agreementType === 'insect_quarterly') {
     const { outBytes, outName } = await buildInsectQuarterlyAgreementPdf(
+      quotePayload,
+      signatureOptions,
+    );
+    return { outBytes, outName, dateDisplay };
+  }
+
+  if (agreementType === 'tick_mosquito_monthly') {
+    const { outBytes, outName } = await buildTickMosquitoMonthlyAgreementPdf(
       quotePayload,
       signatureOptions,
     );

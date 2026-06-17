@@ -16,6 +16,8 @@ import { isInsectQuarterlyVectorPdfEnabled } from '../services/insectQuarterlyVe
 import { buildBedBugInsectTriannualAgreementPdf } from '../services/bedBugInsectTriannualAgreementPdf.js';
 import { buildRodentInsectTriannualAgreementPdf } from '../services/rodentInsectTriannualAgreementPdf.js';
 import { isRodentInsectTriannualVectorPdfEnabled } from '../services/rodentInsectTriannualVectorPdfFlag.js';
+import { buildTickMosquitoMonthlyAgreementPdf } from '../services/tickMosquitoMonthlyAgreementPdf.js';
+import { isTickMosquitoMonthlyVectorPdfEnabled } from '../services/tickMosquitoMonthlyVectorPdfFlag.js';
 import { createAgreementSigningSession, getAgreementTypeLabel, resolveAgreementType } from '../services/agreementSigning/agreementSigning.js';
 import { sendSigningRequestEmail } from '../services/agreementSigning/email.js';
 import { readPreviewPng } from '../services/agreementSigning/storage.js';
@@ -442,6 +444,19 @@ if (serviceType === 'insect_quarterly' && isInsectQuarterlyVectorPdfEnabled()) {
         lead,
         pricing,
         address,
+        startDate,
+        agreementStartDate,
+        serviceStartDate,
+        initialServiceDate,
+        selectedStartDate,
+      });
+    }
+    if (serviceType === 'tick_mosquito_monthly' && isTickMosquitoMonthlyVectorPdfEnabled()) {
+      return buildTickMosquitoMonthlyAgreementPdf({
+        lead,
+        pricing,
+        address,
+        cardLastFour,
         startDate,
         agreementStartDate,
         serviceStartDate,
