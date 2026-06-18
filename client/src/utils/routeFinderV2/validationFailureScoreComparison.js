@@ -10,6 +10,9 @@ import {
   resolveScoringTopMatches,
 } from './validationRunner.js';
 import { resolveProjectedStopCount } from './technicianEligibility.js';
+import { enrichAllRankedMatchesForDiagnostics } from './profileScoringModifiers.js';
+import { resolveLeadTown } from './profileScoringModifiers.js';
+import { buildTechnicianTerritoryDiagnostic } from './territoryOwnership.js';
 
 /**
  * @typedef {import('./validationExamples.js').RouteFinderValidationExample} RouteFinderValidationExample
@@ -67,6 +70,10 @@ import { resolveProjectedStopCount } from './technicianEligibility.js';
  * @property {TechnicianScoreSnapshot|null} winner
  * @property {number|null} finalScoreDelta
  * @property {string} whyWinnerWon
+ * @property {ReturnType<typeof buildTechnicianTerritoryDiagnostic>|null} expectedTerritory
+ * @property {ReturnType<typeof buildTechnicianTerritoryDiagnostic>|null} winnerTerritory
+ * @property {string[]} comparisonMatchPoolTechNames
+ * @property {string} lookupNote
  */
 
 const GEO_CLUSTER_BONUS_CODES = ['strong_geo_cluster'];
@@ -189,15 +196,99 @@ export function explainWhyWinnerBeatExpected(expected, winner) {
 
 /**
  * @param {object|null|undefined} scoringResult
+ * @returns {object[]}
+ */
+export function resolveScoringMatchPool(scoringResult) {
+  if (!scoringResult) return [];
+  if (Array.isArray(scoringResult.comparisonMatchPool)) {
+    return scoringResult.comparisonMatchPool;
+  }
+  if (Array.isArray(scoringResult.allRankedMatches)) {
+    return scoringResult.allRankedMatches;
+  }
+  return resolveScoringTopMatches(scoringResult);
+}
+
+/**
+ * @param {object|null|undefined} scoringResult
+ * @param {string} techName
+ * @returns {object|null}
+ */
+export function findMatchInScoringPool(scoringResult, techName) {
+  return resolveScoringMatchPool(scoringResult).find(
+    match => techNamesEquivalent(match?.techName, techName),
+  ) ?? null;
+}
+
+/**
+ * @param {object|null|undefined} scoringResult
+ * @param {string} techName
+ * @returns {boolean}
+ */
+export function isTechnicianInTopMatches(scoringResult, techName) {
+  return resolveScoringTopMatches(scoringResult).some(
+    match => techNamesEquivalent(match?.techName, techName),
+  );
+}
+
+/**
+ * @param {object|null|undefined} scoringResult
  * @param {string} techName
  * @param {Array<{ routeId?: string|number, stops?: unknown[] }>|null|undefined} technicians
  * @returns {TechnicianScoreSnapshot|null}
  */
 export function findTechnicianScoreSnapshot(scoringResult, techName, technicians = []) {
-  const matches = resolveScoringTopMatches(scoringResult);
-  const index = matches.findIndex(match => techNamesEquivalent(match?.techName, techName));
-  if (index < 0) return null;
-  return buildTechnicianScoreSnapshot(matches[index], index + 1, technicians);
+  const pool = resolveScoringMatchPool(scoringResult);
+  const match = findMatchInScoringPool(scoringResult, techName);
+  if (!match) return null;
+
+  const ranked = [...pool].sort((left, right) => (
+    (right?.v2Score?.adjustedTotal ?? right?.scores?.total ?? 0)
+    - (left?.v2Score?.adjustedTotal ?? left?.scores?.total ?? 0)
+  ));
+  const index = ranked.findIndex(row => techNamesEquivalent(row?.techName, techName));
+  return buildTechnicianScoreSnapshot(match, index + 1, technicians);
+}
+
+/**
+ * @param {RouteFinderValidationExample} example
+ * @param {string} techName
+ * @param {object|null|undefined} scoringResult
+ * @param {Array<{ routeId?: string|number, stops?: unknown[] }>} technicians
+ * @returns {ReturnType<typeof buildTechnicianTerritoryDiagnostic>}
+ */
+export function buildComparisonTerritoryDiagnostic(
+  example,
+  techName,
+  scoringResult,
+  technicians,
+) {
+  const lead = buildLeadFromValidationExample(example);
+  const leadTown = resolveLeadTown(lead);
+  const match = findMatchInScoringPool(scoringResult, techName);
+
+  return buildTechnicianTerritoryDiagnostic({
+    techName,
+    match,
+    leadTown,
+    technicians,
+    inTopMatches: isTechnicianInTopMatches(scoringResult, techName),
+  });
+}
+
+/**
+ * @param {object|null|undefined} scoringResult
+ * @returns {string}
+ */
+function describeComparisonLookupNote(scoringResult) {
+  if (!scoringResult) return 'No scoring result available.';
+  if (Array.isArray(scoringResult.comparisonMatchPool)) {
+    return 'Compared using full ranked match pool with diagnostic territory enrichment.';
+  }
+  if (Array.isArray(scoringResult.allRankedMatches)) {
+    return 'Compared using allRankedMatches (area-viability filter may exclude technicians from topMatches).';
+  }
+  return 'Compared using topMatches only; technicians outside top N may be missing.';
 }
 
 /**
@@ -229,6 +320,20 @@ export function buildFailureScoreComparison(example, failure, technicians, scori
     winner,
     finalScoreDelta,
     whyWinnerWon: explainWhyWinnerBeatExpected(expected, winner),
+    expectedTerritory: buildComparisonTerritoryDiagnostic(
+      example,
+      failure.expectedTechName,
+      scoringResult,
+      technicians,
+    ),
+    winnerTerritory: buildComparisonTerritoryDiagnostic(
+      example,
+      winningTechName,
+      scoringResult,
+      technicians,
+    ),
+    comparisonMatchPoolTechNames: resolveScoringMatchPool(scoringResult).map(match => match.techName),
+    lookupNote: describeComparisonLookupNote(scoringResult),
   };
 }
 
@@ -266,6 +371,20 @@ export function buildExplicitScoreComparison(
     winner,
     finalScoreDelta,
     whyWinnerWon: explainWhyWinnerBeatExpected(expected, winner),
+    expectedTerritory: buildComparisonTerritoryDiagnostic(
+      example,
+      example.expectedTechName,
+      scoringResult,
+      technicians,
+    ),
+    winnerTerritory: buildComparisonTerritoryDiagnostic(
+      example,
+      winningTechName,
+      scoringResult,
+      technicians,
+    ),
+    comparisonMatchPoolTechNames: resolveScoringMatchPool(scoringResult).map(match => match.techName),
+    lookupNote: describeComparisonLookupNote(scoringResult),
   };
 }
 
@@ -335,6 +454,20 @@ function formatAdjustedBreakdown(snapshot) {
   return `bonuses: ${bonusText}; penalties: ${penaltyText}`;
 }
 
+function formatTerritoryDiagnostic(label, diagnostic) {
+  if (!diagnostic) return `${label}: —`;
+  return [
+    `${label}:`,
+    `scheduled=${diagnostic.scheduled}`,
+    `scored=${diagnostic.scored}`,
+    `inTopMatches=${diagnostic.inTopMatches}`,
+    `corridorOwnerAvailable=${diagnostic.corridorOwnerAvailable}`,
+    `territoryOwnerBonus=${diagnostic.territoryOwnerBonusApplied}`,
+    `neighboringTerritoryPenalty=${diagnostic.neighboringTerritoryPenaltyApplied}`,
+    `unavailability=${diagnostic.unavailabilityReasons.join(', ') || 'none'}`,
+  ].join(' ');
+}
+
 /**
  * @param {FailureScoreComparison[]} comparisons
  * @returns {string}
@@ -357,6 +490,9 @@ export function formatFailureScoreComparisonTable(comparisons = []) {
     lines.push(`   winning technician: ${row.winningTechName}`);
     lines.push(`   final score delta (winner - expected): ${row.finalScoreDelta ?? '—'}`);
     lines.push(`   why winner won: ${row.whyWinnerWon}`);
+    lines.push(`   lookup: ${row.lookupNote ?? '—'}`);
+    lines.push(`   ${formatTerritoryDiagnostic('expected territory', row.expectedTerritory)}`);
+    lines.push(`   ${formatTerritoryDiagnostic('winner territory', row.winnerTerritory)}`);
     lines.push('');
     lines.push('   | metric | expected | winner | delta (winner - expected) |');
     lines.push('   | --- | ---: | ---: | ---: |');
@@ -432,5 +568,6 @@ export function formatHighConfidenceFailureComparisonReport(
 export async function scoreExampleForFailureComparison(example, technicians, scoreExample) {
   const lead = buildLeadFromValidationExample(example);
   const topN = Math.max(technicians.length, 3);
-  return scoreExample(example, lead, technicians, topN);
+  const scoringResult = await scoreExample(example, lead, technicians, topN);
+  return enrichAllRankedMatchesForDiagnostics(scoringResult, lead, technicians);
 }

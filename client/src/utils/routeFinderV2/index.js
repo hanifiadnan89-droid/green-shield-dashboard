@@ -95,7 +95,31 @@ export {
   findAvailablePrimaryCorridorOwners,
   buildTerritoryOwnershipModifiers,
   mergeTerritoryOwnershipIntoV2Score,
+  buildTechnicianTerritoryDiagnostic,
+  isTechnicianScheduled,
+  describeCorridorOwnerUnavailabilityReasons,
 } from './territoryOwnership.js';
+
+export {
+  enrichAllRankedMatchesForDiagnostics,
+} from './profileScoringModifiers.js';
+
+export {
+  buildFailureScoreComparison,
+  buildExplicitScoreComparison,
+  buildHighConfidenceFailureComparisons,
+  buildComparisonTerritoryDiagnostic,
+  buildTechnicianScoreSnapshot,
+  explainWhyWinnerBeatExpected,
+  findMatchInScoringPool,
+  findTechnicianScoreSnapshot,
+  formatFailureScoreComparisonTable,
+  formatHighConfidenceFailureComparisonReport,
+  isTechnicianInTopMatches,
+  resolveScoringMatchPool,
+  scoreExampleForFailureComparison,
+  sumModifierPoints,
+} from './validationFailureScoreComparison.js';
 
 export {
   evaluateValidationExample,
@@ -183,18 +207,6 @@ export {
   isViteProdRuntime,
   isViteEnvFlagEnabled,
 } from './viteRuntimeEnv.js';
-
-export {
-  buildFailureScoreComparison,
-  buildHighConfidenceFailureComparisons,
-  buildTechnicianScoreSnapshot,
-  explainWhyWinnerBeatExpected,
-  findTechnicianScoreSnapshot,
-  formatFailureScoreComparisonTable,
-  formatHighConfidenceFailureComparisonReport,
-  scoreExampleForFailureComparison,
-  sumModifierPoints,
-} from './validationFailureScoreComparison.js';
 
 export {
   buildHighConfidenceFailureComparisonsWithRescore,

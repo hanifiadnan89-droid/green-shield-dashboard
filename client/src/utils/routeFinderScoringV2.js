@@ -8,6 +8,7 @@
 import { scoreRoutesAsync } from './fieldRoutesScorer.js';
 import { stagedScoreRoutes } from './stagedRouteScoring.js';
 import {
+  buildMatchV2Profile,
   enrichScoringResultWithV2Profiles,
   summarizeV2ProfileStats,
 } from './routeFinderV2/technicianEligibility.js';
@@ -105,7 +106,8 @@ export async function scoreSingleDateV2(technicians, lead, topN = 3, options = {
   );
 
   const profileEnriched = enrichScoringResultWithV2Profiles(rawResult, lead, technicians);
-  const result = enrichScoringResultWithV2Scores(profileEnriched, lead, technicians);
+  const profileEnrichedWithPool = enrichAllRankedMatchesWithV2Profiles(profileEnriched, lead, technicians);
+  const result = enrichScoringResultWithV2Scores(profileEnrichedWithPool, lead, technicians);
   const profileStats = summarizeV2ProfileStats(result?.topMatches ?? []);
   logV2('profile enrichment', profileStats);
 
@@ -123,5 +125,29 @@ export async function scoreSingleDateV2(technicians, lead, topN = 3, options = {
     stagingDiagnostics,
     scoringEngine: 'v2',
     scoringSource,
+  };
+}
+
+/**
+ * Enrich all legacy-ranked matches (pre area-viability filter) for diagnostics.
+ *
+ * @param {object|null|undefined} result
+ * @param {object|null|undefined} lead
+ * @param {Array<{ routeId: string|number, stops?: unknown[] }>|null|undefined} technicians
+ * @returns {object|null|undefined}
+ */
+function enrichAllRankedMatchesWithV2Profiles(result, lead, technicians) {
+  if (!result || !Array.isArray(result.allRankedMatches) || !result.allRankedMatches.length) {
+    return result;
+  }
+
+  const enrichedPool = result.allRankedMatches.map(match => ({
+    ...match,
+    v2Profile: buildMatchV2Profile(match, lead, { technicians }),
+  }));
+
+  return {
+    ...result,
+    allRankedMatches: enrichedPool,
   };
 }

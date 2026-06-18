@@ -139,6 +139,87 @@ export function findAvailablePrimaryCorridorOwners(matches = [], leadTown) {
 }
 
 /**
+ * @param {string} techName
+ * @param {Array<{ techName?: string }>} technicians
+ * @returns {boolean}
+ */
+export function isTechnicianScheduled(techName, technicians = []) {
+  return technicians.some(tech => techNamesEquivalent(tech?.techName, techName));
+}
+
+/**
+ * @param {object|null|undefined} match
+ * @returns {string[]}
+ */
+export function describeCorridorOwnerUnavailabilityReasons(match) {
+  if (!match) return ['not_scored'];
+
+  const reasons = [];
+  const v2Profile = match?.v2Profile ?? {};
+
+  if (!v2Profile.matched) reasons.push('missing_profile');
+  if (v2Profile.overHardMaxStops) reasons.push('over_hard_max_stops');
+  if (v2Profile.serviceCapabilityMatch === false) reasons.push('service_ineligible');
+  if (v2Profile.eligibilityStatus === 'disqualified') reasons.push('disqualified');
+  if (hasSevereBacktrackingRisk(match)) reasons.push('severe_backtracking_risk');
+
+  return reasons;
+}
+
+/**
+ * @param {{
+ *   techName: string,
+ *   match?: object|null,
+ *   leadTown?: string|null,
+ *   technicians?: Array<{ techName?: string }>,
+ *   inTopMatches?: boolean,
+ * }} input
+ * @returns {{
+ *   techName: string,
+ *   scheduled: boolean,
+ *   scored: boolean,
+ *   inTopMatches: boolean,
+ *   corridorOwnerAvailable: boolean,
+ *   isPrimaryCorridorOwner: boolean,
+ *   territoryOwnerBonusApplied: boolean,
+ *   neighboringTerritoryPenaltyApplied: boolean,
+ *   unavailabilityReasons: string[],
+ * }}
+ */
+export function buildTechnicianTerritoryDiagnostic(input) {
+  const {
+    techName,
+    match = null,
+    leadTown = null,
+    technicians = [],
+    inTopMatches = false,
+  } = input;
+
+  const scheduled = isTechnicianScheduled(techName, technicians);
+  const scored = Boolean(match);
+  const unavailabilityReasons = !scheduled
+    ? ['not_scheduled']
+    : describeCorridorOwnerUnavailabilityReasons(match);
+
+  const bonuses = match?.v2Score?.bonuses ?? [];
+  const penalties = match?.v2Score?.penalties ?? [];
+
+  return {
+    techName: resolveCanonicalTechName(techName),
+    scheduled,
+    scored,
+    inTopMatches,
+    corridorOwnerAvailable: scored && isCorridorOwnerCandidateAvailable(match),
+    isPrimaryCorridorOwner: isPrimaryCorridorOwner(techName, leadTown),
+    territoryOwnerBonusApplied: bonuses.some(item => item.code === 'territory_owner_bonus'),
+    neighboringTerritoryPenaltyApplied: penalties.some(
+      item => item.code === 'neighboring_territory_penalty',
+    ),
+    unavailabilityReasons,
+  };
+}
+
+/**
  * @param {object} match
  * @param {TechnicianProfile|null|undefined} profile
  * @param {string|null|undefined} leadTown

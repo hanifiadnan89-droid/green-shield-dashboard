@@ -3,13 +3,17 @@ import {
   buildFailureScoreComparison,
   buildTechnicianScoreSnapshot,
   explainWhyWinnerBeatExpected,
+  findTechnicianScoreSnapshot,
   formatFailureScoreComparisonTable,
+  resolveScoringMatchPool,
   sumModifierPoints,
 } from '../validationFailureScoreComparison.js';
-import { getValidationExamples } from '../validationExamples.js';
+import { getValidationExamples, getValidationExampleById } from '../validationExamples.js';
 import { scoreSingleDateV2 } from '../../routeFinderScoringV2.js';
 import { buildHighConfidenceFailureComparisonsWithRescore } from '../buildHighConfidenceFailureComparisons.js';
 import { MOCK_REAL_ROUTE_PAYLOADS } from '../testFixtures/realRouteCalibration.fixture.js';
+import { CORRIDOR_DIAGNOSTIC_ROUTE_PAYLOADS } from '../testFixtures/corridorFailureDiagnostics.fixture.js';
+import { buildLeadFromValidationExample } from '../validationRunner.js';
 
 describe('validationFailureScoreComparison', () => {
   it('extracts requested modifier buckets from v2 score metadata', () => {
@@ -167,5 +171,58 @@ describe('validationFailureScoreComparison', () => {
 
     expect(comparison.expectedTechName).toBe('Joseph Willey');
     expect(comparison.winner).toBeTruthy();
+  });
+
+  it('finds technicians in allRankedMatches when they are outside topMatches', async () => {
+    const example = getValidationExampleById('windham-general-example-024');
+    const technicians = CORRIDOR_DIAGNOSTIC_ROUTE_PAYLOADS['2026-06-04'].technicians;
+    const lead = buildLeadFromValidationExample(example);
+    const bundle = await scoreSingleDateV2(
+      technicians,
+      lead,
+      technicians.length,
+      { prefetchTravel: false },
+    );
+
+    expect(bundle.result.allRankedMatches?.length).toBeGreaterThan(0);
+
+    const { scoreExampleForFailureComparison } = await import('../validationFailureScoreComparison.js');
+    const diagnosticResult = await scoreExampleForFailureComparison(
+      example,
+      technicians,
+      async (_example, scoredLead, techs, topN) => {
+        const scored = await scoreSingleDateV2(techs, scoredLead, topN, { prefetchTravel: false });
+        return scored.result;
+      },
+    );
+
+    const pool = resolveScoringMatchPool(diagnosticResult);
+    expect(pool.some(match => match.techName === 'Chris McGary')).toBe(true);
+    expect(pool.some(match => match.techName === 'Skyler Ruest')).toBe(true);
+
+    const comparison = buildFailureScoreComparison(
+      example,
+      {
+        id: example.id,
+        routeDate: '2026-06-04',
+        expectedTechName: 'Chris McGary',
+        actualTopTechName: 'Skyler Ruest',
+        dispatcherConfidence: 'high',
+      },
+      technicians,
+      diagnosticResult,
+    );
+
+    expect(comparison.expected?.techName).toBe('Chris McGary');
+    expect(comparison.winner?.techName).toBe('Skyler Ruest');
+    expect(comparison.finalScoreDelta).not.toBeNull();
+    expect(comparison.expectedTerritory?.scheduled).toBe(true);
+    expect(comparison.winnerTerritory?.scheduled).toBe(true);
+    expect(comparison.lookupNote).toMatch(/full ranked match pool/i);
+
+    const table = formatFailureScoreComparisonTable([comparison]);
+    expect(table).toContain('territory owner bonus');
+    expect(table).toContain('expected territory');
+    expect(table).toContain('winner territory');
   });
 });

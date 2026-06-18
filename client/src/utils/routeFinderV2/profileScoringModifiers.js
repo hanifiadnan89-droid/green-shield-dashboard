@@ -509,6 +509,33 @@ function applyTerritoryOwnershipSafeguards(matches, lead, technicians) {
  * @param {Array<{ routeId: string|number, stops?: unknown[] }>|null|undefined} technicians
  * @returns {object|null|undefined}
  */
+export function enrichAllRankedMatchesForDiagnostics(result, lead, technicians) {
+  if (!result?.allRankedMatches?.length) return result;
+
+  const enrichedPool = result.allRankedMatches.map(match => ({
+    ...match,
+    v2Score: buildMatchV2Score(match, lead, { technicians }),
+  }));
+
+  const territoryAdjustedPool = applyTerritoryOwnershipSafeguards(
+    enrichedPool,
+    lead,
+    technicians,
+  );
+
+  return {
+    ...result,
+    comparisonMatchPool: territoryAdjustedPool,
+    allRankedMatches: territoryAdjustedPool,
+  };
+}
+
+/**
+ * @param {object|null|undefined} result
+ * @param {object|null|undefined} lead
+ * @param {Array<{ routeId: string|number, stops?: unknown[] }>|null|undefined} technicians
+ * @returns {object|null|undefined}
+ */
 export function enrichScoringResultWithV2Scores(result, lead, technicians) {
   if (!result || result.noSafeRoute) return result;
 

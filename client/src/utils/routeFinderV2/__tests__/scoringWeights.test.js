@@ -21,7 +21,12 @@ function stripMatchForParity(match) {
 
 function stripV2ProfileFields(result) {
   if (!result) return result;
-  const { generatedAt, ...rest } = result;
+  const {
+    generatedAt,
+    allRankedMatches,
+    comparisonMatchPool,
+    ...rest
+  } = result;
   const topMatches = (rest.topMatches ?? []).map(stripMatchForParity);
   return {
     ...rest,

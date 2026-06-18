@@ -1856,6 +1856,7 @@ function runScorer(technicians, lead, topN, cfg, travelCtx = null) {
     recommendation: topMatches[0] ?? null,
     alternatives:   topMatches.slice(1),
     topMatches,
+    allRankedMatches: scored,
     allScores: scored.map(r => ({
       techName:    r.techName,
       routeId:     r.routeId,
