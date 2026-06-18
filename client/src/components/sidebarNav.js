@@ -1,10 +1,17 @@
 import {
   LayoutDashboard, Users, Send, Clock, Activity,
-  MessageSquare, Navigation,
+  MessageSquare, Navigation, ClipboardList,
 } from 'lucide-react';
 
 /** Shared sidebar structure — WORKSPACE / TOOLS on every page */
 export const SIDEBAR_NAV = [
+  {
+    group: 'INTAKE',
+    feature: 'intake',
+    items: [
+      { type: 'link', to: '/intake', icon: ClipboardList, label: 'Customer Intake' },
+    ],
+  },
   {
     group: 'WORKSPACE',
     items: [

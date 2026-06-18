@@ -10,6 +10,8 @@ describe('contentSecurityPolicy', () => {
 
     expect(d['connect-src']).toContain('https://maps.googleapis.com');
     expect(d['connect-src']).toContain('https://maps.gstatic.com');
+    expect(d['connect-src']).toContain('https://weather.googleapis.com');
+    expect(d['connect-src']).toContain('https://addressvalidation.googleapis.com');
 
     expect(d['img-src']).toContain('https://maps.googleapis.com');
     expect(d['img-src']).toContain('https://maps.gstatic.com');

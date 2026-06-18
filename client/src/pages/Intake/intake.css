@@ -1,0 +1,135 @@
+.intake-page {
+  @apply flex flex-col flex-1 min-h-0 relative overflow-hidden;
+  background: #050807;
+  color: #f8fafc;
+}
+
+.intake-page__inner {
+  @apply flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-5xl mx-auto w-full;
+}
+
+.intake-card {
+  @apply rounded-2xl border border-gs-border/70 p-5 sm:p-6;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--gs-shadow-soft);
+}
+
+.intake-card__title {
+  @apply text-lg font-semibold text-gs-text;
+}
+
+.intake-card__subtitle {
+  @apply text-sm text-gs-muted mt-1;
+}
+
+.intake-form-grid {
+  @apply grid gap-4 sm:grid-cols-2;
+}
+
+.intake-form-grid--full {
+  @apply sm:col-span-2;
+}
+
+.intake-label {
+  @apply text-xs font-semibold uppercase tracking-widest text-gs-muted mb-1.5 block;
+}
+
+.intake-input {
+  @apply w-full rounded-xl border border-gs-border bg-white/90 px-3 py-2.5 text-sm text-gs-text;
+}
+
+.intake-input:focus {
+  @apply outline-none ring-2 ring-gs-accent/30 border-gs-accent/40;
+}
+
+.intake-stepper {
+  @apply flex flex-wrap items-center gap-3 mb-6;
+}
+
+.intake-stepper__step {
+  @apply flex items-center gap-2 text-sm;
+}
+
+.intake-stepper__dot {
+  @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold;
+}
+
+.intake-stepper__dot--active {
+  @apply bg-gs-accent text-white;
+}
+
+.intake-stepper__dot--done {
+  @apply bg-gs-accent/20 text-gs-accent border border-gs-accent/40;
+}
+
+.intake-stepper__dot--pending {
+  @apply bg-white/60 text-gs-muted border border-gs-border;
+}
+
+.intake-map-shell {
+  @apply rounded-xl overflow-hidden border border-gs-border min-h-[360px];
+}
+
+.intake-map-toolbar {
+  @apply flex flex-wrap gap-2 mb-3;
+}
+
+.intake-map-btn {
+  @apply px-3 py-1.5 rounded-lg text-xs font-semibold border border-gs-border bg-white/80 hover:bg-white;
+}
+
+.intake-map-btn--active {
+  @apply bg-gs-accent/15 border-gs-accent/40 text-gs-accent;
+}
+
+.intake-stat-grid {
+  @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-3;
+}
+
+.intake-stat {
+  @apply rounded-xl border border-gs-border bg-white/70 px-4 py-3;
+}
+
+.intake-stat__label {
+  @apply text-[10px] uppercase tracking-widest text-gs-muted font-semibold;
+}
+
+.intake-stat__value {
+  @apply text-sm font-semibold text-gs-text mt-1;
+}
+
+.intake-weather-pill {
+  @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold;
+}
+
+.intake-weather-pill--good {
+  @apply bg-emerald-500/15 text-emerald-700 border border-emerald-500/30;
+}
+
+.intake-weather-pill--monitor {
+  @apply bg-amber-500/15 text-amber-800 border border-amber-500/30;
+}
+
+.intake-weather-pill--not_recommended {
+  @apply bg-red-500/15 text-red-700 border border-red-500/30;
+}
+
+.intake-actions {
+  @apply flex flex-wrap gap-3 justify-end mt-6 pt-4 border-t border-gs-border/60;
+}
+
+.intake-primary-btn {
+  @apply px-5 py-2.5 rounded-xl text-sm font-semibold bg-gs-accent text-white hover:opacity-90 disabled:opacity-40;
+}
+
+.intake-secondary-btn {
+  @apply px-5 py-2.5 rounded-xl text-sm font-semibold border border-gs-border bg-white/80 hover:bg-white;
+}
+
+.intake-error {
+  @apply text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2;
+}
+
+.intake-pac-container {
+  z-index: 10000;
+}

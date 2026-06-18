@@ -19,6 +19,8 @@ export function buildContentSecurityPolicyDirectives() {
       "'self'",
       'https://maps.googleapis.com',
       'https://maps.gstatic.com',
+      'https://weather.googleapis.com',
+      'https://addressvalidation.googleapis.com',
       // Map tile / satellite imagery requests
       'https://khms0.googleapis.com',
       'https://khms1.googleapis.com',

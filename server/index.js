@@ -24,6 +24,7 @@ import { signingPublicRouter, signingStaffRouter } from './routes/signing.js';
 import routesRouter from './routes/routes.js';
 import aiRouter from './routes/ai.js';
 import geocodeRouter from './routes/geocode.js';
+import intakeRouter from './routes/intake.js';
 import messagesRouter from './routes/messages.js';
 import { appendMessage } from './services/conversationMessages.js';
 import { startCron } from './services/fieldRoutesCron.js';
@@ -129,6 +130,7 @@ app.use('/api/signing', signingStaffRouter);
 app.use('/api/routes', routesRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/geocode', geocodeRouter);
+app.use('/api/intake', intakeRouter);
 app.use('/api/messages', messagesRouter);
 
 if (fs.existsSync(clientDistPath)) {
