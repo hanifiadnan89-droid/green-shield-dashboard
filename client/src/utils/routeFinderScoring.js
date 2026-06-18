@@ -5,6 +5,10 @@
 import { scoreRoutesAsync, detectRouteArea } from './fieldRoutesScorer.js';
 import { getRoutesApiConfig, createSearchElementBudget } from './routesApiConfig.js';
 import { stagedScoreRoutes } from './stagedRouteScoring.js';
+import {
+  isRouteFinderV2ScoringEnabled,
+  scoreSingleDateV2,
+} from './routeFinderScoringV2.js';
 
 function buildPrefWindowMeta(lead) {
   const pref = lead?.timeWindowPreference || 'AT';
@@ -120,10 +124,19 @@ function enrichSingleDateResult(result, technicians, lead, travelCtx) {
   };
 }
 
-/**
- * Score one date (existing behavior + enrichment).
- */
-export async function scoreSingleDate(technicians, lead, topN = 3, options = {}) {
+function finishSingleDateResult(raw, technicians, lead, travelCtx, stagingDiagnostics) {
+  const enriched = enrichSingleDateResult(raw, technicians, lead, travelCtx);
+  if (stagingDiagnostics) {
+    enriched.stagingDiagnostics = stagingDiagnostics;
+    enriched.travelDiagnostics = {
+      ...(enriched.travelDiagnostics || {}),
+      ...stagingDiagnostics,
+    };
+  }
+  return enriched;
+}
+
+async function scoreSingleDateLegacy(technicians, lead, topN = 3, options = {}) {
   let travelCtx = options.travelCtx ?? null;
   let raw;
   let stagingDiagnostics = null;
@@ -139,15 +152,44 @@ export async function scoreSingleDate(technicians, lead, topN = 3, options = {})
     stagingDiagnostics = staged.stagingDiagnostics;
   }
 
-  const enriched = enrichSingleDateResult(raw, technicians, lead, travelCtx);
-  if (stagingDiagnostics) {
-    enriched.stagingDiagnostics = stagingDiagnostics;
-    enriched.travelDiagnostics = {
-      ...(enriched.travelDiagnostics || {}),
-      ...stagingDiagnostics,
-    };
+  return { raw, travelCtx, stagingDiagnostics, scoringSource: 'legacy' };
+}
+
+/**
+ * Score one date (existing behavior + enrichment).
+ */
+export async function scoreSingleDate(technicians, lead, topN = 3, options = {}) {
+  if (isRouteFinderV2ScoringEnabled()) {
+    const v2 = await scoreSingleDateV2(technicians, lead, topN, options);
+    if (import.meta.env.DEV) {
+      console.debug('[RouteFinder] scoreSingleDate using V2 path', {
+        scoringSource: v2.scoringSource,
+        technicians: technicians?.length ?? 0,
+      });
+    }
+    return finishSingleDateResult(
+      v2.result,
+      technicians,
+      lead,
+      v2.travelCtx,
+      v2.stagingDiagnostics,
+    );
   }
-  return enriched;
+
+  if (import.meta.env.DEV) {
+    console.debug('[RouteFinder] scoreSingleDate using legacy path', {
+      technicians: technicians?.length ?? 0,
+    });
+  }
+
+  const legacy = await scoreSingleDateLegacy(technicians, lead, topN, options);
+  return finishSingleDateResult(
+    legacy.raw,
+    technicians,
+    lead,
+    legacy.travelCtx,
+    legacy.stagingDiagnostics,
+  );
 }
 
 /**
