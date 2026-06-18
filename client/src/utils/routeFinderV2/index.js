@@ -99,3 +99,12 @@ export {
   printValidationSummary,
   getValidationPassRate,
 } from './validationRunner.js';
+
+export {
+  runValidationReport,
+  printValidationBaselineReport,
+  formatValidationBaselineReport,
+  formatValidationPassRate,
+  isValidationReportAllowed,
+  assertValidationReportDevOnly,
+} from './runValidationReport.js';
