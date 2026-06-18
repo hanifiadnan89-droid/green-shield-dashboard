@@ -106,18 +106,71 @@ export function summarizeNormalizedRoutePayload(payload) {
   };
 }
 
+export const DEFAULT_CALIBRATION_ROUTE_DATE = '2026-06-18';
+
+/**
+ * @param {string[]} dates - YYYY-MM-DD strings
+ * @param {string} [preferredDate]
+ * @returns {string|null}
+ */
+export function pickCalibrationRouteDateFromList(
+  dates,
+  preferredDate = DEFAULT_CALIBRATION_ROUTE_DATE,
+) {
+  const sorted = [...dates].sort();
+  if (sorted.includes(preferredDate)) return preferredDate;
+  if (!sorted.length) return null;
+  return sorted[sorted.length - 1];
+}
+
+/**
+ * Prefer DEFAULT_CALIBRATION_ROUTE_DATE when cached; otherwise use the latest
+ * available *.normalized.json date under data/routes/.
+ *
+ * @param {{ preferredDate?: string }} [options]
+ * @returns {Promise<(CachedRouteDateSummary & { selection: 'preferred'|'latest_available' })|null>}
+ */
+export async function resolveCalibrationRouteDateForRun(options = {}) {
+  const preferredDate = options.preferredDate ?? DEFAULT_CALIBRATION_ROUTE_DATE;
+  const preferredPayload = await loadNormalizedRoutesFromDisk(preferredDate);
+
+  if (preferredPayload?.technicians?.length) {
+    return {
+      date: preferredDate,
+      ...summarizeNormalizedRoutePayload(preferredPayload),
+      selection: 'preferred',
+    };
+  }
+
+  const dates = await listCachedRouteDates();
+  const latestDate = pickCalibrationRouteDateFromList(dates, preferredDate);
+  if (!latestDate || latestDate === preferredDate) return null;
+
+  const latestPayload = await loadNormalizedRoutesFromDisk(latestDate);
+  if (!latestPayload?.technicians?.length) return null;
+
+  return {
+    date: latestDate,
+    ...summarizeNormalizedRoutePayload(latestPayload),
+    selection: 'latest_available',
+  };
+}
+
 /**
  * @param {string[]|null|undefined} [preferredDates]
  * @returns {Promise<CachedRouteDateSummary|null>}
  */
 export async function findMostCompleteCachedRouteDate(preferredDates = null) {
-  const dates = preferredDates?.length
-    ? preferredDates
-    : await listCachedRouteDates();
+  if (!preferredDates?.length) {
+    const resolved = await resolveCalibrationRouteDateForRun();
+    if (!resolved) return null;
+    const { selection, ...summary } = resolved;
+    return summary;
+  }
 
   let best = null;
 
-  for (const date of dates) {
+  for (const date of preferredDates) {
     const payload = await loadNormalizedRoutesFromDisk(date);
     if (!payload?.technicians?.length) continue;
 
@@ -133,7 +186,13 @@ export async function findMostCompleteCachedRouteDate(preferredDates = null) {
     }
   }
 
-  return best;
+  if (best) return best;
+
+  return resolveCalibrationRouteDateForRun().then(result => {
+    if (!result) return null;
+    const { selection, ...summary } = result;
+    return summary;
+  });
 }
 
 /**

@@ -8,7 +8,9 @@
     "build": "npm run build --prefix client",
     "render:build": "npm run install:all && npm run build && npm run playwright:install:render --prefix server",
     "start": "npm start --prefix server",
-    "fieldroutes:export-auth": "node scripts/fieldRoutesExportAuth.mjs"
+    "fieldroutes:export-auth": "node scripts/fieldRoutesExportAuth.mjs",
+    "validation:report": "node scripts/runValidationReport.mjs",
+    "validation:calibrate": "node scripts/runValidationCalibration.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

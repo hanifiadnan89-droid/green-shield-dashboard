@@ -120,10 +120,13 @@ export {
   loadNormalizedRoutesFromDisk,
   listCachedRouteDates,
   findMostCompleteCachedRouteDate,
+  resolveCalibrationRouteDateForRun,
+  pickCalibrationRouteDateFromList,
   summarizeNormalizedRoutePayload,
   resolveCalibrationRouteDate,
   createRouteLoader,
   resolveNormalizedRouteCachePath,
+  DEFAULT_CALIBRATION_ROUTE_DATE,
 } from './realRouteCalibrationSource.js';
 
 export {

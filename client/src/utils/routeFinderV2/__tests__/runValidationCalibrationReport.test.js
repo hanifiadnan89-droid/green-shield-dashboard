@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { runValidationCalibration } from '../runValidationCalibration.js';
-import { findMostCompleteCachedRouteDate } from '../realRouteCalibrationSource.js';
+import { resolveCalibrationRouteDateForRun } from '../realRouteCalibrationSource.js';
 import { formatValidationPassRate } from '../runValidationReport.js';
 
 describe('runValidationCalibrationReport', () => {
@@ -11,16 +11,16 @@ describe('runValidationCalibrationReport', () => {
   it('real cached route calibration with grouped failure patterns', async () => {
     vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
 
-    const preferred = await findMostCompleteCachedRouteDate(['2026-06-18', '2026-06-17', '2026-06-19']);
-    if (!preferred) {
+    const selected = await resolveCalibrationRouteDateForRun();
+    if (!selected) {
       throw new Error(
         'No normalized route cache found under data/routes/. '
-        + 'Seed or scrape a date first (e.g. node scripts/seedRouteCache.mjs 2026-06-18).',
+        + 'Place a scraped *.normalized.json file there or run: node scripts/seedRouteCache.mjs YYYY-MM-DD',
       );
     }
 
     const report = await runValidationCalibration({
-      routeDate: preferred.date,
+      routeDate: selected.date,
       print: false,
     });
 
@@ -33,6 +33,6 @@ describe('runValidationCalibrationReport', () => {
     expect(report.reportText).toContain(`realRoutePassRate: ${formatValidationPassRate(report.realRoutePassRate)}`);
 
     console.log('\n' + report.reportText);
-    console.log('\n[calibration] route cache summary', preferred);
+    console.log('\n[calibration] route cache summary', selected);
   }, 300000);
 });
