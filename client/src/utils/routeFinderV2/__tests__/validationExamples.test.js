@@ -1,33 +1,59 @@
 import { describe, it, expect } from 'vitest';
 import {
   ROUTE_FINDER_VALIDATION_EXAMPLES,
+  VALIDATION_SERVICE_TYPES,
   getValidationExamples,
   getValidationExampleById,
+  getValidationExampleCount,
+  isValidValidationServiceType,
+  resolveAcceptedRankMax,
 } from '../validationExamples.js';
 
-describe('validationExamples', () => {
-  it('imports the Kennebunk IQ validation example with optional fields', () => {
-    expect(ROUTE_FINDER_VALIDATION_EXAMPLES).toHaveLength(1);
-    const example = ROUTE_FINDER_VALIDATION_EXAMPLES[0];
-    expect(example).toEqual({
-      id: 'kennebunk-iq-example-001',
-      date: '2026-06-17',
+describe('validationExamples dataset', () => {
+  it('imports successfully with the anchor Kennebunk example and expanded dataset', () => {
+    expect(ROUTE_FINDER_VALIDATION_EXAMPLES.length).toBeGreaterThanOrEqual(51);
+    expect(ROUTE_FINDER_VALIDATION_EXAMPLES[0].id).toBe('kennebunk-iq-example-001');
+    expect(getValidationExampleById('old-orchard-bedbug-example-051')).toBeTruthy();
+  });
+
+  it('every validation example has a unique id', () => {
+    const ids = ROUTE_FINDER_VALIDATION_EXAMPLES.map(example => example.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('every validation example has expectedTechName', () => {
+    for (const example of ROUTE_FINDER_VALIDATION_EXAMPLES) {
+      expect(typeof example.expectedTechName).toBe('string');
+      expect(example.expectedTechName.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('every validation example has a valid serviceType', () => {
+    for (const example of ROUTE_FINDER_VALIDATION_EXAMPLES) {
+      expect(isValidValidationServiceType(example.newJob.serviceType)).toBe(true);
+      expect(VALIDATION_SERVICE_TYPES).toContain(example.newJob.serviceType);
+    }
+  });
+
+  it('acceptedRankMax defaults to 1 when missing', () => {
+    expect(resolveAcceptedRankMax({
+      id: 'test',
+      date: '2026-06-18',
       newJob: {
-        address: '123 Main St, Kennebunk, ME',
-        lat: 43.3845,
-        lng: -70.5448,
+        address: '1 Main, Kennebunk, ME',
+        lat: 1,
+        lng: 1,
         serviceType: 'IQ',
         timePreference: 'Anytime',
-        routeArea: 'maine',
       },
       expectedTechName: 'Joseph Willey',
-      acceptedRankMax: 1,
-      acceptableTechNames: ['Joseph Willey'],
-      expectedNotTechNames: ['Ian Pratt', 'Paige Bullock'],
-      reasonTags: ['same-area', 'kennebunk-cluster', 'lighter-route'],
-      dispatcherReason: 'Already had nearby Kennebunk stops and route was lighter.',
-      notes: 'Avoid Portland tech unless no Kennebunk-area route is available.',
-    });
+      dispatcherReason: 'reason',
+      notes: 'notes',
+    })).toBe(1);
+
+    expect(resolveAcceptedRankMax(ROUTE_FINDER_VALIDATION_EXAMPLES.find(
+      e => e.id === 'kennebunk-rit-example-003',
+    ))).toBe(2);
   });
 
   it('getValidationExamples returns a copy', () => {
@@ -36,10 +62,7 @@ describe('validationExamples', () => {
     expect(examples).not.toBe(ROUTE_FINDER_VALIDATION_EXAMPLES);
   });
 
-  it('getValidationExampleById returns a matching example', () => {
-    expect(getValidationExampleById('kennebunk-iq-example-001')).toEqual(
-      ROUTE_FINDER_VALIDATION_EXAMPLES[0],
-    );
-    expect(getValidationExampleById('missing-example')).toBeNull();
+  it('getValidationExampleCount matches dataset length', () => {
+    expect(getValidationExampleCount()).toBe(ROUTE_FINDER_VALIDATION_EXAMPLES.length);
   });
 });

@@ -4,6 +4,7 @@
  */
 
 import { matchTechnicianProfile } from './technicianProfiles.js';
+import { inferRouteAreaFromAddress, resolveAcceptedRankMax } from './validationExamples.js';
 
 /**
  * @typedef {import('./validationExamples.js').RouteFinderValidationExample} RouteFinderValidationExample
@@ -36,6 +37,26 @@ import { matchTechnicianProfile } from './technicianProfiles.js';
  * @property {string} notes
  * @property {string[]|undefined} reasonTags
  * @property {number} technicianCount
+ */
+
+/**
+ * @typedef {Object} ValidationFailureSummary
+ * @property {string} id
+ * @property {string} expectedTechName
+ * @property {string|null} actualTopTechName
+ * @property {number|null} expectedRank
+ * @property {string|null} failureReason
+ * @property {string} dispatcherReason
+ * @property {ValidationTopMatchDiagnostic[]} topMatches
+ */
+
+/**
+ * @typedef {Object} ValidationSummary
+ * @property {number} totalExamples
+ * @property {number} passed
+ * @property {number} failed
+ * @property {number} passRate
+ * @property {ValidationFailureSummary[]} failures
  */
 
 const TOP_MATCH_LIMIT = 3;
@@ -109,7 +130,7 @@ export function resolveAcceptableTechNames(example) {
  * @returns {ValidationRunResult}
  */
 export function evaluateValidationExample(example, technicians, scoringResult) {
-  const acceptedRankMax = example.acceptedRankMax ?? 1;
+  const acceptedRankMax = resolveAcceptedRankMax(example);
   const acceptableTechNames = resolveAcceptableTechNames(example);
   const forbiddenTechNames = example.expectedNotTechNames ?? [];
   const topMatchesRaw = resolveScoringTopMatches(scoringResult).slice(0, TOP_MATCH_LIMIT);
@@ -164,27 +185,44 @@ export function evaluateValidationExample(example, technicians, scoringResult) {
 }
 
 /**
+ * @param {string|null|undefined} timePreference
+ * @returns {string}
+ */
+export function mapValidationTimePreference(timePreference) {
+  const prefRaw = String(timePreference ?? 'Anytime').trim();
+  const upper = prefRaw.toUpperCase();
+  if (upper === 'ANYTIME' || upper === 'AT') return 'AT';
+  if (upper === 'AM' || upper === 'PM') return upper;
+  return prefRaw;
+}
+
+/**
  * @param {RouteFinderValidationExample} example
  * @returns {object}
  */
 export function buildLeadFromValidationExample(example) {
-  const prefRaw = String(example.newJob.timePreference ?? 'Anytime').trim().toUpperCase();
-  const timeWindowPreference = prefRaw === 'ANYTIME' || prefRaw === 'AT' ? 'AT'
-    : prefRaw === 'AM' ? 'AM'
-      : prefRaw === 'PM' ? 'PM'
-        : 'AT';
+  const { newJob } = example;
+  const timeWindowPreference = mapValidationTimePreference(newJob.timePreference);
+  const routeArea = newJob.routeArea ?? inferRouteAreaFromAddress(newJob.address);
 
   return {
-    lat: example.newJob.lat,
-    lng: example.newJob.lng,
-    address: example.newJob.address,
-    serviceType: example.newJob.serviceType,
-    serviceAbbreviation: example.newJob.serviceType,
-    serviceLabel: example.newJob.serviceType,
+    lat: newJob.lat,
+    lng: newJob.lng,
+    address: newJob.address,
+    serviceType: newJob.serviceType,
+    serviceAbbreviation: newJob.serviceType,
+    serviceLabel: newJob.serviceType,
     timeWindowPreference,
-    routeArea: example.newJob.routeArea ?? 'maine',
+    routeArea,
     date: example.date,
-    durationMinutes: example.newJob.durationMinutes ?? 30,
+    durationMinutes: newJob.durationMinutes ?? 30,
+    customerMustBeHome: Boolean(newJob.customerMustBeHome),
+    sameDayUrgent: Boolean(newJob.sameDayUrgent),
+    exteriorOnly: Boolean(newJob.exteriorOnly),
+    isPaidInitial: Boolean(newJob.isPaidInitial),
+    isReservice: Boolean(newJob.isReservice),
+    isCommercial: Boolean(newJob.isCommercial),
+    callAheadRequired: Boolean(newJob.customerMustBeHome),
   };
 }
 
@@ -218,4 +256,61 @@ export function printValidationResult(result) {
  */
 export function evaluateValidationExamples(examples, technicians, scoringResult) {
   return examples.map(example => evaluateValidationExample(example, technicians, scoringResult));
+}
+
+/**
+ * @param {ValidationRunResult[]} results
+ * @returns {number}
+ */
+export function getValidationPassRate(results = []) {
+  if (!results.length) return 0;
+  const passed = results.filter(result => result.passed).length;
+  return passed / results.length;
+}
+
+/**
+ * @param {ValidationRunResult[]} results
+ * @returns {ValidationSummary}
+ */
+export function summarizeValidationResults(results = []) {
+  const passed = results.filter(result => result.passed).length;
+  const failed = results.length - passed;
+
+  return {
+    totalExamples: results.length,
+    passed,
+    failed,
+    passRate: getValidationPassRate(results),
+    failures: results
+      .filter(result => !result.passed)
+      .map(result => ({
+        id: result.id,
+        expectedTechName: result.expectedTechName,
+        actualTopTechName: result.actualTopTechName,
+        expectedRank: result.expectedRank,
+        failureReason: result.failureReason,
+        dispatcherReason: result.dispatcherReason,
+        topMatches: result.topMatches,
+      })),
+  };
+}
+
+/**
+ * DEV-only summary printer for validation report batches.
+ * @param {ValidationRunResult[]|ValidationSummary} resultsOrSummary
+ */
+export function printValidationSummary(resultsOrSummary) {
+  if (!import.meta.env.DEV) return;
+
+  const summary = Array.isArray(resultsOrSummary)
+    ? summarizeValidationResults(resultsOrSummary)
+    : resultsOrSummary;
+
+  console.debug('[RouteFinder V2 Validation] summary', {
+    totalExamples: summary.totalExamples,
+    passed: summary.passed,
+    failed: summary.failed,
+    passRate: summary.passRate,
+    failures: summary.failures,
+  });
 }

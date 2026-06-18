@@ -3,8 +3,12 @@ import {
   evaluateValidationExample,
   buildValidationTopMatchDiagnostic,
   buildLeadFromValidationExample,
+  mapValidationTimePreference,
   printValidationResult,
   resolveAcceptableTechNames,
+  summarizeValidationResults,
+  getValidationPassRate,
+  printValidationSummary,
 } from '../validationRunner.js';
 import { ROUTE_FINDER_VALIDATION_EXAMPLES } from '../validationExamples.js';
 import { scoreSingleDateV2 } from '../../routeFinderScoringV2.js';
@@ -203,6 +207,58 @@ describe('validationRunner', () => {
     expect(lead.timeWindowPreference).toBe('AT');
     expect(lead.routeArea).toBe('maine');
     expect(lead.date).toBe('2026-06-17');
+  });
+
+  it('maps specific time windows and NH route area from validation examples', () => {
+    const nhExample = ROUTE_FINDER_VALIDATION_EXAMPLES.find(e => e.id === 'dover-iq-example-042');
+    const lead = buildLeadFromValidationExample(nhExample);
+    expect(lead.routeArea).toBe('new_hampshire');
+    expect(mapValidationTimePreference('8-12')).toBe('8-12');
+    expect(mapValidationTimePreference('12-4')).toBe('12-4');
+    expect(mapValidationTimePreference('10-12')).toBe('10-12');
+  });
+
+  it('summarizeValidationResults calculates pass rate and failure diagnostics', () => {
+    const pass = evaluateValidationExample(
+      makeExample(),
+      [],
+      makeScoringResult([makeMatch('Joseph Willey')]),
+    );
+    const fail = evaluateValidationExample(
+      makeExample({ id: 'fail-example', expectedNotTechNames: ['Ian Pratt'] }),
+      [],
+      makeScoringResult([makeMatch('Ian Pratt')]),
+    );
+
+    const summary = summarizeValidationResults([pass, fail, pass]);
+
+    expect(summary.totalExamples).toBe(3);
+    expect(summary.passed).toBe(2);
+    expect(summary.failed).toBe(1);
+    expect(summary.passRate).toBeCloseTo(2 / 3, 5);
+    expect(getValidationPassRate([pass, fail, pass])).toBeCloseTo(2 / 3, 5);
+    expect(summary.failures).toHaveLength(1);
+    expect(summary.failures[0].id).toBe('fail-example');
+    expect(summary.failures[0].topMatches.length).toBeGreaterThan(0);
+    expect(summary.failures[0].failureReason).toContain('Forbidden technician ranked #1');
+  });
+
+  it('printValidationSummary logs in DEV when provided results', () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const summary = summarizeValidationResults([
+      evaluateValidationExample(makeExample(), [], makeScoringResult([makeMatch('Joseph Willey')])),
+    ]);
+
+    printValidationSummary(summary);
+
+    if (import.meta.env.DEV) {
+      expect(debugSpy).toHaveBeenCalledWith(
+        '[RouteFinder V2 Validation] summary',
+        expect.objectContaining({ totalExamples: 1, passed: 1, failed: 0 }),
+      );
+    }
+
+    debugSpy.mockRestore();
   });
 
   it('logs validation diagnostics in DEV via printValidationResult', () => {

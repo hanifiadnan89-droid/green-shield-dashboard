@@ -56,8 +56,13 @@ export {
 
 export {
   ROUTE_FINDER_VALIDATION_EXAMPLES,
+  VALIDATION_SERVICE_TYPES,
   getValidationExamples,
   getValidationExampleById,
+  getValidationExampleCount,
+  isValidValidationServiceType,
+  resolveAcceptedRankMax,
+  inferRouteAreaFromAddress,
 } from './validationExamples.js';
 
 export {
@@ -86,7 +91,11 @@ export {
   evaluateValidationExamples,
   buildValidationTopMatchDiagnostic,
   buildLeadFromValidationExample,
+  mapValidationTimePreference,
   resolveScoringTopMatches,
   resolveAcceptableTechNames,
   printValidationResult,
+  summarizeValidationResults,
+  printValidationSummary,
+  getValidationPassRate,
 } from './validationRunner.js';
