@@ -11,6 +11,9 @@ import {
   enrichScoringResultWithV2Profiles,
   summarizeV2ProfileStats,
 } from './routeFinderV2/technicianEligibility.js';
+import {
+  enrichScoringResultWithV2Scores,
+} from './routeFinderV2/profileScoringModifiers.js';
 
 /** @typedef {'v2-staged-delegate' | 'v2-direct-travel-ctx' | 'v2-haversine-only'} V2ScoringSource */
 
@@ -92,7 +95,8 @@ export async function scoreSingleDateV2(technicians, lead, topN = 3, options = {
     options,
   );
 
-  const result = enrichScoringResultWithV2Profiles(rawResult, lead, technicians);
+  const profileEnriched = enrichScoringResultWithV2Profiles(rawResult, lead, technicians);
+  const result = enrichScoringResultWithV2Scores(profileEnriched, lead, technicians);
   const profileStats = summarizeV2ProfileStats(result?.topMatches ?? []);
   logV2('profile enrichment', profileStats);
 

@@ -146,7 +146,7 @@ describe('technicianEligibility', () => {
     expect(matches.map(m => m.techName)).toEqual(['Lower Score', 'Mid Score', 'High Score']);
   });
 
-  it('enriches scoring result with v2Profile and reorders top matches', () => {
+  it('enriches scoring result with v2Profile metadata', () => {
     const result = enrichScoringResultWithV2Profiles(
       {
         topMatches: [
@@ -171,10 +171,9 @@ describe('technicianEligibility', () => {
       [],
     );
 
-    expect(result.topMatches[0].techName).toBe('Joseph Willey');
-    expect(result.topMatches[0].v2Profile.eligibilityStatus).toBe('eligible');
-    expect(result.topMatches[1].techName).toBe('Matthew Lavigne');
-    expect(result.topMatches[1].v2Profile.eligibilityStatus).toBe('disqualified');
-    expect(result.recommendation.techName).toBe('Joseph Willey');
+    expect(result.topMatches[0].v2Profile.eligibilityStatus).toBe('disqualified');
+    expect(result.topMatches[1].v2Profile.eligibilityStatus).toBe('eligible');
+    expect(result.topMatches[0].techName).toBe('Matthew Lavigne');
+    expect(result.recommendation.techName).toBe('Matthew Lavigne');
   });
 });

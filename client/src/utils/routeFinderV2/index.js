@@ -67,3 +67,15 @@ export {
   resolveProjectedStopCount,
   summarizeV2ProfileStats,
 } from './technicianEligibility.js';
+
+export {
+  buildMatchV2Score,
+  enrichScoringResultWithV2Scores,
+  reorderMatchesByV2Score,
+  logV2ScoreRankChanges,
+  resolveLeadTown,
+  resolveTownFromAddress,
+  isLeadInNormalServiceAreas,
+  isStrongGeoCluster,
+  isWeakGeoCluster,
+} from './profileScoringModifiers.js';

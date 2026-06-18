@@ -58,6 +58,27 @@ function assertV2ProfileContract(profile) {
   expect(typeof profile.overHardMaxStops).toBe('boolean');
 }
 
+function assertV2ScoreContract(v2Score, match) {
+  expect(typeof v2Score.baseTotal).toBe('number');
+  expect(typeof v2Score.adjustedTotal).toBe('number');
+  expect(typeof v2Score.adjustment).toBe('number');
+  expect(v2Score.baseTotal).toBe(match.scores.total);
+  expect(v2Score.adjustedTotal).toBe(v2Score.baseTotal + v2Score.adjustment);
+  expect(Array.isArray(v2Score.penalties)).toBe(true);
+  expect(Array.isArray(v2Score.bonuses)).toBe(true);
+  expect(typeof v2Score.explanation).toBe('string');
+  for (const penalty of v2Score.penalties) {
+    expect(typeof penalty.code).toBe('string');
+    expect(typeof penalty.label).toBe('string');
+    expect(typeof penalty.points).toBe('number');
+  }
+  for (const bonus of v2Score.bonuses) {
+    expect(typeof bonus.code).toBe('string');
+    expect(typeof bonus.label).toBe('string');
+    expect(typeof bonus.points).toBe('number');
+  }
+}
+
 describe('routeFinderScoringV2 feature flag', () => {
   afterAll(() => {
     vi.unstubAllEnvs();
@@ -95,6 +116,7 @@ describe('scoreSingleDateV2 — raw scorer contract', () => {
     expect(Array.isArray(rawBundle.result.topMatches)).toBe(true);
     expect(rawBundle.result.topMatches.length).toBeGreaterThan(0);
     assertV2ProfileContract(rawBundle.result.topMatches[0].v2Profile);
+    assertV2ScoreContract(rawBundle.result.topMatches[0].v2Score, rawBundle.result.topMatches[0]);
   });
 });
 
@@ -128,6 +150,7 @@ describe('scoreSingleDate with V2 enabled — enriched UI contract', () => {
     expect(match.matchId).toContain('::');
     expect(Array.isArray(match.trustWarnings)).toBe(true);
     assertV2ProfileContract(match.v2Profile);
+    assertV2ScoreContract(match.v2Score, match);
     expect(match.v2Profile.eligibilityStatus).toBe('warning');
     expect(match.v2Profile.warnings).toContain('Missing technician profile');
   });
@@ -200,7 +223,7 @@ describe('scoreSingleDate with V2 enabled — technician profile enrichment', ()
   });
 });
 
-describe('scoreSingleDate legacy path — no v2Profile metadata', () => {
+describe('scoreSingleDate legacy path — no v2 metadata', () => {
   let result;
 
   beforeAll(async () => {
@@ -217,7 +240,8 @@ describe('scoreSingleDate legacy path — no v2Profile metadata', () => {
     vi.unstubAllEnvs();
   });
 
-  it('does not attach v2Profile when V2 flag is disabled', () => {
+  it('does not attach v2Profile or v2Score when V2 flag is disabled', () => {
     expect(result.topMatches[0].v2Profile).toBeUndefined();
+    expect(result.topMatches[0].v2Score).toBeUndefined();
   });
 });

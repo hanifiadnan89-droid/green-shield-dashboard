@@ -12,7 +12,7 @@ import { generalHappyPath, nhNoApprovedTech } from '../../__tests__/fieldRoutesS
 
 function stripMatchForParity(match) {
   if (!match) return match;
-  const { matchId, v2Profile, ...matchRest } = match;
+  const { matchId, v2Profile, v2Score, ...matchRest } = match;
   return {
     ...matchRest,
     scores: match.scores ? { ...match.scores } : match.scores,
@@ -28,7 +28,7 @@ function stripV2ProfileFields(result) {
     topMatches,
     recommendation: stripMatchForParity(rest.recommendation),
     alternatives: (rest.alternatives ?? []).map(stripMatchForParity),
-    allScores: (rest.allScores ?? []).map(({ v2Profile, ...entry }) => ({ ...entry })),
+    allScores: (rest.allScores ?? []).map(({ v2Profile, v2Score, ...entry }) => ({ ...entry })),
   };
 }
 
@@ -49,6 +49,8 @@ describe('routeFinderV2 config barrel', () => {
     expect(typeof routeFinderV2Config.getValidationExamples).toBe('function');
     expect(typeof routeFinderV2Config.buildMatchV2Profile).toBe('function');
     expect(typeof routeFinderV2Config.enrichScoringResultWithV2Profiles).toBe('function');
+    expect(typeof routeFinderV2Config.buildMatchV2Score).toBe('function');
+    expect(typeof routeFinderV2Config.enrichScoringResultWithV2Scores).toBe('function');
   });
 });
 
@@ -117,7 +119,9 @@ describe('routeFinderV2 config layer — scoring parity', () => {
 
     it('adds v2Profile metadata only on the V2 path', () => {
       expect(v2Result.topMatches[0].v2Profile).toBeDefined();
+      expect(v2Result.topMatches[0].v2Score).toBeDefined();
       expect(legacyResult.topMatches[0].v2Profile).toBeUndefined();
+      expect(legacyResult.topMatches[0].v2Score).toBeUndefined();
     });
   });
 

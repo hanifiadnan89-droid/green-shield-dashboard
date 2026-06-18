@@ -233,8 +233,6 @@ export function enrichScoringResultWithV2Profiles(result, lead, technicians) {
     v2Profile: buildMatchV2Profile(match, lead, { technicians }),
   }));
 
-  const reorderedTopMatches = reorderMatchesByEligibility(enrichedTopMatches);
-
   const profileByRouteId = new Map(
     enrichedTopMatches.map(match => [String(match.routeId), match.v2Profile]),
   );
@@ -253,9 +251,9 @@ export function enrichScoringResultWithV2Profiles(result, lead, technicians) {
 
   return {
     ...result,
-    topMatches: reorderedTopMatches,
-    recommendation: reorderedTopMatches[0] ?? null,
-    alternatives: reorderedTopMatches.slice(1),
+    topMatches: enrichedTopMatches,
+    recommendation: enrichedTopMatches[0] ?? null,
+    alternatives: enrichedTopMatches.slice(1),
     allScores,
   };
 }
