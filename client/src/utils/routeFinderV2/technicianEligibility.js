@@ -7,6 +7,10 @@ import { matchTechnicianProfile } from './technicianProfiles.js';
 import { resolveLeadServiceTypeKey } from './serviceDurations.js';
 import { getRegionRule, resolveServiceAreaGroupForTown } from './regionRules.js';
 import { getV2PenaltyConfig } from './scoringWeights.js';
+import {
+  evaluateNhTechnicianRoutingContext,
+  isNhForbiddenTechnician,
+} from './nhRoutingRules.js';
 
 /** @typedef {'eligible' | 'warning' | 'disqualified'} V2EligibilityStatus */
 
@@ -23,6 +27,11 @@ import { getV2PenaltyConfig } from './scoringWeights.js';
  * @property {number} profileFitScore
  * @property {V2EligibilityStatus} eligibilityStatus
  * @property {string[]} warnings
+ * @property {boolean|null} [nhApprovedTechnician]
+ * @property {string|null} [nhSubRegion]
+ * @property {string|null} [nhSubRegionLabel]
+ * @property {number[]} [preferredRouteDays]
+ * @property {boolean|null} [nhRouteDayMatch]
  */
 
 const ELIGIBILITY_RANK = {
@@ -157,9 +166,22 @@ export function buildMatchV2Profile(match, lead, options = {}) {
     if (eligibilityStatus === 'eligible') eligibilityStatus = 'warning';
   }
 
-  if (eligibilityStatus === 'disqualified') {
+  const nhContext = evaluateNhTechnicianRoutingContext(match?.techName, lead);
+  if (nhContext.applies) {
+    if (nhContext.nhApprovedTechnician === false || isNhForbiddenTechnician(match?.techName)) {
+      eligibilityStatus = 'disqualified';
+      warnings.push('Technician is not approved for New Hampshire routing');
+      profileFitScore = 0;
+    } else if (nhContext.nhRouteDayMatch === false) {
+      if (eligibilityStatus !== 'disqualified') eligibilityStatus = 'warning';
+      warnings.push(nhContext.nhRouteDayWarning ?? 'NH route day does not match sub-region schedule');
+      profileFitScore -= penalties.overPreferredStopPenalty;
+    }
+  }
+
+  if (eligibilityStatus === 'disqualified' && profileFitScore !== 0) {
     profileFitScore = 0;
-  } else {
+  } else if (eligibilityStatus !== 'disqualified') {
     profileFitScore = Math.max(0, Math.min(PROFILE_FIT_BASE, profileFitScore));
   }
 
@@ -175,6 +197,11 @@ export function buildMatchV2Profile(match, lead, options = {}) {
     profileFitScore,
     eligibilityStatus,
     warnings,
+    nhApprovedTechnician: nhContext.nhApprovedTechnician,
+    nhSubRegion: nhContext.nhSubRegion,
+    nhSubRegionLabel: nhContext.nhSubRegionLabel,
+    preferredRouteDays: nhContext.preferredRouteDays,
+    nhRouteDayMatch: nhContext.nhRouteDayMatch,
   };
 }
 

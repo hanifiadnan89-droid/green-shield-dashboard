@@ -108,3 +108,19 @@ export {
   isValidationReportAllowed,
   assertValidationReportDevOnly,
 } from './runValidationReport.js';
+
+export {
+  NH_APPROVED_TECHNICIAN_NAMES,
+  NH_FORBIDDEN_TECHNICIAN_NAMES,
+  NH_SUB_REGION_RULES,
+  evaluateLeadNhRoutingContext,
+  evaluateNhRouteDayMatch,
+  evaluateNhTechnicianRoutingContext,
+  getAllNhSubRegionRules,
+  getV2ScorerConfigForLead,
+  isNhApprovedTechnician,
+  isNhForbiddenTechnician,
+  isNewHampshireLead,
+  resolveNhSubRegionForTown,
+  resolveNhSubRegionFromLead,
+} from './nhRoutingRules.js';

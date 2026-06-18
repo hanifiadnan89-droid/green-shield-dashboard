@@ -11,7 +11,7 @@ import {
 
 describe('validationExamples dataset', () => {
   it('imports successfully with the anchor Kennebunk example and expanded dataset', () => {
-    expect(ROUTE_FINDER_VALIDATION_EXAMPLES.length).toBeGreaterThanOrEqual(51);
+    expect(ROUTE_FINDER_VALIDATION_EXAMPLES.length).toBeGreaterThanOrEqual(54);
     expect(ROUTE_FINDER_VALIDATION_EXAMPLES[0].id).toBe('kennebunk-iq-example-001');
     expect(getValidationExampleById('old-orchard-bedbug-example-051')).toBeTruthy();
   });

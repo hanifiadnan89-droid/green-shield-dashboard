@@ -1882,5 +1882,6 @@ export async function scoreRoutesAsync(technicians, lead, topN = 3, options = {}
     const { prefetchTravelContext } = await import('./routeTravelContext.js');
     travelCtx = await prefetchTravelContext(technicians, lead, options);
   }
-  return runScorer(technicians, lead, topN, SCORER_CONFIG, travelCtx);
+  const cfg = options.scorerConfig ?? SCORER_CONFIG;
+  return runScorer(technicians, lead, topN, cfg, travelCtx);
 }

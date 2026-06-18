@@ -14,6 +14,7 @@ import {
 import {
   enrichScoringResultWithV2Scores,
 } from './routeFinderV2/profileScoringModifiers.js';
+import { getV2ScorerConfigForLead } from './routeFinderV2/nhRoutingRules.js';
 
 /** @typedef {'v2-staged-delegate' | 'v2-direct-travel-ctx' | 'v2-haversine-only'} V2ScoringSource */
 
@@ -45,21 +46,26 @@ async function runV2CoreScoring(technicians, lead, topN, options = {}) {
   /** @type {V2ScoringSource} */
   let scoringSource = 'v2-staged-delegate';
 
+  const scorerConfig = options.scorerConfig ?? getV2ScorerConfigForLead(lead);
+  const scoringOptions = scorerConfig
+    ? { ...options, scorerConfig }
+    : options;
+
   if (travelCtx) {
     result = await scoreRoutesAsync(technicians, lead, topN, {
-      ...options,
+      ...scoringOptions,
       travelCtx,
       prefetchTravel: false,
     });
     scoringSource = 'v2-direct-travel-ctx';
   } else if (options.prefetchTravel === false) {
     result = await scoreRoutesAsync(technicians, lead, topN, {
-      ...options,
+      ...scoringOptions,
       prefetchTravel: false,
     });
     scoringSource = 'v2-haversine-only';
   } else {
-    const staged = await stagedScoreRoutes(technicians, lead, topN, options);
+    const staged = await stagedScoreRoutes(technicians, lead, topN, scoringOptions);
     result = staged.result;
     travelCtx = staged.travelCtx;
     stagingDiagnostics = staged.stagingDiagnostics;

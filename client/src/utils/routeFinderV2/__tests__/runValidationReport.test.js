@@ -109,8 +109,8 @@ describe('runValidationReport', () => {
 
     const { summary, reportText } = await runValidationReport({ print: false });
 
-    expect(summary.totalExamples).toBe(51);
-    expect(summary.passed + summary.failed).toBe(51);
+    expect(summary.totalExamples).toBe(54);
+    expect(summary.passed + summary.failed).toBe(54);
     expect(reportText).toContain('Validation Baseline Report');
     expect(reportText).toContain(`Pass rate: ${formatValidationPassRate(summary.passRate)}`);
 

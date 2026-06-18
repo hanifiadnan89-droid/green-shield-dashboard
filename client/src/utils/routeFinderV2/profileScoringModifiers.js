@@ -10,6 +10,12 @@ import {
   resolveServiceAreaGroupForTown,
   resolveServiceAreaGroupFromAddress,
 } from './regionRules.js';
+import {
+  isNewHampshireLead,
+  isNhApprovedTechnician,
+  NH_NON_APPROVED_TECHNICIAN_PENALTY,
+  NH_ROUTE_DAY_MISMATCH_PENALTY,
+} from './nhRoutingRules.js';
 
 /** @typedef {import('./technicianEligibility.js').V2ProfileMetadata} V2ProfileMetadata */
 
@@ -347,6 +353,36 @@ export function buildMatchV2Score(match, lead, options = {}) {
       label: 'Weak or out-of-area geo cluster',
       points: penaltyConfig.weakGeoClusterPenalty,
     });
+  }
+
+  if (isNewHampshireLead(lead)) {
+    if (!isNhApprovedTechnician(match?.techName)) {
+      penalties.push({
+        code: 'nh_non_approved_technician',
+        label: 'Not an approved New Hampshire technician',
+        points: NH_NON_APPROVED_TECHNICIAN_PENALTY,
+      });
+    } else {
+      bonuses.push({
+        code: 'nh_approved_technician',
+        label: 'Approved New Hampshire technician',
+        points: PROFILE_BONUS_POINTS.matchedProfile,
+      });
+    }
+
+    if (v2Profile?.nhRouteDayMatch === false) {
+      penalties.push({
+        code: 'nh_route_day_mismatch',
+        label: 'NH route day does not match sub-region schedule',
+        points: NH_ROUTE_DAY_MISMATCH_PENALTY,
+      });
+    } else if (v2Profile?.nhRouteDayMatch === true) {
+      bonuses.push({
+        code: 'nh_route_day_match',
+        label: 'NH route day matches sub-region schedule',
+        points: PROFILE_BONUS_POINTS.underPreferredMax,
+      });
+    }
   }
 
   if (hasBacktrackingRisk(match)) {
