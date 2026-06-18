@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   ROUTE_FINDER_VALIDATION_EXAMPLES,
   getValidationExamples,
+  getValidationExampleById,
 } from '../validationExamples.js';
 
 describe('validationExamples', () => {
-  it('imports the Kennebunk IQ validation example', () => {
+  it('imports the Kennebunk IQ validation example with optional fields', () => {
     expect(ROUTE_FINDER_VALIDATION_EXAMPLES).toHaveLength(1);
     const example = ROUTE_FINDER_VALIDATION_EXAMPLES[0];
     expect(example).toEqual({
@@ -17,8 +18,13 @@ describe('validationExamples', () => {
         lng: -70.5448,
         serviceType: 'IQ',
         timePreference: 'Anytime',
+        routeArea: 'maine',
       },
       expectedTechName: 'Joseph Willey',
+      acceptedRankMax: 1,
+      acceptableTechNames: ['Joseph Willey'],
+      expectedNotTechNames: ['Ian Pratt', 'Paige Bullock'],
+      reasonTags: ['same-area', 'kennebunk-cluster', 'lighter-route'],
       dispatcherReason: 'Already had nearby Kennebunk stops and route was lighter.',
       notes: 'Avoid Portland tech unless no Kennebunk-area route is available.',
     });
@@ -28,5 +34,12 @@ describe('validationExamples', () => {
     const examples = getValidationExamples();
     expect(examples).toEqual(ROUTE_FINDER_VALIDATION_EXAMPLES);
     expect(examples).not.toBe(ROUTE_FINDER_VALIDATION_EXAMPLES);
+  });
+
+  it('getValidationExampleById returns a matching example', () => {
+    expect(getValidationExampleById('kennebunk-iq-example-001')).toEqual(
+      ROUTE_FINDER_VALIDATION_EXAMPLES[0],
+    );
+    expect(getValidationExampleById('missing-example')).toBeNull();
   });
 });

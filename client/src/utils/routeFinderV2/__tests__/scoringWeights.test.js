@@ -47,6 +47,9 @@ describe('routeFinderV2 config barrel', () => {
     expect(typeof routeFinderV2Config.getRegionRule).toBe('function');
     expect(typeof routeFinderV2Config.getPriorityRule).toBe('function');
     expect(typeof routeFinderV2Config.getValidationExamples).toBe('function');
+    expect(typeof routeFinderV2Config.getValidationExampleById).toBe('function');
+    expect(typeof routeFinderV2Config.evaluateValidationExample).toBe('function');
+    expect(typeof routeFinderV2Config.printValidationResult).toBe('function');
     expect(typeof routeFinderV2Config.buildMatchV2Profile).toBe('function');
     expect(typeof routeFinderV2Config.enrichScoringResultWithV2Profiles).toBe('function');
     expect(typeof routeFinderV2Config.buildMatchV2Score).toBe('function');

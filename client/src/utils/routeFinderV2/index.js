@@ -57,6 +57,7 @@ export {
 export {
   ROUTE_FINDER_VALIDATION_EXAMPLES,
   getValidationExamples,
+  getValidationExampleById,
 } from './validationExamples.js';
 
 export {
@@ -79,3 +80,13 @@ export {
   isStrongGeoCluster,
   isWeakGeoCluster,
 } from './profileScoringModifiers.js';
+
+export {
+  evaluateValidationExample,
+  evaluateValidationExamples,
+  buildValidationTopMatchDiagnostic,
+  buildLeadFromValidationExample,
+  resolveScoringTopMatches,
+  resolveAcceptableTechNames,
+  printValidationResult,
+} from './validationRunner.js';
