@@ -9,7 +9,7 @@ import {
 } from './validationCalibrationApplicability.js';
 import {
   buildComparisonTerritoryDiagnostic,
-  buildFailureScoreComparison,
+  comparisonDiagnosticsIndicateCorridorOwnerNotScheduled,
   scoreExampleForFailureComparison,
 } from './validationFailureScoreComparison.js';
 import { getValidationExamples } from './validationExamples.js';
@@ -42,61 +42,16 @@ function resolveFailuresForComparisonSafetyGate(report) {
 }
 
 /**
- * Mutate a calibration report using the same comparison diagnostics shown in the
- * high-confidence failure comparison table. This is the multi-date source of truth.
- *
  * @param {ValidationCalibrationReport} report
- * @param {(
- *   example: RouteFinderValidationExample,
- *   lead: object,
- *   technicians: Array<object>,
- *   topN: number,
- * ) => Promise<object>} scoreExample
- * @param {RouteFinderValidationExample[]} examples
- * @returns {Promise<{ report: ValidationCalibrationReport, windhamSafetyGateApplied: boolean }>}
+ * @param {Set<string>} excludedIds
+ * @returns {ValidationCalibrationReport}
  */
-export async function finalizeCalibrationReportForMultiDateOutput(
-  report,
-  scoreExample,
-  examples,
-) {
-  const exampleById = new Map(examples.map(example => [example.id, example]));
-  const failures = resolveFailuresForComparisonSafetyGate(report);
-  const excludedIds = new Set();
-  let windhamSafetyGateApplied = false;
-
-  for (const failure of failures) {
-    const example = exampleById.get(failure.id);
-    if (!example) continue;
-
-    const technicians = report.techniciansByExampleId?.[failure.id] ?? [];
-    const scoringResult = await scoreExampleForFailureComparison(
-      example,
-      technicians,
-      scoreExample,
-    );
-    const comparison = buildFailureScoreComparison(
-      example,
-      failure,
-      technicians,
-      scoringResult,
-    );
-
-    if (hasCorridorOwnerNotScheduledComparisonDiagnostics(
-      comparison.expectedTerritory,
-      comparison.winnerTerritory,
-    )) {
-      excludedIds.add(failure.id);
-      if (failure.id === WINDHAM_EXAMPLE_ID) {
-        windhamSafetyGateApplied = true;
-      }
-    }
-  }
-
+function applyExcludedFailureIdsToReport(report, excludedIds) {
   if (!excludedIds.size) {
-    return { report, windhamSafetyGateApplied: false };
+    return report;
   }
 
+  const failures = resolveFailuresForComparisonSafetyGate(report);
   const results = Array.isArray(report.realRoute?.results)
     ? report.realRoute.results
     : [];
@@ -108,23 +63,108 @@ export async function finalizeCalibrationReportForMultiDateOutput(
   const filteredFailures = failures.filter(failure => !excludedIds.has(failure.id));
 
   return {
-    report: {
-      ...report,
-      comparisonSafetyGateApplied: true,
-      realRoutePassRate: routeSummary.passRate,
-      realRouteApplicableCount: routeSummary.realRouteApplicableCount,
-      realRouteSkippedCount: routeSummary.realRouteSkippedCount,
-      skippedExamples: routeSummary.skippedExamples,
-      realRouteFailures: filteredFailures,
-      highConfidenceScoreComparisons: (report.highConfidenceScoreComparisons ?? []).filter(
-        comparison => !excludedIds.has(comparison.exampleId),
-      ),
-      realRoute: {
-        ...report.realRoute,
-        summary: routeSummary,
-        results: filteredResults,
-      },
+    ...report,
+    comparisonSafetyGateApplied: true,
+    realRoutePassRate: routeSummary.passRate,
+    realRouteApplicableCount: routeSummary.realRouteApplicableCount,
+    realRouteSkippedCount: routeSummary.realRouteSkippedCount,
+    skippedExamples: routeSummary.skippedExamples,
+    realRouteFailures: filteredFailures,
+    highConfidenceScoreComparisons: (report.highConfidenceScoreComparisons ?? []).filter(
+      comparison => !excludedIds.has(comparison.exampleId),
+    ),
+    realRoute: {
+      ...report.realRoute,
+      summary: routeSummary,
+      results: filteredResults,
     },
+  };
+}
+
+/**
+ * Apply corridor-owner skip using already-built printed comparison diagnostics.
+ *
+ * @param {ValidationCalibrationReport[]} reports
+ * @param {import('./validationFailureScoreComparison.js').FailureScoreComparison[]} printedComparisons
+ * @returns {{
+ *   reports: ValidationCalibrationReport[],
+ *   printedComparisons: import('./validationFailureScoreComparison.js').FailureScoreComparison[],
+ *   windhamSafetyGateApplied: boolean,
+ * }}
+ */
+export function applyPrintedComparisonsToCalibrationReports(
+  reports,
+  printedComparisons = [],
+) {
+  const excludedByRouteDate = new Map();
+
+  for (const comparison of printedComparisons) {
+    if (!comparisonDiagnosticsIndicateCorridorOwnerNotScheduled(comparison)) continue;
+    const routeDate = comparison.routeDate;
+    if (!excludedByRouteDate.has(routeDate)) {
+      excludedByRouteDate.set(routeDate, new Set());
+    }
+    excludedByRouteDate.get(routeDate).add(comparison.exampleId);
+  }
+
+  const finalizedReports = reports.map((report) => {
+    const excludedIds = excludedByRouteDate.get(report.routeDate) ?? new Set();
+    return applyExcludedFailureIdsToReport(report, excludedIds);
+  });
+
+  const excludedIds = new Set(
+    printedComparisons
+      .filter(comparison => comparisonDiagnosticsIndicateCorridorOwnerNotScheduled(comparison))
+      .map(comparison => comparison.exampleId),
+  );
+
+  return {
+    reports: finalizedReports,
+    printedComparisons: printedComparisons.filter(
+      comparison => !excludedIds.has(comparison.exampleId),
+    ),
+    windhamSafetyGateApplied: excludedIds.has(WINDHAM_EXAMPLE_ID),
+  };
+}
+
+/**
+ * @deprecated Build printed comparisons first, then applyPrintedComparisonsToCalibrationReports.
+ */
+export async function finalizeCalibrationReportForMultiDateOutput(
+  report,
+  scoreExample,
+  examples,
+) {
+  const { buildFailureScoreComparison } = await import('./validationFailureScoreComparison.js');
+  const exampleById = new Map(examples.map(example => [example.id, example]));
+  const failures = resolveFailuresForComparisonSafetyGate(report);
+  const printedComparisons = [];
+
+  for (const failure of failures) {
+    const example = exampleById.get(failure.id);
+    if (!example) continue;
+
+    const technicians = report.techniciansByExampleId?.[failure.id] ?? [];
+    const scoringResult = await scoreExampleForFailureComparison(
+      example,
+      technicians,
+      scoreExample,
+    );
+    printedComparisons.push(buildFailureScoreComparison(
+      example,
+      failure,
+      technicians,
+      scoringResult,
+    ));
+  }
+
+  const { reports, windhamSafetyGateApplied } = applyPrintedComparisonsToCalibrationReports(
+    [report],
+    printedComparisons,
+  );
+
+  return {
+    report: reports[0],
     windhamSafetyGateApplied,
   };
 }
@@ -215,27 +255,22 @@ export function shouldReclassifyFailureFromComparisonDiagnostics(
   scoringResult,
 ) {
   if (!result.applicable || result.passed) return false;
+  if (!result.actualTopTechName) return false;
 
-  const winningTechName = result.actualTopTechName;
-  if (!winningTechName) return false;
-
-  const expectedTerritory = buildComparisonTerritoryDiagnostic(
-    example,
-    result.expectedTechName,
-    scoringResult,
-    technicians,
-  );
-  const winnerTerritory = buildComparisonTerritoryDiagnostic(
-    example,
-    winningTechName,
-    scoringResult,
-    technicians,
-  );
-
-  return hasCorridorOwnerNotScheduledComparisonDiagnostics(
-    expectedTerritory,
-    winnerTerritory,
-  );
+  return comparisonDiagnosticsIndicateCorridorOwnerNotScheduled({
+    expectedTerritory: buildComparisonTerritoryDiagnostic(
+      example,
+      result.expectedTechName,
+      scoringResult,
+      technicians,
+    ),
+    winnerTerritory: buildComparisonTerritoryDiagnostic(
+      example,
+      result.actualTopTechName,
+      scoringResult,
+      technicians,
+    ),
+  });
 }
 
 /**

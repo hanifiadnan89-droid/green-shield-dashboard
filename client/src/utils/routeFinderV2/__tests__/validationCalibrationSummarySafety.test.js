@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyComparisonDiagnosticFailureFilterToReport,
+  applyPrintedComparisonsToCalibrationReports,
   finalizeCalibrationReportForMultiDateOutput,
   hasCorridorOwnerNotScheduledComparisonDiagnostics,
   isTerritoryDiagnosticNotScheduled,
@@ -8,6 +9,7 @@ import {
   reclassifyRealRouteResultAsCorridorOwnerNotScheduled,
   shouldReclassifyFailureFromComparisonDiagnostics,
 } from '../validationCalibrationSummarySafety.js';
+import { comparisonDiagnosticsIndicateCorridorOwnerNotScheduled } from '../validationFailureScoreComparison.js';
 import { summarizeMultiDateCalibration } from '../summarizeMultiDateCalibration.js';
 import { getValidationExampleById } from '../validationExamples.js';
 
@@ -281,6 +283,80 @@ describe('validationCalibrationSummarySafety', () => {
 
     expect(prepared[0].realRouteFailures).toHaveLength(0);
     expect(prepared[0].comparisonSafetyGateApplied).toBe(true);
+  });
+
+  it('applyPrintedComparisonsToCalibrationReports uses built comparison diagnostics', () => {
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    const report = {
+      routeDate: '2026-06-04',
+      fixturePassRate: 1,
+      realRoutePassRate: 0.975,
+      realRouteApplicableCount: 2,
+      realRouteSkippedCount: 0,
+      realRouteFailures: [{
+        id: windhamExample.id,
+        routeDate: '2026-06-04',
+        expectedTechName: 'Chris McGary',
+        actualTopTechName: 'Skyler Ruest',
+        dispatcherConfidence: 'high',
+        failureClassification: 'true_routing_mistake',
+      }],
+      realRoute: {
+        summary: {
+          passRate: 0.5,
+          realRouteApplicableCount: 2,
+          realRouteSkippedCount: 0,
+          skippedExamples: [],
+        },
+        results: [
+          {
+            id: 'kennebunk-iq-example-002',
+            passed: true,
+            applicable: true,
+            routeDate: '2026-06-04',
+            dispatcherReason: 'ok',
+          },
+          {
+            id: windhamExample.id,
+            passed: false,
+            applicable: true,
+            expectedTechName: 'Chris McGary',
+            actualTopTechName: 'Skyler Ruest',
+            routeDate: '2026-06-04',
+            dispatcherReason: windhamExample.dispatcherReason,
+          },
+        ],
+      },
+      patternReport: { patternsByExampleId: {} },
+    };
+    const printedComparisons = [{
+      exampleId: windhamExample.id,
+      routeDate: '2026-06-04',
+      expectedTechName: 'Chris McGary',
+      winningTechName: 'Skyler Ruest',
+      expectedTerritory: {
+        scheduled: false,
+        unavailabilityReasons: ['not_scheduled'],
+      },
+      winnerTerritory: {
+        scheduled: false,
+        unavailabilityReasons: ['not_scheduled'],
+      },
+    }];
+
+    expect(comparisonDiagnosticsIndicateCorridorOwnerNotScheduled(printedComparisons[0])).toBe(true);
+
+    const { reports, windhamSafetyGateApplied, printedComparisons: remaining } =
+      applyPrintedComparisonsToCalibrationReports([report], printedComparisons);
+
+    expect(windhamSafetyGateApplied).toBe(true);
+    expect(reports[0].realRouteFailures).toHaveLength(0);
+    expect(reports[0].realRoutePassRate).toBe(1);
+    expect(remaining).toHaveLength(0);
+
+    const summary = summarizeMultiDateCalibration(reports);
+    expect(summary.totalApplicableFailures).toBe(0);
+    expect(summary.byConfidence.high).toHaveLength(0);
   });
 
   it('finalizeCalibrationReportForMultiDateOutput reports windham safety gate', async () => {

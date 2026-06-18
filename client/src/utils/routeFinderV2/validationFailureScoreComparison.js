@@ -469,6 +469,25 @@ function formatTerritoryDiagnostic(label, diagnostic) {
 }
 
 /**
+ * True when the printed comparison lines would show both territories as
+ * scheduled=false with unavailability=not_scheduled.
+ *
+ * @param {FailureScoreComparison|null|undefined} comparison
+ * @returns {boolean}
+ */
+export function comparisonDiagnosticsIndicateCorridorOwnerNotScheduled(comparison) {
+  const expected = comparison?.expectedTerritory;
+  const winner = comparison?.winnerTerritory;
+  if (!expected || !winner) return false;
+  if (expected.scheduled !== false || winner.scheduled !== false) return false;
+
+  const expectedUnavailability = expected.unavailabilityReasons ?? [];
+  const winnerUnavailability = winner.unavailabilityReasons ?? [];
+  return expectedUnavailability.includes('not_scheduled')
+    && winnerUnavailability.includes('not_scheduled');
+}
+
+/**
  * @param {FailureScoreComparison[]} comparisons
  * @returns {string}
  */

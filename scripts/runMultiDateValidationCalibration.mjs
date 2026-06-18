@@ -18,6 +18,7 @@ import {
   resolveNormalizedRouteCachePath,
 } from '../client/src/utils/routeFinderV2/realRouteCalibrationSource.js';
 import {
+  normalizeCalibrationReportForSummary,
   summarizeMultiDateCalibration,
 } from '../client/src/utils/routeFinderV2/summarizeMultiDateCalibration.js';
 import {
@@ -25,7 +26,7 @@ import {
   formatHighConfidenceFailureComparisonReportFromComparisons,
 } from '../client/src/utils/routeFinderV2/buildHighConfidenceFailureComparisons.js';
 import {
-  finalizeCalibrationReportForMultiDateOutput,
+  applyPrintedComparisonsToCalibrationReports,
 } from '../client/src/utils/routeFinderV2/validationCalibrationSummarySafety.js';
 import { getValidationExamples } from '../client/src/utils/routeFinderV2/validationExamples.js';
 import { scoreSingleDateV2 } from '../client/src/utils/routeFinderScoringV2.js';
@@ -100,44 +101,39 @@ for (const date of dates) {
   reports.push(report);
 }
 
-let windhamSafetyGateApplied = false;
-const finalizedReports = [];
+const normalizedReports = reports.map(normalizeCalibrationReportForSummary);
 
-for (const report of reports) {
-  const finalized = await finalizeCalibrationReportForMultiDateOutput(
-    report,
-    scoreExample,
-    examples,
-  );
-  finalizedReports.push(finalized.report);
-  if (finalized.windhamSafetyGateApplied) {
-    windhamSafetyGateApplied = true;
-  }
-}
-
-console.log(`windham safety gate applied: ${windhamSafetyGateApplied}`);
-
-const summary = summarizeMultiDateCalibration(finalizedReports);
-
-const highConfidenceFailures = finalizedReports.flatMap(report => (
+const highConfidenceFailures = normalizedReports.flatMap(report => (
   (report.realRouteFailures ?? []).filter(failure => failure.dispatcherConfidence === 'high')
 ));
 const techniciansByExampleId = Object.assign(
   {},
-  ...finalizedReports.map(report => report.techniciansByExampleId ?? {}),
+  ...normalizedReports.map(report => report.techniciansByExampleId ?? {}),
 );
 
-const highConfidenceComparisons = highConfidenceFailures.length
+const printedComparisons = highConfidenceFailures.length
   ? await buildHighConfidenceFailureComparisonsWithRescore({
     failures: highConfidenceFailures,
     examples,
     techniciansByExampleId,
     scoreExample,
   })
-  : finalizedReports.flatMap(report => report.highConfidenceScoreComparisons ?? []);
+  : [];
 
+const {
+  reports: finalizedReports,
+  printedComparisons: comparisonsForPrint,
+  windhamSafetyGateApplied,
+} = applyPrintedComparisonsToCalibrationReports(
+  normalizedReports,
+  printedComparisons,
+);
+
+console.log(`windham safety gate applied: ${windhamSafetyGateApplied}`);
+
+const summary = summarizeMultiDateCalibration(finalizedReports);
 const highConfidenceComparisonText = formatHighConfidenceFailureComparisonReportFromComparisons(
-  highConfidenceComparisons,
+  comparisonsForPrint,
 );
 
 console.log(summary.reportText);
