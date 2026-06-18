@@ -9,7 +9,7 @@ import {
 import { getValidationExamples } from '../validationExamples.js';
 
 describe('validationFailurePatterns', () => {
-  it('classifies expected tech route not present', () => {
+  it('classifies wrong region beating correct region for applicable failures', () => {
     const example = getValidationExamples()[0];
     const patterns = classifyRealRouteFailurePatterns(
       example,
@@ -28,12 +28,15 @@ describe('validationFailurePatterns', () => {
         topCandidates: [],
         topMatches: [],
       },
-      [{ techName: 'Ian Pratt', stops: [{}, {}, {}, {}, {}] }],
+      [
+        { techName: 'Joseph Willey', stops: [{ address: '120 Main St, Kennebunk, ME' }] },
+        { techName: 'Ian Pratt', stops: [{}, {}, {}, {}, {}] },
+      ],
       { topMatches: [{ techName: 'Ian Pratt', v2Profile: { warnings: [] } }] },
     );
 
-    expect(patterns).toContain('expected_tech_route_not_present');
-    expect(patterns).not.toContain('wrong_region_beating_correct_region');
+    expect(patterns).toContain('wrong_region_beating_correct_region');
+    expect(patterns).not.toContain('expected_tech_route_not_present');
   });
 
   it('classifies NH day mismatch warnings', () => {
@@ -64,13 +67,14 @@ describe('validationFailurePatterns', () => {
     expect(patterns).toContain('nh_day_mismatch');
   });
 
-  it('builds grouped pattern report and top 10 priority list', () => {
+  it('builds grouped pattern report and top 10 priority list for applicable failures only', () => {
     const examples = getValidationExamples().slice(0, 2);
     const report = buildValidationFailurePatternReport({
       examples,
       results: [
         {
           id: examples[0].id,
+          applicable: true,
           passed: false,
           expectedTechName: examples[0].expectedTechName,
           actualTopTechName: 'Ian Pratt',
@@ -80,9 +84,9 @@ describe('validationFailurePatterns', () => {
           failureReason: 'Expected technician not found in top 3',
           dispatcherReason: examples[0].dispatcherReason,
           notes: '',
-          technicianCount: 1,
+          technicianCount: 2,
           routeDate: '2026-06-18',
-          routeTechnicianCount: 1,
+          routeTechnicianCount: 2,
           topTechStopCount: 5,
           topTechOverPreferredMax: false,
           topTechOverHardMax: false,
@@ -91,7 +95,10 @@ describe('validationFailurePatterns', () => {
         },
       ],
       techniciansByExampleId: {
-        [examples[0].id]: [{ techName: 'Ian Pratt', stops: [{}, {}, {}, {}, {}] }],
+        [examples[0].id]: [
+          { techName: 'Joseph Willey', stops: [{ address: '120 Main St, Kennebunk, ME' }] },
+          { techName: 'Ian Pratt', stops: [{}, {}, {}, {}, {}] },
+        ],
       },
       scoringByExampleId: {
         [examples[0].id]: { topMatches: [{ techName: 'Ian Pratt', v2Profile: { warnings: [] } }] },
@@ -107,11 +114,13 @@ describe('validationFailurePatterns', () => {
     const text = formatValidationFailurePatternReport(report, {
       routeDate: '2026-06-18',
       fixturePassRate: 1,
-      realRoutePassRate: 0.5,
+      realRoutePassRate: 0,
+      realRouteApplicableCount: 1,
+      realRouteSkippedCount: 1,
       totalRealRouteFailures: 1,
     });
 
-    expect(text).toContain(VALIDATION_FAILURE_PATTERN_LABELS.expected_tech_route_not_present);
+    expect(text).toContain(VALIDATION_FAILURE_PATTERN_LABELS.wrong_region_beating_correct_region);
     expect(text).toContain('Top 10 highest-priority failures');
   });
 });

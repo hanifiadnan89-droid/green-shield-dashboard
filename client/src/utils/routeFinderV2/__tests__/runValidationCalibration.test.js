@@ -160,8 +160,12 @@ describe('runValidationCalibration', () => {
   it('formats dual baseline calibration report', () => {
     const text = formatValidationCalibrationReport({
       routeDate: '2026-06-18',
+      routeTechnicianCount: 2,
       fixturePassRate: 1,
       realRoutePassRate: 0.5,
+      realRouteApplicableCount: 10,
+      realRouteSkippedCount: 44,
+      skippedExamples: [],
       fixtureFailures: [],
       realRouteFailures: [{
         id: 'example-fail',
@@ -195,7 +199,7 @@ describe('runValidationCalibration', () => {
         results: [],
       },
       realRoute: {
-        summary: { totalExamples: 2, passed: 1, failed: 1, passRate: 0.5, failures: [] },
+        summary: { totalExamples: 2, passed: 1, failed: 1, passRate: 0.5, failures: [], realRouteApplicableCount: 1, realRouteSkippedCount: 1, skippedExamples: [] },
         results: [],
       },
       reportText: '',
@@ -204,7 +208,8 @@ describe('runValidationCalibration', () => {
     expect(text).toContain('fixturePassRate');
     expect(text).toContain('realRoutePassRate');
     expect(text).toContain('fixtureFailures');
-    expect(text).toContain('realRouteFailures');
+    expect(text).toContain('realRouteApplicableCount');
+    expect(text).toContain('trueScoringFailures');
     expect(text).toContain('stopCount: 5');
     expect(text).toContain('over preferred max?: true');
     expect(text).toContain('candidate top 3');
@@ -243,9 +248,11 @@ describe('runValidationCalibration', () => {
     expect(report.fixturePassRate).toBe(1);
     expect(report.fixtureFailures).toHaveLength(0);
     expect(report.realRoute.summary.totalExamples).toBe(54);
+    expect(report.realRouteApplicableCount + report.realRouteSkippedCount).toBe(54);
     expect(report.realRoutePassRate).toBeLessThanOrEqual(1);
     expect(report.reportText).toContain(`fixturePassRate: ${formatValidationPassRate(report.fixturePassRate)}`);
-    expect(report.reportText).toContain(`realRoutePassRate: ${formatValidationPassRate(report.realRoutePassRate)}`);
+    expect(report.reportText).toContain('realRouteApplicableCount');
+    expect(report.reportText).toContain('Skipped / not applicable');
 
     console.log('\n' + report.reportText);
   }, 180000);

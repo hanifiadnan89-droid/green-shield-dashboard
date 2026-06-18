@@ -147,6 +147,19 @@ export {
 } from './validationFailurePatterns.js';
 
 export {
+  CALIBRATION_SKIP_REASON_LABELS,
+  CALIBRATION_OUTCOME_LABELS,
+  applyCalibrationApplicability,
+  collectApplicableRealRouteFailures,
+  evaluateCalibrationApplicability,
+  hasCalibrationRouteDateMismatch,
+  isAcceptableTechScheduled,
+  isTerritoryRepresentedInCache,
+  profileCoversLeadTown,
+  summarizeRealRouteCalibrationResults,
+} from './validationCalibrationApplicability.js';
+
+export {
   NH_APPROVED_TECHNICIAN_NAMES,
   NH_FORBIDDEN_TECHNICIAN_NAMES,
   NH_SUB_REGION_RULES,

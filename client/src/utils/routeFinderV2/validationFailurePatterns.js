@@ -46,14 +46,13 @@ import { inferRouteAreaFromAddress } from './validationExamples.js';
  */
 
 export const VALIDATION_FAILURE_PATTERN_LABELS = {
-  expected_tech_route_not_present: 'Expected tech route not present',
   expected_tech_over_preferred_max: 'Expected tech over preferred max',
   expected_tech_over_hard_max: 'Expected tech over hard max',
   wrong_region_beating_correct_region: 'Wrong region beating correct region',
   nh_day_mismatch: 'NH day mismatch',
   service_capability_issue: 'Service capability issue',
   no_top_matches: 'No top matches',
-  other_scoring_miss: 'Other scoring miss',
+  other_scoring_miss: 'True scoring miss',
 };
 
 function normalizeTechName(value) {
@@ -141,10 +140,6 @@ export function classifyRealRouteFailurePatterns(example, failure, technicians, 
     patterns.push('no_top_matches');
   }
 
-  if (!expectedOnRoute) {
-    patterns.push('expected_tech_route_not_present');
-  }
-
   for (const techName of acceptableTechNames) {
     const { stopCount, profile } = resolveTechRouteContext(technicians, techName);
     if (!profile || !resolveTechRouteContext(technicians, techName).tech) continue;
@@ -205,7 +200,6 @@ export function classifyRealRouteFailurePatterns(example, failure, technicians, 
 export function scoreFailurePriority(patterns, failure) {
   const weights = {
     no_top_matches: 100,
-    expected_tech_route_not_present: 95,
     service_capability_issue: 90,
     expected_tech_over_hard_max: 85,
     nh_day_mismatch: 80,
@@ -239,7 +233,7 @@ export function buildValidationFailurePatternReport(input) {
   const patternsByExampleId = {};
   const prioritizedFailures = [];
 
-  for (const result of input.results.filter(row => !row.passed)) {
+  for (const result of input.results.filter(row => row.applicable && !row.passed)) {
     const example = exampleById.get(result.id);
     if (!example) continue;
 
@@ -314,6 +308,8 @@ function buildRealRouteFailureSummaryFromResult(result) {
  *   routeDate: string|null,
  *   fixturePassRate: number,
  *   realRoutePassRate: number,
+ *   realRouteApplicableCount?: number,
+ *   realRouteSkippedCount?: number,
  *   totalRealRouteFailures: number,
  * }} summary
  * @returns {string}
@@ -324,15 +320,17 @@ export function formatValidationFailurePatternReport(patternReport, summary) {
     '===================================================',
     `Route date: ${summary.routeDate ?? 'per-example'}`,
     `fixturePassRate: ${(summary.fixturePassRate * 100).toFixed(1)}%`,
-    `realRoutePassRate: ${(summary.realRoutePassRate * 100).toFixed(1)}%`,
-    `totalRealRouteFailures: ${summary.totalRealRouteFailures}`,
+    `realRoutePassRate: ${(summary.realRoutePassRate * 100).toFixed(1)}% (applicable only)`,
+    `realRouteApplicableCount: ${summary.realRouteApplicableCount ?? '—'}`,
+    `realRouteSkippedCount: ${summary.realRouteSkippedCount ?? '—'}`,
+    `trueScoringFailures: ${summary.totalRealRouteFailures}`,
     '',
-    'Grouped failure patterns',
-    '------------------------',
+    'Grouped true-scoring failure patterns',
+    '-----------------------------------',
   ];
 
   if (!patternReport.groups.length) {
-    lines.push('No real-route failures — nothing to group.');
+    lines.push('No true-scoring failures among applicable examples.');
     return lines.join('\n');
   }
 

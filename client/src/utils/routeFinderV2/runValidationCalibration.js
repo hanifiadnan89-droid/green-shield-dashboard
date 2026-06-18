@@ -7,7 +7,6 @@ import { getValidationExamples } from './validationExamples.js';
 import {
   buildLeadFromValidationExample,
   evaluateValidationExample,
-  summarizeValidationResults,
 } from './validationRunner.js';
 import { buildDeterministicTechniciansForExample } from './testFixtures/validationReportFixtures.js';
 import {
@@ -21,8 +20,12 @@ import {
   enrichRealRouteValidationResult,
 } from './validationCalibrationDiagnostics.js';
 import {
+  applyCalibrationApplicability,
+  evaluateCalibrationApplicability,
+  summarizeRealRouteCalibrationResults,
+} from './validationCalibrationApplicability.js';
+import {
   createRouteLoader,
-  findMostCompleteCachedRouteDate,
   resolveCalibrationRouteDate,
 } from './realRouteCalibrationSource.js';
 import { scoreSingleDateV2 } from '../routeFinderScoringV2.js';
@@ -43,12 +46,16 @@ import {
  * @property {string|null} routeDate
  * @property {number} fixturePassRate
  * @property {number} realRoutePassRate
+ * @property {number} realRouteApplicableCount
+ * @property {number} realRouteSkippedCount
+ * @property {import('./validationCalibrationApplicability.js').RealRouteSkippedExampleSummary[]} skippedExamples
  * @property {ValidationSummary['failures']} fixtureFailures
  * @property {RealRouteValidationFailureSummary[]} realRouteFailures
  * @property {{ summary: ValidationSummary, results: import('./validationRunner.js').ValidationRunResult[] }} fixture
- * @property {{ summary: ValidationSummary, results: RealRouteValidationRunResult[] }} realRoute
+ * @property {{ summary: import('./validationCalibrationApplicability.js').RealRouteCalibrationSummary, results: import('./validationCalibrationApplicability.js').RealRouteCalibrationResult[] }} realRoute
  * @property {import('./validationFailurePatterns.js').ValidationFailurePatternReport|null} patternReport
  * @property {string} patternReportText
+ * @property {number|null} routeTechnicianCount
  * @property {string} reportText
  */
 
@@ -96,6 +103,19 @@ function formatRealRouteFailureLines(failure) {
   return lines;
 }
 
+function formatSkippedExampleLines(skipped) {
+  return [
+    `- ${skipped.id}`,
+    `  skipReason: ${skipped.skipLabel}`,
+    `  expectedTechName: ${skipped.expectedTechName}`,
+    `  routeTechnicianCount: ${skipped.routeTechnicianCount}`,
+    `  territoryRepresented: ${skipped.territoryRepresented}`,
+    `  acceptableTechScheduled: ${skipped.acceptableTechScheduled}`,
+    `  dispatcherReason: ${skipped.dispatcherReason}`,
+    '',
+  ];
+}
+
 /**
  * @param {ValidationCalibrationReport} report
  * @returns {string}
@@ -105,6 +125,7 @@ export function formatValidationCalibrationReport(report) {
     'Route Finder V2 — Validation Calibration Report',
     '==============================================',
     `Route date: ${report.routeDate ?? 'per-example'}`,
+    `routeTechnicianCount: ${report.routeTechnicianCount ?? '—'}`,
     '',
     'Fixture baseline (logic proof)',
     '------------------------------',
@@ -114,14 +135,25 @@ export function formatValidationCalibrationReport(report) {
     '',
     'Real-route baseline (field accuracy)',
     '------------------------------------',
-    `realRoutePassRate: ${formatValidationPassRate(report.realRoutePassRate)}`,
-    `passed: ${report.realRoute.summary.passed}/${report.realRoute.summary.totalExamples}`,
-    `realRouteFailures: ${report.realRouteFailures.length}`,
+    `realRoutePassRate: ${formatValidationPassRate(report.realRoutePassRate)} (applicable examples only)`,
+    `realRouteApplicableCount: ${report.realRouteApplicableCount}`,
+    `realRouteSkippedCount: ${report.realRouteSkippedCount}`,
+    `passed: ${report.realRoute.summary.passed}/${report.realRouteApplicableCount}`,
+    `trueScoringFailures: ${report.realRouteFailures.length}`,
   ];
 
-  if (!report.fixtureFailures.length && !report.realRouteFailures.length) {
-    lines.push('', 'No failures — fixture and real-route baselines both passed.');
+  const skippedExamples = report.skippedExamples ?? [];
+
+  if (!report.fixtureFailures.length && !report.realRouteFailures.length && !skippedExamples.length) {
+    lines.push('', 'No fixture failures and no applicable real-route scoring failures.');
     return lines.join('\n');
+  }
+
+  if (skippedExamples.length) {
+    lines.push('', `Skipped / not applicable (${skippedExamples.length}):`, '');
+    for (const skipped of skippedExamples) {
+      lines.push(...formatSkippedExampleLines(skipped));
+    }
   }
 
   if (report.fixtureFailures.length) {
@@ -138,7 +170,7 @@ export function formatValidationCalibrationReport(report) {
   }
 
   if (report.realRouteFailures.length) {
-    lines.push('', `Real-route failures (${report.realRouteFailures.length}):`, '');
+    lines.push('', `True scoring failures (${report.realRouteFailures.length}):`, '');
     for (const failure of report.realRouteFailures) {
       lines.push(...formatRealRouteFailureLines(failure));
     }
@@ -197,30 +229,43 @@ export async function runValidationCalibration(options = {}) {
   const realRouteResults = [];
   const techniciansByExampleId = {};
   const scoringByExampleId = {};
+  let routeTechnicianCount = null;
 
   for (const example of examples) {
     const resolvedRouteDate = resolveCalibrationRouteDate(example, routeDate);
     const payload = await loadRoutesForDate(resolvedRouteDate);
     const technicians = payload?.technicians ?? [];
+    if (routeTechnicianCount == null) {
+      routeTechnicianCount = technicians.length;
+    }
     const lead = buildLeadFromValidationExample(example);
+    const applicability = evaluateCalibrationApplicability(example, {
+      technicians,
+      lead,
+      selectedRouteDate: routeDate ?? resolvedRouteDate,
+    });
     const scoringResult = await scoreExample(example, lead, technicians, topN);
     const baseResult = evaluateValidationExample(example, technicians, scoringResult);
 
     techniciansByExampleId[example.id] = technicians;
     scoringByExampleId[example.id] = scoringResult;
 
-    realRouteResults.push(enrichRealRouteValidationResult(baseResult, {
+    const enriched = enrichRealRouteValidationResult(baseResult, {
       routeDate: resolvedRouteDate,
       technicians,
       scoringResult,
-    }));
+    });
+
+    realRouteResults.push(applyCalibrationApplicability(enriched, applicability));
   }
 
-  const realRouteSummary = summarizeValidationResults(realRouteResults);
-  const realRouteFailures = collectRealRouteFailures(realRouteResults);
+  const realRouteSummary = summarizeRealRouteCalibrationResults(realRouteResults);
+  const realRouteFailures = collectRealRouteFailures(
+    realRouteResults.filter(result => result.applicable),
+  );
   const patternReport = buildValidationFailurePatternReport({
     examples,
-    results: realRouteResults,
+    results: realRouteResults.filter(result => result.applicable),
     techniciansByExampleId,
     scoringByExampleId,
   });
@@ -228,13 +273,19 @@ export async function runValidationCalibration(options = {}) {
     routeDate,
     fixturePassRate: fixtureRun.summary.passRate,
     realRoutePassRate: realRouteSummary.passRate,
+    realRouteApplicableCount: realRouteSummary.realRouteApplicableCount,
+    realRouteSkippedCount: realRouteSummary.realRouteSkippedCount,
     totalRealRouteFailures: realRouteFailures.length,
   });
 
   const report = {
     routeDate,
+    routeTechnicianCount,
     fixturePassRate: fixtureRun.summary.passRate,
     realRoutePassRate: realRouteSummary.passRate,
+    realRouteApplicableCount: realRouteSummary.realRouteApplicableCount,
+    realRouteSkippedCount: realRouteSummary.realRouteSkippedCount,
+    skippedExamples: realRouteSummary.skippedExamples,
     fixtureFailures: fixtureRun.summary.failures,
     realRouteFailures,
     fixture: {
