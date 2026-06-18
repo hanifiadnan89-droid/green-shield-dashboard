@@ -10,7 +10,7 @@ import {
   isRouteFinderV2ScoringEnabled,
   scoreSingleDateV2,
 } from '../routeFinderScoringV2.js';
-import { generalHappyPath, nhNoApprovedTech } from './fieldRoutesScorer.fixtures.js';
+import { generalHappyPath, nhNoApprovedTech, maineMwfCluster } from './fieldRoutesScorer.fixtures.js';
 
 function assertEnrichedTopLevelResult(result) {
   expect(result.mode).toBe(SCORING_MODES.SINGLE_DATE);
@@ -46,6 +46,16 @@ function assertUiMatchContract(match) {
   expect(['High', 'Medium', 'Low']).toContain(match.confidenceLabel);
   expect(Array.isArray(match.routeStops)).toBe(true);
   expect(match.routeStops.length).toBeGreaterThan(0);
+}
+
+function assertV2ProfileContract(profile) {
+  expect(typeof profile.matched).toBe('boolean');
+  expect(profile.profileTechName === null || typeof profile.profileTechName === 'string').toBe(true);
+  expect(['eligible', 'warning', 'disqualified']).toContain(profile.eligibilityStatus);
+  expect(typeof profile.profileFitScore).toBe('number');
+  expect(Array.isArray(profile.warnings)).toBe(true);
+  expect(typeof profile.overPreferredMaxStops).toBe('boolean');
+  expect(typeof profile.overHardMaxStops).toBe('boolean');
 }
 
 describe('routeFinderScoringV2 feature flag', () => {
@@ -84,6 +94,7 @@ describe('scoreSingleDateV2 — raw scorer contract', () => {
     expect(rawBundle.result).toHaveProperty('topMatches');
     expect(Array.isArray(rawBundle.result.topMatches)).toBe(true);
     expect(rawBundle.result.topMatches.length).toBeGreaterThan(0);
+    assertV2ProfileContract(rawBundle.result.topMatches[0].v2Profile);
   });
 });
 
@@ -116,6 +127,9 @@ describe('scoreSingleDate with V2 enabled — enriched UI contract', () => {
     expect(match.rank).toBe(1);
     expect(match.matchId).toContain('::');
     expect(Array.isArray(match.trustWarnings)).toBe(true);
+    assertV2ProfileContract(match.v2Profile);
+    expect(match.v2Profile.eligibilityStatus).toBe('warning');
+    expect(match.v2Profile.warnings).toContain('Missing technician profile');
   });
 
   it('bestInsertion exposes ResultCard fields', () => {
@@ -154,5 +168,56 @@ describe('scoreSingleDate with V2 enabled — noSafeRoute contract', () => {
     expect(result.topMatches).toEqual([]);
     expect(result.recommendation).toBeNull();
     expect(result.alternatives).toEqual([]);
+  });
+});
+
+describe('scoreSingleDate with V2 enabled — technician profile enrichment', () => {
+  let result;
+  let match;
+
+  beforeAll(async () => {
+    vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
+    result = await scoreSingleDate(
+      maineMwfCluster.technicians,
+      maineMwfCluster.lead,
+      3,
+      { prefetchTravel: false },
+    );
+    match = result.topMatches[0];
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('attaches matched v2Profile for known technicians', () => {
+    assertUiMatchContract(match);
+    assertV2ProfileContract(match.v2Profile);
+    expect(match.v2Profile.matched).toBe(true);
+    expect(match.v2Profile.profileTechName).toBe('Chris Adams');
+    expect(match.v2Profile.serviceCapabilityMatch).toBe(true);
+    expect(match.v2Profile.eligibilityStatus).toBe('eligible');
+  });
+});
+
+describe('scoreSingleDate legacy path — no v2Profile metadata', () => {
+  let result;
+
+  beforeAll(async () => {
+    vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', '');
+    result = await scoreSingleDate(
+      generalHappyPath.technicians,
+      generalHappyPath.lead,
+      3,
+      { prefetchTravel: false },
+    );
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('does not attach v2Profile when V2 flag is disabled', () => {
+    expect(result.topMatches[0].v2Profile).toBeUndefined();
   });
 });

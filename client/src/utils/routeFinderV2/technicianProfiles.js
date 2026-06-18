@@ -1,6 +1,6 @@
 /**
  * Route Finder V2 — technician profile catalog.
- * Not wired into live scoring yet; used by future V2 algorithm.
+ * Used by V2 eligibility enrichment; full scoring integration comes later.
  */
 
 /** @typedef {import('./technicianProfiles.js').TechnicianProfile} TechnicianProfile */

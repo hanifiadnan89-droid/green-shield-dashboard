@@ -1,7 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import * as routeFinderV2Config from '../index.js';
 import {
   V2_SCORING_WEIGHTS,
@@ -13,21 +10,25 @@ import {
 import { scoreSingleDate } from '../../routeFinderScoring.js';
 import { generalHappyPath, nhNoApprovedTech } from '../../__tests__/fieldRoutesScorer.fixtures.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const routeFinderScoringV2Path = join(__dirname, '../../routeFinderScoringV2.js');
+function stripMatchForParity(match) {
+  if (!match) return match;
+  const { matchId, v2Profile, ...matchRest } = match;
+  return {
+    ...matchRest,
+    scores: match.scores ? { ...match.scores } : match.scores,
+  };
+}
 
-function comparableScoringSnapshot(result) {
+function stripV2ProfileFields(result) {
   if (!result) return result;
   const { generatedAt, ...rest } = result;
+  const topMatches = (rest.topMatches ?? []).map(stripMatchForParity);
   return {
     ...rest,
-    topMatches: (rest.topMatches ?? []).map((match) => {
-      const { matchId, ...matchRest } = match;
-      return {
-        ...matchRest,
-        scores: match.scores ? { ...match.scores } : match.scores,
-      };
-    }),
+    topMatches,
+    recommendation: stripMatchForParity(rest.recommendation),
+    alternatives: (rest.alternatives ?? []).map(stripMatchForParity),
+    allScores: (rest.allScores ?? []).map(({ v2Profile, ...entry }) => ({ ...entry })),
   };
 }
 
@@ -44,6 +45,8 @@ describe('routeFinderV2 config barrel', () => {
     expect(typeof routeFinderV2Config.getRegionRule).toBe('function');
     expect(typeof routeFinderV2Config.getPriorityRule).toBe('function');
     expect(typeof routeFinderV2Config.getValidationExamples).toBe('function');
+    expect(typeof routeFinderV2Config.buildMatchV2Profile).toBe('function');
+    expect(typeof routeFinderV2Config.enrichScoringResultWithV2Profiles).toBe('function');
   });
 });
 
@@ -79,12 +82,7 @@ describe('scoringWeights', () => {
   });
 });
 
-describe('routeFinderV2 config layer — no live scoring changes', () => {
-  it('routeFinderScoringV2 does not import V2 config yet', () => {
-    const source = readFileSync(routeFinderScoringV2Path, 'utf8');
-    expect(source).not.toMatch(/routeFinderV2/);
-  });
-
+describe('routeFinderV2 config layer — scoring parity', () => {
   describe('scoreSingleDate parity (legacy vs V2 flag)', () => {
     let legacyResult;
     let v2Result;
@@ -111,8 +109,13 @@ describe('routeFinderV2 config layer — no live scoring changes', () => {
       vi.unstubAllEnvs();
     });
 
-    it('produces identical scoring output when V2 flag is enabled', () => {
-      expect(comparableScoringSnapshot(v2Result)).toEqual(comparableScoringSnapshot(legacyResult));
+    it('preserves legacy scoring fields when V2 metadata is stripped', () => {
+      expect(stripV2ProfileFields(v2Result)).toEqual(stripV2ProfileFields(legacyResult));
+    });
+
+    it('adds v2Profile metadata only on the V2 path', () => {
+      expect(v2Result.topMatches[0].v2Profile).toBeDefined();
+      expect(legacyResult.topMatches[0].v2Profile).toBeUndefined();
     });
   });
 
@@ -143,7 +146,7 @@ describe('routeFinderV2 config layer — no live scoring changes', () => {
     });
 
     it('preserves noSafeRoute behavior with V2 flag enabled', () => {
-      expect(comparableScoringSnapshot(v2Result)).toEqual(comparableScoringSnapshot(legacyResult));
+      expect(stripV2ProfileFields(v2Result)).toEqual(stripV2ProfileFields(legacyResult));
     });
   });
 });

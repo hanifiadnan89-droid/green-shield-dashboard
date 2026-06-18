@@ -7,6 +7,10 @@
 
 import { scoreRoutesAsync } from './fieldRoutesScorer.js';
 import { stagedScoreRoutes } from './stagedRouteScoring.js';
+import {
+  enrichScoringResultWithV2Profiles,
+  summarizeV2ProfileStats,
+} from './routeFinderV2/technicianEligibility.js';
 
 /** @typedef {'v2-staged-delegate' | 'v2-direct-travel-ctx' | 'v2-haversine-only'} V2ScoringSource */
 
@@ -81,18 +85,23 @@ export async function scoreSingleDateV2(technicians, lead, topN = 3, options = {
   }
   logV2('technicians scored', techCount);
 
-  const { result, travelCtx, stagingDiagnostics, scoringSource } = await runV2CoreScoring(
+  const { result: rawResult, travelCtx, stagingDiagnostics, scoringSource } = await runV2CoreScoring(
     technicians,
     lead,
     topN,
     options,
   );
 
+  const result = enrichScoringResultWithV2Profiles(rawResult, lead, technicians);
+  const profileStats = summarizeV2ProfileStats(result?.topMatches ?? []);
+  logV2('profile enrichment', profileStats);
+
   logV2('result source', {
     scoringSource,
     totalRoutesScored: result?.totalRoutesScored ?? 0,
     topMatchCount: result?.topMatches?.length ?? 0,
     noSafeRoute: Boolean(result?.noSafeRoute),
+    ...profileStats,
   });
 
   return {

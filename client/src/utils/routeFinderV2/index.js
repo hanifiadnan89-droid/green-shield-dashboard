@@ -51,3 +51,12 @@ export {
   ROUTE_FINDER_VALIDATION_EXAMPLES,
   getValidationExamples,
 } from './validationExamples.js';
+
+export {
+  buildMatchV2Profile,
+  evaluateServiceAreaMatch,
+  enrichScoringResultWithV2Profiles,
+  reorderMatchesByEligibility,
+  resolveProjectedStopCount,
+  summarizeV2ProfileStats,
+} from './technicianEligibility.js';
