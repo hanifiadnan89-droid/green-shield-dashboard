@@ -66,7 +66,7 @@ describe('validationCalibrationApplicability', () => {
         stops: [{ address: '120 Main St, Kennebunk, ME' }],
       },
       {
-        techName: 'Jack Johnson',
+        techName: 'Paige Bullock',
         stops: [{ address: '45 Fletcher St, Kennebunk, ME' }],
       },
     ];

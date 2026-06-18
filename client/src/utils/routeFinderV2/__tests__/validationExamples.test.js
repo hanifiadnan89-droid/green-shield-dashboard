@@ -65,4 +65,19 @@ describe('validationExamples dataset', () => {
   it('getValidationExampleCount matches dataset length', () => {
     expect(getValidationExampleCount()).toBe(ROUTE_FINDER_VALIDATION_EXAMPLES.length);
   });
+
+  it('getValidationExampleById returns neighboring-tech acceptableTechNames for calibration examples', () => {
+    expect(getValidationExampleById('kennebunk-iq-example-001')).toMatchObject({
+      acceptableTechNames: ['Joseph Willey', 'Jack Johnson'],
+      acceptedRankMax: 2,
+    });
+    expect(getValidationExampleById('lewiston-general-example-033')).toMatchObject({
+      acceptableTechNames: ['Matthew Lavigne', 'Quincy Coachman'],
+      acceptedRankMax: 2,
+    });
+    expect(getValidationExampleById('durham-rit-example-041')).toMatchObject({
+      acceptableTechNames: ['Skyler Ruest', 'Michael Caswell'],
+      acceptedRankMax: 2,
+    });
+  });
 });
