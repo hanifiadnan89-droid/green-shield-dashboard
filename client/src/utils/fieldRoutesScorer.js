@@ -1856,6 +1856,7 @@ function runScorer(technicians, lead, topN, cfg, travelCtx = null) {
     recommendation: topMatches[0] ?? null,
     alternatives:   topMatches.slice(1),
     topMatches,
+    allRankedMatches: scored,
     allScores: scored.map(r => ({
       techName:    r.techName,
       routeId:     r.routeId,
@@ -1882,5 +1883,6 @@ export async function scoreRoutesAsync(technicians, lead, topN = 3, options = {}
     const { prefetchTravelContext } = await import('./routeTravelContext.js');
     travelCtx = await prefetchTravelContext(technicians, lead, options);
   }
-  return runScorer(technicians, lead, topN, SCORER_CONFIG, travelCtx);
+  const cfg = options.scorerConfig ?? SCORER_CONFIG;
+  return runScorer(technicians, lead, topN, cfg, travelCtx);
 }

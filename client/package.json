@@ -7,7 +7,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "validation:report": "VITE_ROUTE_FINDER_V2_SCORING=true vitest run src/utils/routeFinderV2/__tests__/runValidationReport.test.js -t \"full baseline validation report\"",
+    "validation:calibrate": "node ../scripts/runValidationCalibration.mjs"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.21.3",

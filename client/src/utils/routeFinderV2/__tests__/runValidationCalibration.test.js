@@ -1,0 +1,388 @@
+import { describe, it, expect, vi, afterAll } from 'vitest';
+import * as applicabilityModule from '../validationCalibrationApplicability.js';
+import {
+  buildRealRouteCandidateDiagnostic,
+  collectRealRouteFailures,
+  enrichRealRouteValidationResult,
+  extractDayMismatchWarnings,
+} from '../validationCalibrationDiagnostics.js';
+import {
+  formatValidationCalibrationReport,
+  runValidationCalibration,
+} from '../runValidationCalibration.js';
+import {
+  listCachedRouteDates,
+  loadNormalizedRoutesFromDisk,
+  resolveCalibrationRouteDate,
+} from '../realRouteCalibrationSource.js';
+import { loadMockRealRoutesForDate } from '../testFixtures/realRouteCalibration.fixture.js';
+import { getValidationExampleById, getValidationExamples } from '../validationExamples.js';
+import { formatValidationPassRate } from '../runValidationReport.js';
+import { assertValidationReportDevOnly, isValidationReportAllowed } from '../runValidationReport.js';
+
+function makeMatch(techName, extras = {}) {
+  return {
+    techName,
+    routeId: extras.routeId ?? `R-${techName}`,
+    scores: { total: extras.baseTotal ?? 80 },
+    v2Score: {
+      baseTotal: extras.baseTotal ?? 80,
+      adjustedTotal: extras.adjustedTotal ?? 80,
+      penalties: extras.penalties ?? [],
+      bonuses: extras.bonuses ?? [],
+    },
+    v2Profile: {
+      eligibilityStatus: extras.eligibilityStatus ?? 'eligible',
+      overPreferredMaxStops: extras.overPreferredMaxStops ?? false,
+      overHardMaxStops: extras.overHardMaxStops ?? false,
+      warnings: extras.warnings ?? [],
+      nhRouteDayMatch: extras.nhRouteDayMatch ?? null,
+    },
+  };
+}
+
+describe('validationCalibrationDiagnostics', () => {
+  it('extracts NH day mismatch warnings from v2Profile', () => {
+    const warnings = extractDayMismatchWarnings({
+      warnings: ['Route exceeds preferred stop limit', 'NH route day does not match sub-region schedule'],
+    });
+    expect(warnings).toEqual(['NH route day does not match sub-region schedule']);
+  });
+
+  it('builds enriched real-route candidate diagnostics', () => {
+    const technicians = [{ routeId: 'R-1', stops: [{}, {}, {}] }];
+    const candidate = buildRealRouteCandidateDiagnostic(
+      makeMatch('Joseph Willey', {
+        routeId: 'R-1',
+        overPreferredMaxStops: true,
+        penalties: [{ code: 'over_preferred_stops', label: 'Over preferred', points: 12 }],
+      }),
+      1,
+      technicians,
+    );
+
+    expect(candidate.stopCount).toBe(3);
+    expect(candidate.overPreferredMaxStops).toBe(true);
+    expect(candidate.penalties).toHaveLength(1);
+  });
+
+  it('enriches validation results with route context', () => {
+    const enriched = enrichRealRouteValidationResult({
+      id: 'example-1',
+      passed: false,
+      expectedTechName: 'Joseph Willey',
+      actualTopTechName: 'Ian Pratt',
+      expectedRank: null,
+      acceptedRankMax: 1,
+      topMatches: [],
+      failureReason: 'Expected technician not found in top 3',
+      dispatcherReason: 'Dispatcher reason',
+      notes: '',
+      technicianCount: 2,
+    }, {
+      routeDate: '2026-06-18',
+      technicians: [{ routeId: 'R-1', stops: [{}, {}] }],
+      scoringResult: {
+        topMatches: [makeMatch('Ian Pratt', { routeId: 'R-1' })],
+      },
+    });
+
+    expect(enriched.routeDate).toBe('2026-06-18');
+    expect(enriched.topTechStopCount).toBe(2);
+    expect(enriched.topCandidates).toHaveLength(1);
+  });
+
+  it('collects real-route failure summaries with required fields', () => {
+    const failures = collectRealRouteFailures([
+      enrichRealRouteValidationResult({
+        id: 'example-1',
+        passed: false,
+        expectedTechName: 'Joseph Willey',
+        actualTopTechName: 'Ian Pratt',
+        expectedRank: null,
+        acceptedRankMax: 1,
+        topMatches: [],
+        failureReason: 'Expected technician not found in top 3',
+        dispatcherReason: 'Dispatcher reason',
+        notes: '',
+        technicianCount: 2,
+      }, {
+        routeDate: '2026-06-18',
+        technicians: [{ routeId: 'R-1', stops: [{}, {}] }],
+        scoringResult: {
+          topMatches: [makeMatch('Ian Pratt', { routeId: 'R-1', overPreferredMaxStops: true })],
+        },
+      }),
+    ]);
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({
+      expectedTechName: 'Joseph Willey',
+      actualTopTechName: 'Ian Pratt',
+      stopCount: 2,
+      overPreferredMax: true,
+      dispatcherReason: 'Dispatcher reason',
+    });
+    expect(failures[0].topCandidates).toHaveLength(1);
+  });
+});
+
+describe('realRouteCalibrationSource', () => {
+  it('resolves per-example route date when no override is provided', () => {
+    const example = getValidationExamples()[0];
+    expect(resolveCalibrationRouteDate(example, null)).toBe(example.date);
+    expect(resolveCalibrationRouteDate(example, '2026-06-18')).toBe('2026-06-18');
+  });
+
+  it('loads normalized routes from disk when cache exists', async () => {
+    const dates = await listCachedRouteDates();
+    if (!dates.length) {
+      expect(await loadNormalizedRoutesFromDisk('2099-01-01')).toBeNull();
+      return;
+    }
+
+    const payload = await loadNormalizedRoutesFromDisk(dates[0]);
+    expect(payload?.technicians).toBeInstanceOf(Array);
+  });
+});
+
+describe('runValidationCalibration', () => {
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('is blocked in production builds', () => {
+    vi.stubEnv('PROD', 'true');
+    expect(isValidationReportAllowed()).toBe(false);
+    expect(() => assertValidationReportDevOnly()).toThrow(/DEV-only/);
+    vi.unstubAllEnvs();
+  });
+
+  it('formats dual baseline calibration report', () => {
+    const text = formatValidationCalibrationReport({
+      routeDate: '2026-06-18',
+      routeTechnicianCount: 2,
+      fixturePassRate: 1,
+      realRoutePassRate: 0.5,
+      realRouteApplicableCount: 10,
+      realRouteSkippedCount: 44,
+      skippedExamples: [],
+      fixtureFailures: [],
+      realRouteFailures: [{
+        id: 'example-fail',
+        routeDate: '2026-06-18',
+        expectedTechName: 'Joseph Willey',
+        actualTopTechName: 'Ian Pratt',
+        expectedRank: null,
+        failureReason: 'Expected technician not found in top 3',
+        dispatcherReason: 'Dispatcher reason',
+        stopCount: 5,
+        overPreferredMax: true,
+        overHardMax: false,
+        dayMismatchWarnings: [],
+        topCandidates: [{
+          rank: 1,
+          techName: 'Ian Pratt',
+          stopCount: 5,
+          baseTotal: 90,
+          adjustedTotal: 85,
+          eligibilityStatus: 'eligible',
+          overPreferredMaxStops: true,
+          overHardMaxStops: false,
+          dayMismatchWarnings: [],
+          penalties: [{ code: 'weak_geo_cluster', label: 'Weak', points: 8 }],
+          bonuses: [],
+        }],
+        topMatches: [],
+      }],
+      fixture: {
+        summary: { totalExamples: 2, passed: 2, failed: 0, passRate: 1, failures: [] },
+        results: [],
+      },
+      realRoute: {
+        summary: { totalExamples: 2, passed: 1, failed: 1, passRate: 0.5, failures: [], realRouteApplicableCount: 1, realRouteSkippedCount: 1, skippedExamples: [] },
+        results: [],
+      },
+      reportText: '',
+    });
+
+    expect(text).toContain('fixturePassRate');
+    expect(text).toContain('realRoutePassRate');
+    expect(text).toContain('fixtureFailures');
+    expect(text).toContain('realRouteApplicableCount');
+    expect(text).toContain('trueScoringFailures');
+    expect(text).toContain('stopCount: 5');
+    expect(text).toContain('over preferred max?: true');
+    expect(text).toContain('candidate top 3');
+    expect(text).toContain('dispatcherReason: Dispatcher reason');
+  });
+
+  it('runs fixture and real-route baselines separately with mock routes', async () => {
+    vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
+
+    const examples = getValidationExamples().slice(0, 1);
+    const report = await runValidationCalibration({
+      routeDate: '2026-06-17',
+      examples,
+      print: false,
+      loadRoutesForDate: loadMockRealRoutesForDate,
+    });
+
+    expect(report.fixturePassRate).toBe(1);
+    expect(report.fixture.summary.passed).toBe(1);
+    expect(report.realRoute.summary.totalExamples).toBe(1);
+    expect(report.fixtureFailures).toHaveLength(0);
+    expect(report.routeDate).toBe('2026-06-17');
+    expect(report.reportText).toContain('Validation Calibration Report');
+  });
+
+  it('full calibration report against deterministic fixtures and mock real routes', async () => {
+    vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
+
+    const report = await runValidationCalibration({
+      routeDate: '2026-06-18',
+      print: false,
+      loadRoutesForDate: loadMockRealRoutesForDate,
+    });
+
+    expect(report.fixture.summary.totalExamples).toBe(54);
+    expect(report.fixturePassRate).toBe(1);
+    expect(report.fixtureFailures).toHaveLength(0);
+    expect(report.realRoute.summary.totalExamples).toBe(54);
+    expect(report.realRouteApplicableCount + report.realRouteSkippedCount).toBe(54);
+    expect(report.realRoutePassRate).toBeLessThanOrEqual(1);
+    expect(report.reportText).toContain(`fixturePassRate: ${formatValidationPassRate(report.fixturePassRate)}`);
+    expect(report.reportText).toContain('realRouteApplicableCount');
+    expect(report.reportText).toContain('Skipped / not applicable');
+
+    console.log('\n' + report.reportText);
+  }, 180000);
+
+  it('skips windham when expected Chris and winner Skyler are both absent from route cache', async () => {
+    vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
+
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    expect(windhamExample).toBeTruthy();
+
+    const technicians = [
+      {
+        techName: 'Paige Bullock',
+        routeId: 'R-2026-06-04-PB',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+      {
+        techName: 'Ian Pratt',
+        routeId: 'R-2026-06-04-IP',
+        stops: [{ address: '220 US Route 1, Scarborough, ME' }],
+      },
+    ];
+
+    const report = await runValidationCalibration({
+      routeDate: '2026-06-04',
+      examples: [windhamExample],
+      print: false,
+      loadRoutesForDate: async () => ({
+        date: '2026-06-04',
+        technicians,
+      }),
+      scoreExample: async (example, lead, routeTechnicians, topN) => ({
+        topMatches: [
+          makeMatch('Skyler Ruest', {
+            routeId: 'R-2026-06-04-SR',
+            adjustedTotal: 92,
+          }),
+          makeMatch('Paige Bullock', {
+            routeId: 'R-2026-06-04-PB',
+            adjustedTotal: 80,
+          }),
+        ],
+      }),
+    });
+
+    const windhamResult = report.realRoute.results.find(result => result.id === windhamExample.id);
+    expect(windhamResult).toBeTruthy();
+    expect(windhamResult.applicable).toBe(false);
+    expect(windhamResult.skipReason).toBe('expected_corridor_owner_not_scheduled');
+    expect(windhamResult.actualTopTechName).toBe('Skyler Ruest');
+    expect(windhamResult.expectedTechName).toBe('Chris McGary');
+    expect(report.realRouteFailures).toHaveLength(0);
+    expect(report.skippedExamples).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: windhamExample.id,
+        skipReason: 'expected_corridor_owner_not_scheduled',
+      }),
+    ]));
+  });
+
+  it('reclassifies windham via summary safety gate when post-score skip misses it', async () => {
+    vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
+
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    expect(windhamExample).toBeTruthy();
+
+    const technicians = [
+      {
+        techName: 'Paige Bullock',
+        routeId: 'R-2026-06-04-PB',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+      {
+        techName: 'Ian Pratt',
+        routeId: 'R-2026-06-04-IP',
+        stops: [{ address: '220 US Route 1, Scarborough, ME' }],
+      },
+    ];
+
+    const resolveSpy = vi.spyOn(applicabilityModule, 'resolvePostScoreCalibrationApplicability')
+      .mockImplementation((_example, preApplicability) => ({
+        ...preApplicability,
+        applicable: preApplicability.applicable,
+        skipReason: preApplicability.applicable ? null : preApplicability.skipReason,
+        skipLabel: preApplicability.applicable ? null : preApplicability.skipLabel,
+      }));
+
+    try {
+      const report = await runValidationCalibration({
+        routeDate: '2026-06-04',
+        examples: [windhamExample],
+        print: false,
+        loadRoutesForDate: async () => ({
+          date: '2026-06-04',
+          technicians,
+        }),
+        scoreExample: async () => ({
+          topMatches: [
+            makeMatch('Skyler Ruest', {
+              routeId: 'R-2026-06-04-SR',
+              adjustedTotal: 92,
+            }),
+            makeMatch('Ian Pratt', {
+              routeId: 'R-2026-06-04-IP',
+              adjustedTotal: 80,
+            }),
+          ],
+        }),
+      });
+
+      const windhamResult = report.realRoute.results.find(result => result.id === windhamExample.id);
+      expect(windhamResult).toBeTruthy();
+      expect(windhamResult.passed).toBe(false);
+      expect(windhamResult.applicable).toBe(false);
+      expect(windhamResult.skipReason).toBe('expected_corridor_owner_not_scheduled');
+      expect(windhamResult.actualTopTechName).toBe('Skyler Ruest');
+      expect(windhamResult.expectedTechName).toBe('Chris McGary');
+      expect(report.realRouteFailures).toHaveLength(0);
+      expect(report.skippedExamples).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: windhamExample.id,
+          skipReason: 'expected_corridor_owner_not_scheduled',
+        }),
+      ]));
+      expect(report.realRouteApplicableCount).toBe(0);
+      expect(report.realRouteSkippedCount).toBe(1);
+      expect(report.realRoutePassRate).toBe(0);
+    } finally {
+      resolveSpy.mockRestore();
+    }
+  });
+});
