@@ -3,11 +3,13 @@ import {
   applyCalibrationApplicability,
   evaluateCalibrationApplicability,
   isAcceptableTechScheduled,
+  isTechnicianScheduledOnRoute,
   isTerritoryRepresentedInCache,
   profileCoversLeadTown,
+  shouldSkipExpectedCorridorOwnerNotScheduled,
   summarizeRealRouteCalibrationResults,
 } from '../validationCalibrationApplicability.js';
-import { getValidationExamples } from '../validationExamples.js';
+import { getValidationExamples, getValidationExampleById } from '../validationExamples.js';
 import { matchTechnicianProfile } from '../technicianProfiles.js';
 import { buildLeadFromValidationExample } from '../validationRunner.js';
 
@@ -145,5 +147,64 @@ describe('validationCalibrationApplicability', () => {
     expect(summary.realRouteSkippedCount).toBe(1);
     expect(summary.passRate).toBe(1);
     expect(summary.skippedExamples[0].skipReason).toBe('expected_territory_not_represented');
+  });
+
+  it('skips when expected and winning technicians are both not scheduled on route date', () => {
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    expect(windhamExample).toBeTruthy();
+
+    const technicians = [
+      {
+        techName: 'Paige Bullock',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+      {
+        techName: 'Ian Pratt',
+        stops: [{ address: '220 US Route 1, Scarborough, ME' }],
+      },
+    ];
+
+    expect(isTechnicianScheduledOnRoute(technicians, 'Chris McGary')).toBe(false);
+    expect(isTechnicianScheduledOnRoute(technicians, 'Skyler Ruest')).toBe(false);
+    expect(isAcceptableTechScheduled(technicians, windhamExample)).toBe(true);
+
+    expect(shouldSkipExpectedCorridorOwnerNotScheduled(
+      windhamExample,
+      technicians,
+      'Skyler Ruest',
+    )).toBe(true);
+
+    const applicability = evaluateCalibrationApplicability(windhamExample, {
+      technicians,
+      selectedRouteDate: '2026-06-04',
+      actualTopTechName: 'Skyler Ruest',
+    });
+
+    expect(applicability.applicable).toBe(false);
+    expect(applicability.skipReason).toBe('expected_corridor_owner_not_scheduled');
+    expect(applicability.skipLabel).toBe('Skipped — expected corridor owner not scheduled');
+  });
+
+  it('does not corridor-owner skip when the winning technician is scheduled', () => {
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    const technicians = [
+      {
+        techName: 'Skyler Ruest',
+        stops: [{ address: '770 Roosevelt Trail, Windham, ME' }],
+      },
+      {
+        techName: 'Paige Bullock',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+    ];
+
+    const applicability = evaluateCalibrationApplicability(windhamExample, {
+      technicians,
+      selectedRouteDate: '2026-06-04',
+      actualTopTechName: 'Skyler Ruest',
+    });
+
+    expect(applicability.applicable).toBe(true);
+    expect(applicability.skipReason).toBeNull();
   });
 });

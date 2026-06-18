@@ -24,7 +24,8 @@ import {
 /**
  * @typedef {'expected_territory_not_represented'
  *   | 'route_date_mismatch'
- *   | 'expected_tech_not_scheduled'} CalibrationSkipReason
+ *   | 'expected_tech_not_scheduled'
+ *   | 'expected_corridor_owner_not_scheduled'} CalibrationSkipReason
  */
 
 /**
@@ -45,6 +46,7 @@ export const CALIBRATION_SKIP_REASON_LABELS = {
   expected_territory_not_represented: 'Expected territory not represented in selected cache',
   route_date_mismatch: 'Route date mismatch',
   expected_tech_not_scheduled: 'Expected tech not scheduled on selected date',
+  expected_corridor_owner_not_scheduled: 'Skipped — expected corridor owner not scheduled',
 };
 
 export const CALIBRATION_OUTCOME_LABELS = {
@@ -143,6 +145,44 @@ export function isAcceptableTechScheduled(technicians, example) {
 }
 
 /**
+ * @param {Array<{ techName?: string }>|null|undefined} technicians
+ * @param {string|null|undefined} techName
+ * @returns {boolean}
+ */
+export function isTechnicianScheduledOnRoute(technicians, techName) {
+  if (!techName || !technicians?.length) return false;
+  return technicians.some(tech => techNamesEquivalent(tech.techName, techName));
+}
+
+/**
+ * When neither the expected technician nor the observed winner is on the route
+ * cache for the selected date, the example is not a valid routing evaluation.
+ *
+ * @param {RouteFinderValidationExample} example
+ * @param {Array<{ techName?: string }>|null|undefined} technicians
+ * @param {string|null|undefined} actualTopTechName
+ * @returns {boolean}
+ */
+export function shouldSkipExpectedCorridorOwnerNotScheduled(
+  example,
+  technicians,
+  actualTopTechName,
+) {
+  if (!actualTopTechName) return false;
+
+  const expectedScheduled = isTechnicianScheduledOnRoute(
+    technicians,
+    example.expectedTechName,
+  );
+  const winnerScheduled = isTechnicianScheduledOnRoute(
+    technicians,
+    actualTopTechName,
+  );
+
+  return !expectedScheduled && !winnerScheduled;
+}
+
+/**
  * NH examples need the selected calibration date to fall on the same sub-region
  * day-of-week schedule as the example's intended route day.
  *
@@ -175,6 +215,7 @@ export function hasCalibrationRouteDateMismatch(example, selectedRouteDate, lead
  *   technicians?: Array<{ techName?: string, stops?: Array<{ address?: string }> }>,
  *   lead?: object,
  *   selectedRouteDate?: string|null,
+ *   actualTopTechName?: string|null,
  * }} context
  * @returns {CalibrationApplicabilityResult}
  */
@@ -182,6 +223,7 @@ export function evaluateCalibrationApplicability(example, context = {}) {
   const lead = context.lead ?? buildLeadFromValidationExample(example);
   const technicians = context.technicians ?? [];
   const selectedRouteDate = context.selectedRouteDate ?? null;
+  const actualTopTechName = context.actualTopTechName ?? null;
 
   const territoryRepresented = isTerritoryRepresentedInCache(technicians, lead);
   const acceptableTechScheduled = isAcceptableTechScheduled(technicians, example);
@@ -214,6 +256,17 @@ export function evaluateCalibrationApplicability(example, context = {}) {
       applicable: false,
       skipReason: 'expected_tech_not_scheduled',
       skipLabel: CALIBRATION_SKIP_REASON_LABELS.expected_tech_not_scheduled,
+      territoryRepresented,
+      acceptableTechScheduled,
+      routeDateMismatch,
+    };
+  }
+
+  if (shouldSkipExpectedCorridorOwnerNotScheduled(example, technicians, actualTopTechName)) {
+    return {
+      applicable: false,
+      skipReason: 'expected_corridor_owner_not_scheduled',
+      skipLabel: CALIBRATION_SKIP_REASON_LABELS.expected_corridor_owner_not_scheduled,
       territoryRepresented,
       acceptableTechScheduled,
       routeDateMismatch,

@@ -223,6 +223,8 @@ export {
   isAcceptableTechScheduled,
   isTerritoryRepresentedInCache,
   profileCoversLeadTown,
+  isTechnicianScheduledOnRoute,
+  shouldSkipExpectedCorridorOwnerNotScheduled,
   summarizeRealRouteCalibrationResults,
 } from './validationCalibrationApplicability.js';
 

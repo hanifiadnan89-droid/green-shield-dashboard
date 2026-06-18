@@ -253,7 +253,7 @@ export async function runValidationCalibration(options = {}) {
       routeTechnicianCount = technicians.length;
     }
     const lead = buildLeadFromValidationExample(example);
-    const applicability = evaluateCalibrationApplicability(example, {
+    const preApplicability = evaluateCalibrationApplicability(example, {
       technicians,
       lead,
       selectedRouteDate: routeDate ?? resolvedRouteDate,
@@ -269,6 +269,15 @@ export async function runValidationCalibration(options = {}) {
       technicians,
       scoringResult,
     });
+
+    const applicability = preApplicability.applicable
+      ? evaluateCalibrationApplicability(example, {
+        technicians,
+        lead,
+        selectedRouteDate: routeDate ?? resolvedRouteDate,
+        actualTopTechName: baseResult.actualTopTechName,
+      })
+      : preApplicability;
 
     realRouteResults.push(applyCalibrationApplicability(enriched, applicability));
   }
