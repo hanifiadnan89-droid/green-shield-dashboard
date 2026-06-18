@@ -160,6 +160,13 @@ export {
 } from './dispatcherConfidenceClassification.js';
 
 export {
+  extractClassifiedFailuresFromReport,
+  findRepeatedHighConfidenceMistakes,
+  formatMultiDateCalibrationReport,
+  summarizeMultiDateCalibration,
+} from './summarizeMultiDateCalibration.js';
+
+export {
   CALIBRATION_SKIP_REASON_LABELS,
   CALIBRATION_OUTCOME_LABELS,
   applyCalibrationApplicability,

@@ -10,7 +10,8 @@
     "start": "npm start --prefix server",
     "fieldroutes:export-auth": "node scripts/fieldRoutesExportAuth.mjs",
     "validation:report": "node scripts/runValidationReport.mjs",
-    "validation:calibrate": "node scripts/runValidationCalibration.mjs"
+    "validation:calibrate": "node scripts/runValidationCalibration.mjs",
+    "validation:calibrate:multi": "node scripts/runMultiDateValidationCalibration.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
