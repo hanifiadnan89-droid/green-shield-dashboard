@@ -18,14 +18,15 @@ import {
   resolveNormalizedRouteCachePath,
 } from '../client/src/utils/routeFinderV2/realRouteCalibrationSource.js';
 import {
-  normalizeCalibrationReportForSummary,
   summarizeMultiDateCalibration,
 } from '../client/src/utils/routeFinderV2/summarizeMultiDateCalibration.js';
 import {
   buildHighConfidenceFailureComparisonsWithRescore,
   formatHighConfidenceFailureComparisonReportFromComparisons,
 } from '../client/src/utils/routeFinderV2/buildHighConfidenceFailureComparisons.js';
-import { hasCorridorOwnerNotScheduledComparisonDiagnostics } from '../client/src/utils/routeFinderV2/validationCalibrationSummarySafety.js';
+import {
+  prepareCalibrationReportsForMultiDateSummary,
+} from '../client/src/utils/routeFinderV2/validationCalibrationSummarySafety.js';
 import { getValidationExamples } from '../client/src/utils/routeFinderV2/validationExamples.js';
 import { scoreSingleDateV2 } from '../client/src/utils/routeFinderScoringV2.js';
 
@@ -93,42 +94,34 @@ for (const date of dates) {
   reports.push(report);
 }
 
-const normalizedReports = reports.map(normalizeCalibrationReportForSummary);
-const summary = summarizeMultiDateCalibration(normalizedReports);
-
-const highConfidenceFailures = normalizedReports.flatMap(report => (
-  (report.realRouteFailures ?? []).filter(failure => failure.dispatcherConfidence === 'high')
-));
-const techniciansByExampleId = Object.assign(
-  {},
-  ...normalizedReports.map(report => report.techniciansByExampleId ?? {}),
-);
-
 async function scoreExample(example, lead, technicians, topN) {
   const bundle = await scoreSingleDateV2(technicians, lead, topN, { prefetchTravel: false });
   return bundle.result;
 }
 
+const preparedReports = await prepareCalibrationReportsForMultiDateSummary(
+  reports,
+  scoreExample,
+  getValidationExamples(),
+);
+const summary = summarizeMultiDateCalibration(preparedReports);
+
+const highConfidenceFailures = preparedReports.flatMap(report => (
+  (report.realRouteFailures ?? []).filter(failure => failure.dispatcherConfidence === 'high')
+));
+const techniciansByExampleId = Object.assign(
+  {},
+  ...preparedReports.map(report => report.techniciansByExampleId ?? {}),
+);
+
 const highConfidenceComparisons = highConfidenceFailures.length
-  ? (await buildHighConfidenceFailureComparisonsWithRescore({
+  ? await buildHighConfidenceFailureComparisonsWithRescore({
     failures: highConfidenceFailures,
     examples: getValidationExamples(),
     techniciansByExampleId,
     scoreExample,
-  })).filter(
-    comparison => !hasCorridorOwnerNotScheduledComparisonDiagnostics(
-      comparison.expectedTerritory,
-      comparison.winnerTerritory,
-    ),
-  )
-  : normalizedReports.flatMap(report => (
-    (report.highConfidenceScoreComparisons ?? []).filter(
-      comparison => !hasCorridorOwnerNotScheduledComparisonDiagnostics(
-        comparison.expectedTerritory,
-        comparison.winnerTerritory,
-      ),
-    )
-  ));
+  })
+  : preparedReports.flatMap(report => report.highConfidenceScoreComparisons ?? []);
 
 const highConfidenceComparisonText = formatHighConfidenceFailureComparisonReportFromComparisons(
   highConfidenceComparisons,

@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  applyComparisonDiagnosticFailureFilterToReport,
   hasCorridorOwnerNotScheduledComparisonDiagnostics,
   isTerritoryDiagnosticNotScheduled,
+  prepareCalibrationReportsForMultiDateSummary,
   reclassifyRealRouteResultAsCorridorOwnerNotScheduled,
   shouldReclassifyFailureFromComparisonDiagnostics,
 } from '../validationCalibrationSummarySafety.js';
+import { summarizeMultiDateCalibration } from '../summarizeMultiDateCalibration.js';
 import { getValidationExampleById } from '../validationExamples.js';
 
 describe('validationCalibrationSummarySafety', () => {
@@ -97,5 +100,183 @@ describe('validationCalibrationSummarySafety', () => {
     expect(reclassified.skipReason).toBe('expected_corridor_owner_not_scheduled');
     expect(reclassified.calibrationOutcome).toBe('skipped');
     expect(reclassified.countedInRealRoutePassRate).toBe(false);
+  });
+
+  it('filters report failures and recalculates summary when comparison diagnostics exclude Windham', async () => {
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    const technicians = [
+      {
+        techName: 'Paige Bullock',
+        routeId: 'R-2026-06-04-PB',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+      {
+        techName: 'Ian Pratt',
+        routeId: 'R-2026-06-04-IP',
+        stops: [{ address: '220 US Route 1, Scarborough, ME' }],
+      },
+    ];
+    const report = {
+      routeDate: '2026-06-04',
+      fixturePassRate: 1,
+      realRoutePassRate: 0.975,
+      realRouteApplicableCount: 40,
+      realRouteSkippedCount: 14,
+      skippedExamples: [],
+      techniciansByExampleId: {
+        [windhamExample.id]: technicians,
+      },
+      realRouteFailures: [{
+        id: windhamExample.id,
+        routeDate: '2026-06-04',
+        expectedTechName: 'Chris McGary',
+        actualTopTechName: 'Skyler Ruest',
+        expectedRank: null,
+        failureClassification: 'true_routing_mistake',
+        dispatcherConfidence: 'high',
+        classificationReason: 'Wrong corridor winner',
+        dispatcherReason: windhamExample.dispatcherReason,
+        failureReason: 'Expected technician not found in top 3: Chris McGary, Paige Bullock',
+        topMatches: [],
+        topCandidates: [],
+      }],
+      realRoute: {
+        summary: {
+          passRate: 0.975,
+          realRouteApplicableCount: 40,
+          realRouteSkippedCount: 14,
+          skippedExamples: [],
+          passed: 39,
+          failed: 1,
+          totalExamples: 41,
+        },
+        results: [
+          {
+            id: 'kennebunk-iq-example-002',
+            passed: true,
+            applicable: true,
+            expectedTechName: 'Joseph Willey',
+            actualTopTechName: 'Joseph Willey',
+            routeDate: '2026-06-04',
+            dispatcherReason: 'Joseph should win',
+            failureReason: null,
+            expectedRank: 1,
+            acceptedRankMax: 1,
+            topMatches: [],
+            topCandidates: [],
+            calibrationOutcome: 'pass',
+            countedInRealRoutePassRate: true,
+            territoryRepresented: true,
+            acceptableTechScheduled: true,
+          },
+          {
+            id: windhamExample.id,
+            passed: false,
+            applicable: true,
+            expectedTechName: 'Chris McGary',
+            actualTopTechName: 'Skyler Ruest',
+            routeDate: '2026-06-04',
+            dispatcherReason: windhamExample.dispatcherReason,
+            failureReason: 'Expected technician not found in top 3: Chris McGary, Paige Bullock',
+            expectedRank: null,
+            acceptedRankMax: 2,
+            topMatches: [],
+            topCandidates: [],
+            calibrationOutcome: 'true_scoring_failure',
+            countedInRealRoutePassRate: true,
+            territoryRepresented: true,
+            acceptableTechScheduled: true,
+          },
+        ],
+      },
+      patternReport: { patternsByExampleId: {} },
+    };
+
+    const filtered = await applyComparisonDiagnosticFailureFilterToReport(
+      report,
+      async () => ({
+        topMatches: [{
+          techName: 'Skyler Ruest',
+          routeId: 'R-2026-06-04-SR',
+          scores: { total: 92 },
+          v2Score: { adjustedTotal: 92, baseTotal: 92, penalties: [], bonuses: [] },
+          v2Profile: { eligibilityStatus: 'eligible' },
+        }],
+      }),
+      [windhamExample],
+    );
+
+    expect(filtered.realRouteFailures).toHaveLength(0);
+    expect(filtered.realRoutePassRate).toBe(1);
+    expect(filtered.realRouteApplicableCount).toBe(1);
+    expect(filtered.realRouteSkippedCount).toBe(1);
+    expect(filtered.realRoute.results.find(result => result.id === windhamExample.id)?.applicable)
+      .toBe(false);
+    expect(filtered.realRoute.results.find(result => result.id === windhamExample.id)?.skipReason)
+      .toBe('expected_corridor_owner_not_scheduled');
+
+    const summary = summarizeMultiDateCalibration([filtered]);
+    expect(summary.totalApplicableFailures).toBe(0);
+    expect(summary.byConfidence.high).toHaveLength(0);
+    expect(summary.reportText).toContain('Total applicable failures: 0');
+    expect(summary.reportText).toContain('real 100.0%');
+    expect(summary.reportText).toContain('0 failures');
+    expect(summary.reportText).toContain('None.');
+  });
+
+  it('prepareCalibrationReportsForMultiDateSummary filters each report', async () => {
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    const technicians = [
+      {
+        techName: 'Paige Bullock',
+        routeId: 'R-2026-06-04-PB',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+    ];
+    const reports = [{
+      routeDate: '2026-06-04',
+      fixturePassRate: 1,
+      realRoutePassRate: 0.975,
+      realRouteApplicableCount: 1,
+      realRouteSkippedCount: 0,
+      techniciansByExampleId: { [windhamExample.id]: technicians },
+      realRouteFailures: [{
+        id: windhamExample.id,
+        routeDate: '2026-06-04',
+        expectedTechName: 'Chris McGary',
+        actualTopTechName: 'Skyler Ruest',
+        dispatcherConfidence: 'high',
+        failureClassification: 'true_routing_mistake',
+      }],
+      realRoute: {
+        summary: { passRate: 0, realRouteApplicableCount: 1, realRouteSkippedCount: 0, skippedExamples: [] },
+        results: [{
+          id: windhamExample.id,
+          passed: false,
+          applicable: true,
+          expectedTechName: 'Chris McGary',
+          actualTopTechName: 'Skyler Ruest',
+          routeDate: '2026-06-04',
+          dispatcherReason: windhamExample.dispatcherReason,
+        }],
+      },
+      patternReport: { patternsByExampleId: {} },
+    }];
+
+    const prepared = await prepareCalibrationReportsForMultiDateSummary(
+      reports,
+      async () => ({
+        topMatches: [{
+          techName: 'Skyler Ruest',
+          routeId: 'R-2026-06-04-SR',
+          scores: { total: 92 },
+          v2Score: { adjustedTotal: 92, baseTotal: 92, penalties: [], bonuses: [] },
+          v2Profile: { eligibilityStatus: 'eligible' },
+        }],
+      }),
+      [windhamExample],
+    );
+
+    expect(prepared[0].realRouteFailures).toHaveLength(0);
   });
 });

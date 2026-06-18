@@ -232,9 +232,12 @@ export {
 
 export {
   applyCorridorOwnerNotScheduledSummarySafetyGate,
+  applyComparisonDiagnosticFailureFilterToReport,
   hasCorridorOwnerNotScheduledComparisonDiagnostics,
   isTerritoryDiagnosticNotScheduled,
+  prepareCalibrationReportsForMultiDateSummary,
   reclassifyRealRouteResultAsCorridorOwnerNotScheduled,
+  shouldExcludeFailureFromComparisonDiagnostics,
   shouldReclassifyFailureFromComparisonDiagnostics,
 } from './validationCalibrationSummarySafety.js';
 
