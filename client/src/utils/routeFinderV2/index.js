@@ -37,8 +37,13 @@ export {
 
 export {
   REGION_RULES,
+  SERVICE_AREA_GROUPS,
   getRegionRule,
   getAllRegionRules,
+  getServiceAreaGroup,
+  getAllServiceAreaGroups,
+  resolveServiceAreaGroupForTown,
+  resolveServiceAreaGroupFromAddress,
 } from './regionRules.js';
 
 export {

@@ -35,12 +35,14 @@ describe('serviceDurations', () => {
   it('getServiceDuration falls back to GENERAL for unknown types', () => {
     const fallback = getServiceDuration('UNKNOWN_TYPE');
     expect(fallback.serviceType).toBe('GENERAL');
-    expect(fallback.defaultMinutes).toBe(30);
+    expect(fallback.defaultMinutes).toBe(60);
+    expect(fallback.bufferMinutes).toBe(10);
   });
 
   it('getServiceBuffer returns buffer from resolved rule', () => {
     expect(getServiceBuffer('IQ')).toBe(10);
-    expect(getServiceBuffer('bogus')).toBe(5);
+    expect(getServiceBuffer('COMMERCIAL')).toBe(15);
+    expect(getServiceBuffer('bogus')).toBe(10);
   });
 
   it('resolveLeadServiceTypeKey maps lead fields', () => {
@@ -66,7 +68,20 @@ describe('serviceDurations', () => {
       serviceType: 'Mystery Service',
     });
     expect(resolved.serviceType).toBe('GENERAL');
-    expect(resolved.durationMinutes).toBe(30);
-    expect(resolved.bufferMinutes).toBe(5);
+    expect(resolved.durationMinutes).toBe(60);
+    expect(resolved.bufferMinutes).toBe(10);
+  });
+
+  it('returns configured durations for core service types', () => {
+    expect(getServiceDuration('RIT').defaultMinutes).toBe(60);
+    expect(getServiceDuration('IQ').defaultMinutes).toBe(60);
+    expect(getServiceDuration('TICK_MOSQUITO').defaultMinutes).toBe(30);
+    expect(getServiceDuration('BED_BUG').defaultMinutes).toBe(60);
+    expect(getServiceDuration('COMMERCIAL').defaultMinutes).toBe(90);
+    expect(getServiceDuration('COMMERCIAL').minMinutes).toBe(60);
+    expect(getServiceDuration('COMMERCIAL').maxMinutes).toBe(120);
+    expect(getServiceDuration('RESERVICE').defaultMinutes).toBe(30);
+    expect(getServiceDuration('FOLLOW_UP').defaultMinutes).toBe(30);
+    expect(getServiceDuration('GENERAL').defaultMinutes).toBe(60);
   });
 });

@@ -10,7 +10,7 @@ import {
   isRouteFinderV2ScoringEnabled,
   scoreSingleDateV2,
 } from '../routeFinderScoringV2.js';
-import { generalHappyPath, nhNoApprovedTech, maineMwfCluster } from './fieldRoutesScorer.fixtures.js';
+import { generalHappyPath, nhNoApprovedTech, nhApprovedTech } from './fieldRoutesScorer.fixtures.js';
 
 function assertEnrichedTopLevelResult(result) {
   expect(result.mode).toBe(SCORING_MODES.SINGLE_DATE);
@@ -178,8 +178,8 @@ describe('scoreSingleDate with V2 enabled — technician profile enrichment', ()
   beforeAll(async () => {
     vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
     result = await scoreSingleDate(
-      maineMwfCluster.technicians,
-      maineMwfCluster.lead,
+      nhApprovedTech.technicians,
+      nhApprovedTech.lead,
       3,
       { prefetchTravel: false },
     );
@@ -194,7 +194,7 @@ describe('scoreSingleDate with V2 enabled — technician profile enrichment', ()
     assertUiMatchContract(match);
     assertV2ProfileContract(match.v2Profile);
     expect(match.v2Profile.matched).toBe(true);
-    expect(match.v2Profile.profileTechName).toBe('Chris Adams');
+    expect(match.v2Profile.profileTechName).toBe('Alex Gray');
     expect(match.v2Profile.serviceCapabilityMatch).toBe(true);
     expect(match.v2Profile.eligibilityStatus).toBe('eligible');
   });

@@ -39,9 +39,10 @@ describe('routeFinderV2 config barrel', () => {
     expect(routeFinderV2Config.TIME_WINDOW_RULES.ANYTIME).toBeDefined();
     expect(routeFinderV2Config.V2_SCORING_WEIGHTS).toBeDefined();
     expect(routeFinderV2Config.V2_PENALTY_CONFIG).toBeDefined();
-    expect(routeFinderV2Config.REGION_RULES.maine).toBeDefined();
+    expect(routeFinderV2Config.SERVICE_AREA_GROUPS.southern_maine).toBeDefined();
     expect(routeFinderV2Config.PRIORITY_RULES.length).toBeGreaterThan(0);
-    expect(routeFinderV2Config.ROUTE_FINDER_VALIDATION_EXAMPLES).toEqual([]);
+    expect(routeFinderV2Config.ROUTE_FINDER_VALIDATION_EXAMPLES).toHaveLength(1);
+    expect(routeFinderV2Config.ROUTE_FINDER_VALIDATION_EXAMPLES[0].id).toBe('kennebunk-iq-example-001');
     expect(typeof routeFinderV2Config.getRegionRule).toBe('function');
     expect(typeof routeFinderV2Config.getPriorityRule).toBe('function');
     expect(typeof routeFinderV2Config.getValidationExamples).toBe('function');

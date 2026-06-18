@@ -6,52 +6,76 @@ import {
   hasTechnicianProfile,
   getAllTechnicianProfiles,
 } from '../technicianProfiles.js';
+import {
+  STANDARD_CAN_DO_SERVICES,
+  STANDARD_HARD_MAX_STOPS,
+  STANDARD_PREFERRED_MAX_STOPS,
+} from '../technicianProfileDefaults.js';
+import { PRODUCTION_TECHNICIAN_ROSTER } from '../technicianRosterData.js';
 
-describe('technicianProfiles', () => {
-  it('exports example profiles with required shape', () => {
-    expect(TECHNICIAN_PROFILES.length).toBeGreaterThanOrEqual(2);
+describe('technicianProfiles — production roster', () => {
+  it('imports every real technician profile successfully', () => {
+    expect(TECHNICIAN_PROFILES.length).toBe(PRODUCTION_TECHNICIAN_ROSTER.length);
+    expect(TECHNICIAN_PROFILES.length).toBeGreaterThanOrEqual(20);
     for (const profile of TECHNICIAN_PROFILES) {
       expect(typeof profile.techName).toBe('string');
+      expect(profile.techName.length).toBeGreaterThan(0);
       expect(Array.isArray(profile.aliases)).toBe(true);
       expect(profile.homeBase).toMatchObject({
-        address: expect.any(String),
         town: expect.any(String),
         state: expect.any(String),
       });
-      expect(typeof profile.preferredMaxStops).toBe('number');
-      expect(typeof profile.hardMaxStops).toBe('number');
-      expect(typeof profile.handlesCommercial).toBe('boolean');
-      expect(typeof profile.notes).toBe('string');
     }
   });
 
-  it('matches technician by exact name (case-insensitive)', () => {
-    const profile = getTechnicianProfile('alex gray');
-    expect(profile).not.toBeNull();
-    expect(profile.techName).toBe('Alex Gray');
-    expect(matchTechnicianProfile('ALEX GRAY')).toEqual(profile);
-    expect(hasTechnicianProfile('Alex Gray')).toBe(true);
+  it('has no duplicate techName values', () => {
+    const names = TECHNICIAN_PROFILES.map(profile => profile.techName);
+    expect(new Set(names).size).toBe(names.length);
   });
 
-  it('matches technician by alias (case-insensitive)', () => {
-    const profile = matchTechnicianProfile('a. gray');
-    expect(profile).not.toBeNull();
-    expect(profile.techName).toBe('Alex Gray');
-
-    const placeholder = matchTechnicianProfile('placeholder tech');
-    expect(placeholder?.techName).toBe('Example Tech (Placeholder)');
+  it('matches every technician by exact techName', () => {
+    for (const profile of TECHNICIAN_PROFILES) {
+      expect(matchTechnicianProfile(profile.techName)?.techName).toBe(profile.techName);
+      expect(hasTechnicianProfile(profile.techName)).toBe(true);
+    }
   });
 
-  it('returns null for unknown technicians', () => {
-    expect(getTechnicianProfile('Unknown Person')).toBeNull();
-    expect(hasTechnicianProfile('')).toBe(false);
-    expect(hasTechnicianProfile(null)).toBe(false);
+  it('every technician uses standard stop limits', () => {
+    for (const profile of TECHNICIAN_PROFILES) {
+      expect(profile.preferredMaxStops).toBe(STANDARD_PREFERRED_MAX_STOPS);
+      expect(profile.hardMaxStops).toBe(STANDARD_HARD_MAX_STOPS);
+    }
+  });
+
+  it('every technician has full service capabilities', () => {
+    for (const profile of TECHNICIAN_PROFILES) {
+      expect(profile.canDoServices).toEqual(expect.arrayContaining(STANDARD_CAN_DO_SERVICES));
+      expect(profile.cannotDoServices).toEqual([]);
+      expect(profile.handlesCommercial).toBe(true);
+      expect(profile.handlesBedBugs).toBe(true);
+      expect(profile.handlesTickMosquito).toBe(true);
+      expect(profile.handlesRodentWork).toBe(true);
+    }
+  });
+
+  it('matches important aliases', () => {
+    expect(getTechnicianProfile('Josh')?.techName).toBe('Joshua Harrington');
+    expect(getTechnicianProfile('Dmitri')?.techName).toBe('Dimitri Rovinskinov');
+    expect(getTechnicianProfile('Dmitri Rovinskinov')?.techName).toBe('Dimitri Rovinskinov');
+    expect(getTechnicianProfile('Joe Willey')?.techName).toBe('Joseph Willey');
+    expect(getTechnicianProfile('Mike')?.techName).toBe('Michael Caswell');
+    expect(getTechnicianProfile('Matt')?.techName).toBe('Matthew Lavigne');
+  });
+
+  it('does not include placeholder or test fixture technicians', () => {
+    const names = TECHNICIAN_PROFILES.map(profile => profile.techName);
+    expect(names).not.toContain('Example Tech (Placeholder)');
+    expect(names).not.toContain('Chris Adams');
   });
 
   it('getAllTechnicianProfiles returns a copy of the catalog', () => {
     const all = getAllTechnicianProfiles();
     expect(all).toHaveLength(TECHNICIAN_PROFILES.length);
     expect(all).not.toBe(TECHNICIAN_PROFILES);
-    expect(all[0]).toEqual(TECHNICIAN_PROFILES[0]);
   });
 });

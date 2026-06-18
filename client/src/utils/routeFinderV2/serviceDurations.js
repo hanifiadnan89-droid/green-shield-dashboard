@@ -49,7 +49,7 @@ export const SERVICE_DURATION_RULES = [
     defaultMinutes: 60,
     minMinutes: 45,
     maxMinutes: 120,
-    bufferMinutes: 15,
+    bufferMinutes: 10,
     serviceCategory: 'Bed Bug',
   },
   {
@@ -78,8 +78,8 @@ export const SERVICE_DURATION_RULES = [
   {
     serviceType: 'GENERAL',
     label: 'General Service',
-    defaultMinutes: 30,
-    bufferMinutes: 5,
+    defaultMinutes: 60,
+    bufferMinutes: 10,
     serviceCategory: 'General',
   },
 ];

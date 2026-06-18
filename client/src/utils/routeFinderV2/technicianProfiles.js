@@ -3,6 +3,8 @@
  * Used by V2 eligibility enrichment; full scoring integration comes later.
  */
 
+import { PRODUCTION_TECHNICIAN_ROSTER } from './technicianRosterData.js';
+
 /** @typedef {import('./technicianProfiles.js').TechnicianProfile} TechnicianProfile */
 
 /**
@@ -29,77 +31,7 @@ function normalizeName(value) {
 }
 
 /** @type {TechnicianProfile[]} */
-export const TECHNICIAN_PROFILES = [
-  {
-    techName: 'Alex Gray',
-    aliases: ['A. Gray', 'Alex G.'],
-    homeBase: {
-      address: '',
-      town: 'Portsmouth',
-      state: 'NH',
-      lat: null,
-      lng: null,
-    },
-    normalServiceAreas: ['Seacoast NH', 'Southern NH'],
-    preferredMaxStops: 12,
-    hardMaxStops: 16,
-    usualStartTime: '8:00 AM',
-    usualEndTime: '6:00 PM',
-    canDoServices: ['RIT', 'IQ', 'TICK_MOSQUITO', 'GENERAL', 'RESERVICE'],
-    cannotDoServices: ['BED_BUG'],
-    handlesCommercial: false,
-    handlesBedBugs: false,
-    handlesTickMosquito: true,
-    handlesRodentWork: true,
-    notes: 'Primary NH technician from legacy scorer NH config.',
-  },
-  {
-    techName: 'Chris Adams',
-    aliases: ['C. Adams'],
-    homeBase: {
-      address: '',
-      town: 'Wells',
-      state: 'ME',
-      lat: 43.322,
-      lng: -70.584,
-    },
-    normalServiceAreas: ['Southern Maine', 'York County', 'Coastal ME'],
-    preferredMaxStops: 14,
-    hardMaxStops: 18,
-    usualStartTime: '8:00 AM',
-    usualEndTime: '6:00 PM',
-    canDoServices: ['RIT', 'IQ', 'TICK_MOSQUITO', 'BED_BUG', 'GENERAL', 'RESERVICE'],
-    cannotDoServices: [],
-    handlesCommercial: true,
-    handlesBedBugs: true,
-    handlesTickMosquito: true,
-    handlesRodentWork: true,
-    notes: 'EXAMPLE profile — based on test fixture geography, not production roster.',
-  },
-  {
-    techName: 'Example Tech (Placeholder)',
-    aliases: ['Placeholder Tech', 'Example Tech'],
-    homeBase: {
-      address: '',
-      town: 'Saco',
-      state: 'ME',
-      lat: null,
-      lng: null,
-    },
-    normalServiceAreas: ['Greater Portland', 'Cumberland County'],
-    preferredMaxStops: 12,
-    hardMaxStops: 15,
-    usualStartTime: '8:00 AM',
-    usualEndTime: '5:00 PM',
-    canDoServices: ['GENERAL', 'FOLLOW_UP'],
-    cannotDoServices: ['BED_BUG', 'COMMERCIAL'],
-    handlesCommercial: false,
-    handlesBedBugs: false,
-    handlesTickMosquito: false,
-    handlesRodentWork: false,
-    notes: 'EXAMPLE placeholder — replace with real roster data in a later pass.',
-  },
-];
+export const TECHNICIAN_PROFILES = [...PRODUCTION_TECHNICIAN_ROSTER];
 
 const PROFILE_LOOKUP = new Map();
 

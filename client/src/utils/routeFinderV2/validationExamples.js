@@ -1,6 +1,5 @@
 /**
  * Route Finder V2 — dispatcher validation examples for regression testing.
- * Empty for now; populate with real dispatcher scenarios in a later pass.
  */
 
 /**
@@ -13,26 +12,23 @@
  * @property {string} notes
  */
 
-/**
- * Documented example shape (not active data):
- * {
- *   id: 'example-saco-rit-am',
- *   date: '2026-06-10',
- *   newJob: {
- *     address: '123 Greenway Drive, Saco, ME 04072',
- *     lat: 43.500,
- *     lng: -70.442,
- *     serviceType: 'RIT',
- *     timePreference: 'AM',
- *   },
- *   expectedTechName: 'Chris Adams',
- *   dispatcherReason: 'Closest coastal cluster with AM capacity.',
- *   notes: 'EXAMPLE ONLY — add real dispatcher cases here for V2 regression.',
- * }
- */
-
 /** @type {RouteFinderValidationExample[]} */
-export const ROUTE_FINDER_VALIDATION_EXAMPLES = [];
+export const ROUTE_FINDER_VALIDATION_EXAMPLES = [
+  {
+    id: 'kennebunk-iq-example-001',
+    date: '2026-06-17',
+    newJob: {
+      address: '123 Main St, Kennebunk, ME',
+      lat: 43.3845,
+      lng: -70.5448,
+      serviceType: 'IQ',
+      timePreference: 'Anytime',
+    },
+    expectedTechName: 'Joseph Willey',
+    dispatcherReason: 'Already had nearby Kennebunk stops and route was lighter.',
+    notes: 'Avoid Portland tech unless no Kennebunk-area route is available.',
+  },
+];
 
 /**
  * @returns {RouteFinderValidationExample[]}

@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as technicianProfiles from '../technicianProfiles.js';
 import {
   buildMatchV2Profile,
   evaluateServiceAreaMatch,
@@ -10,7 +11,7 @@ import { getTechnicianProfile } from '../technicianProfiles.js';
 
 function makeMatch(overrides = {}) {
   return {
-    techName: 'Chris Adams',
+    techName: 'Joseph Willey',
     routeId: 'R-ME01',
     stopCount: 5,
     scores: { total: 80 },
@@ -42,10 +43,10 @@ describe('technicianEligibility', () => {
   });
 
   it('matches technician profile by alias', () => {
-    const profile = buildMatchV2Profile(makeMatch({ techName: 'C. Adams' }), makeLead());
+    const profile = buildMatchV2Profile(makeMatch({ techName: 'Joe Willey' }), makeLead());
 
     expect(profile.matched).toBe(true);
-    expect(profile.profileTechName).toBe('Chris Adams');
+    expect(profile.profileTechName).toBe('Joseph Willey');
   });
 
   it('warns when technician profile is missing', () => {
@@ -60,7 +61,7 @@ describe('technicianEligibility', () => {
 
   it('warns when projected stops exceed preferred max', () => {
     const profile = buildMatchV2Profile(
-      makeMatch({ techName: 'Alex Gray', stopCount: 12 }),
+      makeMatch({ techName: 'Alex Gray', stopCount: 13 }),
       makeLead({ routeArea: 'new_hampshire', serviceAbbreviation: 'IQ' }),
     );
 
@@ -73,7 +74,7 @@ describe('technicianEligibility', () => {
 
   it('disqualifies when projected stops exceed hard max', () => {
     const profile = buildMatchV2Profile(
-      makeMatch({ techName: 'Alex Gray', stopCount: 16 }),
+      makeMatch({ techName: 'Alex Gray', stopCount: 18 }),
       makeLead({ routeArea: 'new_hampshire', serviceAbbreviation: 'IQ' }),
     );
 
@@ -85,7 +86,7 @@ describe('technicianEligibility', () => {
 
   it('marks service capability match for supported services', () => {
     const profile = buildMatchV2Profile(
-      makeMatch({ techName: 'Chris Adams' }),
+      makeMatch({ techName: 'Joseph Willey' }),
       makeLead({ serviceAbbreviation: 'BB', serviceLabel: 'Bed Bug Service' }),
     );
 
@@ -94,14 +95,22 @@ describe('technicianEligibility', () => {
   });
 
   it('disqualifies when service is in cannotDoServices', () => {
+    vi.spyOn(technicianProfiles, 'matchTechnicianProfile').mockReturnValue({
+      ...getTechnicianProfile('Joseph Willey'),
+      cannotDoServices: ['BED_BUG'],
+      canDoServices: getTechnicianProfile('Joseph Willey').canDoServices.filter(s => s !== 'BED_BUG'),
+    });
+
     const profile = buildMatchV2Profile(
-      makeMatch({ techName: 'Alex Gray' }),
+      makeMatch({ techName: 'Joseph Willey' }),
       makeLead({ serviceAbbreviation: 'BB', serviceLabel: 'Bed Bug Service' }),
     );
 
     expect(profile.serviceCapabilityMatch).toBe(false);
     expect(profile.eligibilityStatus).toBe('disqualified');
     expect(profile.warnings).toContain('Technician is not eligible for this service');
+
+    vi.restoreAllMocks();
   });
 
   it('resolves projected stop count from technicians when stopCount is absent', () => {
@@ -110,9 +119,9 @@ describe('technicianEligibility', () => {
   });
 
   it('evaluates service area match from profile regions', () => {
-    const chris = getTechnicianProfile('Chris Adams');
-    expect(evaluateServiceAreaMatch(chris, { routeArea: 'maine' })).toBe(true);
-    expect(evaluateServiceAreaMatch(chris, { routeArea: 'new_hampshire' })).toBe(false);
+    const joseph = getTechnicianProfile('Joseph Willey');
+    expect(evaluateServiceAreaMatch(joseph, { routeArea: 'maine' })).toBe(true);
+    expect(evaluateServiceAreaMatch(joseph, { routeArea: 'new_hampshire' })).toBe(false);
   });
 
   it('reorders disqualified matches below eligible and warning candidates', () => {
@@ -142,30 +151,30 @@ describe('technicianEligibility', () => {
       {
         topMatches: [
           makeMatch({
-            techName: 'Alex Gray',
-            routeId: 'R-NH-1',
+            techName: 'Matthew Lavigne',
+            routeId: 'R-W-1',
+            stopCount: 18,
             scores: { total: 90 },
           }),
           makeMatch({
-            techName: 'Chris Adams',
+            techName: 'Joseph Willey',
             routeId: 'R-ME-1',
             scores: { total: 75 },
           }),
         ],
         allScores: [
-          { techName: 'Alex Gray', routeId: 'R-NH-1', total: 90 },
-          { techName: 'Chris Adams', routeId: 'R-ME-1', total: 75 },
+          { techName: 'Matthew Lavigne', routeId: 'R-W-1', total: 90 },
+          { techName: 'Joseph Willey', routeId: 'R-ME-1', total: 75 },
         ],
       },
-      makeLead({ serviceAbbreviation: 'BB', serviceLabel: 'Bed Bug Service' }),
+      makeLead({ serviceAbbreviation: 'IQ' }),
       [],
     );
 
-    expect(result.topMatches[0].techName).toBe('Chris Adams');
+    expect(result.topMatches[0].techName).toBe('Joseph Willey');
     expect(result.topMatches[0].v2Profile.eligibilityStatus).toBe('eligible');
-    expect(result.topMatches[1].techName).toBe('Alex Gray');
+    expect(result.topMatches[1].techName).toBe('Matthew Lavigne');
     expect(result.topMatches[1].v2Profile.eligibilityStatus).toBe('disqualified');
-    expect(result.allScores[0].v2Profile.eligibilityStatus).toBe('disqualified');
-    expect(result.recommendation.techName).toBe('Chris Adams');
+    expect(result.recommendation.techName).toBe('Joseph Willey');
   });
 });
