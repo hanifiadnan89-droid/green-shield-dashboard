@@ -233,6 +233,7 @@ export {
 export {
   applyCorridorOwnerNotScheduledSummarySafetyGate,
   applyComparisonDiagnosticFailureFilterToReport,
+  finalizeCalibrationReportForMultiDateOutput,
   hasCorridorOwnerNotScheduledComparisonDiagnostics,
   isTerritoryDiagnosticNotScheduled,
   prepareCalibrationReportsForMultiDateSummary,

@@ -9,16 +9,151 @@ import {
 } from './validationCalibrationApplicability.js';
 import {
   buildComparisonTerritoryDiagnostic,
+  buildFailureScoreComparison,
   scoreExampleForFailureComparison,
 } from './validationFailureScoreComparison.js';
 import { getValidationExamples } from './validationExamples.js';
-import { normalizeCalibrationReportForSummary } from './summarizeMultiDateCalibration.js';
+import { resolvePostSafetyGateRealRouteFailures } from './summarizeMultiDateCalibration.js';
 
 /**
  * @typedef {import('./validationExamples.js').RouteFinderValidationExample} RouteFinderValidationExample
  * @typedef {import('./validationCalibrationApplicability.js').RealRouteCalibrationResult} RealRouteCalibrationResult
  * @typedef {import('./runValidationCalibration.js').ValidationCalibrationReport} ValidationCalibrationReport
  */
+
+const WINDHAM_EXAMPLE_ID = 'windham-general-example-024';
+
+/**
+ * @param {ValidationCalibrationReport} report
+ * @returns {import('./validationCalibrationDiagnostics.js').RealRouteValidationFailureSummary[]}
+ */
+function resolveFailuresForComparisonSafetyGate(report) {
+  const failuresById = new Map();
+  for (const failure of report.realRouteFailures ?? []) {
+    failuresById.set(failure.id, failure);
+  }
+  for (const failure of resolvePostSafetyGateRealRouteFailures(report)) {
+    failuresById.set(failure.id, {
+      ...failuresById.get(failure.id),
+      ...failure,
+    });
+  }
+  return [...failuresById.values()];
+}
+
+/**
+ * Mutate a calibration report using the same comparison diagnostics shown in the
+ * high-confidence failure comparison table. This is the multi-date source of truth.
+ *
+ * @param {ValidationCalibrationReport} report
+ * @param {(
+ *   example: RouteFinderValidationExample,
+ *   lead: object,
+ *   technicians: Array<object>,
+ *   topN: number,
+ * ) => Promise<object>} scoreExample
+ * @param {RouteFinderValidationExample[]} examples
+ * @returns {Promise<{ report: ValidationCalibrationReport, windhamSafetyGateApplied: boolean }>}
+ */
+export async function finalizeCalibrationReportForMultiDateOutput(
+  report,
+  scoreExample,
+  examples,
+) {
+  const exampleById = new Map(examples.map(example => [example.id, example]));
+  const failures = resolveFailuresForComparisonSafetyGate(report);
+  const excludedIds = new Set();
+  let windhamSafetyGateApplied = false;
+
+  for (const failure of failures) {
+    const example = exampleById.get(failure.id);
+    if (!example) continue;
+
+    const technicians = report.techniciansByExampleId?.[failure.id] ?? [];
+    const scoringResult = await scoreExampleForFailureComparison(
+      example,
+      technicians,
+      scoreExample,
+    );
+    const comparison = buildFailureScoreComparison(
+      example,
+      failure,
+      technicians,
+      scoringResult,
+    );
+
+    if (hasCorridorOwnerNotScheduledComparisonDiagnostics(
+      comparison.expectedTerritory,
+      comparison.winnerTerritory,
+    )) {
+      excludedIds.add(failure.id);
+      if (failure.id === WINDHAM_EXAMPLE_ID) {
+        windhamSafetyGateApplied = true;
+      }
+    }
+  }
+
+  if (!excludedIds.size) {
+    return { report, windhamSafetyGateApplied: false };
+  }
+
+  const results = Array.isArray(report.realRoute?.results)
+    ? report.realRoute.results
+    : [];
+  const filteredResults = results.map((result) => {
+    if (!excludedIds.has(result.id)) return result;
+    return reclassifyRealRouteResultAsCorridorOwnerNotScheduled(result);
+  });
+  const routeSummary = summarizeRealRouteCalibrationResults(filteredResults);
+  const filteredFailures = failures.filter(failure => !excludedIds.has(failure.id));
+
+  return {
+    report: {
+      ...report,
+      comparisonSafetyGateApplied: true,
+      realRoutePassRate: routeSummary.passRate,
+      realRouteApplicableCount: routeSummary.realRouteApplicableCount,
+      realRouteSkippedCount: routeSummary.realRouteSkippedCount,
+      skippedExamples: routeSummary.skippedExamples,
+      realRouteFailures: filteredFailures,
+      highConfidenceScoreComparisons: (report.highConfidenceScoreComparisons ?? []).filter(
+        comparison => !excludedIds.has(comparison.exampleId),
+      ),
+      realRoute: {
+        ...report.realRoute,
+        summary: routeSummary,
+        results: filteredResults,
+      },
+    },
+    windhamSafetyGateApplied,
+  };
+}
+
+/**
+ * @param {ValidationCalibrationReport[]} reports
+ * @param {(
+ *   example: RouteFinderValidationExample,
+ *   lead: object,
+ *   technicians: Array<object>,
+ *   topN: number,
+ * ) => Promise<object>} scoreExample
+ * @param {RouteFinderValidationExample[]} [examples]
+ * @returns {Promise<ValidationCalibrationReport[]>}
+ */
+export async function prepareCalibrationReportsForMultiDateSummary(
+  reports,
+  scoreExample,
+  examples = getValidationExamples(),
+) {
+  const finalized = await Promise.all(
+    reports.map(report => finalizeCalibrationReportForMultiDateOutput(
+      report,
+      scoreExample,
+      examples,
+    )),
+  );
+  return finalized.map(entry => entry.report);
+}
 
 /**
  * @param {{
@@ -178,98 +313,17 @@ export function shouldExcludeFailureFromComparisonDiagnostics(
 }
 
 /**
- * Remove failures whose comparison diagnostics show both expected and winner are
- * not scheduled, then recalculate post-safety-gate summary stats.
- *
- * @param {ValidationCalibrationReport} report
- * @param {(
- *   example: RouteFinderValidationExample,
- *   lead: object,
- *   technicians: Array<object>,
- *   topN: number,
- * ) => Promise<object>} scoreExample
- * @param {RouteFinderValidationExample[]} examples
- * @returns {Promise<ValidationCalibrationReport>}
+ * @deprecated Use finalizeCalibrationReportForMultiDateOutput instead.
  */
 export async function applyComparisonDiagnosticFailureFilterToReport(
   report,
   scoreExample,
   examples,
 ) {
-  const normalized = normalizeCalibrationReportForSummary(report);
-  const exampleById = new Map(examples.map(example => [example.id, example]));
-  const excludedIds = new Set();
-
-  for (const failure of normalized.realRouteFailures ?? []) {
-    const example = exampleById.get(failure.id);
-    if (!example) continue;
-
-    const technicians = normalized.techniciansByExampleId?.[failure.id] ?? [];
-    const scoringResult = await scoreExampleForFailureComparison(
-      example,
-      technicians,
-      scoreExample,
-    );
-
-    if (shouldExcludeFailureFromComparisonDiagnostics(
-      failure,
-      example,
-      technicians,
-      scoringResult,
-    )) {
-      excludedIds.add(failure.id);
-    }
-  }
-
-  if (!excludedIds.size) {
-    return normalized;
-  }
-
-  const filteredResults = (normalized.realRoute?.results ?? []).map((result) => {
-    if (!excludedIds.has(result.id)) return result;
-    return reclassifyRealRouteResultAsCorridorOwnerNotScheduled(result);
-  });
-  const routeSummary = summarizeRealRouteCalibrationResults(filteredResults);
-  const filteredFailures = (normalized.realRouteFailures ?? []).filter(
-    failure => !excludedIds.has(failure.id),
+  const { report: finalized } = await finalizeCalibrationReportForMultiDateOutput(
+    report,
+    scoreExample,
+    examples,
   );
-
-  return {
-    ...normalized,
-    realRoutePassRate: routeSummary.passRate,
-    realRouteApplicableCount: routeSummary.realRouteApplicableCount,
-    realRouteSkippedCount: routeSummary.realRouteSkippedCount,
-    skippedExamples: routeSummary.skippedExamples,
-    realRouteFailures: filteredFailures,
-    realRoute: {
-      ...normalized.realRoute,
-      summary: routeSummary,
-      results: filteredResults,
-    },
-  };
-}
-
-/**
- * @param {ValidationCalibrationReport[]} reports
- * @param {(
- *   example: RouteFinderValidationExample,
- *   lead: object,
- *   technicians: Array<object>,
- *   topN: number,
- * ) => Promise<object>} scoreExample
- * @param {RouteFinderValidationExample[]} [examples]
- * @returns {Promise<ValidationCalibrationReport[]>}
- */
-export async function prepareCalibrationReportsForMultiDateSummary(
-  reports,
-  scoreExample,
-  examples = getValidationExamples(),
-) {
-  return Promise.all(
-    reports.map(report => applyComparisonDiagnosticFailureFilterToReport(
-      report,
-      scoreExample,
-      examples,
-    )),
-  );
+  return finalized;
 }

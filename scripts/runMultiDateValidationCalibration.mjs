@@ -25,7 +25,7 @@ import {
   formatHighConfidenceFailureComparisonReportFromComparisons,
 } from '../client/src/utils/routeFinderV2/buildHighConfidenceFailureComparisons.js';
 import {
-  prepareCalibrationReportsForMultiDateSummary,
+  finalizeCalibrationReportForMultiDateOutput,
 } from '../client/src/utils/routeFinderV2/validationCalibrationSummarySafety.js';
 import { getValidationExamples } from '../client/src/utils/routeFinderV2/validationExamples.js';
 import { scoreSingleDateV2 } from '../client/src/utils/routeFinderScoringV2.js';
@@ -75,6 +75,12 @@ if (missing.length) {
 process.env.VITE_ROUTE_FINDER_V2_SCORING = 'true';
 
 const reports = [];
+const examples = getValidationExamples();
+
+async function scoreExample(example, lead, technicians, topN) {
+  const bundle = await scoreSingleDateV2(technicians, lead, topN, { prefetchTravel: false });
+  return bundle.result;
+}
 
 for (const date of dates) {
   const payload = await loadNormalizedRoutesFromDisk(date);
@@ -94,34 +100,41 @@ for (const date of dates) {
   reports.push(report);
 }
 
-async function scoreExample(example, lead, technicians, topN) {
-  const bundle = await scoreSingleDateV2(technicians, lead, topN, { prefetchTravel: false });
-  return bundle.result;
+let windhamSafetyGateApplied = false;
+const finalizedReports = [];
+
+for (const report of reports) {
+  const finalized = await finalizeCalibrationReportForMultiDateOutput(
+    report,
+    scoreExample,
+    examples,
+  );
+  finalizedReports.push(finalized.report);
+  if (finalized.windhamSafetyGateApplied) {
+    windhamSafetyGateApplied = true;
+  }
 }
 
-const preparedReports = await prepareCalibrationReportsForMultiDateSummary(
-  reports,
-  scoreExample,
-  getValidationExamples(),
-);
-const summary = summarizeMultiDateCalibration(preparedReports);
+console.log(`windham safety gate applied: ${windhamSafetyGateApplied}`);
 
-const highConfidenceFailures = preparedReports.flatMap(report => (
+const summary = summarizeMultiDateCalibration(finalizedReports);
+
+const highConfidenceFailures = finalizedReports.flatMap(report => (
   (report.realRouteFailures ?? []).filter(failure => failure.dispatcherConfidence === 'high')
 ));
 const techniciansByExampleId = Object.assign(
   {},
-  ...preparedReports.map(report => report.techniciansByExampleId ?? {}),
+  ...finalizedReports.map(report => report.techniciansByExampleId ?? {}),
 );
 
 const highConfidenceComparisons = highConfidenceFailures.length
   ? await buildHighConfidenceFailureComparisonsWithRescore({
     failures: highConfidenceFailures,
-    examples: getValidationExamples(),
+    examples,
     techniciansByExampleId,
     scoreExample,
   })
-  : preparedReports.flatMap(report => report.highConfidenceScoreComparisons ?? []);
+  : finalizedReports.flatMap(report => report.highConfidenceScoreComparisons ?? []);
 
 const highConfidenceComparisonText = formatHighConfidenceFailureComparisonReportFromComparisons(
   highConfidenceComparisons,
