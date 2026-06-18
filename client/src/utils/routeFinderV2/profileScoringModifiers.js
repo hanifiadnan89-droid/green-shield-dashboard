@@ -17,6 +17,11 @@ import {
   NH_ROUTE_DAY_MISMATCH_PENALTY,
 } from './nhRoutingRules.js';
 import { isViteDevRuntime } from './viteRuntimeEnv.js';
+import {
+  buildTerritoryOwnershipModifiers,
+  findAvailablePrimaryCorridorOwners,
+  mergeTerritoryOwnershipIntoV2Score,
+} from './territoryOwnership.js';
 
 /** @typedef {import('./technicianEligibility.js').V2ProfileMetadata} V2ProfileMetadata */
 
@@ -160,6 +165,19 @@ export function isWeakGeoCluster(match) {
 function hasBacktrackingRisk(match) {
   const risk = match?.bestInsertion?.backtrackingRisk;
   return BACKTRACKING_RISK_PENALTY.has(risk);
+}
+
+/**
+ * @param {object} match
+ * @param {object|null|undefined} lead
+ * @param {Array<{ routeId: string|number, stops?: Array<{ address?: string, customerName?: string }> }>|null|undefined} technicians
+ * @returns {boolean}
+ */
+export function matchHasSameTownRouteStop(match, lead, technicians) {
+  const leadTown = resolveLeadTown(lead);
+  if (!leadTown) return false;
+  const routeLocations = collectRouteStopLocations(match, lead, technicians);
+  return routeLocations.some(location => townsMatch(location.town, leadTown));
 }
 
 /**
@@ -454,6 +472,38 @@ export function logV2ScoreRankChanges(beforeMatches, afterMatches) {
 }
 
 /**
+ * @param {Array<object>} matches
+ * @param {object|null|undefined} lead
+ * @param {Array<{ routeId: string|number, stops?: unknown[] }>|null|undefined} technicians
+ * @returns {Array<object>}
+ */
+function applyTerritoryOwnershipSafeguards(matches, lead, technicians) {
+  const leadTown = resolveLeadTown(lead);
+  const availableOwners = findAvailablePrimaryCorridorOwners(matches, leadTown);
+
+  return matches.map((match) => {
+    const profile = matchTechnicianProfile(match?.techName);
+    const hasSameTownStop = matchHasSameTownRouteStop(match, lead, technicians);
+    const territoryMods = buildTerritoryOwnershipModifiers(
+      match,
+      profile,
+      leadTown,
+      availableOwners,
+      hasSameTownStop,
+    );
+
+    if (!territoryMods.bonuses.length && !territoryMods.penalties.length) {
+      return match;
+    }
+
+    return {
+      ...match,
+      v2Score: mergeTerritoryOwnershipIntoV2Score(match.v2Score, territoryMods),
+    };
+  });
+}
+
+/**
  * @param {object|null|undefined} result
  * @param {object|null|undefined} lead
  * @param {Array<{ routeId: string|number, stops?: unknown[] }>|null|undefined} technicians
@@ -463,30 +513,52 @@ export function enrichScoringResultWithV2Scores(result, lead, technicians) {
   if (!result || result.noSafeRoute) return result;
 
   const beforeMatches = result.topMatches ?? [];
+  const allEntries = result.allScores ?? [];
+  const seenRouteIds = new Set();
 
-  const enrichedTopMatches = beforeMatches.map(match => ({
-    ...match,
-    v2Score: buildMatchV2Score(match, lead, { technicians }),
-  }));
+  const enrichedPool = [];
 
-  const reorderedTopMatches = reorderMatchesByV2Score(enrichedTopMatches);
-  logV2ScoreRankChanges(beforeMatches, reorderedTopMatches);
+  for (const match of beforeMatches) {
+    const routeId = String(match.routeId);
+    seenRouteIds.add(routeId);
+    enrichedPool.push({
+      ...match,
+      v2Score: buildMatchV2Score(match, lead, { technicians }),
+    });
+  }
 
-  const scoreByRouteId = new Map(
-    enrichedTopMatches.map(match => [String(match.routeId), match.v2Score]),
-  );
-
-  const allScores = (result.allScores ?? []).map(entry => {
-    const existingScore = scoreByRouteId.get(String(entry.routeId));
-    if (existingScore) {
-      return { ...entry, v2Score: existingScore };
-    }
-
-    return {
+  for (const entry of allEntries) {
+    const routeId = String(entry.routeId);
+    if (seenRouteIds.has(routeId)) continue;
+    seenRouteIds.add(routeId);
+    enrichedPool.push({
       ...entry,
       v2Score: buildMatchV2Score(entry, lead, { technicians }),
-    };
-  });
+    });
+  }
+
+  const territoryAdjustedPool = applyTerritoryOwnershipSafeguards(
+    enrichedPool,
+    lead,
+    technicians,
+  );
+  const scoreByRouteId = new Map(
+    territoryAdjustedPool.map(match => [String(match.routeId), match.v2Score]),
+  );
+
+  const territoryAdjustedTopMatches = beforeMatches.map(match => ({
+    ...match,
+    v2Score: scoreByRouteId.get(String(match.routeId)) ?? buildMatchV2Score(match, lead, { technicians }),
+  }));
+
+  const reorderedTopMatches = reorderMatchesByV2Score(territoryAdjustedTopMatches);
+  logV2ScoreRankChanges(beforeMatches, reorderedTopMatches);
+
+  const allScores = allEntries.map(entry => ({
+    ...entry,
+    v2Score: scoreByRouteId.get(String(entry.routeId))
+      ?? buildMatchV2Score(entry, lead, { technicians }),
+  }));
 
   return {
     ...result,

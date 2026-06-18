@@ -43,6 +43,8 @@ import { resolveProjectedStopCount } from './technicianEligibility.js';
  * @property {number} sameTownBonus
  * @property {number} nearbyRouteBonus
  * @property {number} normalServiceAreaBonus
+ * @property {number} territoryOwnerBonus
+ * @property {number} neighboringTerritoryPenalty
  * @property {number} backtrackingPenalty
  * @property {number} stopLoadPenalty
  * @property {number} workloadPenalty
@@ -72,6 +74,8 @@ const GEO_CLUSTER_PENALTY_CODES = ['weak_geo_cluster'];
 const SAME_TOWN_BONUS_CODES = ['same_town_match'];
 const NEARBY_ROUTE_BONUS_CODES = ['nearby_route_stop_same_town', 'nearby_route_stop_same_region'];
 const NORMAL_SERVICE_AREA_BONUS_CODES = ['normal_service_area_match'];
+const TERRITORY_OWNER_BONUS_CODES = ['territory_owner_bonus'];
+const NEIGHBORING_TERRITORY_PENALTY_CODES = ['neighboring_territory_penalty'];
 const BACKTRACKING_PENALTY_CODES = ['backtracking_risk'];
 const STOP_LOAD_PENALTY_CODES = ['over_preferred_max_stops', 'over_hard_max_stops'];
 
@@ -136,6 +140,8 @@ export function buildTechnicianScoreSnapshot(match, rank, technicians = []) {
     sameTownBonus: sumModifierPoints(bonuses, SAME_TOWN_BONUS_CODES),
     nearbyRouteBonus: sumModifierPoints(bonuses, NEARBY_ROUTE_BONUS_CODES),
     normalServiceAreaBonus: sumModifierPoints(bonuses, NORMAL_SERVICE_AREA_BONUS_CODES),
+    territoryOwnerBonus: sumModifierPoints(bonuses, TERRITORY_OWNER_BONUS_CODES),
+    neighboringTerritoryPenalty: sumModifierPoints(penalties, NEIGHBORING_TERRITORY_PENALTY_CODES),
     backtrackingPenalty: sumModifierPoints(penalties, BACKTRACKING_PENALTY_CODES),
     stopLoadPenalty: sumModifierPoints(penalties, STOP_LOAD_PENALTY_CODES),
     workloadPenalty: Number(scores.workloadPenalty ?? 0),
@@ -164,6 +170,8 @@ export function explainWhyWinnerBeatExpected(expected, winner) {
     { label: 'same town bonus', delta: winner.sameTownBonus - expected.sameTownBonus },
     { label: 'nearby route bonus', delta: winner.nearbyRouteBonus - expected.nearbyRouteBonus },
     { label: 'normal service area bonus', delta: winner.normalServiceAreaBonus - expected.normalServiceAreaBonus },
+    { label: 'territory owner bonus', delta: winner.territoryOwnerBonus - expected.territoryOwnerBonus },
+    { label: 'neighboring territory penalty', delta: expected.neighboringTerritoryPenalty - winner.neighboringTerritoryPenalty },
     { label: 'backtracking penalty', delta: expected.backtrackingPenalty - winner.backtrackingPenalty },
     { label: 'stop load penalty', delta: expected.stopLoadPenalty - winner.stopLoadPenalty },
     { label: 'workload penalty', delta: expected.workloadPenalty - winner.workloadPenalty },
@@ -361,6 +369,8 @@ export function formatFailureScoreComparisonTable(comparisons = []) {
       ['same town bonus', row.expected?.sameTownBonus, row.winner?.sameTownBonus],
       ['nearby route bonus', row.expected?.nearbyRouteBonus, row.winner?.nearbyRouteBonus],
       ['normal service area bonus', row.expected?.normalServiceAreaBonus, row.winner?.normalServiceAreaBonus],
+      ['territory owner bonus', row.expected?.territoryOwnerBonus, row.winner?.territoryOwnerBonus],
+      ['neighboring territory penalty', row.expected?.neighboringTerritoryPenalty, row.winner?.neighboringTerritoryPenalty],
       ['backtracking penalty', row.expected?.backtrackingPenalty, row.winner?.backtrackingPenalty],
       ['stop load penalty', row.expected?.stopLoadPenalty, row.winner?.stopLoadPenalty],
       ['workload penalty (base)', row.expected?.workloadPenalty, row.winner?.workloadPenalty],

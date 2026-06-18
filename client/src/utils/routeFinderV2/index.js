@@ -84,7 +84,18 @@ export {
   isLeadInNormalServiceAreas,
   isStrongGeoCluster,
   isWeakGeoCluster,
+  matchHasSameTownRouteStop,
 } from './profileScoringModifiers.js';
+
+export {
+  TERRITORY_OWNERSHIP_POINTS,
+  TOWN_PRIMARY_CORRIDOR_OWNERS,
+  resolvePrimaryCorridorOwners,
+  isPrimaryCorridorOwner,
+  findAvailablePrimaryCorridorOwners,
+  buildTerritoryOwnershipModifiers,
+  mergeTerritoryOwnershipIntoV2Score,
+} from './territoryOwnership.js';
 
 export {
   evaluateValidationExample,

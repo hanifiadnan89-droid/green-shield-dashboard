@@ -29,6 +29,8 @@ export function formatCorridorScoreComparisonSummary(row) {
     ['Same town bonus', expected?.sameTownBonus, winner?.sameTownBonus],
     ['Nearby route bonus', expected?.nearbyRouteBonus, winner?.nearbyRouteBonus],
     ['Normal service area bonus', expected?.normalServiceAreaBonus, winner?.normalServiceAreaBonus],
+    ['Territory owner bonus', expected?.territoryOwnerBonus, winner?.territoryOwnerBonus],
+    ['Neighboring territory penalty', expected?.neighboringTerritoryPenalty, winner?.neighboringTerritoryPenalty],
     ['Backtracking penalty', expected?.backtrackingPenalty, winner?.backtrackingPenalty],
     ['Stop load penalty', expected?.stopLoadPenalty, winner?.stopLoadPenalty],
     ['Workload penalty (base)', expected?.workloadPenalty, winner?.workloadPenalty],
