@@ -31,8 +31,12 @@ import {
 import { scoreSingleDateV2 } from '../routeFinderScoringV2.js';
 import {
   buildValidationFailurePatternReport,
+  classifyRealRouteFailurePatterns,
   formatValidationFailurePatternReport,
 } from './validationFailurePatterns.js';
+import {
+  classifyDispatcherConfidence,
+} from './dispatcherConfidenceClassification.js';
 
 /**
  * @typedef {import('./validationRunner.js').ValidationSummary} ValidationSummary
@@ -68,6 +72,9 @@ function formatRealRouteFailureLines(failure) {
     `- ${failure.id} (routeDate: ${failure.routeDate})`,
     `  expectedTechName: ${failure.expectedTechName}`,
     `  actualTopTechName: ${failure.actualTopTechName ?? '—'}`,
+    `  dispatcherConfidence: ${failure.dispatcherConfidence ?? '—'}`,
+    `  failureClassification: ${failure.failureClassification ?? '—'}`,
+    `  classificationReason: ${failure.classificationReason ?? '—'}`,
     `  expectedRank: ${failure.expectedRank ?? '—'}`,
     `  stopCount: ${failure.stopCount ?? '—'}`,
     `  over preferred max?: ${failure.overPreferredMax == null ? '—' : failure.overPreferredMax}`,
@@ -262,7 +269,31 @@ export async function runValidationCalibration(options = {}) {
   const realRouteSummary = summarizeRealRouteCalibrationResults(realRouteResults);
   const realRouteFailures = collectRealRouteFailures(
     realRouteResults.filter(result => result.applicable),
-  );
+  ).map((failure) => {
+    const example = examples.find(row => row.id === failure.id);
+    if (!example) return failure;
+
+    const technicians = techniciansByExampleId[failure.id] ?? [];
+    const scoringResult = scoringByExampleId[failure.id];
+    const patterns = classifyRealRouteFailurePatterns(
+      example,
+      failure,
+      technicians,
+      scoringResult,
+    );
+    const classification = classifyDispatcherConfidence(
+      example,
+      failure,
+      technicians,
+      scoringResult,
+      patterns,
+    );
+
+    return {
+      ...failure,
+      ...classification,
+    };
+  });
   const patternReport = buildValidationFailurePatternReport({
     examples,
     results: realRouteResults.filter(result => result.applicable),

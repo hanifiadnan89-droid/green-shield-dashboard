@@ -151,6 +151,15 @@ export {
 } from './validationFailurePatterns.js';
 
 export {
+  FAILURE_CLASSIFICATION_LABELS,
+  DISPATCHER_CONFIDENCE_LABELS,
+  areNeighboringTechSubstitutionPair,
+  classifyDispatcherConfidence,
+  isWinnerClearlyOutsideServiceCorridor,
+  summarizeDispatcherConfidence,
+} from './dispatcherConfidenceClassification.js';
+
+export {
   CALIBRATION_SKIP_REASON_LABELS,
   CALIBRATION_OUTCOME_LABELS,
   applyCalibrationApplicability,

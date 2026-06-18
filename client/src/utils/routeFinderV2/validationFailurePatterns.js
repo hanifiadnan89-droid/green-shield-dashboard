@@ -10,6 +10,10 @@ import {
 } from './validationRunner.js';
 import { extractDayMismatchWarnings } from './validationCalibrationDiagnostics.js';
 import { inferRouteAreaFromAddress } from './validationExamples.js';
+import {
+  classifyDispatcherConfidence,
+  summarizeDispatcherConfidence,
+} from './dispatcherConfidenceClassification.js';
 
 /**
  * @typedef {import('./validationExamples.js').RouteFinderValidationExample} RouteFinderValidationExample
@@ -42,7 +46,14 @@ import { inferRouteAreaFromAddress } from './validationExamples.js';
  * @typedef {Object} ValidationFailurePatternReport
  * @property {ValidationFailurePatternGroup[]} groups
  * @property {Record<string, ValidationFailurePatternKey[]>} patternsByExampleId
- * @property {Array<RealRouteValidationFailureSummary & { patterns: ValidationFailurePatternKey[], priorityScore: number }>} prioritizedFailures
+ * @property {Array<RealRouteValidationFailureSummary & {
+ *   patterns: ValidationFailurePatternKey[],
+ *   priorityScore: number,
+ *   failureClassification: import('./dispatcherConfidenceClassification.js').FailureClassification,
+ *   dispatcherConfidence: import('./dispatcherConfidenceClassification.js').DispatcherConfidence,
+ *   classificationReason: string,
+ * }>} prioritizedFailures
+ * @property {ReturnType<typeof summarizeDispatcherConfidence>} confidenceSummary
  */
 
 export const VALIDATION_FAILURE_PATTERN_LABELS = {
@@ -243,11 +254,21 @@ export function buildValidationFailurePatternReport(input) {
     const technicians = input.techniciansByExampleId?.[result.id] ?? [];
     const scoringResult = input.scoringByExampleId?.[result.id];
     const patterns = classifyRealRouteFailurePatterns(example, failure, technicians, scoringResult);
+    const confidence = classifyDispatcherConfidence(
+      example,
+      failure,
+      technicians,
+      scoringResult,
+      patterns,
+    );
     patternsByExampleId[result.id] = patterns;
     prioritizedFailures.push({
       ...failure,
       patterns,
       priorityScore: scoreFailurePriority(patterns, failure),
+      failureClassification: confidence.failureClassification,
+      dispatcherConfidence: confidence.dispatcherConfidence,
+      classificationReason: confidence.classificationReason,
     });
   }
 
@@ -276,6 +297,7 @@ export function buildValidationFailurePatternReport(input) {
     groups,
     patternsByExampleId,
     prioritizedFailures,
+    confidenceSummary: summarizeDispatcherConfidence(prioritizedFailures),
   };
 }
 
@@ -339,9 +361,28 @@ export function formatValidationFailurePatternReport(patternReport, summary) {
     lines.push(`  examples: ${group.exampleIds.join(', ')}`);
   }
 
+  const confidenceSummary = patternReport.confidenceSummary ?? summarizeDispatcherConfidence(
+    patternReport.prioritizedFailures,
+  );
+
+  lines.push(
+    '',
+    'Dispatcher confidence summary',
+    '---------------------------',
+    `high: ${confidenceSummary.high}`,
+    `medium: ${confidenceSummary.medium}`,
+    `low: ${confidenceSummary.low}`,
+    `true routing mistakes: ${confidenceSummary.byClassification.true_routing_mistake}`,
+    `neighboring-tech substitutions: ${confidenceSummary.byClassification.acceptable_neighboring_tech_substitution}`,
+    `route-day dependent: ${confidenceSummary.byClassification.route_day_dependent}`,
+  );
+
   lines.push('', 'Top 10 highest-priority failures (tune later, do not fix yet)', '--------------------------------------------------------------');
   for (const failure of patternReport.prioritizedFailures.slice(0, 10)) {
     lines.push(`- ${failure.id} [priority ${failure.priorityScore}]`);
+    lines.push(`  dispatcherConfidence: ${failure.dispatcherConfidence ?? '—'}`);
+    lines.push(`  failureClassification: ${failure.failureClassification ?? '—'}`);
+    lines.push(`  classificationReason: ${failure.classificationReason ?? '—'}`);
     lines.push(`  patterns: ${failure.patterns.map(key => VALIDATION_FAILURE_PATTERN_LABELS[key]).join('; ')}`);
     lines.push(`  expected: ${failure.expectedTechName} | actual #1: ${failure.actualTopTechName ?? '—'}`);
     lines.push(`  dispatcherReason: ${failure.dispatcherReason}`);

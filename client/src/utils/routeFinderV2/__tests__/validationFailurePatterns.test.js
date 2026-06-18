@@ -111,6 +111,10 @@ describe('validationFailurePatterns', () => {
       report.prioritizedFailures[0],
     ));
 
+    expect(report.prioritizedFailures[0].dispatcherConfidence).toBe('high');
+    expect(report.prioritizedFailures[0].failureClassification).toBe('true_routing_mistake');
+    expect(report.confidenceSummary.high).toBe(1);
+
     const text = formatValidationFailurePatternReport(report, {
       routeDate: '2026-06-18',
       fixturePassRate: 1,
@@ -121,6 +125,7 @@ describe('validationFailurePatterns', () => {
     });
 
     expect(text).toContain(VALIDATION_FAILURE_PATTERN_LABELS.wrong_region_beating_correct_region);
+    expect(text).toContain('Dispatcher confidence summary');
     expect(text).toContain('Top 10 highest-priority failures');
   });
 });
