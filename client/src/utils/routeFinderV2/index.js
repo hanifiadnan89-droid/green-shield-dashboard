@@ -198,6 +198,8 @@ export {
   extractClassifiedFailuresFromReport,
   findRepeatedHighConfidenceMistakes,
   formatMultiDateCalibrationReport,
+  normalizeCalibrationReportForSummary,
+  resolvePostSafetyGateRealRouteFailures,
   summarizeMultiDateCalibration,
 } from './summarizeMultiDateCalibration.js';
 

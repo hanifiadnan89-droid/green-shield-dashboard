@@ -7,6 +7,7 @@ import {
   FAILURE_CLASSIFICATION_LABELS,
   DISPATCHER_CONFIDENCE_LABELS,
 } from './dispatcherConfidenceClassification.js';
+import { collectRealRouteFailures } from './validationCalibrationDiagnostics.js';
 
 /**
  * @typedef {import('./runValidationCalibration.js').ValidationCalibrationReport} ValidationCalibrationReport
@@ -37,11 +38,59 @@ import {
  */
 
 /**
+ * Resolve true scoring failures from post-safety-gate real-route results.
+ * Top-level report.realRouteFailures can lag behind report.realRoute.results
+ * when summary safety gates reclassify examples after failure classification.
+ *
+ * @param {ValidationCalibrationReport} report
+ * @returns {import('./validationCalibrationDiagnostics.js').RealRouteValidationFailureSummary[]}
+ */
+export function resolvePostSafetyGateRealRouteFailures(report) {
+  const results = report.realRoute?.results;
+  if (!Array.isArray(results)) {
+    return report.realRouteFailures ?? [];
+  }
+
+  const applicableFailedResults = results.filter(
+    result => result.applicable && !result.passed,
+  );
+  const classifiedById = new Map(
+    (report.realRouteFailures ?? []).map(failure => [failure.id, failure]),
+  );
+
+  return collectRealRouteFailures(applicableFailedResults).map((failure) => {
+    const classified = classifiedById.get(failure.id);
+    return classified ? { ...classified, ...failure } : failure;
+  });
+}
+
+/**
+ * Normalize a calibration report so summary consumers use post-safety-gate
+ * real-route results for pass rates, skipped examples, and failure lists.
+ *
+ * @param {ValidationCalibrationReport} report
+ * @returns {ValidationCalibrationReport}
+ */
+export function normalizeCalibrationReportForSummary(report) {
+  const routeSummary = report.realRoute?.summary;
+  const realRouteFailures = resolvePostSafetyGateRealRouteFailures(report);
+
+  return {
+    ...report,
+    realRoutePassRate: routeSummary?.passRate ?? report.realRoutePassRate,
+    realRouteApplicableCount: routeSummary?.realRouteApplicableCount ?? report.realRouteApplicableCount,
+    realRouteSkippedCount: routeSummary?.realRouteSkippedCount ?? report.realRouteSkippedCount,
+    skippedExamples: routeSummary?.skippedExamples ?? report.skippedExamples ?? [],
+    realRouteFailures,
+  };
+}
+
+/**
  * @param {ValidationCalibrationReport} report
  * @returns {ClassifiedFailureRow[]}
  */
 export function extractClassifiedFailuresFromReport(report) {
-  return (report.realRouteFailures ?? []).map(failure => ({
+  return resolvePostSafetyGateRealRouteFailures(report).map(failure => ({
     id: failure.id,
     routeDate: failure.routeDate,
     expectedTechName: failure.expectedTechName,
@@ -92,8 +141,9 @@ export function findRepeatedHighConfidenceMistakes(rows) {
  * @returns {MultiDateCalibrationSummary}
  */
 export function summarizeMultiDateCalibration(reports = []) {
-  const routeDates = reports.map(report => report.routeDate).filter(Boolean);
-  const allFailures = reports.flatMap(extractClassifiedFailuresFromReport);
+  const normalizedReports = reports.map(normalizeCalibrationReportForSummary);
+  const routeDates = normalizedReports.map(report => report.routeDate).filter(Boolean);
+  const allFailures = normalizedReports.flatMap(extractClassifiedFailuresFromReport);
 
   const byConfidence = {
     high: allFailures.filter(row => row.dispatcherConfidence === 'high'),
@@ -158,7 +208,7 @@ export function summarizeMultiDateCalibration(reports = []) {
       scoringChanges,
       validationDatasetUpdates,
     },
-    perDateStats: reports.map(report => ({
+    perDateStats: normalizedReports.map(report => ({
       routeDate: report.routeDate,
       fixturePassRate: report.fixturePassRate,
       realRoutePassRate: report.realRoutePassRate,
