@@ -43,6 +43,9 @@ import {
   buildHighConfidenceFailureComparisonsWithRescore,
   formatHighConfidenceFailureComparisonReportFromComparisons,
 } from './buildHighConfidenceFailureComparisons.js';
+import {
+  applyCorridorOwnerNotScheduledSummarySafetyGate,
+} from './validationCalibrationSummarySafety.js';
 
 /**
  * @typedef {import('./validationRunner.js').ValidationSummary} ValidationSummary
@@ -242,7 +245,7 @@ export async function runValidationCalibration(options = {}) {
     scoreExample,
   });
 
-  const realRouteResults = [];
+  let realRouteResults = [];
   const techniciansByExampleId = {};
   const scoringByExampleId = {};
   let routeTechnicianCount = null;
@@ -286,6 +289,14 @@ export async function runValidationCalibration(options = {}) {
 
     realRouteResults.push(applyCalibrationApplicability(enriched, applicability));
   }
+
+  realRouteResults = await applyCorridorOwnerNotScheduledSummarySafetyGate({
+    realRouteResults,
+    examples,
+    techniciansByExampleId,
+    scoringByExampleId,
+    scoreExample,
+  });
 
   const realRouteSummary = summarizeRealRouteCalibrationResults(realRouteResults);
   const realRouteFailures = collectRealRouteFailures(

@@ -229,6 +229,14 @@ export {
 } from './validationCalibrationApplicability.js';
 
 export {
+  applyCorridorOwnerNotScheduledSummarySafetyGate,
+  hasCorridorOwnerNotScheduledComparisonDiagnostics,
+  isTerritoryDiagnosticNotScheduled,
+  reclassifyRealRouteResultAsCorridorOwnerNotScheduled,
+  shouldReclassifyFailureFromComparisonDiagnostics,
+} from './validationCalibrationSummarySafety.js';
+
+export {
   NH_APPROVED_TECHNICIAN_NAMES,
   NH_FORBIDDEN_TECHNICIAN_NAMES,
   NH_SUB_REGION_RULES,

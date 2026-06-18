@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterAll } from 'vitest';
+import * as applicabilityModule from '../validationCalibrationApplicability.js';
 import {
   buildRealRouteCandidateDiagnostic,
   collectRealRouteFailures,
@@ -311,5 +312,77 @@ describe('runValidationCalibration', () => {
         skipReason: 'expected_corridor_owner_not_scheduled',
       }),
     ]));
+  });
+
+  it('reclassifies windham via summary safety gate when post-score skip misses it', async () => {
+    vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
+
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    expect(windhamExample).toBeTruthy();
+
+    const technicians = [
+      {
+        techName: 'Paige Bullock',
+        routeId: 'R-2026-06-04-PB',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+      {
+        techName: 'Ian Pratt',
+        routeId: 'R-2026-06-04-IP',
+        stops: [{ address: '220 US Route 1, Scarborough, ME' }],
+      },
+    ];
+
+    const resolveSpy = vi.spyOn(applicabilityModule, 'resolvePostScoreCalibrationApplicability')
+      .mockImplementation((_example, preApplicability) => ({
+        ...preApplicability,
+        applicable: preApplicability.applicable,
+        skipReason: preApplicability.applicable ? null : preApplicability.skipReason,
+        skipLabel: preApplicability.applicable ? null : preApplicability.skipLabel,
+      }));
+
+    try {
+      const report = await runValidationCalibration({
+        routeDate: '2026-06-04',
+        examples: [windhamExample],
+        print: false,
+        loadRoutesForDate: async () => ({
+          date: '2026-06-04',
+          technicians,
+        }),
+        scoreExample: async () => ({
+          topMatches: [
+            makeMatch('Skyler Ruest', {
+              routeId: 'R-2026-06-04-SR',
+              adjustedTotal: 92,
+            }),
+            makeMatch('Ian Pratt', {
+              routeId: 'R-2026-06-04-IP',
+              adjustedTotal: 80,
+            }),
+          ],
+        }),
+      });
+
+      const windhamResult = report.realRoute.results.find(result => result.id === windhamExample.id);
+      expect(windhamResult).toBeTruthy();
+      expect(windhamResult.passed).toBe(false);
+      expect(windhamResult.applicable).toBe(false);
+      expect(windhamResult.skipReason).toBe('expected_corridor_owner_not_scheduled');
+      expect(windhamResult.actualTopTechName).toBe('Skyler Ruest');
+      expect(windhamResult.expectedTechName).toBe('Chris McGary');
+      expect(report.realRouteFailures).toHaveLength(0);
+      expect(report.skippedExamples).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: windhamExample.id,
+          skipReason: 'expected_corridor_owner_not_scheduled',
+        }),
+      ]));
+      expect(report.realRouteApplicableCount).toBe(0);
+      expect(report.realRouteSkippedCount).toBe(1);
+      expect(report.realRoutePassRate).toBe(0);
+    } finally {
+      resolveSpy.mockRestore();
+    }
   });
 });
