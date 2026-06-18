@@ -12,6 +12,7 @@ const EASE = [0.22, 1, 0.36, 1];
 export default function StepChooseTemplate({
   selectedLead,
   preselected,
+  fromIntake = false,
   highlightedTemplate,
   onHighlightTemplate,
   onChangeLead,
@@ -48,7 +49,7 @@ export default function StepChooseTemplate({
     >
       <SelectedLeadSummary
         lead={selectedLead}
-        preselected={preselected}
+        preselected={preselected || fromIntake}
         onChangeLead={onChangeLead}
       />
 

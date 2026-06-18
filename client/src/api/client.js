@@ -112,6 +112,21 @@ export const api = {
     status: () => request('/geocode/status'),
   },
 
+  intake: {
+    status: () => request('/intake/status'),
+    validateAddress: (body) => request('/intake/validate-address', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    geocode: (body) => request('/intake/geocode', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    weather: ({ date, lat, lng }) => request(
+      `/intake/weather?date=${encodeURIComponent(date)}&lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
+    ),
+  },
+
   routes: {
     payload:    (date) => request(`/routes/payload?date=${date}`),
     status:     () => request('/routes/status'),

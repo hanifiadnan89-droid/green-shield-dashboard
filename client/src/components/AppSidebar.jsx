@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Shield, Menu, X } from 'lucide-react';
 import { SIDEBAR_NAV } from './sidebarNav.js';
 import { prefetchRoute } from '../utils/routePrefetch.js';
+import { isIntakeEnabled } from '../utils/intake/intakeFeatureFlag.js';
 import './app-sidebar.css';
 
 function itemIsActive(item, activeFilter, pathname, leadsCategory) {
@@ -14,8 +15,18 @@ function itemIsActive(item, activeFilter, pathname, leadsCategory) {
     if (pathname === '/leads') return leadsCategory === item.filterKey;
     return false;
   }
+  if (item.type === 'link' && item.to === '/intake') {
+    return pathname === '/intake' || pathname.startsWith('/intake/');
+  }
   if (item.type === 'link') return pathname === item.to;
   return false;
+}
+
+function visibleSidebarNav() {
+  return SIDEBAR_NAV.filter((section) => {
+    if (section.feature === 'intake') return isIntakeEnabled();
+    return true;
+  });
 }
 
 function AppSidebar({
@@ -135,7 +146,7 @@ function AppSidebar({
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-          {SIDEBAR_NAV.map(({ group, items }) => (
+          {visibleSidebarNav().map(({ group, items }) => (
             <div key={group}>
               <p className="sidebar-group-label">{group}</p>
 
