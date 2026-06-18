@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validation:report": "vitest run src/utils/routeFinderV2/__tests__/runValidationReport.test.js -t \"full baseline validation report\"",
-    "validation:calibrate": "vitest run src/utils/routeFinderV2/__tests__/runValidationCalibration.test.js -t \"full calibration report\""
+    "validation:calibrate": "vitest run src/utils/routeFinderV2/__tests__/runValidationCalibrationReport.test.js -t \"real cached route calibration\""
   },
   "dependencies": {
     "@tanstack/react-table": "^8.21.3",

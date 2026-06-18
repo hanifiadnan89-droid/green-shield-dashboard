@@ -85,6 +85,58 @@ export async function loadNormalizedRoutesForDate(date) {
 }
 
 /**
+ * @typedef {Object} CachedRouteDateSummary
+ * @property {string} date
+ * @property {number} technicianCount
+ * @property {number} stopCount
+ * @property {string|null} source
+ */
+
+/**
+ * @param {NormalizedRoutePayload|null|undefined} payload
+ * @returns {{ technicianCount: number, stopCount: number, source: string|null }}
+ */
+export function summarizeNormalizedRoutePayload(payload) {
+  const technicians = payload?.technicians ?? [];
+  const stopCount = technicians.reduce((sum, tech) => sum + (tech?.stops?.length ?? 0), 0);
+  return {
+    technicianCount: technicians.length,
+    stopCount,
+    source: payload?.source ?? null,
+  };
+}
+
+/**
+ * @param {string[]|null|undefined} [preferredDates]
+ * @returns {Promise<CachedRouteDateSummary|null>}
+ */
+export async function findMostCompleteCachedRouteDate(preferredDates = null) {
+  const dates = preferredDates?.length
+    ? preferredDates
+    : await listCachedRouteDates();
+
+  let best = null;
+
+  for (const date of dates) {
+    const payload = await loadNormalizedRoutesFromDisk(date);
+    if (!payload?.technicians?.length) continue;
+
+    const summary = summarizeNormalizedRoutePayload(payload);
+    const candidate = { date, ...summary };
+
+    if (
+      !best
+      || candidate.stopCount > best.stopCount
+      || (candidate.stopCount === best.stopCount && candidate.technicianCount > best.technicianCount)
+    ) {
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+/**
  * @param {RouteFinderValidationExample} example
  * @param {string|null|undefined} routeDate
  * @returns {string}

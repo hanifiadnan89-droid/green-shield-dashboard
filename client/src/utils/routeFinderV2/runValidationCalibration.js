@@ -22,9 +22,14 @@ import {
 } from './validationCalibrationDiagnostics.js';
 import {
   createRouteLoader,
+  findMostCompleteCachedRouteDate,
   resolveCalibrationRouteDate,
 } from './realRouteCalibrationSource.js';
 import { scoreSingleDateV2 } from '../routeFinderScoringV2.js';
+import {
+  buildValidationFailurePatternReport,
+  formatValidationFailurePatternReport,
+} from './validationFailurePatterns.js';
 
 /**
  * @typedef {import('./validationRunner.js').ValidationSummary} ValidationSummary
@@ -42,6 +47,8 @@ import { scoreSingleDateV2 } from '../routeFinderScoringV2.js';
  * @property {RealRouteValidationFailureSummary[]} realRouteFailures
  * @property {{ summary: ValidationSummary, results: import('./validationRunner.js').ValidationRunResult[] }} fixture
  * @property {{ summary: ValidationSummary, results: RealRouteValidationRunResult[] }} realRoute
+ * @property {import('./validationFailurePatterns.js').ValidationFailurePatternReport|null} patternReport
+ * @property {string} patternReportText
  * @property {string} reportText
  */
 
@@ -188,6 +195,8 @@ export async function runValidationCalibration(options = {}) {
   });
 
   const realRouteResults = [];
+  const techniciansByExampleId = {};
+  const scoringByExampleId = {};
 
   for (const example of examples) {
     const resolvedRouteDate = resolveCalibrationRouteDate(example, routeDate);
@@ -196,6 +205,9 @@ export async function runValidationCalibration(options = {}) {
     const lead = buildLeadFromValidationExample(example);
     const scoringResult = await scoreExample(example, lead, technicians, topN);
     const baseResult = evaluateValidationExample(example, technicians, scoringResult);
+
+    techniciansByExampleId[example.id] = technicians;
+    scoringByExampleId[example.id] = scoringResult;
 
     realRouteResults.push(enrichRealRouteValidationResult(baseResult, {
       routeDate: resolvedRouteDate,
@@ -206,6 +218,18 @@ export async function runValidationCalibration(options = {}) {
 
   const realRouteSummary = summarizeValidationResults(realRouteResults);
   const realRouteFailures = collectRealRouteFailures(realRouteResults);
+  const patternReport = buildValidationFailurePatternReport({
+    examples,
+    results: realRouteResults,
+    techniciansByExampleId,
+    scoringByExampleId,
+  });
+  const patternReportText = formatValidationFailurePatternReport(patternReport, {
+    routeDate,
+    fixturePassRate: fixtureRun.summary.passRate,
+    realRoutePassRate: realRouteSummary.passRate,
+    totalRealRouteFailures: realRouteFailures.length,
+  });
 
   const report = {
     routeDate,
@@ -221,13 +245,17 @@ export async function runValidationCalibration(options = {}) {
       summary: realRouteSummary,
       results: realRouteResults,
     },
+    patternReport,
+    patternReportText,
     reportText: '',
   };
 
-  report.reportText = formatValidationCalibrationReport(report);
+  report.reportText = `${formatValidationCalibrationReport(report)}\n\n${patternReportText}`;
 
   if (options.print !== false) {
     printValidationCalibrationReport(report);
+    if (!isValidationReportAllowed()) return report;
+    console.log('\n' + patternReportText);
   }
 
   return report;

@@ -119,6 +119,8 @@ export {
   loadNormalizedRoutesForDate,
   loadNormalizedRoutesFromDisk,
   listCachedRouteDates,
+  findMostCompleteCachedRouteDate,
+  summarizeNormalizedRoutePayload,
   resolveCalibrationRouteDate,
   createRouteLoader,
   resolveNormalizedRouteCachePath,
@@ -132,6 +134,14 @@ export {
   buildRealRouteFailureSummary,
   extractDayMismatchWarnings,
 } from './validationCalibrationDiagnostics.js';
+
+export {
+  VALIDATION_FAILURE_PATTERN_LABELS,
+  classifyRealRouteFailurePatterns,
+  buildValidationFailurePatternReport,
+  formatValidationFailurePatternReport,
+  scoreFailurePriority,
+} from './validationFailurePatterns.js';
 
 export {
   NH_APPROVED_TECHNICIAN_NAMES,
