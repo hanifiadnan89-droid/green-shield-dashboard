@@ -5,6 +5,7 @@
 
 import { matchTechnicianProfile } from './technicianProfiles.js';
 import { inferRouteAreaFromAddress, resolveAcceptedRankMax } from './validationExamples.js';
+import { isViteDevRuntime } from './viteRuntimeEnv.js';
 
 /**
  * @typedef {import('./validationExamples.js').RouteFinderValidationExample} RouteFinderValidationExample
@@ -231,7 +232,7 @@ export function buildLeadFromValidationExample(example) {
  * @param {ValidationRunResult} result
  */
 export function printValidationResult(result) {
-  if (!import.meta.env.DEV) return;
+  if (!isViteDevRuntime()) return;
 
   const status = result.passed ? 'PASS' : 'FAIL';
   console.debug(`[RouteFinder V2 Validation] ${status} ${result.id}`, {
@@ -300,7 +301,7 @@ export function summarizeValidationResults(results = []) {
  * @param {ValidationRunResult[]|ValidationSummary} resultsOrSummary
  */
 export function printValidationSummary(resultsOrSummary) {
-  if (!import.meta.env.DEV) return;
+  if (!isViteDevRuntime()) return;
 
   const summary = Array.isArray(resultsOrSummary)
     ? summarizeValidationResults(resultsOrSummary)

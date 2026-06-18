@@ -16,6 +16,7 @@ import {
   NH_NON_APPROVED_TECHNICIAN_PENALTY,
   NH_ROUTE_DAY_MISMATCH_PENALTY,
 } from './nhRoutingRules.js';
+import { isViteDevRuntime } from './viteRuntimeEnv.js';
 
 /** @typedef {import('./technicianEligibility.js').V2ProfileMetadata} V2ProfileMetadata */
 
@@ -428,7 +429,7 @@ export function reorderMatchesByV2Score(matches) {
  * @param {Array<{ routeId?: string|number, techName?: string, scores?: { total?: number }, v2Score?: V2ScoreMetadata }>} afterMatches
  */
 export function logV2ScoreRankChanges(beforeMatches, afterMatches) {
-  if (!import.meta.env.DEV) return;
+  if (!isViteDevRuntime()) return;
 
   const oldRankByRouteId = new Map(
     beforeMatches.map((match, index) => [String(match.routeId), index + 1]),

@@ -15,6 +15,10 @@ import {
   enrichScoringResultWithV2Scores,
 } from './routeFinderV2/profileScoringModifiers.js';
 import { getV2ScorerConfigForLead } from './routeFinderV2/nhRoutingRules.js';
+import {
+  isViteDevRuntime,
+  isViteEnvFlagEnabled,
+} from './routeFinderV2/viteRuntimeEnv.js';
 
 /** @typedef {'v2-staged-delegate' | 'v2-direct-travel-ctx' | 'v2-haversine-only'} V2ScoringSource */
 
@@ -22,12 +26,11 @@ import { getV2ScorerConfigForLead } from './routeFinderV2/nhRoutingRules.js';
  * @returns {boolean} True when VITE_ROUTE_FINDER_V2_SCORING is enabled.
  */
 export function isRouteFinderV2ScoringEnabled() {
-  const raw = import.meta.env.VITE_ROUTE_FINDER_V2_SCORING;
-  return raw === 'true' || raw === '1';
+  return isViteEnvFlagEnabled('VITE_ROUTE_FINDER_V2_SCORING');
 }
 
 function logV2(message, detail) {
-  if (!import.meta.env.DEV) return;
+  if (!isViteDevRuntime()) return;
   if (detail !== undefined) {
     console.debug(`[RouteFinder V2] ${message}`, detail);
   } else {
@@ -89,7 +92,7 @@ async function runV2CoreScoring(technicians, lead, topN, options = {}) {
 export async function scoreSingleDateV2(technicians, lead, topN = 3, options = {}) {
   const techCount = technicians?.length ?? 0;
 
-  if (import.meta.env.DEV) {
+  if (isViteDevRuntime()) {
     console.debug('Route Finder V2 scoring enabled');
   }
   logV2('technicians scored', techCount);

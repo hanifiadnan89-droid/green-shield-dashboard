@@ -167,6 +167,13 @@ export {
 } from './summarizeMultiDateCalibration.js';
 
 export {
+  readViteEnv,
+  isViteDevRuntime,
+  isViteProdRuntime,
+  isViteEnvFlagEnabled,
+} from './viteRuntimeEnv.js';
+
+export {
   CALIBRATION_SKIP_REASON_LABELS,
   CALIBRATION_OUTCOME_LABELS,
   applyCalibrationApplicability,

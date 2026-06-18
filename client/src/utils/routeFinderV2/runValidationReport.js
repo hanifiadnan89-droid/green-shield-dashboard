@@ -11,6 +11,7 @@ import {
 } from './validationRunner.js';
 import { buildDeterministicTechniciansForExample } from './testFixtures/validationReportFixtures.js';
 import { scoreSingleDateV2 } from '../routeFinderScoringV2.js';
+import { isViteProdRuntime } from './viteRuntimeEnv.js';
 
 /**
  * @typedef {import('./validationRunner.js').ValidationRunResult} ValidationRunResult
@@ -21,7 +22,7 @@ import { scoreSingleDateV2 } from '../routeFinderScoringV2.js';
  * @returns {boolean}
  */
 export function isValidationReportAllowed() {
-  if (typeof import.meta !== 'undefined' && import.meta.env?.PROD) {
+  if (isViteProdRuntime()) {
     return false;
   }
   return true;
