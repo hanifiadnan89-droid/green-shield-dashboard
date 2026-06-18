@@ -5,7 +5,7 @@
 
 import { matchTechnicianProfile } from './technicianProfiles.js';
 import { resolveLeadServiceTypeKey } from './serviceDurations.js';
-import { getRegionRule } from './regionRules.js';
+import { getRegionRule, resolveServiceAreaGroupForTown } from './regionRules.js';
 import { getV2PenaltyConfig } from './scoringWeights.js';
 
 /** @typedef {'eligible' | 'warning' | 'disqualified'} V2EligibilityStatus */
@@ -52,11 +52,20 @@ export function evaluateServiceAreaMatch(profile, lead) {
   if (routeArea === 'general') return true;
 
   const haystack = areas.join(' ').toLowerCase();
+  const homeState = String(profile?.homeBase?.state ?? '').trim().toUpperCase();
+
   if (routeArea === 'maine') {
-    return haystack.includes('maine') || /\bme\b/.test(haystack);
+    if (homeState === 'ME') return true;
+    return areas.some(town => {
+      const group = resolveServiceAreaGroupForTown(town);
+      return group != null && group.key !== 'seacoast_nh';
+    });
   }
+
   if (routeArea === 'new_hampshire') {
-    return haystack.includes('hampshire') || /\bnh\b/.test(haystack);
+    if (homeState === 'NH') return true;
+    if (haystack.includes('hampshire') || haystack.includes('southern nh')) return true;
+    return areas.some(town => resolveServiceAreaGroupForTown(town)?.key === 'seacoast_nh');
   }
 
   const regionRule = getRegionRule(routeArea);

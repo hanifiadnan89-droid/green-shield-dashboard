@@ -11,6 +11,8 @@ export {
   getAllTechnicianProfiles,
 } from './technicianProfiles.js';
 
+export { technicians as ROUTE_FINDER_TECHNICIAN_ROSTER } from './technicianRosterSource.js';
+
 export {
   SERVICE_DURATION_RULES,
   getServiceDuration,

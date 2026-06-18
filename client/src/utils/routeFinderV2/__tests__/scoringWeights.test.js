@@ -34,7 +34,8 @@ function stripV2ProfileFields(result) {
 
 describe('routeFinderV2 config barrel', () => {
   it('imports all config modules successfully', () => {
-    expect(routeFinderV2Config.TECHNICIAN_PROFILES.length).toBeGreaterThan(0);
+    expect(routeFinderV2Config.TECHNICIAN_PROFILES).toHaveLength(20);
+    expect(routeFinderV2Config.ROUTE_FINDER_TECHNICIAN_ROSTER).toHaveLength(20);
     expect(routeFinderV2Config.SERVICE_DURATION_RULES.length).toBeGreaterThan(0);
     expect(routeFinderV2Config.TIME_WINDOW_RULES.ANYTIME).toBeDefined();
     expect(routeFinderV2Config.V2_SCORING_WEIGHTS).toBeDefined();
