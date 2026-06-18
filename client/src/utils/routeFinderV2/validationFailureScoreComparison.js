@@ -45,6 +45,7 @@ import { resolveProjectedStopCount } from './technicianEligibility.js';
  * @property {number} normalServiceAreaBonus
  * @property {number} backtrackingPenalty
  * @property {number} stopLoadPenalty
+ * @property {number} workloadPenalty
  * @property {number} stopCount
  * @property {string} eligibilityStatus
  * @property {Array<{ code: string, label: string, points: number }>} bonuses
@@ -137,6 +138,7 @@ export function buildTechnicianScoreSnapshot(match, rank, technicians = []) {
     normalServiceAreaBonus: sumModifierPoints(bonuses, NORMAL_SERVICE_AREA_BONUS_CODES),
     backtrackingPenalty: sumModifierPoints(penalties, BACKTRACKING_PENALTY_CODES),
     stopLoadPenalty: sumModifierPoints(penalties, STOP_LOAD_PENALTY_CODES),
+    workloadPenalty: Number(scores.workloadPenalty ?? 0),
     stopCount: Math.max(0, resolveProjectedStopCount(match, technicians) - 1),
     eligibilityStatus: diagnostic.eligibilityStatus,
     bonuses,
@@ -164,6 +166,7 @@ export function explainWhyWinnerBeatExpected(expected, winner) {
     { label: 'normal service area bonus', delta: winner.normalServiceAreaBonus - expected.normalServiceAreaBonus },
     { label: 'backtracking penalty', delta: expected.backtrackingPenalty - winner.backtrackingPenalty },
     { label: 'stop load penalty', delta: expected.stopLoadPenalty - winner.stopLoadPenalty },
+    { label: 'workload penalty', delta: expected.workloadPenalty - winner.workloadPenalty },
     { label: 'adjusted total', delta: winner.adjustedTotal - expected.adjustedTotal },
   ].filter(item => item.delta !== 0)
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
@@ -214,6 +217,43 @@ export function buildFailureScoreComparison(example, failure, technicians, scori
     winningTechName,
     dispatcherConfidence: failure.dispatcherConfidence ?? '—',
     failureClassification: failure.failureClassification ?? '—',
+    expected,
+    winner,
+    finalScoreDelta,
+    whyWinnerWon: explainWhyWinnerBeatExpected(expected, winner),
+  };
+}
+
+/**
+ * Compare dispatcher-confirmed expected vs winning technicians directly.
+ *
+ * @param {RouteFinderValidationExample} example
+ * @param {string} winningTechName
+ * @param {Array<{ routeId?: string|number, stops?: unknown[] }>} technicians
+ * @param {object|null|undefined} scoringResult
+ * @param {string} routeDate
+ * @returns {FailureScoreComparison}
+ */
+export function buildExplicitScoreComparison(
+  example,
+  winningTechName,
+  technicians,
+  scoringResult,
+  routeDate,
+) {
+  const expected = findTechnicianScoreSnapshot(scoringResult, example.expectedTechName, technicians);
+  const winner = findTechnicianScoreSnapshot(scoringResult, winningTechName, technicians);
+  const finalScoreDelta = expected && winner
+    ? winner.adjustedTotal - expected.adjustedTotal
+    : null;
+
+  return {
+    exampleId: example.id,
+    routeDate,
+    expectedTechName: example.expectedTechName,
+    winningTechName,
+    dispatcherConfidence: 'high',
+    failureClassification: 'true_routing_mistake',
     expected,
     winner,
     finalScoreDelta,
@@ -323,6 +363,7 @@ export function formatFailureScoreComparisonTable(comparisons = []) {
       ['normal service area bonus', row.expected?.normalServiceAreaBonus, row.winner?.normalServiceAreaBonus],
       ['backtracking penalty', row.expected?.backtrackingPenalty, row.winner?.backtrackingPenalty],
       ['stop load penalty', row.expected?.stopLoadPenalty, row.winner?.stopLoadPenalty],
+      ['workload penalty (base)', row.expected?.workloadPenalty, row.winner?.workloadPenalty],
       ['stop count', row.expected?.stopCount, row.winner?.stopCount],
       ['V2 rank', row.expected?.rank, row.winner?.rank],
     ];
