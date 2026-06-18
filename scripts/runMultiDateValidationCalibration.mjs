@@ -18,6 +18,12 @@ import {
   resolveNormalizedRouteCachePath,
 } from '../client/src/utils/routeFinderV2/realRouteCalibrationSource.js';
 import { summarizeMultiDateCalibration } from '../client/src/utils/routeFinderV2/summarizeMultiDateCalibration.js';
+import {
+  buildHighConfidenceFailureComparisonsWithRescore,
+  formatHighConfidenceFailureComparisonReportFromComparisons,
+} from '../client/src/utils/routeFinderV2/buildHighConfidenceFailureComparisons.js';
+import { getValidationExamples } from '../client/src/utils/routeFinderV2/validationExamples.js';
+import { scoreSingleDateV2 } from '../client/src/utils/routeFinderScoringV2.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = resolve(__dirname, '..');
@@ -84,4 +90,34 @@ for (const date of dates) {
 }
 
 const summary = summarizeMultiDateCalibration(reports);
+
+const highConfidenceFailures = reports.flatMap(report => (
+  report.realRouteFailures.filter(failure => failure.dispatcherConfidence === 'high')
+));
+const techniciansByExampleId = Object.assign(
+  {},
+  ...reports.map(report => report.techniciansByExampleId ?? {}),
+);
+
+async function scoreExample(example, lead, technicians, topN) {
+  const bundle = await scoreSingleDateV2(technicians, lead, topN, { prefetchTravel: false });
+  return bundle.result;
+}
+
+const highConfidenceComparisons = highConfidenceFailures.length
+  ? await buildHighConfidenceFailureComparisonsWithRescore({
+    failures: highConfidenceFailures,
+    examples: getValidationExamples(),
+    techniciansByExampleId,
+    scoreExample,
+  })
+  : [];
+
+const highConfidenceComparisonText = formatHighConfidenceFailureComparisonReportFromComparisons(
+  highConfidenceComparisons,
+);
+
 console.log(summary.reportText);
+if (highConfidenceComparisonText) {
+  console.log('\n' + highConfidenceComparisonText);
+}

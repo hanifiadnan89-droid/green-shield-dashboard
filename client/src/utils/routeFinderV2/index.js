@@ -174,6 +174,23 @@ export {
 } from './viteRuntimeEnv.js';
 
 export {
+  buildFailureScoreComparison,
+  buildHighConfidenceFailureComparisons,
+  buildTechnicianScoreSnapshot,
+  explainWhyWinnerBeatExpected,
+  findTechnicianScoreSnapshot,
+  formatFailureScoreComparisonTable,
+  formatHighConfidenceFailureComparisonReport,
+  scoreExampleForFailureComparison,
+  sumModifierPoints,
+} from './validationFailureScoreComparison.js';
+
+export {
+  buildHighConfidenceFailureComparisonsWithRescore,
+  formatHighConfidenceFailureComparisonReportFromComparisons,
+} from './buildHighConfidenceFailureComparisons.js';
+
+export {
   CALIBRATION_SKIP_REASON_LABELS,
   CALIBRATION_OUTCOME_LABELS,
   applyCalibrationApplicability,

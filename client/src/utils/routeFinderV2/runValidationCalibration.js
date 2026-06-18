@@ -37,6 +37,10 @@ import {
 import {
   classifyDispatcherConfidence,
 } from './dispatcherConfidenceClassification.js';
+import {
+  buildHighConfidenceFailureComparisonsWithRescore,
+  formatHighConfidenceFailureComparisonReportFromComparisons,
+} from './buildHighConfidenceFailureComparisons.js';
 
 /**
  * @typedef {import('./validationRunner.js').ValidationSummary} ValidationSummary
@@ -59,6 +63,9 @@ import {
  * @property {{ summary: import('./validationCalibrationApplicability.js').RealRouteCalibrationSummary, results: import('./validationCalibrationApplicability.js').RealRouteCalibrationResult[] }} realRoute
  * @property {import('./validationFailurePatterns.js').ValidationFailurePatternReport|null} patternReport
  * @property {string} patternReportText
+ * @property {import('./validationFailureScoreComparison.js').FailureScoreComparison[]} highConfidenceScoreComparisons
+ * @property {string} highConfidenceScoreComparisonText
+ * @property {Record<string, Array<{ techName?: string, stops?: unknown[] }>>} techniciansByExampleId
  * @property {number|null} routeTechnicianCount
  * @property {string} reportText
  */
@@ -309,6 +316,21 @@ export async function runValidationCalibration(options = {}) {
     totalRealRouteFailures: realRouteFailures.length,
   });
 
+  const highConfidenceFailures = realRouteFailures.filter(
+    failure => failure.dispatcherConfidence === 'high',
+  );
+  const highConfidenceScoreComparisons = highConfidenceFailures.length
+    ? await buildHighConfidenceFailureComparisonsWithRescore({
+      failures: highConfidenceFailures,
+      examples,
+      techniciansByExampleId,
+      scoreExample,
+    })
+    : [];
+  const highConfidenceScoreComparisonText = formatHighConfidenceFailureComparisonReportFromComparisons(
+    highConfidenceScoreComparisons,
+  );
+
   const report = {
     routeDate,
     routeTechnicianCount,
@@ -329,15 +351,25 @@ export async function runValidationCalibration(options = {}) {
     },
     patternReport,
     patternReportText,
+    highConfidenceScoreComparisons,
+    highConfidenceScoreComparisonText,
+    techniciansByExampleId,
     reportText: '',
   };
 
-  report.reportText = `${formatValidationCalibrationReport(report)}\n\n${patternReportText}`;
+  report.reportText = [
+    formatValidationCalibrationReport(report),
+    patternReportText,
+    highConfidenceScoreComparisonText,
+  ].filter(Boolean).join('\n\n');
 
   if (options.print !== false) {
     printValidationCalibrationReport(report);
     if (!isValidationReportAllowed()) return report;
     console.log('\n' + patternReportText);
+    if (highConfidenceScoreComparisonText) {
+      console.log('\n' + highConfidenceScoreComparisonText);
+    }
   }
 
   return report;
