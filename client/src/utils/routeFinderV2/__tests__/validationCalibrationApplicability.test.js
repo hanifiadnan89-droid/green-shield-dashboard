@@ -6,6 +6,7 @@ import {
   isTechnicianScheduledOnRoute,
   isTerritoryRepresentedInCache,
   profileCoversLeadTown,
+  resolvePostScoreCalibrationApplicability,
   shouldSkipExpectedCorridorOwnerNotScheduled,
   summarizeRealRouteCalibrationResults,
 } from '../validationCalibrationApplicability.js';
@@ -206,5 +207,68 @@ describe('validationCalibrationApplicability', () => {
 
     expect(applicability.applicable).toBe(true);
     expect(applicability.skipReason).toBeNull();
+  });
+
+  it('treats a winner as unscheduled when topMatch routeId is not on the route cache', () => {
+    const technicians = [
+      {
+        techName: 'Ian Pratt',
+        routeId: 'R-2026-06-04-IP',
+        stops: [{ address: '220 US Route 1, Scarborough, ME' }],
+      },
+      {
+        techName: 'Paige Bullock',
+        routeId: 'R-2026-06-04-PB',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+    ];
+    const topMatch = {
+      techName: 'Skyler Ruest',
+      routeId: 'R-2026-06-04-SR',
+    };
+
+    expect(isTechnicianScheduledOnRoute(technicians, 'Skyler Ruest', topMatch)).toBe(false);
+    expect(isTechnicianScheduledOnRoute(technicians, 'Skyler Ruest')).toBe(false);
+  });
+
+  it('resolvePostScoreCalibrationApplicability skips corridor owners after scoring', () => {
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    const technicians = [
+      {
+        techName: 'Paige Bullock',
+        routeId: 'R-2026-06-04-PB',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+      {
+        techName: 'Ian Pratt',
+        routeId: 'R-2026-06-04-IP',
+        stops: [{ address: '220 US Route 1, Scarborough, ME' }],
+      },
+    ];
+    const lead = buildLeadFromValidationExample(windhamExample);
+    const preApplicability = evaluateCalibrationApplicability(windhamExample, {
+      technicians,
+      lead,
+      selectedRouteDate: '2026-06-04',
+    });
+    const topMatch = {
+      techName: 'Skyler Ruest',
+      routeId: 'R-2026-06-04-SR',
+    };
+
+    expect(preApplicability.applicable).toBe(true);
+
+    const applicability = resolvePostScoreCalibrationApplicability(
+      windhamExample,
+      preApplicability,
+      technicians,
+      lead,
+      '2026-06-04',
+      'Skyler Ruest',
+      topMatch,
+    );
+
+    expect(applicability.applicable).toBe(false);
+    expect(applicability.skipReason).toBe('expected_corridor_owner_not_scheduled');
   });
 });

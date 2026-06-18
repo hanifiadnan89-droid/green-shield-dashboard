@@ -145,13 +145,29 @@ export function isAcceptableTechScheduled(technicians, example) {
 }
 
 /**
- * @param {Array<{ techName?: string }>|null|undefined} technicians
+ * @param {Array<{ techName?: string, name?: string, routeId?: string|number }>|null|undefined} technicians
  * @param {string|null|undefined} techName
+ * @param {{ routeId?: string|number, techName?: string }|null|undefined} [match]
  * @returns {boolean}
  */
-export function isTechnicianScheduledOnRoute(technicians, techName) {
-  if (!techName || !technicians?.length) return false;
-  return technicians.some(tech => techNamesEquivalent(tech.techName, techName));
+export function isTechnicianScheduledOnRoute(technicians, techName, match = null) {
+  if (!technicians?.length || !techName) return false;
+
+  const canonical = resolveCanonicalTechName(techName);
+
+  if (match?.routeId != null) {
+    const linkedTech = technicians.find(
+      tech => String(tech.routeId) === String(match.routeId),
+    );
+    if (!linkedTech) return false;
+    const linkedName = linkedTech.techName ?? linkedTech.name ?? null;
+    return linkedName ? techNamesEquivalent(linkedName, canonical) : false;
+  }
+
+  return technicians.some((tech) => {
+    const routeTechName = tech?.techName ?? tech?.name ?? null;
+    return routeTechName ? techNamesEquivalent(routeTechName, canonical) : false;
+  });
 }
 
 /**
@@ -159,16 +175,19 @@ export function isTechnicianScheduledOnRoute(technicians, techName) {
  * cache for the selected date, the example is not a valid routing evaluation.
  *
  * @param {RouteFinderValidationExample} example
- * @param {Array<{ techName?: string }>|null|undefined} technicians
+ * @param {Array<{ techName?: string, name?: string, routeId?: string|number }>|null|undefined} technicians
  * @param {string|null|undefined} actualTopTechName
+ * @param {{ routeId?: string|number, techName?: string }|null|undefined} [topMatch]
  * @returns {boolean}
  */
 export function shouldSkipExpectedCorridorOwnerNotScheduled(
   example,
   technicians,
   actualTopTechName,
+  topMatch = null,
 ) {
-  if (!actualTopTechName) return false;
+  const winningTechName = actualTopTechName ?? topMatch?.techName ?? null;
+  if (!winningTechName) return false;
 
   const expectedScheduled = isTechnicianScheduledOnRoute(
     technicians,
@@ -176,10 +195,69 @@ export function shouldSkipExpectedCorridorOwnerNotScheduled(
   );
   const winnerScheduled = isTechnicianScheduledOnRoute(
     technicians,
-    actualTopTechName,
+    winningTechName,
+    topMatch,
   );
 
   return !expectedScheduled && !winnerScheduled;
+}
+
+/**
+ * @param {CalibrationApplicabilityResult} preApplicability
+ * @returns {CalibrationApplicabilityResult}
+ */
+export function buildExpectedCorridorOwnerNotScheduledApplicability(preApplicability) {
+  return {
+    applicable: false,
+    skipReason: 'expected_corridor_owner_not_scheduled',
+    skipLabel: CALIBRATION_SKIP_REASON_LABELS.expected_corridor_owner_not_scheduled,
+    territoryRepresented: preApplicability.territoryRepresented,
+    acceptableTechScheduled: preApplicability.acceptableTechScheduled,
+    routeDateMismatch: preApplicability.routeDateMismatch,
+  };
+}
+
+/**
+ * Resolve final applicability after scoring when the observed winner is known.
+ *
+ * @param {RouteFinderValidationExample} example
+ * @param {CalibrationApplicabilityResult} preApplicability
+ * @param {Array<{ techName?: string, name?: string, routeId?: string|number }>} technicians
+ * @param {object} lead
+ * @param {string|null|undefined} selectedRouteDate
+ * @param {string|null|undefined} actualTopTechName
+ * @param {{ routeId?: string|number, techName?: string }|null|undefined} [topMatch]
+ * @returns {CalibrationApplicabilityResult}
+ */
+export function resolvePostScoreCalibrationApplicability(
+  example,
+  preApplicability,
+  technicians,
+  lead,
+  selectedRouteDate,
+  actualTopTechName,
+  topMatch = null,
+) {
+  if (!preApplicability.applicable) {
+    return preApplicability;
+  }
+
+  if (shouldSkipExpectedCorridorOwnerNotScheduled(
+    example,
+    technicians,
+    actualTopTechName,
+    topMatch,
+  )) {
+    return buildExpectedCorridorOwnerNotScheduledApplicability(preApplicability);
+  }
+
+  return evaluateCalibrationApplicability(example, {
+    technicians,
+    lead,
+    selectedRouteDate,
+    actualTopTechName,
+    topMatch,
+  });
 }
 
 /**
@@ -216,6 +294,7 @@ export function hasCalibrationRouteDateMismatch(example, selectedRouteDate, lead
  *   lead?: object,
  *   selectedRouteDate?: string|null,
  *   actualTopTechName?: string|null,
+ *   topMatch?: { routeId?: string|number, techName?: string }|null,
  * }} context
  * @returns {CalibrationApplicabilityResult}
  */
@@ -224,6 +303,7 @@ export function evaluateCalibrationApplicability(example, context = {}) {
   const technicians = context.technicians ?? [];
   const selectedRouteDate = context.selectedRouteDate ?? null;
   const actualTopTechName = context.actualTopTechName ?? null;
+  const topMatch = context.topMatch ?? null;
 
   const territoryRepresented = isTerritoryRepresentedInCache(technicians, lead);
   const acceptableTechScheduled = isAcceptableTechScheduled(technicians, example);
@@ -262,7 +342,12 @@ export function evaluateCalibrationApplicability(example, context = {}) {
     };
   }
 
-  if (shouldSkipExpectedCorridorOwnerNotScheduled(example, technicians, actualTopTechName)) {
+  if (shouldSkipExpectedCorridorOwnerNotScheduled(
+    example,
+    technicians,
+    actualTopTechName,
+    topMatch,
+  )) {
     return {
       applicable: false,
       skipReason: 'expected_corridor_owner_not_scheduled',

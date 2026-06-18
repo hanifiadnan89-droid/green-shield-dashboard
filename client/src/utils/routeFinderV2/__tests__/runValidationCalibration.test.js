@@ -15,7 +15,7 @@ import {
   resolveCalibrationRouteDate,
 } from '../realRouteCalibrationSource.js';
 import { loadMockRealRoutesForDate } from '../testFixtures/realRouteCalibration.fixture.js';
-import { getValidationExamples } from '../validationExamples.js';
+import { getValidationExampleById, getValidationExamples } from '../validationExamples.js';
 import { formatValidationPassRate } from '../runValidationReport.js';
 import { assertValidationReportDevOnly, isValidationReportAllowed } from '../runValidationReport.js';
 
@@ -256,4 +256,60 @@ describe('runValidationCalibration', () => {
 
     console.log('\n' + report.reportText);
   }, 180000);
+
+  it('skips windham when expected Chris and winner Skyler are both absent from route cache', async () => {
+    vi.stubEnv('VITE_ROUTE_FINDER_V2_SCORING', 'true');
+
+    const windhamExample = getValidationExampleById('windham-general-example-024');
+    expect(windhamExample).toBeTruthy();
+
+    const technicians = [
+      {
+        techName: 'Paige Bullock',
+        routeId: 'R-2026-06-04-PB',
+        stops: [{ address: '100 Main St, Westbrook, ME' }],
+      },
+      {
+        techName: 'Ian Pratt',
+        routeId: 'R-2026-06-04-IP',
+        stops: [{ address: '220 US Route 1, Scarborough, ME' }],
+      },
+    ];
+
+    const report = await runValidationCalibration({
+      routeDate: '2026-06-04',
+      examples: [windhamExample],
+      print: false,
+      loadRoutesForDate: async () => ({
+        date: '2026-06-04',
+        technicians,
+      }),
+      scoreExample: async (example, lead, routeTechnicians, topN) => ({
+        topMatches: [
+          makeMatch('Skyler Ruest', {
+            routeId: 'R-2026-06-04-SR',
+            adjustedTotal: 92,
+          }),
+          makeMatch('Paige Bullock', {
+            routeId: 'R-2026-06-04-PB',
+            adjustedTotal: 80,
+          }),
+        ],
+      }),
+    });
+
+    const windhamResult = report.realRoute.results.find(result => result.id === windhamExample.id);
+    expect(windhamResult).toBeTruthy();
+    expect(windhamResult.applicable).toBe(false);
+    expect(windhamResult.skipReason).toBe('expected_corridor_owner_not_scheduled');
+    expect(windhamResult.actualTopTechName).toBe('Skyler Ruest');
+    expect(windhamResult.expectedTechName).toBe('Chris McGary');
+    expect(report.realRouteFailures).toHaveLength(0);
+    expect(report.skippedExamples).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: windhamExample.id,
+        skipReason: 'expected_corridor_owner_not_scheduled',
+      }),
+    ]));
+  });
 });

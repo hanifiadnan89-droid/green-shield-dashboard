@@ -7,6 +7,7 @@ import { getValidationExamples } from './validationExamples.js';
 import {
   buildLeadFromValidationExample,
   evaluateValidationExample,
+  resolveScoringTopMatches,
 } from './validationRunner.js';
 import { buildDeterministicTechniciansForExample } from './testFixtures/validationReportFixtures.js';
 import {
@@ -22,6 +23,7 @@ import {
 import {
   applyCalibrationApplicability,
   evaluateCalibrationApplicability,
+  resolvePostScoreCalibrationApplicability,
   summarizeRealRouteCalibrationResults,
 } from './validationCalibrationApplicability.js';
 import {
@@ -260,6 +262,8 @@ export async function runValidationCalibration(options = {}) {
     });
     const scoringResult = await scoreExample(example, lead, technicians, topN);
     const baseResult = evaluateValidationExample(example, technicians, scoringResult);
+    const topMatch = resolveScoringTopMatches(scoringResult)[0] ?? null;
+    const actualTopTechName = baseResult.actualTopTechName ?? topMatch?.techName ?? null;
 
     techniciansByExampleId[example.id] = technicians;
     scoringByExampleId[example.id] = scoringResult;
@@ -270,14 +274,15 @@ export async function runValidationCalibration(options = {}) {
       scoringResult,
     });
 
-    const applicability = preApplicability.applicable
-      ? evaluateCalibrationApplicability(example, {
-        technicians,
-        lead,
-        selectedRouteDate: routeDate ?? resolvedRouteDate,
-        actualTopTechName: baseResult.actualTopTechName,
-      })
-      : preApplicability;
+    const applicability = resolvePostScoreCalibrationApplicability(
+      example,
+      preApplicability,
+      technicians,
+      lead,
+      routeDate ?? resolvedRouteDate,
+      actualTopTechName,
+      topMatch,
+    );
 
     realRouteResults.push(applyCalibrationApplicability(enriched, applicability));
   }
