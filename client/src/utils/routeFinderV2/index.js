@@ -121,12 +121,16 @@ export {
   listCachedRouteDates,
   findMostCompleteCachedRouteDate,
   resolveCalibrationRouteDateForRun,
+  resolveRequestedCalibrationRouteDate,
+  parseCalibrationRouteDateFromArgv,
+  isValidCalibrationRouteDate,
   pickCalibrationRouteDateFromList,
   summarizeNormalizedRoutePayload,
   resolveCalibrationRouteDate,
   createRouteLoader,
   resolveNormalizedRouteCachePath,
   DEFAULT_CALIBRATION_ROUTE_DATE,
+  CALIBRATION_ROUTE_DATE_ENV,
 } from './realRouteCalibrationSource.js';
 
 export {

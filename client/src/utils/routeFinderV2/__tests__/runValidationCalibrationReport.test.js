@@ -19,10 +19,17 @@ describe('runValidationCalibrationReport', () => {
       return;
     }
 
+    if (process.env.ROUTE_DATE) {
+      expect(selected.date).toBe(process.env.ROUTE_DATE);
+      expect(selected.selection).toBe('requested');
+    }
+
     const report = await runValidationCalibration({
       routeDate: selected.date,
       print: false,
     });
+
+    expect(report.routeDate).toBe(selected.date);
 
     expect(report.fixture.summary.totalExamples).toBe(54);
     expect(report.fixturePassRate).toBe(1);

@@ -107,6 +107,124 @@ export function summarizeNormalizedRoutePayload(payload) {
 }
 
 export const DEFAULT_CALIBRATION_ROUTE_DATE = '2026-06-18';
+export const CALIBRATION_ROUTE_DATE_ENV = 'ROUTE_DATE';
+
+const ROUTE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * @param {string|null|undefined} date
+ * @returns {boolean}
+ */
+export function isValidCalibrationRouteDate(date) {
+  return ROUTE_DATE_PATTERN.test(String(date ?? '').trim());
+}
+
+/**
+ * @param {string[]|null|undefined} [argv]
+ * @returns {string|null}
+ */
+export function parseCalibrationRouteDateFromArgv(argv = []) {
+  const args = Array.isArray(argv) ? argv : [];
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = String(args[i]);
+    if (arg.startsWith('--routeDate=')) {
+      return arg.slice('--routeDate='.length).trim() || null;
+    }
+    if (arg === '--routeDate' && args[i + 1]) {
+      return String(args[i + 1]).trim() || null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * @param {{
+ *   routeDate?: string|null,
+ *   preferredDate?: string|null,
+ *   routeDateFromArgv?: string|null,
+ *   argv?: string[],
+ * }} [options]
+ * @returns {string|null}
+ */
+export function resolveRequestedCalibrationRouteDate(options = {}) {
+  const fromArgv = options.routeDateFromArgv
+    ?? parseCalibrationRouteDateFromArgv(options.argv);
+  const fromEnv = typeof process !== 'undefined'
+    ? String(process.env[CALIBRATION_ROUTE_DATE_ENV] ?? '').trim() || null
+    : null;
+  const fromOptions = String(options.routeDate ?? options.preferredDate ?? '').trim() || null;
+
+  return fromOptions || fromArgv || fromEnv || null;
+}
+
+/**
+ * @param {string} date
+ * @returns {Promise<never>}
+ */
+async function throwMissingCalibrationRouteFile(date) {
+  throw new Error(`data/routes/${date}.normalized.json not found`);
+}
+
+/**
+ * Explicit route date: options.routeDate, --routeDate argv, or ROUTE_DATE env.
+ * Otherwise prefer DEFAULT_CALIBRATION_ROUTE_DATE, then latest_available.
+ *
+ * @param {{
+ *   routeDate?: string,
+ *   preferredDate?: string,
+ *   routeDateFromArgv?: string|null,
+ *   argv?: string[],
+ *   loadNormalizedRoutes?: (date: string) => Promise<NormalizedRoutePayload|null>,
+ *   listCachedRouteDates?: () => Promise<string[]>,
+ * }} [options]
+ * @returns {Promise<(CachedRouteDateSummary & { selection: 'requested'|'preferred'|'latest_available' })|null>}
+ */
+export async function resolveCalibrationRouteDateForRun(options = {}) {
+  const loadNormalizedRoutes = options.loadNormalizedRoutes ?? loadNormalizedRoutesFromDisk;
+  const listRouteDates = options.listCachedRouteDates ?? listCachedRouteDates;
+  const requestedDate = resolveRequestedCalibrationRouteDate(options);
+
+  if (requestedDate) {
+    if (!isValidCalibrationRouteDate(requestedDate)) {
+      throw new Error(`Invalid ROUTE_DATE "${requestedDate}" — expected YYYY-MM-DD`);
+    }
+
+    const requestedPayload = await loadNormalizedRoutes(requestedDate);
+    if (!requestedPayload?.technicians?.length) {
+      await throwMissingCalibrationRouteFile(requestedDate);
+    }
+
+    return {
+      date: requestedDate,
+      ...summarizeNormalizedRoutePayload(requestedPayload),
+      selection: 'requested',
+    };
+  }
+
+  const preferredPayload = await loadNormalizedRoutes(DEFAULT_CALIBRATION_ROUTE_DATE);
+  if (preferredPayload?.technicians?.length) {
+    return {
+      date: DEFAULT_CALIBRATION_ROUTE_DATE,
+      ...summarizeNormalizedRoutePayload(preferredPayload),
+      selection: 'preferred',
+    };
+  }
+
+  const dates = await listRouteDates();
+  const latestDate = pickCalibrationRouteDateFromList(dates, DEFAULT_CALIBRATION_ROUTE_DATE);
+  if (!latestDate || latestDate === DEFAULT_CALIBRATION_ROUTE_DATE) return null;
+
+  const latestPayload = await loadNormalizedRoutes(latestDate);
+  if (!latestPayload?.technicians?.length) return null;
+
+  return {
+    date: latestDate,
+    ...summarizeNormalizedRoutePayload(latestPayload),
+    selection: 'latest_available',
+  };
+}
 
 /**
  * @param {string[]} dates - YYYY-MM-DD strings
@@ -121,39 +239,6 @@ export function pickCalibrationRouteDateFromList(
   if (sorted.includes(preferredDate)) return preferredDate;
   if (!sorted.length) return null;
   return sorted[sorted.length - 1];
-}
-
-/**
- * Prefer DEFAULT_CALIBRATION_ROUTE_DATE when cached; otherwise use the latest
- * available *.normalized.json date under data/routes/.
- *
- * @param {{ preferredDate?: string }} [options]
- * @returns {Promise<(CachedRouteDateSummary & { selection: 'preferred'|'latest_available' })|null>}
- */
-export async function resolveCalibrationRouteDateForRun(options = {}) {
-  const preferredDate = options.preferredDate ?? DEFAULT_CALIBRATION_ROUTE_DATE;
-  const preferredPayload = await loadNormalizedRoutesFromDisk(preferredDate);
-
-  if (preferredPayload?.technicians?.length) {
-    return {
-      date: preferredDate,
-      ...summarizeNormalizedRoutePayload(preferredPayload),
-      selection: 'preferred',
-    };
-  }
-
-  const dates = await listCachedRouteDates();
-  const latestDate = pickCalibrationRouteDateFromList(dates, preferredDate);
-  if (!latestDate || latestDate === preferredDate) return null;
-
-  const latestPayload = await loadNormalizedRoutesFromDisk(latestDate);
-  if (!latestPayload?.technicians?.length) return null;
-
-  return {
-    date: latestDate,
-    ...summarizeNormalizedRoutePayload(latestPayload),
-    selection: 'latest_available',
-  };
 }
 
 /**
