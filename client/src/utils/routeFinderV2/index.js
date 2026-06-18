@@ -110,6 +110,30 @@ export {
 } from './runValidationReport.js';
 
 export {
+  runValidationCalibration,
+  formatValidationCalibrationReport,
+  printValidationCalibrationReport,
+} from './runValidationCalibration.js';
+
+export {
+  loadNormalizedRoutesForDate,
+  loadNormalizedRoutesFromDisk,
+  listCachedRouteDates,
+  resolveCalibrationRouteDate,
+  createRouteLoader,
+  resolveNormalizedRouteCachePath,
+} from './realRouteCalibrationSource.js';
+
+export {
+  enrichRealRouteValidationResult,
+  buildRealRouteCandidateDiagnostic,
+  buildRealRouteTopCandidates,
+  collectRealRouteFailures,
+  buildRealRouteFailureSummary,
+  extractDayMismatchWarnings,
+} from './validationCalibrationDiagnostics.js';
+
+export {
   NH_APPROVED_TECHNICIAN_NAMES,
   NH_FORBIDDEN_TECHNICIAN_NAMES,
   NH_SUB_REGION_RULES,
