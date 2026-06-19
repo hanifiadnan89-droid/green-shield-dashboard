@@ -86,17 +86,22 @@ export default function IntakePropertyPage() {
       lng: customer.longitude,
     })
       .then(({ weather: data }) => {
-        if (!cancelled) setWeather(data);
+        if (!cancelled && data) setWeather(data);
       })
       .catch((err) => {
-        if (!cancelled) setWeatherError(err.message);
+        if (cancelled) return;
+        if (err.httpStatus === 304) {
+          setWeather((prev) => prev || session.property?.weather || null);
+          return;
+        }
+        setWeatherError(err.message);
       })
       .finally(() => {
         if (!cancelled) setWeatherLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [customer?.latitude, customer?.longitude, weatherDate]);
+  }, [customer?.latitude, customer?.longitude, weatherDate, session.property?.weather]);
 
   if (!customer) return null;
 
