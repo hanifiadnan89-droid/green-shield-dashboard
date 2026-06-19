@@ -7,17 +7,27 @@ describe('contentSecurityPolicy', () => {
 
     expect(d['script-src']).toContain('https://maps.googleapis.com');
     expect(d['script-src']).toContain('https://maps.gstatic.com');
+    expect(d['script-src']).toContain('https://*.googleapis.com');
+    expect(d['script-src']).toContain('https://*.gstatic.com');
 
     expect(d['connect-src']).toContain('https://maps.googleapis.com');
     expect(d['connect-src']).toContain('https://maps.gstatic.com');
+    expect(d['connect-src']).toContain('https://places.googleapis.com');
     expect(d['connect-src']).toContain('https://weather.googleapis.com');
     expect(d['connect-src']).toContain('https://addressvalidation.googleapis.com');
 
     expect(d['img-src']).toContain('https://maps.googleapis.com');
     expect(d['img-src']).toContain('https://maps.gstatic.com');
+    expect(d['img-src']).toContain('https://*.googleapis.com');
+    expect(d['img-src']).toContain('https://*.gstatic.com');
     expect(d['img-src']).toContain('https://*.googleusercontent.com');
     expect(d['img-src']).toContain('https://gshieldpest.com');
     expect(d['img-src']).toContain('https://www.gshieldpest.com');
+
+    expect(d['frame-src']).toContain('https://maps.googleapis.com');
+    expect(d['frame-src']).toContain('https://maps.gstatic.com');
+    expect(d['frame-src']).toContain('https://*.googleapis.com');
+    expect(d['frame-src']).toContain('https://*.gstatic.com');
 
     expect(d['worker-src']).toContain('blob:');
   });
