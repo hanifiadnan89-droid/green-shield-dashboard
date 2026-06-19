@@ -23,7 +23,6 @@ function removeScriptTag() {
 function mapsReady() {
   return Boolean(
     window.google?.maps?.Map
-    && window.google?.maps?.places?.Autocomplete
     && window.google?.maps?.drawing?.DrawingManager
     && window.google?.maps?.geometry?.spherical,
   );
