@@ -108,7 +108,7 @@ export function useIntakeGoogleMapsLoader() {
     if (!getApiKey()) {
       return { status: 'no_key', errorCode: 'no_key', errorDetail: '' };
     }
-    if (window.google?.maps?.Map) {
+    if (mapsReady()) {
       return { status: 'ready', errorCode: null, errorDetail: '' };
     }
     return { status: 'loading', errorCode: null, errorDetail: '' };
@@ -117,6 +117,11 @@ export function useIntakeGoogleMapsLoader() {
   useEffect(() => {
     if (!getApiKey()) {
       setState({ status: 'no_key', errorCode: 'no_key', errorDetail: '' });
+      return;
+    }
+
+    if (mapsReady()) {
+      setState({ status: 'ready', errorCode: null, errorDetail: '' });
       return;
     }
 
