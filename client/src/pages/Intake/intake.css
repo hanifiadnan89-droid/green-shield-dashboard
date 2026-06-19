@@ -130,6 +130,24 @@
   @apply text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2;
 }
 
+.intake-address-autocomplete-host {
+  @apply w-full;
+}
+
+.intake-address-autocomplete-host gmp-place-autocomplete,
+.intake-address-autocomplete-host .intake-place-autocomplete {
+  display: block;
+  width: 100%;
+  color-scheme: light;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 0.75rem;
+}
+
+.intake-address-autocomplete-host--disabled {
+  @apply opacity-60 pointer-events-none;
+}
+
 .intake-pac-container {
   z-index: 10000;
 }
