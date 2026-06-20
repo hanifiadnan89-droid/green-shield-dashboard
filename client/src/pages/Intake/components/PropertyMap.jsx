@@ -467,7 +467,7 @@ export default function PropertyMap({
       const maps = window.google?.maps;
       const verts = draftVerticesRef.current;
 
-      if (shouldClosePolygonOnClick(point, verts, maps, map)) {
+      if (shouldClosePolygonOnClick(point, verts, maps, map, event)) {
         finishPolygonDrawing();
         return;
       }

@@ -59,78 +59,80 @@ export function createVertexMarker(maps, map, position) {
   });
 }
 
-/** Screen-pixel radius to snap closed on the first vertex. */
-export const POLYGON_CLOSE_THRESHOLD_PX = 22;
+/** Screen-pixel radius to snap closed on the first vertex marker. */
+export const POLYGON_CLOSE_THRESHOLD_PX = 24;
 
-/** Fallback when map projection is unavailable (small on-purpose). */
-export const POLYGON_CLOSE_FALLBACK_METERS = 4;
-
-function haversineMeters(a, b) {
-  const latA = Number(a?.lat);
-  const lngA = Number(a?.lng);
-  const latB = Number(b?.lat);
-  const lngB = Number(b?.lng);
-  if (![latA, lngA, latB, lngB].every(Number.isFinite)) return Infinity;
-
-  const toRad = (deg) => (deg * Math.PI) / 180;
-  const dLat = toRad(latB - latA);
-  const dLng = toRad(lngB - lngA);
-  const sinLat = Math.sin(dLat / 2);
-  const sinLng = Math.sin(dLng / 2);
-  const h = sinLat * sinLat
-    + Math.cos(toRad(latA)) * Math.cos(toRad(latB)) * sinLng * sinLng;
-  return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-}
-
-function pixelDistanceToFirstVertex(clickPoint, firstVertex, map, maps, thresholdPx) {
-  if (!clickPoint || !firstVertex || !map || !maps?.LatLng) return null;
+function latLngToMapPixel(latLng, map, maps) {
+  if (!latLng || !map || !maps?.LatLng) return null;
 
   const projection = map.getProjection?.();
-  if (!projection) return null;
+  const bounds = map.getBounds?.();
+  if (!projection || !bounds) return null;
 
   const zoom = Number(map.getZoom?.());
   if (!Number.isFinite(zoom)) return null;
 
-  const scale = 2 ** zoom;
-  const clickLatLng = new maps.LatLng(clickPoint.lat, clickPoint.lng);
-  const firstLatLng = new maps.LatLng(firstVertex.lat, firstVertex.lng);
-  const worldClick = projection.fromLatLngToPoint(clickLatLng);
-  const worldFirst = projection.fromLatLngToPoint(firstLatLng);
-  if (!worldClick || !worldFirst) return null;
+  const northWest = new maps.LatLng(bounds.getNorthEast().lat(), bounds.getSouthWest().lng());
+  const nwWorld = projection.fromLatLngToPoint(northWest);
+  const pointWorld = projection.fromLatLngToPoint(
+    latLng instanceof maps.LatLng ? latLng : new maps.LatLng(latLng.lat, latLng.lng),
+  );
+  if (!nwWorld || !pointWorld) return null;
 
-  const dx = (worldClick.x - worldFirst.x) * scale;
-  const dy = (worldClick.y - worldFirst.y) * scale;
-  return Math.hypot(dx, dy) <= thresholdPx;
+  const scale = 2 ** zoom;
+  return {
+    x: (pointWorld.x - nwWorld.x) * scale,
+    y: (pointWorld.y - nwWorld.y) * scale,
+  };
 }
 
 /**
- * True when click is within snap range of the first vertex (screen pixels, not click count).
- * Requires at least three existing vertices before closing is considered.
+ * Pixel distance from a map click to the first vertex using DOM + projection.
+ * Returns null when the map is not ready to measure screen position.
  */
-export function shouldClosePolygonOnClick(clickPoint, vertices, maps, map, {
+export function getClickPixelDistanceToFirstVertex(clickPoint, firstVertex, map, maps, mapEvent) {
+  if (!clickPoint || !firstVertex || !map || !maps?.LatLng) return null;
+
+  const firstPixel = latLngToMapPixel(
+    new maps.LatLng(firstVertex.lat, firstVertex.lng),
+    map,
+    maps,
+  );
+  if (!firstPixel) return null;
+
+  const domEvent = mapEvent?.domEvent;
+  const mapDiv = map.getDiv?.();
+  if (domEvent && mapDiv) {
+    const rect = mapDiv.getBoundingClientRect();
+    const clickX = domEvent.clientX - rect.left;
+    const clickY = domEvent.clientY - rect.top;
+    return Math.hypot(clickX - firstPixel.x, clickY - firstPixel.y);
+  }
+
+  const clickPixel = latLngToMapPixel(clickPoint, map, maps);
+  if (!clickPixel) return null;
+
+  return Math.hypot(clickPixel.x - firstPixel.x, clickPixel.y - firstPixel.y);
+}
+
+/**
+ * True only when the click is within snap pixels of the first vertex.
+ * Requires at least three existing vertices. Never closes on click count alone.
+ */
+export function shouldClosePolygonOnClick(clickPoint, vertices, maps, map, mapEvent, {
   thresholdPx = POLYGON_CLOSE_THRESHOLD_PX,
-  fallbackMeters = POLYGON_CLOSE_FALLBACK_METERS,
 } = {}) {
   if (!Array.isArray(vertices) || vertices.length < 3 || !clickPoint) return false;
 
-  const firstVertex = vertices[0];
-  const pixelSnap = pixelDistanceToFirstVertex(clickPoint, firstVertex, map, maps, thresholdPx);
-  if (pixelSnap === true) return true;
-  if (pixelSnap === false) return false;
+  const pixelDistance = getClickPixelDistanceToFirstVertex(
+    clickPoint,
+    vertices[0],
+    map,
+    maps,
+    mapEvent,
+  );
 
-  return haversineMeters(clickPoint, firstVertex) <= fallbackMeters;
-}
+  if (pixelDistance === null) return false;
 
-/** @deprecated Use shouldClosePolygonOnClick */
-export function isNearFirstVertex(clickPoint, firstVertex, maps, thresholdMeters = POLYGON_CLOSE_FALLBACK_METERS) {
-  if (!clickPoint || !firstVertex) return false;
-
-  const spherical = maps?.geometry?.spherical;
-  if (spherical?.computeDistanceBetween && maps?.LatLng) {
-    const a = new maps.LatLng(clickPoint.lat, clickPoint.lng);
-    const b = new maps.LatLng(firstVertex.lat, firstVertex.lng);
-    return spherical.computeDistanceBetween(a, b) <= thresholdMeters;
-  }
-
-  return haversineMeters(clickPoint, firstVertex) <= thresholdMeters;
+  return pixelDistance <= thresholdPx;
 }
