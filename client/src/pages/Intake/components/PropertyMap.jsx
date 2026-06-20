@@ -4,7 +4,7 @@ import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoa
 import { formatAcreage, formatSquareFeet } from '../../../utils/intake/polygonArea.js';
 import { computeAreaMetrics } from './propertyMapArea.js';
 import { addMapsListener, runListenerCleanups } from './propertyMapListeners.js';
-import { createVertexMarker, isNearFirstVertex } from './propertyMapDrawing.js';
+import { createVertexMarker, shouldClosePolygonOnClick } from './propertyMapDrawing.js';
 
 const POLYGON_STYLE = {
   strokeColor: '#22c55e',
@@ -467,7 +467,7 @@ export default function PropertyMap({
       const maps = window.google?.maps;
       const verts = draftVerticesRef.current;
 
-      if (verts.length >= 3 && isNearFirstVertex(point, verts[0], maps)) {
+      if (shouldClosePolygonOnClick(point, verts, maps, map)) {
         finishPolygonDrawing();
         return;
       }
