@@ -26,7 +26,7 @@ describe('evaluateWeatherSuitability', () => {
     expect(result.reasons.some((r) => r.includes('Wind gusts'))).toBe(true);
   });
 
-  it('returns Moderation Needed when rain is above 30% and up to 50%', () => {
+  it('returns Needs Moderation when rain is above 30% and up to 50%', () => {
     const result = evaluateWeatherSuitability({
       rainProbabilityPercent: 45,
       windSpeedMph: 16,
@@ -34,7 +34,7 @@ describe('evaluateWeatherSuitability', () => {
       weatherType: 'CLOUDY',
     });
     expect(result.level).toBe('monitor');
-    expect(result.label).toBe('Moderation Needed');
+    expect(result.label).toBe('Needs Moderation');
   });
 
   it('returns Not Recommended when rain is above 50%', () => {

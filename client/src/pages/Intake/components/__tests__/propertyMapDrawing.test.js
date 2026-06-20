@@ -144,4 +144,30 @@ describe('propertyMapDrawing', () => {
     const click = { lat: 43.5, lng: -70.4 };
     expect(shouldClosePolygonOnClick(click, verts, null, null, null)).toBe(false);
   });
+
+  it('uses container projection when available (fullscreen-safe)', () => {
+    const maps = mockMaps();
+    const first = { lat: 43.65, lng: -70.26 };
+    const verts = [first, { lat: 43.6501, lng: -70.26 }, { lat: 43.6501, lng: -70.2599 }];
+    const containerProjection = {
+      fromLatLngToContainerPixel(latLng) {
+        if (latLng.lat() === first.lat && latLng.lng() === first.lng) {
+          return { x: 100, y: 200 };
+        }
+        if (latLng.lat() === 43.66) {
+          return { x: 200, y: 300 };
+        }
+        return { x: 108, y: 208 };
+      },
+    };
+    const clickLatLng = { lat: () => first.lat, lng: () => first.lng };
+
+    expect(shouldClosePolygonOnClick(first, verts, maps, mockMap({}), {
+      latLng: clickLatLng,
+    }, { containerProjection })).toBe(true);
+
+    expect(shouldClosePolygonOnClick(first, verts, maps, mockMap({}), {
+      latLng: { lat: () => 43.66, lng: () => -70.25 },
+    }, { containerProjection })).toBe(false);
+  });
 });

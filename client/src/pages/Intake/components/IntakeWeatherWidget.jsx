@@ -169,7 +169,7 @@ export default function IntakeWeatherWidget({
                 <span className="intake-weather-widget__metric-value">{formatWind(weather)}</span>
               </div>
               <div className="intake-weather-widget__metric">
-                <span className="intake-weather-widget__metric-label">Recommendation</span>
+                <span className="intake-weather-widget__metric-label">Initial Treatment</span>
                 <span className={`intake-weather-widget__metric-value ${suitability ? weatherRecommendationClass(suitability.level) : ''}`}>
                   {suitability?.label || '—'}
                 </span>
