@@ -718,7 +718,265 @@
 }
 
 .intake-map-shell--draw {
-  min-height: 360px;
+  min-height: 504px;
+}
+
+.intake-preview-panel--property {
+  @apply space-y-3;
+}
+
+.intake-preview-panel__map--property {
+  min-height: 0;
+}
+
+.intake-preview-panel--property .intake-map-shell--draw {
+  min-height: 504px;
+  height: 504px;
+}
+
+.intake-property-map-slot .intake-map-shell--draw {
+  min-height: 504px;
+  height: 504px;
+}
+
+.intake-preview-panel__section--compact {
+  @apply mb-0;
+}
+
+.intake-info-grid--single {
+  @apply grid-cols-1;
+}
+
+.intake-stat-grid--treatment {
+  @apply grid-cols-2;
+}
+
+.intake-stat-grid--treatment .intake-stat {
+  background: #fff;
+}
+
+/* ── Verified address (property page) ── */
+.intake-card--address {
+  @apply py-4;
+}
+
+.intake-address-display {
+  @apply text-sm font-medium leading-relaxed mt-3 px-1;
+  color: #0f172a;
+}
+
+/* ── Immersive weather widget ── */
+.intake-weather-widget {
+  @apply relative overflow-hidden rounded-2xl border;
+  border-color: rgba(255, 255, 255, 0.14);
+  min-height: 280px;
+}
+
+.intake-weather-widget__backdrop {
+  @apply absolute inset-0 overflow-hidden;
+}
+
+.intake-weather-widget__layer {
+  @apply absolute inset-0;
+}
+
+.intake-weather-widget__content {
+  @apply relative z-10 p-5 space-y-3;
+}
+
+.intake-weather-widget__header {
+  @apply flex items-start justify-between gap-3;
+}
+
+.intake-weather-widget__eyebrow {
+  @apply text-[10px] font-bold uppercase tracking-[0.12em];
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.intake-weather-widget__title {
+  @apply text-lg font-semibold mt-0.5;
+  color: #fff;
+}
+
+.intake-weather-widget__icon {
+  color: rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
+}
+
+.intake-weather-widget__subtitle {
+  @apply text-xs;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.intake-weather-widget__controls {
+  @apply flex flex-wrap items-end gap-3 pt-1;
+}
+
+.intake-weather-widget__date {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  color-scheme: dark;
+}
+
+.intake-weather-widget__date::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+.intake-weather-widget__controls .intake-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.intake-weather-widget__status {
+  @apply text-sm;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.intake-weather-widget__error {
+  @apply text-sm rounded-xl px-3 py-2;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.45);
+  border: 1px solid rgba(254, 202, 202, 0.35);
+}
+
+.intake-weather-widget__condition {
+  @apply text-sm font-medium capitalize;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.intake-weather-widget__metrics {
+  @apply grid grid-cols-3 gap-2;
+}
+
+.intake-weather-widget__metric {
+  @apply rounded-xl px-3 py-2.5 border;
+  background: rgba(15, 23, 42, 0.22);
+  border-color: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+}
+
+.intake-weather-widget__metric-label {
+  @apply block text-[10px] font-bold uppercase tracking-wide;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.intake-weather-widget__metric-value {
+  @apply block text-sm font-semibold mt-1;
+  color: #fff;
+}
+
+.intake-weather-widget__reasons {
+  @apply text-xs list-disc pl-4 space-y-1 pt-1;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* Weather themes */
+.intake-weather-widget--sunny {
+  background: linear-gradient(160deg, #0c4a6e 0%, #0369a1 38%, #f59e0b 120%);
+}
+
+.intake-weather-widget--sunny .intake-weather-widget__layer--glow {
+  background: radial-gradient(circle at 82% 18%, rgba(251, 191, 36, 0.55), transparent 42%);
+  animation: intake-weather-sun-pulse 6s ease-in-out infinite;
+}
+
+.intake-weather-widget--sunny .intake-weather-widget__layer--sun::before {
+  content: '';
+  position: absolute;
+  top: 8%;
+  right: 10%;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(253, 224, 71, 0.95) 0%, rgba(251, 191, 36, 0.35) 55%, transparent 72%);
+  animation: intake-weather-sun-pulse 5s ease-in-out infinite;
+}
+
+.intake-weather-widget--rain {
+  background: linear-gradient(165deg, #0f172a 0%, #1e3a5f 45%, #334155 100%);
+}
+
+.intake-weather-widget--rain .intake-weather-widget__layer--rain {
+  background-image:
+    linear-gradient(180deg, transparent 0%, rgba(148, 163, 184, 0.08) 100%),
+    repeating-linear-gradient(
+      118deg,
+      transparent 0 14px,
+      rgba(191, 219, 254, 0.14) 14px 15px
+    );
+  background-size: 100% 100%, 28px 48px;
+  animation: intake-weather-rain-fall 0.9s linear infinite;
+  opacity: 0.75;
+}
+
+.intake-weather-widget--storm {
+  background: linear-gradient(165deg, #020617 0%, #1e1b4b 40%, #312e81 100%);
+}
+
+.intake-weather-widget--storm .intake-weather-widget__layer--storm {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(148, 163, 184, 0.2), transparent 35%),
+    radial-gradient(circle at 70% 0%, rgba(99, 102, 241, 0.25), transparent 40%);
+  animation: intake-weather-cloud-drift 14s ease-in-out infinite alternate;
+}
+
+.intake-weather-widget--storm .intake-weather-widget__layer--lightning {
+  background: radial-gradient(circle at 68% 22%, rgba(255, 255, 255, 0.45), transparent 28%);
+  opacity: 0;
+  animation: intake-weather-lightning 7s ease-in-out infinite;
+}
+
+.intake-weather-widget--cloudy {
+  background: linear-gradient(165deg, #334155 0%, #475569 45%, #64748b 100%);
+}
+
+.intake-weather-widget--cloudy .intake-weather-widget__layer--clouds {
+  background:
+    radial-gradient(ellipse 120px 48px at 18% 28%, rgba(255, 255, 255, 0.18), transparent 70%),
+    radial-gradient(ellipse 160px 56px at 62% 18%, rgba(255, 255, 255, 0.14), transparent 72%),
+    radial-gradient(ellipse 140px 50px at 82% 42%, rgba(255, 255, 255, 0.1), transparent 70%);
+  animation: intake-weather-cloud-drift 18s ease-in-out infinite alternate;
+}
+
+.intake-weather-widget--windy {
+  background: linear-gradient(165deg, #0f766e 0%, #0e7490 50%, #475569 100%);
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--wind {
+  background:
+    repeating-linear-gradient(
+      8deg,
+      transparent 0 36px,
+      rgba(255, 255, 255, 0.06) 36px 38px
+    );
+  animation: intake-weather-wind-sweep 4s linear infinite;
+}
+
+@keyframes intake-weather-sun-pulse {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+@keyframes intake-weather-rain-fall {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 0 48px; }
+}
+
+@keyframes intake-weather-cloud-drift {
+  from { transform: translateX(-6px); }
+  to { transform: translateX(10px); }
+}
+
+@keyframes intake-weather-lightning {
+  0%, 92%, 100% { opacity: 0; }
+  93% { opacity: 0.85; }
+  94% { opacity: 0.15; }
+  95% { opacity: 0.7; }
+}
+
+@keyframes intake-weather-wind-sweep {
+  from { transform: translateX(-12px); }
+  to { transform: translateX(18px); }
 }
 
 .intake-property-map {
