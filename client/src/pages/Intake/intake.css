@@ -705,6 +705,22 @@
   color: rgba(248, 250, 252, 0.62);
 }
 
+.intake-map-btn--primary {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.intake-map-btn--primary:disabled {
+  background: #fff;
+  border-color: #e5e7eb;
+  color: #94a3b8;
+}
+
+.intake-map-hint--warn {
+  color: #fbbf24;
+}
+
 .intake-map-btn:disabled {
   @apply opacity-40 cursor-not-allowed;
 }
