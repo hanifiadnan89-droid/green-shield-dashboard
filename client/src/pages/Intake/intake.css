@@ -700,6 +700,55 @@
   height: 200px;
 }
 
+.intake-map-toolbar--stacked {
+  @apply flex flex-col gap-2;
+}
+
+.intake-map-toolbar__row {
+  @apply flex flex-wrap gap-1.5;
+}
+
+.intake-map-hint--subtle {
+  color: rgba(248, 250, 252, 0.45);
+  margin-top: -0.25rem;
+}
+
+.intake-map-hint--active {
+  color: #86efac;
+}
+
+.intake-map-shell--draw {
+  min-height: 360px;
+}
+
+.intake-property-map {
+  @apply space-y-1;
+}
+
+.intake-map-boundary-status {
+  @apply flex flex-wrap items-center gap-2 text-xs px-1 py-1;
+  color: rgba(248, 250, 252, 0.7);
+}
+
+.intake-map-boundary-status__badge {
+  @apply inline-flex px-2 py-0.5 rounded-full font-semibold;
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+  border: 1px solid rgba(134, 239, 172, 0.35);
+}
+
+.intake-preview-map-wrap {
+  @apply relative;
+}
+
+.intake-preview-map-pin {
+  @apply absolute bottom-2 left-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
 .intake-map-hint {
   @apply text-xs mb-2 px-1 leading-relaxed;
   color: rgba(248, 250, 252, 0.62);
