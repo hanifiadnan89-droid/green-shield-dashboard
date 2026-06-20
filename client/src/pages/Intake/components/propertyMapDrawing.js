@@ -59,8 +59,11 @@ export function createVertexMarker(maps, map, position) {
   });
 }
 
-/** Default snap radius when closing a polygon on the first vertex (~20 m). */
-export const POLYGON_CLOSE_THRESHOLD_METERS = 20;
+/** Screen-pixel radius to snap closed on the first vertex. */
+export const POLYGON_CLOSE_THRESHOLD_PX = 22;
+
+/** Fallback when map projection is unavailable (small on-purpose). */
+export const POLYGON_CLOSE_FALLBACK_METERS = 4;
 
 function haversineMeters(a, b) {
   const latA = Number(a?.lat);
@@ -79,7 +82,47 @@ function haversineMeters(a, b) {
   return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
-export function isNearFirstVertex(clickPoint, firstVertex, maps, thresholdMeters = POLYGON_CLOSE_THRESHOLD_METERS) {
+function pixelDistanceToFirstVertex(clickPoint, firstVertex, map, maps, thresholdPx) {
+  if (!clickPoint || !firstVertex || !map || !maps?.LatLng) return null;
+
+  const projection = map.getProjection?.();
+  if (!projection) return null;
+
+  const zoom = Number(map.getZoom?.());
+  if (!Number.isFinite(zoom)) return null;
+
+  const scale = 2 ** zoom;
+  const clickLatLng = new maps.LatLng(clickPoint.lat, clickPoint.lng);
+  const firstLatLng = new maps.LatLng(firstVertex.lat, firstVertex.lng);
+  const worldClick = projection.fromLatLngToPoint(clickLatLng);
+  const worldFirst = projection.fromLatLngToPoint(firstLatLng);
+  if (!worldClick || !worldFirst) return null;
+
+  const dx = (worldClick.x - worldFirst.x) * scale;
+  const dy = (worldClick.y - worldFirst.y) * scale;
+  return Math.hypot(dx, dy) <= thresholdPx;
+}
+
+/**
+ * True when click is within snap range of the first vertex (screen pixels, not click count).
+ * Requires at least three existing vertices before closing is considered.
+ */
+export function shouldClosePolygonOnClick(clickPoint, vertices, maps, map, {
+  thresholdPx = POLYGON_CLOSE_THRESHOLD_PX,
+  fallbackMeters = POLYGON_CLOSE_FALLBACK_METERS,
+} = {}) {
+  if (!Array.isArray(vertices) || vertices.length < 3 || !clickPoint) return false;
+
+  const firstVertex = vertices[0];
+  const pixelSnap = pixelDistanceToFirstVertex(clickPoint, firstVertex, map, maps, thresholdPx);
+  if (pixelSnap === true) return true;
+  if (pixelSnap === false) return false;
+
+  return haversineMeters(clickPoint, firstVertex) <= fallbackMeters;
+}
+
+/** @deprecated Use shouldClosePolygonOnClick */
+export function isNearFirstVertex(clickPoint, firstVertex, maps, thresholdMeters = POLYGON_CLOSE_FALLBACK_METERS) {
   if (!clickPoint || !firstVertex) return false;
 
   const spherical = maps?.geometry?.spherical;

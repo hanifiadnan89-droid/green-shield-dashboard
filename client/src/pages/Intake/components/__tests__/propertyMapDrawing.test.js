@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isCompactPolygon, isNearFirstVertex, rectangleToPolygon } from '../propertyMapDrawing.js';
+import {
+  isCompactPolygon,
+  isNearFirstVertex,
+  rectangleToPolygon,
+  shouldClosePolygonOnClick,
+} from '../propertyMapDrawing.js';
 
 describe('propertyMapDrawing', () => {
   it('builds a rectangle polygon from two corners', () => {
@@ -29,11 +34,35 @@ describe('propertyMapDrawing', () => {
     expect(isCompactPolygon(large)).toBe(false);
   });
 
-  it('detects clicks near the first vertex', () => {
+  it('does not close before three vertices exist', () => {
+    const verts = [
+      { lat: 43.5, lng: -70.4 },
+      { lat: 43.5001, lng: -70.4 },
+    ];
+    const click = { lat: 43.5, lng: -70.4 };
+    expect(shouldClosePolygonOnClick(click, verts, null, null)).toBe(false);
+  });
+
+  it('does not close when click is far from first vertex on fallback distance', () => {
+    const verts = [
+      { lat: 43.5, lng: -70.4 },
+      { lat: 43.5002, lng: -70.4 },
+      { lat: 43.5002, lng: -70.3998 },
+      { lat: 43.5, lng: -70.3998 },
+    ];
+    const farClick = { lat: 43.50015, lng: -70.3999 };
+    expect(shouldClosePolygonOnClick(farClick, verts, null, null)).toBe(false);
+  });
+
+  it('closes on fallback distance only when click is near the first vertex', () => {
     const first = { lat: 43.5, lng: -70.4 };
-    const nearby = { lat: 43.50008, lng: -70.39995 };
-    const far = { lat: 43.502, lng: -70.4 };
-    expect(isNearFirstVertex(nearby, first, null, 20)).toBe(true);
-    expect(isNearFirstVertex(far, first, null, 20)).toBe(false);
+    const verts = [
+      first,
+      { lat: 43.5002, lng: -70.4 },
+      { lat: 43.5002, lng: -70.3998 },
+    ];
+    const nearClick = { lat: 43.50002, lng: -70.39998 };
+    expect(shouldClosePolygonOnClick(nearClick, verts, null, null)).toBe(true);
+    expect(isNearFirstVertex(nearClick, first, null, 4)).toBe(true);
   });
 });
