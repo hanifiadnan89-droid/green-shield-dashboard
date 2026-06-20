@@ -7,6 +7,33 @@ function weatherPillClass(level) {
   return 'intake-weather-pill intake-weather-pill--not_recommended';
 }
 
+export function formatWeatherConditionLabel(weather) {
+  const type = String(weather?.weatherType || '').toUpperCase().replace(/-/g, '_');
+  if (!type) return 'Forecast pending';
+  if (type.includes('THUNDER') || type.includes('LIGHTNING')) return 'Storms';
+  if (type.includes('STORM')) return 'Storms';
+  if (type.includes('PARTLY') && type.includes('CLOUD')) return 'Partly Cloudy';
+  if (type.includes('MOSTLY') && type.includes('CLOUD')) return 'Mostly Cloudy';
+  if (type.includes('OVERCAST')) return 'Overcast';
+  if (type.includes('CLOUD')) return 'Cloudy';
+  if (type.includes('DRIZZLE')) return 'Drizzle';
+  if (type.includes('SHOWER') || type.includes('RAIN')) return 'Rain';
+  if (type.includes('FOG') || type.includes('MIST')) return 'Foggy';
+  if (type.includes('WIND')) return 'Windy';
+  if (type.includes('CLEAR') || type.includes('SUNNY') || type === 'SUN') return 'Sunny';
+  return type
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+export function formatWeatherTemperature(weather) {
+  const temp = Number(weather?.temperatureF);
+  if (Number.isFinite(temp)) return `${Math.round(temp)}°F`;
+  return 'Unavailable';
+}
+
 export function resolveWeatherTheme(weather) {
   const type = String(weather?.weatherType || '').toUpperCase();
   const rain = Number(weather?.rainProbabilityPercent);
@@ -20,6 +47,7 @@ export function resolveWeatherTheme(weather) {
   }
   if (Number.isFinite(rain) && rain >= 45) return 'rain';
   if (type.includes('WIND') || (Number.isFinite(wind) && wind >= 18)) return 'windy';
+  if (type.includes('PARTLY')) return 'windy';
   if (type.includes('CLOUD') || type.includes('OVERCAST') || type.includes('FOG')) return 'cloudy';
   if (type.includes('CLEAR') || type.includes('SUN')) return 'sunny';
   if (Number.isFinite(rain) && rain >= 25) return 'cloudy';
@@ -41,7 +69,56 @@ function formatWind(weather) {
   const wind = Number(weather?.windSpeedMph);
   if (Number.isFinite(gust) && Number.isFinite(wind)) return `${Math.round(wind)} mph · gusts ${Math.round(gust)}`;
   if (Number.isFinite(wind)) return `${Math.round(wind)} mph`;
+  if (Number.isFinite(gust)) return `gusts ${Math.round(gust)} mph`;
   return '—';
+}
+
+function WeatherBackdrop({ theme }) {
+  return (
+    <div className="intake-weather-widget__backdrop" aria-hidden>
+      <div className="intake-weather-widget__layer intake-weather-widget__layer--glow" />
+
+      {theme === 'sunny' && (
+        <>
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--sun" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--shimmer" />
+        </>
+      )}
+
+      {theme === 'rain' && (
+        <>
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--rain-clouds" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--rain" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--rain intake-weather-widget__layer--rain-alt" />
+        </>
+      )}
+
+      {theme === 'storm' && (
+        <>
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--storm" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--storm-clouds" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--lightning" />
+        </>
+      )}
+
+      {theme === 'cloudy' && (
+        <>
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--clouds" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--clouds intake-weather-widget__layer--clouds-alt" />
+        </>
+      )}
+
+      {theme === 'windy' && (
+        <>
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--clouds" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--clouds intake-weather-widget__layer--clouds-alt" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind-particles" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind-streaks" />
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function IntakeWeatherWidget({
@@ -53,23 +130,11 @@ export default function IntakeWeatherWidget({
   error = null,
 }) {
   const theme = weather ? resolveWeatherTheme(weather) : 'cloudy';
-  const themeLabel = weather?.weatherType?.replace(/_/g, ' ') || 'Awaiting forecast';
+  const conditionLabel = weather ? formatWeatherConditionLabel(weather) : 'Awaiting forecast';
 
   return (
     <section className={`intake-weather-widget intake-weather-widget--${theme}`}>
-      <div className="intake-weather-widget__backdrop" aria-hidden>
-        <div className="intake-weather-widget__layer intake-weather-widget__layer--glow" />
-        {theme === 'rain' && <div className="intake-weather-widget__layer intake-weather-widget__layer--rain" />}
-        {theme === 'storm' && (
-          <>
-            <div className="intake-weather-widget__layer intake-weather-widget__layer--storm" />
-            <div className="intake-weather-widget__layer intake-weather-widget__layer--lightning" />
-          </>
-        )}
-        {theme === 'sunny' && <div className="intake-weather-widget__layer intake-weather-widget__layer--sun" />}
-        {theme === 'cloudy' && <div className="intake-weather-widget__layer intake-weather-widget__layer--clouds" />}
-        {theme === 'windy' && <div className="intake-weather-widget__layer intake-weather-widget__layer--wind" />}
-      </div>
+      <WeatherBackdrop theme={theme} />
 
       <div className="intake-weather-widget__content">
         <div className="intake-weather-widget__header">
@@ -104,7 +169,7 @@ export default function IntakeWeatherWidget({
 
         {weather && !loading && (
           <>
-            <p className="intake-weather-widget__condition">{themeLabel}</p>
+            <p className="intake-weather-widget__condition">{conditionLabel}</p>
             <div className="intake-weather-widget__metrics">
               <div className="intake-weather-widget__metric">
                 <span className="intake-weather-widget__metric-label">Rain</span>
@@ -119,7 +184,7 @@ export default function IntakeWeatherWidget({
               <div className="intake-weather-widget__metric">
                 <span className="intake-weather-widget__metric-label">Temp</span>
                 <span className="intake-weather-widget__metric-value">
-                  {weather.temperatureF != null ? `${Math.round(weather.temperatureF)}°F` : '—'}
+                  {formatWeatherTemperature(weather)}
                 </span>
               </div>
             </div>
