@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoader.js';
 import { formatAcreage, formatSquareFeet } from '../../../utils/intake/polygonArea.js';
 import { computeAreaMetrics } from './propertyMapArea.js';
 import { addMapsListener, runListenerCleanups } from './propertyMapListeners.js';
-import {
-  createVertexMarker,
-  rectangleToPolygon,
-} from './propertyMapDrawing.js';
+import { createVertexMarker } from './propertyMapDrawing.js';
 
 const POLYGON_STYLE = {
   strokeColor: '#22c55e',
@@ -31,13 +29,6 @@ const PREVIEW_LINE_STYLE = {
   zIndex: 1,
 };
 
-const DRAFT_RECT_STYLE = {
-  ...POLYGON_STYLE,
-  fillOpacity: 0.12,
-  strokeOpacity: 0.75,
-  clickable: false,
-};
-
 function pathToArray(polygon) {
   const path = polygon?.getPath?.();
   if (!path || typeof path.getLength !== 'function') return [];
@@ -55,6 +46,86 @@ function latLngToPoint(latLng) {
   return { lat: latLng.lat(), lng: latLng.lng() };
 }
 
+function getFullscreenElement() {
+  return document.fullscreenElement
+    || document.webkitFullscreenElement
+    || null;
+}
+
+function isMapInFullscreen(mapEl) {
+  const fs = getFullscreenElement();
+  if (!fs || !mapEl) return false;
+  return fs === mapEl || mapEl.contains(fs) || fs.contains(mapEl);
+}
+
+function MapDrawToolbar({
+  className = '',
+  mapReady,
+  polygonActive,
+  draftPointCount,
+  activeTool,
+  hasBoundary,
+  onDrawPolygon,
+  onUndoPoint,
+  onFinishDrawing,
+  onEdit,
+  onClear,
+  onRedraw,
+}) {
+  return (
+    <div className={`intake-map-toolbar intake-map-toolbar--draw ${className}`.trim()}>
+      <button
+        type="button"
+        className={`intake-map-btn ${polygonActive ? 'intake-map-btn--active' : ''}`}
+        onClick={onDrawPolygon}
+        disabled={!mapReady}
+      >
+        Draw Polygon
+      </button>
+      <button
+        type="button"
+        className="intake-map-btn"
+        onClick={onUndoPoint}
+        disabled={!mapReady || !polygonActive || draftPointCount === 0}
+      >
+        Undo Point
+      </button>
+      <button
+        type="button"
+        className="intake-map-btn intake-map-btn--primary"
+        onClick={onFinishDrawing}
+        disabled={!mapReady || !polygonActive || draftPointCount < 3}
+      >
+        Finish Drawing
+      </button>
+      <button
+        type="button"
+        className={`intake-map-btn ${activeTool === 'edit' ? 'intake-map-btn--active' : ''}`}
+        onClick={onEdit}
+        disabled={!mapReady || !hasBoundary}
+      >
+        Edit
+      </button>
+      <button
+        type="button"
+        className="intake-map-btn"
+        onClick={onClear}
+        disabled={!mapReady}
+      >
+        Clear
+      </button>
+      <button
+        type="button"
+        className="intake-map-btn"
+        onClick={onRedraw}
+        disabled={!mapReady}
+      >
+        Redraw
+      </button>
+    </div>
+  );
+}
+
 export default function PropertyMap({
   center,
   polygonPath = [],
@@ -68,10 +139,8 @@ export default function PropertyMap({
   const polygonRef = useRef(null);
   const draftPolylineRef = useRef(null);
   const previewLineRef = useRef(null);
-  const draftRectangleRef = useRef(null);
   const draftVerticesRef = useRef([]);
   const draftMarkersRef = useRef([]);
-  const rectangleStartRef = useRef(null);
   const interactionCleanupsRef = useRef([]);
   const polygonListenerCleanupsRef = useRef([]);
   const onPolygonChangeRef = useRef(onPolygonChange);
@@ -86,6 +155,8 @@ export default function PropertyMap({
   const [activeTool, setActiveTool] = useState(null);
   const [draftPointCount, setDraftPointCount] = useState(0);
   const [hasBoundary, setHasBoundary] = useState(polygonPath.length >= 3);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [fullscreenHost, setFullscreenHost] = useState(null);
 
   useEffect(() => {
     activeToolRef.current = activeTool;
@@ -98,9 +169,27 @@ export default function PropertyMap({
   }, [onPolygonChange, onAreaChange, onBoundaryStatusChange]);
 
   useEffect(() => {
+    const syncFullscreen = () => {
+      const mapEl = mapRef.current;
+      const fs = getFullscreenElement();
+      const active = isMapInFullscreen(mapEl);
+      setIsMapFullscreen(active);
+      setFullscreenHost(active ? fs : null);
+    };
+
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    document.addEventListener('webkitfullscreenchange', syncFullscreen);
+    syncFullscreen();
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      document.removeEventListener('webkitfullscreenchange', syncFullscreen);
+    };
+  }, [mapReady]);
+
+  useEffect(() => {
     stopAllInteractions();
     draftVerticesRef.current = [];
-    rectangleStartRef.current = null;
     setDraftPointCount(0);
     setActiveTool(null);
   }, [center?.lat, center?.lng]);
@@ -143,15 +232,6 @@ export default function PropertyMap({
       /* ignore */
     }
     draftPolylineRef.current = null;
-  }
-
-  function clearDraftRectangle() {
-    try {
-      draftRectangleRef.current?.setMap?.(null);
-    } catch {
-      /* ignore */
-    }
-    draftRectangleRef.current = null;
   }
 
   function emitArea(path) {
@@ -228,21 +308,6 @@ export default function PropertyMap({
     previewLineRef.current.setMap(map);
   }
 
-  function updateDraftRectangle(endPoint) {
-    const map = mapInstanceRef.current;
-    const maps = window.google?.maps;
-    const start = rectangleStartRef.current;
-    if (!map || !maps?.Polygon || !start || !endPoint) return;
-
-    const path = rectangleToPolygon(start, endPoint);
-    if (!draftRectangleRef.current) {
-      draftRectangleRef.current = new maps.Polygon({ ...DRAFT_RECT_STYLE, map, paths: path });
-      return;
-    }
-    draftRectangleRef.current.setPaths(path);
-    draftRectangleRef.current.setMap(map);
-  }
-
   function applyPolygonPath(pathPoints, { editable = true } = {}) {
     const map = mapInstanceRef.current;
     const polygon = polygonRef.current;
@@ -259,10 +324,8 @@ export default function PropertyMap({
   function resetDraftVisuals() {
     clearDraftPolyline();
     clearPreviewLine();
-    clearDraftRectangle();
     clearDraftMarkers();
     draftVerticesRef.current = [];
-    rectangleStartRef.current = null;
     setDraftPointCount(0);
   }
 
@@ -426,46 +489,6 @@ export default function PropertyMap({
     if (moveCleanup) interactionCleanupsRef.current.push(moveCleanup);
   }
 
-  function startRectangleMode() {
-    const map = mapInstanceRef.current;
-    if (!map || !mapReady) return;
-
-    stopAllInteractions();
-    resetDraftVisuals();
-    clearCompletedPolygon();
-    map.setOptions({ draggable: false });
-    setActiveTool('rectangle');
-
-    const downCleanup = addMapsListener(map, 'mousedown', (event) => {
-      const point = latLngToPoint(event?.latLng);
-      if (!point) return;
-      rectangleStartRef.current = point;
-      clearDraftRectangle();
-    });
-    if (downCleanup) interactionCleanupsRef.current.push(downCleanup);
-
-    const moveCleanup = addMapsListener(map, 'mousemove', (event) => {
-      if (!rectangleStartRef.current) return;
-      const point = latLngToPoint(event?.latLng);
-      if (point) updateDraftRectangle(point);
-    });
-    if (moveCleanup) interactionCleanupsRef.current.push(moveCleanup);
-
-    const upCleanup = addMapsListener(map, 'mouseup', (event) => {
-      if (!rectangleStartRef.current) return;
-      const end = latLngToPoint(event?.latLng);
-      if (!end) return;
-      const path = rectangleToPolygon(rectangleStartRef.current, end);
-      stopAllInteractions();
-      resetDraftVisuals();
-      if (path.length >= 3 && computeAreaMetrics(path).sqFt > 50) {
-        applyPolygonPath(path, { editable: false });
-      }
-      setActiveTool(null);
-    });
-    if (upCleanup) interactionCleanupsRef.current.push(upCleanup);
-  }
-
   function undoLastPoint() {
     if (draftVerticesRef.current.length === 0) return;
     draftVerticesRef.current = draftVerticesRef.current.slice(0, -1);
@@ -520,82 +543,38 @@ export default function PropertyMap({
 
   const showMapShell = status !== 'loading' && status !== 'error';
   const polygonActive = activeTool === 'polygon';
-  const rectangleActive = activeTool === 'rectangle';
+
+  const toolbarProps = {
+    mapReady,
+    polygonActive,
+    draftPointCount,
+    activeTool,
+    hasBoundary,
+    onDrawPolygon: startPolygonMode,
+    onUndoPoint: undoLastPoint,
+    onFinishDrawing: finishPolygonDrawing,
+    onEdit: startEditMode,
+    onClear: clearDrawing,
+    onRedraw: redraw,
+  };
+
+  const fullscreenToolbar = isMapFullscreen && fullscreenHost
+    ? createPortal(
+      <MapDrawToolbar
+        {...toolbarProps}
+        className="intake-map-toolbar--overlay"
+      />,
+      fullscreenHost,
+    )
+    : null;
 
   return (
     <div className="intake-property-map">
-      <div className="intake-map-toolbar intake-map-toolbar--stacked">
-        <div className="intake-map-toolbar__row">
-          <button
-            type="button"
-            className={`intake-map-btn ${polygonActive ? 'intake-map-btn--active' : ''}`}
-            onClick={startPolygonMode}
-            disabled={!mapReady}
-          >
-            Draw Polygon
-          </button>
-          <button
-            type="button"
-            className={`intake-map-btn ${rectangleActive ? 'intake-map-btn--active' : ''}`}
-            onClick={startRectangleMode}
-            disabled={!mapReady}
-          >
-            Quick Rectangle
-          </button>
-          <button
-            type="button"
-            className="intake-map-btn"
-            onClick={undoLastPoint}
-            disabled={!mapReady || !polygonActive || draftPointCount === 0}
-          >
-            Undo Point
-          </button>
-          <button
-            type="button"
-            className="intake-map-btn intake-map-btn--primary"
-            onClick={finishPolygonDrawing}
-            disabled={!mapReady || !polygonActive || draftPointCount < 3}
-          >
-            Finish Drawing
-          </button>
-        </div>
-        <div className="intake-map-toolbar__row">
-          <button
-            type="button"
-            className={`intake-map-btn ${activeTool === 'edit' ? 'intake-map-btn--active' : ''}`}
-            onClick={startEditMode}
-            disabled={!mapReady || !hasBoundary}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            className="intake-map-btn"
-            onClick={clearDrawing}
-            disabled={!mapReady}
-          >
-            Clear
-          </button>
-          <button
-            type="button"
-            className="intake-map-btn"
-            onClick={redraw}
-            disabled={!mapReady}
-          >
-            Redraw
-          </button>
-        </div>
-      </div>
+      {!isMapFullscreen && <MapDrawToolbar {...toolbarProps} />}
 
       {polygonActive && (
         <p className="intake-map-hint intake-map-hint--active">
           Click to place vertices ({draftPointCount}). Hover shows the next segment. Finish when the shape is closed.
-        </p>
-      )}
-
-      {rectangleActive && (
-        <p className="intake-map-hint intake-map-hint--active">
-          Click and drag on the map to draw a rectangle around the treatment area.
         </p>
       )}
 
@@ -607,7 +586,7 @@ export default function PropertyMap({
         <p className="intake-map-hint intake-map-hint--warn">{mapInitError}</p>
       )}
 
-      {hasBoundary && activeTool !== 'polygon' && activeTool !== 'rectangle' && (
+      {hasBoundary && activeTool !== 'polygon' && (
         <div className="intake-map-boundary-status">
           <span className="intake-map-boundary-status__badge">Boundary Drawn</span>
           <span>Acreage and sq ft calculated below</span>
@@ -625,6 +604,8 @@ export default function PropertyMap({
       {showMapShell && (
         <div ref={mapRef} className="intake-map-shell intake-map-shell--draw" />
       )}
+
+      {fullscreenToolbar}
     </div>
   );
 }

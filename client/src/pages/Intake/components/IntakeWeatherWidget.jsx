@@ -1,10 +1,11 @@
 import { Cloud, CloudRain, CloudSun, Sun, Wind, Zap } from 'lucide-react';
 import IntakeInputField from './IntakeInputField.jsx';
 
-function weatherPillClass(level) {
-  if (level === 'good') return 'intake-weather-pill intake-weather-pill--good';
-  if (level === 'monitor') return 'intake-weather-pill intake-weather-pill--monitor';
-  return 'intake-weather-pill intake-weather-pill--not_recommended';
+export function weatherRecommendationClass(level) {
+  if (level === 'good') return 'intake-weather-widget__metric-value--good';
+  if (level === 'monitor') return 'intake-weather-widget__metric-value--monitor';
+  if (level === 'not_recommended') return 'intake-weather-widget__metric-value--not_recommended';
+  return '';
 }
 
 export function formatWeatherConditionLabel(weather) {
@@ -26,12 +27,6 @@ export function formatWeatherConditionLabel(weather) {
     .filter(Boolean)
     .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
     .join(' ');
-}
-
-export function formatWeatherTemperature(weather) {
-  const temp = Number(weather?.temperatureF);
-  if (Number.isFinite(temp)) return `${Math.round(temp)}°F`;
-  return 'Unavailable';
 }
 
 export function resolveWeatherTheme(weather) {
@@ -110,11 +105,10 @@ function WeatherBackdrop({ theme }) {
 
       {theme === 'windy' && (
         <>
-          <div className="intake-weather-widget__layer intake-weather-widget__layer--clouds" />
-          <div className="intake-weather-widget__layer intake-weather-widget__layer--clouds intake-weather-widget__layer--clouds-alt" />
-          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind" />
-          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind-particles" />
-          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind-streaks" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind-clouds" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind-clouds intake-weather-widget__layer--wind-clouds-alt" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind-mist" />
+          <div className="intake-weather-widget__layer intake-weather-widget__layer--wind-gusts" />
         </>
       )}
     </div>
@@ -145,8 +139,6 @@ export default function IntakeWeatherWidget({
           <WeatherIcon theme={theme} />
         </div>
 
-        <p className="intake-weather-widget__subtitle">Recommendations only — does not block scheduling.</p>
-
         <div className="intake-weather-widget__controls">
           <IntakeInputField id="weatherDate" label="Service Date">
             <input
@@ -157,11 +149,6 @@ export default function IntakeWeatherWidget({
               onChange={(e) => onWeatherDateChange(e.target.value)}
             />
           </IntakeInputField>
-          {suitability && (
-            <span className={weatherPillClass(suitability.level)}>
-              {suitability.label}
-            </span>
-          )}
         </div>
 
         {loading && <p className="intake-weather-widget__status">Loading weather…</p>}
@@ -182,9 +169,9 @@ export default function IntakeWeatherWidget({
                 <span className="intake-weather-widget__metric-value">{formatWind(weather)}</span>
               </div>
               <div className="intake-weather-widget__metric">
-                <span className="intake-weather-widget__metric-label">Temp</span>
-                <span className="intake-weather-widget__metric-value">
-                  {formatWeatherTemperature(weather)}
+                <span className="intake-weather-widget__metric-label">Recommendation</span>
+                <span className={`intake-weather-widget__metric-value ${suitability ? weatherRecommendationClass(suitability.level) : ''}`}>
+                  {suitability?.label || '—'}
                 </span>
               </div>
             </div>

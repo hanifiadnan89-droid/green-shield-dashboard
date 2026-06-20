@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatWeatherConditionLabel,
-  formatWeatherTemperature,
   resolveWeatherTheme,
+  weatherRecommendationClass,
 } from '../IntakeWeatherWidget.jsx';
 
 describe('IntakeWeatherWidget helpers', () => {
@@ -32,13 +32,11 @@ describe('IntakeWeatherWidget helpers', () => {
     });
   });
 
-  describe('formatWeatherTemperature', () => {
-    it('formats temperature when available', () => {
-      expect(formatWeatherTemperature({ temperatureF: 68.4 })).toBe('68°F');
-    });
-
-    it('returns fallback when unavailable', () => {
-      expect(formatWeatherTemperature({})).toBe('Unavailable');
+  describe('weatherRecommendationClass', () => {
+    it('maps recommendation levels to metric classes', () => {
+      expect(weatherRecommendationClass('good')).toBe('intake-weather-widget__metric-value--good');
+      expect(weatherRecommendationClass('monitor')).toBe('intake-weather-widget__metric-value--monitor');
+      expect(weatherRecommendationClass('not_recommended')).toBe('intake-weather-widget__metric-value--not_recommended');
     });
   });
 });
