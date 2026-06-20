@@ -1,13 +1,18 @@
-/* Green Shield Intake — premium SaaS appearance */
+/* Green Shield Intake — premium SaaS appearance (dark workspace shell) */
 
 .intake-page {
-  @apply flex-1 min-h-0 overflow-y-auto;
-  background: #f8fafc;
-  color: #0f172a;
+  @apply relative flex flex-col flex-1 min-h-0 overflow-hidden;
+  background: #050807;
+  color: #f8fafc;
+}
+
+.intake-page__ambient {
+  @apply absolute inset-0 pointer-events-none overflow-hidden;
+  z-index: 0;
 }
 
 .intake-page__inner {
-  @apply max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5;
+  @apply relative z-[1] flex-1 min-h-0 overflow-y-auto max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5;
 }
 
 /* ── Header ── */
@@ -17,17 +22,17 @@
 
 .intake-header__title {
   @apply text-2xl sm:text-[1.75rem] font-bold tracking-tight;
-  color: #0f172a;
+  color: #f8fafc;
 }
 
 .intake-header__subtitle {
   @apply text-sm mt-1 max-w-2xl leading-relaxed;
-  color: #64748b;
+  color: rgba(248, 250, 252, 0.55);
 }
 
 .intake-header__saved {
   @apply inline-flex items-center gap-1.5 mt-2 text-xs font-medium;
-  color: #16a34a;
+  color: #4ade80;
 }
 
 .intake-header__saved::before {
@@ -128,7 +133,7 @@
 .intake-progress::before {
   content: '';
   @apply hidden sm:block absolute top-[22px] left-[8%] right-[8%] h-0.5 -z-0;
-  background: linear-gradient(90deg, #e5e7eb 0%, #e5e7eb 100%);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .intake-progress__step {
@@ -161,7 +166,12 @@
 }
 
 .intake-progress__step.is-upcoming {
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.intake-progress__step.is-upcoming .intake-progress__label {
+  color: rgba(248, 250, 252, 0.55);
 }
 
 .intake-progress__marker {
@@ -685,6 +695,58 @@
   @apply opacity-60 pointer-events-none;
 }
 
+.intake-map-shell--preview {
+  min-height: 200px;
+  height: 200px;
+}
+
+.intake-map-hint {
+  @apply text-xs mb-2 px-1 leading-relaxed;
+  color: rgba(248, 250, 252, 0.62);
+}
+
+.intake-map-btn:disabled {
+  @apply opacity-40 cursor-not-allowed;
+}
+
 .intake-pac-container {
   z-index: 10000;
+}
+
+/* Ambient background — scoped to intake page */
+.intake-page .lc-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.intake-page .lc-ambient__mesh {
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(
+    125deg,
+    rgba(74, 222, 128, 0.07) 0%,
+    transparent 40%,
+    rgba(56, 189, 248, 0.04) 60%,
+    transparent 100%
+  );
+  background-size: 200% 200%;
+}
+
+.intake-page .lc-ambient__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(48px);
+}
+
+.intake-page .lc-ambient__grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
 }

@@ -1,5 +1,6 @@
 export default function IntakeKpiBar({ form = {}, verified = false }) {
   const hasAddress = Boolean(form.serviceAddress && form.city && form.state && form.zip);
+  const hasCoords = Number.isFinite(Number(form.latitude)) && Number.isFinite(Number(form.longitude));
 
   const items = [
     {
@@ -9,8 +10,8 @@ export default function IntakeKpiBar({ form = {}, verified = false }) {
     },
     {
       label: 'Address Status',
-      value: verified ? 'Verified' : hasAddress ? 'Ready for Validation' : 'Pending Verification',
-      tone: verified ? 'ready' : hasAddress ? 'progress' : 'pending',
+      value: verified ? 'Verified' : hasCoords ? 'Address Captured' : hasAddress ? 'Ready for Validation' : 'Pending Verification',
+      tone: verified ? 'ready' : hasCoords || hasAddress ? 'progress' : 'pending',
     },
     {
       label: 'Service Type',
@@ -23,8 +24,12 @@ export default function IntakeKpiBar({ form = {}, verified = false }) {
         ? String(form.propertyConfidence)
         : verified
           ? 'High'
-          : 'Pending',
-      tone: form.propertyConfidence || verified ? 'ready' : 'pending',
+          : form.propertyUseConfidence
+            ? String(form.propertyUseConfidence)
+            : hasCoords
+              ? 'Preliminary'
+              : 'Pending',
+      tone: form.propertyConfidence || verified || hasCoords ? 'ready' : 'pending',
     },
   ];
 

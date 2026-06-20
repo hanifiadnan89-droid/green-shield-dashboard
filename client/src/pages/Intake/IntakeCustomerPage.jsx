@@ -15,6 +15,9 @@ import IntakePropertyPreviewPanel from './components/IntakePropertyPreviewPanel.
 import { api } from '../../api/client.js';
 import { updateIntakeCustomer } from '../../utils/intake/intakeSession.js';
 import { estimatePropertyUse } from '../../utils/intake/propertyUseEstimate.js';
+import { resolveAutoBoundary } from '../../utils/intake/propertyBoundary.js';
+import IntakePageShell from './components/IntakePageShell.jsx';
+import IntakeSatellitePreview from './components/IntakeSatellitePreview.jsx';
 import './intake.css';
 
 const SERVICE_TYPES = [
@@ -45,6 +48,7 @@ function parsePlace(place) {
     longitude: place.geometry?.location?.lng?.() ?? null,
     placeId: place.place_id || null,
     placeTypes: place.types || [],
+    propertyViewport: place.geometry?.viewport || null,
   };
 }
 
@@ -72,12 +76,29 @@ export default function IntakeCustomerPage() {
 
   function handlePlaceSelected(place) {
     const parsed = parsePlace(place);
+    const propertyUse = estimatePropertyUse(parsed.placeTypes || []);
+    const autoBoundary = resolveAutoBoundary({
+      viewport: parsed.propertyViewport,
+      latitude: parsed.latitude,
+      longitude: parsed.longitude,
+      propertyUseEstimate: propertyUse.estimate,
+    });
+
     setForm((prev) => ({
       ...prev,
       serviceAddress: parsed.serviceAddress || prev.serviceAddress,
       city: parsed.city || prev.city,
       state: parsed.state || prev.state,
       zip: parsed.zip || prev.zip,
+      formattedAddress: parsed.formattedAddress || prev.formattedAddress,
+      latitude: parsed.latitude ?? prev.latitude,
+      longitude: parsed.longitude ?? prev.longitude,
+      placeId: parsed.placeId ?? prev.placeId,
+      placeTypes: parsed.placeTypes?.length ? parsed.placeTypes : prev.placeTypes,
+      propertyUseEstimate: propertyUse.estimate,
+      propertyUseConfidence: propertyUse.confidence,
+      propertyViewport: parsed.propertyViewport ?? prev.propertyViewport,
+      suggestedTreatmentPolygon: autoBoundary?.polygon || prev.suggestedTreatmentPolygon,
     }));
   }
 
@@ -94,7 +115,14 @@ export default function IntakeCustomerPage() {
         zip: form.zip,
       });
 
-      const propertyUse = estimatePropertyUse(result.placeTypes || []);
+      const propertyUse = estimatePropertyUse(result.placeTypes || form.placeTypes || []);
+      const autoBoundary = resolveAutoBoundary({
+        viewport: form.propertyViewport,
+        latitude: result.latitude ?? form.latitude,
+        longitude: result.longitude ?? form.longitude,
+        propertyUseEstimate: propertyUse.estimate,
+      });
+
       const customer = {
         ...form,
         verifiedAddress: result.verifiedAddress || result.formattedAddress,
@@ -102,11 +130,12 @@ export default function IntakeCustomerPage() {
         latitude: result.latitude,
         longitude: result.longitude,
         placeId: result.placeId,
-        placeTypes: result.placeTypes || [],
+        placeTypes: result.placeTypes || form.placeTypes || [],
         propertyUseEstimate: propertyUse.estimate,
         propertyUseConfidence: propertyUse.confidence,
         propertyConfidence: result.propertyConfidence,
         validationVerdict: result.verdict,
+        suggestedTreatmentPolygon: autoBoundary?.polygon || form.suggestedTreatmentPolygon || [],
       };
 
       try {
@@ -133,9 +162,20 @@ export default function IntakeCustomerPage() {
     }
   }
 
+  const previewAddress = form.formattedAddress
+    || [form.serviceAddress, form.city, form.state, form.zip].filter(Boolean).join(', ');
+
+  const previewMap = (
+    <IntakeSatellitePreview
+      latitude={form.latitude}
+      longitude={form.longitude}
+      address={previewAddress}
+      polygonPath={form.suggestedTreatmentPolygon || []}
+    />
+  );
+
   return (
-    <div className="intake-page">
-      <div className="intake-page__inner">
+    <IntakePageShell>
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <IntakePageHeader
             title="Customer Intake"
@@ -216,10 +256,9 @@ export default function IntakeCustomerPage() {
                 </div>
               </form>
 
-              <IntakePropertyPreviewPanel form={form} />
+              <IntakePropertyPreviewPanel form={form} mapSlot={previewMap} />
           </div>
         </motion.div>
-      </div>
-    </div>
+    </IntakePageShell>
   );
 }

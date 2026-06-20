@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { Link } from 'react-router-dom';
+import IntakePageShell from './IntakePageShell.jsx';
 
 export default class IntakePropertyErrorBoundary extends Component {
   constructor(props) {
@@ -20,9 +21,8 @@ export default class IntakePropertyErrorBoundary extends Component {
     if (!error) return this.props.children;
 
     return (
-      <div className="intake-page">
-        <div className="intake-page__inner max-w-3xl">
-          <div className="intake-card space-y-4">
+      <IntakePageShell>
+          <div className="intake-card space-y-4 max-w-3xl">
                 <h1 className="intake-card__title">Property Intelligence unavailable</h1>
                 <p className="intake-card__subtitle">
                   The map could not be loaded, but your customer intake data is still saved.
@@ -43,8 +43,7 @@ export default class IntakePropertyErrorBoundary extends Component {
                   </button>
                 </div>
           </div>
-        </div>
-      </div>
+      </IntakePageShell>
     );
   }
 }
