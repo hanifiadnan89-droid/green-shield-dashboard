@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, MapPin, UserPlus } from 'lucide-react';
-import LeadsAmbientBackground from '../Leads/LeadsAmbientBackground.jsx';
+import {
+  ArrowRight, Mail, MapPin, Phone, User, FileText, Users,
+} from 'lucide-react';
 import AddressAutocomplete from './components/AddressAutocomplete.jsx';
+import IntakeWorkspaceShell from './components/IntakeWorkspaceShell.jsx';
+import IntakePageHeader from './components/IntakePageHeader.jsx';
+import IntakeProgressTracker from './components/IntakeProgressTracker.jsx';
+import IntakeInputField from './components/IntakeInputField.jsx';
+import IntakeStatusCards from './components/IntakeStatusCards.jsx';
+import IntakeWorkflowNextCard from './components/IntakeWorkflowNextCard.jsx';
+import IntakePropertyPreviewPanel from './components/IntakePropertyPreviewPanel.jsx';
 import { api } from '../../api/client.js';
 import { updateIntakeCustomer } from '../../utils/intake/intakeSession.js';
 import { estimatePropertyUse } from '../../utils/intake/propertyUseEstimate.js';
@@ -38,31 +46,6 @@ function parsePlace(place) {
     placeId: place.place_id || null,
     placeTypes: place.types || [],
   };
-}
-
-function IntakeStepper({ step }) {
-  const steps = [
-    { n: 1, label: 'Customer Intake' },
-    { n: 2, label: 'Property Intelligence' },
-  ];
-
-  return (
-    <div className="intake-stepper">
-      {steps.map((s, i) => {
-        const done = step > s.n;
-        const active = step === s.n;
-        return (
-          <div key={s.n} className="intake-stepper__step">
-            <span className={`intake-stepper__dot ${active ? 'intake-stepper__dot--active' : done ? 'intake-stepper__dot--done' : 'intake-stepper__dot--pending'}`}>
-              {s.n}
-            </span>
-            <span className={active ? 'text-gs-text font-medium' : 'text-gs-muted'}>{s.label}</span>
-            {i < steps.length - 1 && <span className="text-gs-muted mx-1">→</span>}
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 export default function IntakeCustomerPage() {
@@ -151,88 +134,87 @@ export default function IntakeCustomerPage() {
   }
 
   return (
-    <div className="intake-page">
-      <LeadsAmbientBackground />
-      <div className="intake-page__inner">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center gap-3 mb-2">
-            <UserPlus size={20} className="text-gs-accent" />
-            <h1 className="text-xl font-bold text-white">Intake</h1>
-          </div>
-          <p className="text-sm text-gs-muted mb-4">Capture customer details and verify the service address with Google.</p>
+    <IntakeWorkspaceShell>
+      <div className="intake-page">
+        <div className="intake-page__inner">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <IntakePageHeader
+              title="Customer Intake"
+              subtitle="Capture customer details, verify the service address, and prepare property intelligence for quoting."
+              continueFormId="intake-customer-form"
+              continueDisabled={submitting}
+              continueLabel={submitting ? 'Validating address…' : 'Continue'}
+            />
 
-          <IntakeStepper step={1} />
+            <IntakeProgressTracker currentStep={1} />
 
-          <form onSubmit={handleContinue} className="intake-card space-y-4">
-            <div>
-              <h2 className="intake-card__title">Customer Intake</h2>
-              <p className="intake-card__subtitle">Service address uses Google Places Autocomplete and validation.</p>
+            <div className="intake-workspace__columns">
+              <form id="intake-customer-form" onSubmit={handleContinue} className="intake-card space-y-4">
+                <div>
+                  <h2 className="intake-card__title">Customer Information</h2>
+                  <p className="intake-card__subtitle">Service address uses Google Places Autocomplete and validation.</p>
+                </div>
+
+                <div className="intake-form-grid">
+                  <IntakeInputField id="firstName" label="First Name" icon={User}>
+                    <input id="firstName" className="intake-input" value={form.firstName} onChange={(e) => updateField('firstName', e.target.value)} required />
+                  </IntakeInputField>
+                  <IntakeInputField id="lastName" label="Last Name" icon={User}>
+                    <input id="lastName" className="intake-input" value={form.lastName} onChange={(e) => updateField('lastName', e.target.value)} required />
+                  </IntakeInputField>
+                  <IntakeInputField id="phone" label="Phone Number" icon={Phone}>
+                    <input id="phone" className="intake-input" type="tel" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} required />
+                  </IntakeInputField>
+                  <IntakeInputField id="email" label="Email Address" icon={Mail}>
+                    <input id="email" className="intake-input" type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
+                  </IntakeInputField>
+                  <IntakeInputField id="serviceAddress" label="Service Address" icon={MapPin} className="intake-form-grid--full">
+                    <AddressAutocomplete
+                      value={form.serviceAddress}
+                      onChange={(v) => updateField('serviceAddress', v)}
+                      onPlaceSelected={handlePlaceSelected}
+                    />
+                  </IntakeInputField>
+                  <IntakeInputField id="city" label="City" icon={MapPin}>
+                    <input id="city" className="intake-input" value={form.city} onChange={(e) => updateField('city', e.target.value)} required />
+                  </IntakeInputField>
+                  <IntakeInputField id="state" label="State" icon={MapPin}>
+                    <input id="state" className="intake-input" value={form.state} onChange={(e) => updateField('state', e.target.value)} required />
+                  </IntakeInputField>
+                  <IntakeInputField id="zip" label="Zip Code" icon={MapPin}>
+                    <input id="zip" className="intake-input" value={form.zip} onChange={(e) => updateField('zip', e.target.value)} required />
+                  </IntakeInputField>
+                  <IntakeInputField id="serviceType" label="Service Type" icon={FileText}>
+                    <select id="serviceType" className="intake-input" value={form.serviceType} onChange={(e) => updateField('serviceType', e.target.value)} required>
+                      <option value="">Select service…</option>
+                      {SERVICE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </IntakeInputField>
+                  <IntakeInputField id="additionalContacts" label="Additional Contacts" icon={Users} className="intake-form-grid--full" multiline>
+                    <textarea id="additionalContacts" className="intake-input resize-none" rows={2} value={form.additionalContacts} onChange={(e) => updateField('additionalContacts', e.target.value)} />
+                  </IntakeInputField>
+                  <IntakeInputField id="notes" label="Notes" icon={FileText} className="intake-form-grid--full" multiline>
+                    <textarea id="notes" className="intake-input resize-none" rows={3} value={form.notes} onChange={(e) => updateField('notes', e.target.value)} />
+                  </IntakeInputField>
+                </div>
+
+                {error && <div className="intake-error">{error}</div>}
+
+                <IntakeStatusCards form={form} />
+                <IntakeWorkflowNextCard />
+
+                <div className="intake-actions lg:hidden">
+                  <button type="submit" className="intake-primary-btn" disabled={submitting}>
+                    {submitting ? 'Validating address…' : <>Continue <ArrowRight size={14} /></>}
+                  </button>
+                </div>
+              </form>
+
+              <IntakePropertyPreviewPanel form={form} />
             </div>
-
-            <div className="intake-form-grid">
-              <div>
-                <label className="intake-label" htmlFor="firstName">First Name</label>
-                <input id="firstName" className="intake-input" value={form.firstName} onChange={(e) => updateField('firstName', e.target.value)} required />
-              </div>
-              <div>
-                <label className="intake-label" htmlFor="lastName">Last Name</label>
-                <input id="lastName" className="intake-input" value={form.lastName} onChange={(e) => updateField('lastName', e.target.value)} required />
-              </div>
-              <div>
-                <label className="intake-label" htmlFor="phone">Phone Number</label>
-                <input id="phone" className="intake-input" type="tel" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} required />
-              </div>
-              <div>
-                <label className="intake-label" htmlFor="email">Email Address</label>
-                <input id="email" className="intake-input" type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
-              </div>
-              <div className="intake-form-grid--full">
-                <label className="intake-label" htmlFor="serviceAddress">Service Address</label>
-                <AddressAutocomplete
-                  value={form.serviceAddress}
-                  onChange={(v) => updateField('serviceAddress', v)}
-                  onPlaceSelected={handlePlaceSelected}
-                />
-              </div>
-              <div>
-                <label className="intake-label" htmlFor="city">City</label>
-                <input id="city" className="intake-input" value={form.city} onChange={(e) => updateField('city', e.target.value)} required />
-              </div>
-              <div>
-                <label className="intake-label" htmlFor="state">State</label>
-                <input id="state" className="intake-input" value={form.state} onChange={(e) => updateField('state', e.target.value)} required />
-              </div>
-              <div>
-                <label className="intake-label" htmlFor="zip">Zip Code</label>
-                <input id="zip" className="intake-input" value={form.zip} onChange={(e) => updateField('zip', e.target.value)} required />
-              </div>
-              <div>
-                <label className="intake-label" htmlFor="serviceType">Service Type</label>
-                <select id="serviceType" className="intake-input" value={form.serviceType} onChange={(e) => updateField('serviceType', e.target.value)} required>
-                  <option value="">Select service…</option>
-                  {SERVICE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="intake-form-grid--full">
-                <label className="intake-label" htmlFor="additionalContacts">Additional Contacts</label>
-                <textarea id="additionalContacts" className="intake-input resize-none" rows={2} value={form.additionalContacts} onChange={(e) => updateField('additionalContacts', e.target.value)} />
-              </div>
-              <div className="intake-form-grid--full">
-                <label className="intake-label" htmlFor="notes">Notes</label>
-                <textarea id="notes" className="intake-input resize-none" rows={3} value={form.notes} onChange={(e) => updateField('notes', e.target.value)} />
-              </div>
-            </div>
-
-            {error && <div className="intake-error">{error}</div>}
-
-            <div className="intake-actions">
-              <button type="submit" className="intake-primary-btn" disabled={submitting}>
-                {submitting ? 'Validating address…' : <>Continue <ArrowRight size={14} className="inline ml-1" /></>}
-              </button>
-            </div>
-          </form>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
-    </div>
+    </IntakeWorkspaceShell>
   );
 }

@@ -1,25 +1,188 @@
+/* Intake SaaS workspace — appearance only */
+
+.intake-workspace {
+  @apply flex flex-1 min-h-0 overflow-hidden;
+  background: #f4f7f5;
+  color: #0f172a;
+}
+
+.intake-workspace__sidebar {
+  @apply hidden lg:flex flex-col shrink-0 w-[248px] min-h-0;
+  background: linear-gradient(180deg, #0b2e1d 0%, #071f14 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.intake-workspace__brand {
+  @apply flex items-center gap-3 px-5 py-5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.intake-workspace__brand-icon {
+  @apply inline-flex items-center justify-center rounded-xl p-2;
+  background: rgba(74, 222, 128, 0.14);
+  border: 1px solid rgba(134, 239, 172, 0.24);
+  color: #86efac;
+}
+
+.intake-workspace__brand-title {
+  @apply text-sm font-bold text-white;
+}
+
+.intake-workspace__brand-sub {
+  @apply text-[11px] text-white/45;
+}
+
+.intake-workspace__nav {
+  @apply flex-1 px-3 py-4 space-y-1 overflow-y-auto;
+}
+
+.intake-workspace__nav-label {
+  @apply px-3 mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white/30;
+}
+
+.intake-workspace__nav-item {
+  @apply flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm no-underline transition-colors;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.intake-workspace__nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f0fdf4;
+}
+
+.intake-workspace__nav-item.is-active {
+  background: rgba(74, 222, 128, 0.12);
+  color: #dcfce7;
+  box-shadow: inset 2px 0 0 #4ade80;
+}
+
+.intake-workspace__sidebar-foot {
+  @apply flex items-center gap-2 px-5 py-4 text-[11px] font-semibold uppercase tracking-wide;
+  color: rgba(255, 255, 255, 0.45);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.intake-workspace__live-dot {
+  @apply inline-block w-2 h-2 rounded-full;
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.65);
+}
+
+.intake-workspace__content {
+  @apply flex-1 min-h-0 overflow-y-auto;
+}
+
 .intake-page {
-  @apply flex flex-col flex-1 min-h-0 relative overflow-hidden;
-  background: #050807;
-  color: #f8fafc;
+  @apply min-h-full;
+  background: transparent;
+  color: inherit;
 }
 
 .intake-page__inner {
-  @apply flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-5xl mx-auto w-full;
+  @apply max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-6;
+}
+
+.intake-header {
+  @apply flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-5;
+}
+
+.intake-header__title {
+  @apply text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight;
+}
+
+.intake-header__subtitle {
+  @apply text-sm text-slate-500 mt-1 max-w-2xl;
+}
+
+.intake-header__actions {
+  @apply flex flex-wrap items-center gap-2 sm:gap-3;
+}
+
+.intake-header__autosave {
+  @apply inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+.intake-header__draft-btn,
+.intake-header__continue-btn,
+.intake-primary-btn,
+.intake-secondary-btn {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-opacity;
+}
+
+.intake-header__draft-btn,
+.intake-secondary-btn {
+  @apply border border-slate-200 bg-white text-slate-700 hover:bg-slate-50;
+}
+
+.intake-header__continue-btn,
+.intake-primary-btn {
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.22);
+}
+
+.intake-header__continue-btn:disabled,
+.intake-primary-btn:disabled {
+  @apply opacity-40 cursor-not-allowed;
+}
+
+.intake-progress {
+  @apply grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-6 list-none p-0 m-0;
+}
+
+.intake-progress__step {
+  @apply flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.intake-progress__step.is-active {
+  border-color: #86efac;
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+  box-shadow: 0 10px 28px rgba(34, 197, 94, 0.12);
+}
+
+.intake-progress__step.is-done {
+  border-color: #bbf7d0;
+}
+
+.intake-progress__marker {
+  @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.intake-progress__step.is-active .intake-progress__marker {
+  background: #16a34a;
+  color: #fff;
+}
+
+.intake-progress__step.is-done .intake-progress__marker {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.intake-progress__label {
+  @apply text-sm font-medium text-slate-700;
+}
+
+.intake-workspace__columns {
+  @apply grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)] items-start;
 }
 
 .intake-card {
-  @apply rounded-2xl border border-gs-border/70 p-5 sm:p-6;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: var(--gs-shadow-soft);
+  @apply rounded-2xl border border-slate-200 bg-white p-5 sm:p-6;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05);
 }
 
 .intake-card__title {
-  @apply text-lg font-semibold text-gs-text;
+  @apply text-lg font-semibold text-slate-900;
 }
 
 .intake-card__subtitle {
-  @apply text-sm text-gs-muted mt-1;
+  @apply text-sm text-slate-500 mt-1;
 }
 
 .intake-form-grid {
@@ -31,43 +194,168 @@
 }
 
 .intake-label {
-  @apply text-xs font-semibold uppercase tracking-widest text-gs-muted mb-1.5 block;
+  @apply text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 mb-1.5 block;
+}
+
+.intake-field__control {
+  @apply relative;
+}
+
+.intake-field__icon {
+  @apply absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none;
 }
 
 .intake-input {
-  @apply w-full rounded-xl border border-gs-border bg-white/90 px-3 py-2.5 text-sm text-gs-text;
+  @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900;
+}
+
+.intake-field__control .intake-input,
+.intake-field__control .intake-address-autocomplete-host {
+  @apply pl-10;
+}
+
+.intake-field--multiline .intake-field__icon {
+  top: 0.85rem;
+  transform: none;
 }
 
 .intake-input:focus {
-  @apply outline-none ring-2 ring-gs-accent/30 border-gs-accent/40;
+  @apply outline-none ring-2 ring-emerald-200 border-emerald-400;
 }
 
-.intake-stepper {
-  @apply flex flex-wrap items-center gap-3 mb-6;
+.intake-status-grid {
+  @apply grid gap-3 sm:grid-cols-2 mt-6;
 }
 
-.intake-stepper__step {
-  @apply flex items-center gap-2 text-sm;
+.intake-status-card {
+  @apply flex items-start gap-3 rounded-2xl border px-4 py-3 bg-white;
 }
 
-.intake-stepper__dot {
-  @apply w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold;
+.intake-status-card--ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
 }
 
-.intake-stepper__dot--active {
-  @apply bg-gs-accent text-white;
+.intake-status-card--pending {
+  border-color: #e2e8f0;
+  background: #f8fafc;
 }
 
-.intake-stepper__dot--done {
-  @apply bg-gs-accent/20 text-gs-accent border border-gs-accent/40;
+.intake-status-card__icon {
+  @apply mt-0.5 text-emerald-600;
 }
 
-.intake-stepper__dot--pending {
-  @apply bg-white/60 text-gs-muted border border-gs-border;
+.intake-status-card__title {
+  @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
 }
 
+.intake-status-card__value {
+  @apply text-sm font-medium text-slate-800 mt-0.5;
+}
+
+.intake-next-card {
+  @apply rounded-2xl border border-slate-200 bg-white p-5 mt-5;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+}
+
+.intake-next-card__title {
+  @apply text-base font-semibold text-slate-900 mb-4;
+}
+
+.intake-next-card__list {
+  @apply space-y-3 list-none p-0 m-0;
+}
+
+.intake-next-card__item {
+  @apply flex items-start gap-3;
+}
+
+.intake-next-card__index {
+  @apply w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0;
+  background: #ecfdf5;
+  color: #15803d;
+}
+
+.intake-next-card__item-title {
+  @apply text-sm font-semibold text-slate-800;
+}
+
+.intake-next-card__item-detail {
+  @apply text-xs text-slate-500 mt-0.5;
+}
+
+.intake-preview-panel {
+  @apply rounded-2xl border border-slate-200 bg-white p-5 space-y-5 sticky top-4;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+}
+
+.intake-preview-panel__header {
+  @apply flex items-start gap-3;
+  color: #15803d;
+}
+
+.intake-preview-panel__eyebrow {
+  @apply text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700;
+}
+
+.intake-preview-panel__title {
+  @apply text-lg font-semibold text-slate-900 mt-0.5;
+}
+
+.intake-preview-panel__map,
 .intake-map-shell {
-  @apply rounded-xl overflow-hidden border border-gs-border min-h-[360px];
+  @apply rounded-2xl overflow-hidden border border-slate-200 min-h-[220px] bg-slate-100;
+}
+
+.intake-preview-panel__map-placeholder {
+  @apply h-full min-h-[220px] flex flex-col items-center justify-center text-center px-6 py-8 text-slate-500;
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.12), transparent 55%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.intake-preview-panel__map-placeholder p {
+  @apply text-sm font-semibold text-slate-700 mt-3;
+}
+
+.intake-preview-panel__map-placeholder span {
+  @apply text-xs text-slate-500 mt-1;
+}
+
+.intake-preview-panel__section h3 {
+  @apply flex items-center gap-2 text-sm font-semibold text-slate-900 mb-3;
+}
+
+.intake-preview-panel__dl {
+  @apply space-y-2;
+}
+
+.intake-preview-panel__dl div {
+  @apply flex items-start justify-between gap-3 text-sm;
+}
+
+.intake-preview-panel__dl dt {
+  @apply text-slate-500 shrink-0;
+}
+
+.intake-preview-panel__dl dd {
+  @apply text-slate-800 text-right;
+}
+
+.intake-preview-panel__muted {
+  @apply text-sm text-slate-500;
+}
+
+.intake-preview-panel__ai {
+  @apply rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4;
+}
+
+.intake-preview-panel__recommendation {
+  @apply text-sm font-medium text-emerald-900;
+}
+
+.intake-preview-panel__reasons {
+  @apply mt-2 space-y-1 text-xs text-emerald-800 list-disc pl-4;
 }
 
 .intake-map-toolbar {
@@ -75,11 +363,11 @@
 }
 
 .intake-map-btn {
-  @apply px-3 py-1.5 rounded-lg text-xs font-semibold border border-gs-border bg-white/80 hover:bg-white;
+  @apply px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50;
 }
 
 .intake-map-btn--active {
-  @apply bg-gs-accent/15 border-gs-accent/40 text-gs-accent;
+  @apply bg-emerald-50 border-emerald-300 text-emerald-700;
 }
 
 .intake-stat-grid {
@@ -87,15 +375,15 @@
 }
 
 .intake-stat {
-  @apply rounded-xl border border-gs-border bg-white/70 px-4 py-3;
+  @apply rounded-xl border border-slate-200 bg-slate-50 px-4 py-3;
 }
 
 .intake-stat__label {
-  @apply text-[10px] uppercase tracking-widest text-gs-muted font-semibold;
+  @apply text-[10px] uppercase tracking-widest text-slate-500 font-semibold;
 }
 
 .intake-stat__value {
-  @apply text-sm font-semibold text-gs-text mt-1;
+  @apply text-sm font-semibold text-slate-900 mt-1;
 }
 
 .intake-weather-pill {
@@ -103,31 +391,23 @@
 }
 
 .intake-weather-pill--good {
-  @apply bg-emerald-500/15 text-emerald-700 border border-emerald-500/30;
+  @apply bg-emerald-100 text-emerald-800 border border-emerald-200;
 }
 
 .intake-weather-pill--monitor {
-  @apply bg-amber-500/15 text-amber-800 border border-amber-500/30;
+  @apply bg-amber-100 text-amber-900 border border-amber-200;
 }
 
 .intake-weather-pill--not_recommended {
-  @apply bg-red-500/15 text-red-700 border border-red-500/30;
+  @apply bg-red-100 text-red-800 border border-red-200;
 }
 
 .intake-actions {
-  @apply flex flex-wrap gap-3 justify-end mt-6 pt-4 border-t border-gs-border/60;
-}
-
-.intake-primary-btn {
-  @apply px-5 py-2.5 rounded-xl text-sm font-semibold bg-gs-accent text-white hover:opacity-90 disabled:opacity-40;
-}
-
-.intake-secondary-btn {
-  @apply px-5 py-2.5 rounded-xl text-sm font-semibold border border-gs-border bg-white/80 hover:bg-white;
+  @apply flex flex-wrap gap-3 justify-end mt-6 pt-4 border-t border-slate-200;
 }
 
 .intake-error {
-  @apply text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2;
+  @apply text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2;
 }
 
 .intake-address-autocomplete-host {
@@ -139,8 +419,8 @@
   display: block;
   width: 100%;
   color-scheme: light;
-  background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  background-color: #fff;
+  border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
 }
 
@@ -151,3 +431,6 @@
 .intake-pac-container {
   z-index: 10000;
 }
+
+/* Legacy stepper classes kept for property page sections if referenced */
+.intake-stepper { @apply hidden; }
