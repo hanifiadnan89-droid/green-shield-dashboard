@@ -7,7 +7,6 @@ import IntakePageHeader from './components/IntakePageHeader.jsx';
 import IntakeKpiBar from './components/IntakeKpiBar.jsx';
 import IntakeProgressTracker from './components/IntakeProgressTracker.jsx';
 import IntakeStatusCards from './components/IntakeStatusCards.jsx';
-import IntakeWorkflowNextCard from './components/IntakeWorkflowNextCard.jsx';
 import IntakePropertyPreviewPanel from './components/IntakePropertyPreviewPanel.jsx';
 import IntakeWeatherWidget from './components/IntakeWeatherWidget.jsx';
 import IntakePageShell from './components/IntakePageShell.jsx';
@@ -124,7 +123,7 @@ export default function IntakePropertyPage() {
 
   const mapSlot = (
     <div className="intake-property-map-slot">
-      <div className="intake-map-toolbar">
+      <div className="intake-map-toolbar intake-map-toolbar--type">
         <button type="button" className={`intake-map-btn ${mapType === 'satellite' ? 'intake-map-btn--active' : ''}`} onClick={() => setMapType('satellite')}>
           Satellite
         </button>
@@ -185,7 +184,6 @@ export default function IntakePropertyPage() {
                 />
 
                 <IntakeStatusCards form={customer} verified />
-                <IntakeWorkflowNextCard />
 
                 <div className="intake-actions">
                   <button type="button" className="intake-secondary-btn" onClick={() => navigate('/intake')}>
