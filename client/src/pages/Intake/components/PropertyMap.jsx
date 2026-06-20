@@ -4,7 +4,7 @@ import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoa
 import { formatAcreage, formatSquareFeet } from '../../../utils/intake/polygonArea.js';
 import { computeAreaMetrics } from './propertyMapArea.js';
 import { addMapsListener, runListenerCleanups } from './propertyMapListeners.js';
-import { createVertexMarker } from './propertyMapDrawing.js';
+import { createVertexMarker, isNearFirstVertex } from './propertyMapDrawing.js';
 
 const POLYGON_STYLE = {
   strokeColor: '#22c55e',
@@ -67,7 +67,6 @@ function MapDrawToolbar({
   hasBoundary,
   onDrawPolygon,
   onUndoPoint,
-  onFinishDrawing,
   onEdit,
   onClear,
   onRedraw,
@@ -89,14 +88,6 @@ function MapDrawToolbar({
         disabled={!mapReady || !polygonActive || draftPointCount === 0}
       >
         Undo Point
-      </button>
-      <button
-        type="button"
-        className="intake-map-btn intake-map-btn--primary"
-        onClick={onFinishDrawing}
-        disabled={!mapReady || !polygonActive || draftPointCount < 3}
-      >
-        Finish Drawing
       </button>
       <button
         type="button"
@@ -356,7 +347,7 @@ export default function PropertyMap({
           center: { lat, lng },
           zoom: 19,
           mapTypeId: mapType === 'roadmap' ? 'roadmap' : 'hybrid',
-          mapTypeControl: true,
+          mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: true,
         });
@@ -474,7 +465,14 @@ export default function PropertyMap({
       const point = latLngToPoint(event?.latLng);
       if (!point) return;
       const maps = window.google?.maps;
-      draftVerticesRef.current = [...draftVerticesRef.current, point];
+      const verts = draftVerticesRef.current;
+
+      if (verts.length >= 3 && isNearFirstVertex(point, verts[0], maps)) {
+        finishPolygonDrawing();
+        return;
+      }
+
+      draftVerticesRef.current = [...verts, point];
       setDraftPointCount(draftVerticesRef.current.length);
       const marker = maps ? createVertexMarker(maps, map, point) : null;
       if (marker) draftMarkersRef.current.push(marker);
@@ -552,7 +550,6 @@ export default function PropertyMap({
     hasBoundary,
     onDrawPolygon: startPolygonMode,
     onUndoPoint: undoLastPoint,
-    onFinishDrawing: finishPolygonDrawing,
     onEdit: startEditMode,
     onClear: clearDrawing,
     onRedraw: redraw,
@@ -574,7 +571,7 @@ export default function PropertyMap({
 
       {polygonActive && (
         <p className="intake-map-hint intake-map-hint--active">
-          Click to place vertices ({draftPointCount}). Hover shows the next segment. Finish when the shape is closed.
+          Click to place vertices ({draftPointCount}). Click near the first point to close the shape.
         </p>
       )}
 

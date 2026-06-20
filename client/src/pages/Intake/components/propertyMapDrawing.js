@@ -58,3 +58,36 @@ export function createVertexMarker(maps, map, position) {
     },
   });
 }
+
+/** Default snap radius when closing a polygon on the first vertex (~20 m). */
+export const POLYGON_CLOSE_THRESHOLD_METERS = 20;
+
+function haversineMeters(a, b) {
+  const latA = Number(a?.lat);
+  const lngA = Number(a?.lng);
+  const latB = Number(b?.lat);
+  const lngB = Number(b?.lng);
+  if (![latA, lngA, latB, lngB].every(Number.isFinite)) return Infinity;
+
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(latB - latA);
+  const dLng = toRad(lngB - lngA);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h = sinLat * sinLat
+    + Math.cos(toRad(latA)) * Math.cos(toRad(latB)) * sinLng * sinLng;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+export function isNearFirstVertex(clickPoint, firstVertex, maps, thresholdMeters = POLYGON_CLOSE_THRESHOLD_METERS) {
+  if (!clickPoint || !firstVertex) return false;
+
+  const spherical = maps?.geometry?.spherical;
+  if (spherical?.computeDistanceBetween && maps?.LatLng) {
+    const a = new maps.LatLng(clickPoint.lat, clickPoint.lng);
+    const b = new maps.LatLng(firstVertex.lat, firstVertex.lng);
+    return spherical.computeDistanceBetween(a, b) <= thresholdMeters;
+  }
+
+  return haversineMeters(clickPoint, firstVertex) <= thresholdMeters;
+}
