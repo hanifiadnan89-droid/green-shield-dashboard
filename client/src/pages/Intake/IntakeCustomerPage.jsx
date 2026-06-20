@@ -170,7 +170,6 @@ export default function IntakeCustomerPage() {
       latitude={form.latitude}
       longitude={form.longitude}
       address={previewAddress}
-      polygonPath={form.suggestedTreatmentPolygon || []}
     />
   );
 

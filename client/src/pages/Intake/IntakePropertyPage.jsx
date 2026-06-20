@@ -140,7 +140,6 @@ export default function IntakePropertyPage() {
       <PropertyMap
         center={center}
         polygonPath={treatmentPolygon}
-        suggestedBoundary={customer.suggestedTreatmentPolygon || []}
         mapType={mapType}
         onPolygonChange={setTreatmentPolygon}
         onAreaChange={handleAreaChange}

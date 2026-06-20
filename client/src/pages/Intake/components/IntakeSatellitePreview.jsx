@@ -1,13 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { MapPin } from 'lucide-react';
 import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoader.js';
-import { addMapsListener } from './propertyMapListeners.js';
+import { isCompactPolygon } from './propertyMapDrawing.js';
 
+/**
+ * Read-only intake preview — pin + zoom only.
+ * Optional compact footprint overlay when property-specific and small.
+ */
 export default function IntakeSatellitePreview({
   latitude,
   longitude,
   address,
-  polygonPath = [],
+  footprintPolygon = null,
 }) {
   const mapRef = useRef(null);
   const { status } = useIntakeGoogleMapsLoader();
@@ -15,21 +19,21 @@ export default function IntakeSatellitePreview({
   const lat = Number(latitude);
   const lng = Number(longitude);
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+  const showFootprint = isCompactPolygon(footprintPolygon);
 
   useEffect(() => {
     if (status !== 'ready' || !mapRef.current || !hasCoords) return undefined;
 
     let cancelled = false;
-    const cleanups = [];
-    let map = null;
+    const overlays = [];
 
     (async () => {
       const maps = window.google?.maps;
       if (!maps?.Map || cancelled || !mapRef.current) return;
 
-      map = new maps.Map(mapRef.current, {
+      const map = new maps.Map(mapRef.current, {
         center: { lat, lng },
-        zoom: 19,
+        zoom: 20,
         mapTypeId: 'hybrid',
         disableDefaultUI: true,
         zoomControl: true,
@@ -38,32 +42,48 @@ export default function IntakeSatellitePreview({
         clickableIcons: false,
       });
 
-      if (polygonPath.length >= 3) {
+      const marker = new maps.Marker({
+        position: { lat, lng },
+        map,
+        title: address || 'Service location',
+        zIndex: 3,
+        icon: {
+          path: maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#16a34a',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+        },
+      });
+      overlays.push(marker);
+
+      if (showFootprint) {
         const polygon = new maps.Polygon({
-          paths: polygonPath.map((p) => ({ lat: p.lat, lng: p.lng })),
+          paths: footprintPolygon.map((p) => ({ lat: p.lat, lng: p.lng })),
           strokeColor: '#22c55e',
-          strokeOpacity: 0.9,
+          strokeOpacity: 0.85,
           strokeWeight: 2,
           fillColor: '#22c55e',
-          fillOpacity: 0.22,
+          fillOpacity: 0.15,
           clickable: false,
           map,
         });
-        const bounds = new maps.LatLngBounds();
-        polygonPath.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
-        const idleCleanup = addMapsListener(map, 'idle', () => {
-          map.fitBounds(bounds, 48);
-        });
-        if (idleCleanup) cleanups.push(idleCleanup);
-        void polygon;
+        overlays.push(polygon);
       }
     })();
 
     return () => {
       cancelled = true;
-      cleanups.forEach((fn) => fn?.());
+      overlays.forEach((overlay) => {
+        try {
+          overlay?.setMap?.(null);
+        } catch {
+          /* ignore */
+        }
+      });
     };
-  }, [status, lat, lng, hasCoords, JSON.stringify(polygonPath)]);
+  }, [status, lat, lng, hasCoords, address, showFootprint, footprintPolygon]);
 
   if (!hasCoords) {
     return (
@@ -90,5 +110,13 @@ export default function IntakeSatellitePreview({
     );
   }
 
-  return <div ref={mapRef} className="intake-map-shell intake-map-shell--preview" aria-label={`Satellite preview for ${address || 'selected address'}`} />;
+  return (
+    <div className="intake-preview-map-wrap">
+      <div ref={mapRef} className="intake-map-shell intake-map-shell--preview" aria-label={`Satellite preview for ${address || 'selected address'}`} />
+      <div className="intake-preview-map-pin" aria-hidden>
+        <MapPin size={14} />
+        <span>Service location</span>
+      </div>
+    </div>
+  );
 }

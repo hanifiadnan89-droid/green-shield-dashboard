@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoader.js';
 import { formatAcreage, formatSquareFeet } from '../../../utils/intake/polygonArea.js';
-import { boundsToPolygon } from '../../../utils/intake/propertyBoundary.js';
 import { computeAreaMetrics } from './propertyMapArea.js';
 import { addMapsListener, runListenerCleanups } from './propertyMapListeners.js';
+import {
+  createVertexMarker,
+  rectangleToPolygon,
+} from './propertyMapDrawing.js';
 
 const POLYGON_STYLE = {
   strokeColor: '#22c55e',
@@ -20,6 +23,21 @@ const DRAFT_LINE_STYLE = {
   clickable: false,
 };
 
+const PREVIEW_LINE_STYLE = {
+  strokeColor: '#86efac',
+  strokeOpacity: 0.9,
+  strokeWeight: 2,
+  clickable: false,
+  zIndex: 1,
+};
+
+const DRAFT_RECT_STYLE = {
+  ...POLYGON_STYLE,
+  fillOpacity: 0.12,
+  strokeOpacity: 0.75,
+  clickable: false,
+};
+
 function pathToArray(polygon) {
   const path = polygon?.getPath?.();
   if (!path || typeof path.getLength !== 'function') return [];
@@ -32,28 +50,14 @@ function pathToArray(polygon) {
   return out;
 }
 
-function geocodeViewport(lat, lng) {
-  return new Promise((resolve) => {
-    const Geocoder = window.google?.maps?.Geocoder;
-    if (!Geocoder) {
-      resolve(null);
-      return;
-    }
-    const client = new Geocoder();
-    client.geocode({ location: { lat, lng } }, (results, status) => {
-      if (status !== 'OK' || !results?.[0]?.geometry?.viewport) {
-        resolve(null);
-        return;
-      }
-      resolve(boundsToPolygon(results[0].geometry.viewport));
-    });
-  });
+function latLngToPoint(latLng) {
+  if (!latLng) return null;
+  return { lat: latLng.lat(), lng: latLng.lng() };
 }
 
 export default function PropertyMap({
   center,
   polygonPath = [],
-  suggestedBoundary = [],
   mapType = 'satellite',
   onPolygonChange,
   onAreaChange,
@@ -63,21 +67,29 @@ export default function PropertyMap({
   const mapInstanceRef = useRef(null);
   const polygonRef = useRef(null);
   const draftPolylineRef = useRef(null);
+  const previewLineRef = useRef(null);
+  const draftRectangleRef = useRef(null);
   const draftVerticesRef = useRef([]);
-  const mapClickCleanupRef = useRef(null);
+  const draftMarkersRef = useRef([]);
+  const rectangleStartRef = useRef(null);
+  const interactionCleanupsRef = useRef([]);
   const polygonListenerCleanupsRef = useRef([]);
   const onPolygonChangeRef = useRef(onPolygonChange);
   const onAreaChangeRef = useRef(onAreaChange);
   const onBoundaryStatusChangeRef = useRef(onBoundaryStatusChange);
-  const autoAppliedRef = useRef(false);
+  const activeToolRef = useRef(null);
 
   const { status } = useIntakeGoogleMapsLoader();
   const [mapReady, setMapReady] = useState(false);
   const [mapInitError, setMapInitError] = useState(null);
   const [geometryWarning, setGeometryWarning] = useState(null);
-  const [autoDetectMessage, setAutoDetectMessage] = useState(null);
   const [activeTool, setActiveTool] = useState(null);
   const [draftPointCount, setDraftPointCount] = useState(0);
+  const [hasBoundary, setHasBoundary] = useState(polygonPath.length >= 3);
+
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+  }, [activeTool]);
 
   useEffect(() => {
     onPolygonChangeRef.current = onPolygonChange;
@@ -86,22 +98,60 @@ export default function PropertyMap({
   }, [onPolygonChange, onAreaChange, onBoundaryStatusChange]);
 
   useEffect(() => {
-    autoAppliedRef.current = false;
-    setAutoDetectMessage(null);
-    mapClickCleanupRef.current?.();
-    mapClickCleanupRef.current = null;
+    stopAllInteractions();
     draftVerticesRef.current = [];
+    rectangleStartRef.current = null;
     setDraftPointCount(0);
+    setActiveTool(null);
   }, [center?.lat, center?.lng]);
 
-  function stopMapClickDrawing() {
-    mapClickCleanupRef.current?.();
-    mapClickCleanupRef.current = null;
+  function stopAllInteractions() {
+    runListenerCleanups(interactionCleanupsRef.current);
+    interactionCleanupsRef.current = [];
+    mapInstanceRef.current?.setOptions?.({ draggable: true });
   }
 
   function clearPolygonListeners() {
     runListenerCleanups(polygonListenerCleanupsRef.current);
     polygonListenerCleanupsRef.current = [];
+  }
+
+  function clearDraftMarkers() {
+    draftMarkersRef.current.forEach((marker) => {
+      try {
+        marker?.setMap?.(null);
+      } catch {
+        /* ignore */
+      }
+    });
+    draftMarkersRef.current = [];
+  }
+
+  function clearPreviewLine() {
+    try {
+      previewLineRef.current?.setMap?.(null);
+    } catch {
+      /* ignore */
+    }
+    previewLineRef.current = null;
+  }
+
+  function clearDraftPolyline() {
+    try {
+      draftPolylineRef.current?.setMap?.(null);
+    } catch {
+      /* ignore */
+    }
+    draftPolylineRef.current = null;
+  }
+
+  function clearDraftRectangle() {
+    try {
+      draftRectangleRef.current?.setMap?.(null);
+    } catch {
+      /* ignore */
+    }
+    draftRectangleRef.current = null;
   }
 
   function emitArea(path) {
@@ -121,6 +171,7 @@ export default function PropertyMap({
     if (arr.length >= 3) {
       emitArea(arr);
       onBoundaryStatusChangeRef.current?.('drawn');
+      setHasBoundary(true);
     } else {
       onAreaChangeRef.current?.({
         treatmentAcreage: 0,
@@ -129,6 +180,7 @@ export default function PropertyMap({
         rawSquareFeet: 0,
       });
       onBoundaryStatusChangeRef.current?.('none');
+      setHasBoundary(false);
     }
   }
 
@@ -150,28 +202,48 @@ export default function PropertyMap({
 
     const path = draftVerticesRef.current.map((p) => ({ lat: p.lat, lng: p.lng }));
     if (!draftPolylineRef.current) {
-      draftPolylineRef.current = new maps.Polyline({
-        ...DRAFT_LINE_STYLE,
-        map,
-        path,
-      });
+      draftPolylineRef.current = new maps.Polyline({ ...DRAFT_LINE_STYLE, map, path });
       return;
     }
-
     draftPolylineRef.current.setPath(path);
     draftPolylineRef.current.setMap(map);
   }
 
-  function clearDraftPolyline() {
-    try {
-      draftPolylineRef.current?.setMap?.(null);
-    } catch {
-      /* ignore */
+  function updatePreviewLine(cursorLatLng) {
+    const map = mapInstanceRef.current;
+    const maps = window.google?.maps;
+    const verts = draftVerticesRef.current;
+    if (!map || !maps?.Polyline || !cursorLatLng || verts.length === 0) {
+      clearPreviewLine();
+      return;
     }
-    draftPolylineRef.current = null;
+
+    const last = verts[verts.length - 1];
+    const path = [last, latLngToPoint(cursorLatLng)].filter(Boolean);
+    if (!previewLineRef.current) {
+      previewLineRef.current = new maps.Polyline({ ...PREVIEW_LINE_STYLE, map, path });
+      return;
+    }
+    previewLineRef.current.setPath(path);
+    previewLineRef.current.setMap(map);
   }
 
-  function applyPolygonPath(pathPoints, { editable = true, detected = false } = {}) {
+  function updateDraftRectangle(endPoint) {
+    const map = mapInstanceRef.current;
+    const maps = window.google?.maps;
+    const start = rectangleStartRef.current;
+    if (!map || !maps?.Polygon || !start || !endPoint) return;
+
+    const path = rectangleToPolygon(start, endPoint);
+    if (!draftRectangleRef.current) {
+      draftRectangleRef.current = new maps.Polygon({ ...DRAFT_RECT_STYLE, map, paths: path });
+      return;
+    }
+    draftRectangleRef.current.setPaths(path);
+    draftRectangleRef.current.setMap(map);
+  }
+
+  function applyPolygonPath(pathPoints, { editable = true } = {}) {
     const map = mapInstanceRef.current;
     const polygon = polygonRef.current;
     if (!map || !polygon || !pathPoints?.length) return false;
@@ -181,8 +253,17 @@ export default function PropertyMap({
     polygon.setEditable(editable);
     attachPolygonPathListeners(polygon);
     syncPolygon(polygon);
-    if (detected) onBoundaryStatusChangeRef.current?.('detected');
     return true;
+  }
+
+  function resetDraftVisuals() {
+    clearDraftPolyline();
+    clearPreviewLine();
+    clearDraftRectangle();
+    clearDraftMarkers();
+    draftVerticesRef.current = [];
+    rectangleStartRef.current = null;
+    setDraftPointCount(0);
   }
 
   useEffect(() => {
@@ -193,34 +274,6 @@ export default function PropertyMap({
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
 
     let cancelled = false;
-
-    const tryAutoBoundary = async () => {
-      if (autoAppliedRef.current || polygonPath.length >= 3) return;
-
-      let candidate = suggestedBoundary?.length >= 3 ? suggestedBoundary : null;
-      let method = 'viewport';
-
-      if (!candidate) {
-        candidate = await geocodeViewport(lat, lng);
-        method = candidate ? 'geocode' : null;
-      }
-
-      if (!candidate || cancelled) {
-        if (!cancelled) {
-          setAutoDetectMessage('Automatic property detection unavailable. Please draw treatment area manually.');
-          onBoundaryStatusChangeRef.current?.('manual');
-        }
-        return;
-      }
-
-      autoAppliedRef.current = true;
-      applyPolygonPath(candidate, { editable: true, detected: true });
-      setAutoDetectMessage(
-        method === 'viewport'
-          ? 'Property boundary detected from address footprint. Adjust or redraw as needed.'
-          : 'Estimated property boundary applied. Adjust or redraw as needed.',
-      );
-    };
 
     (async () => {
       setMapInitError(null);
@@ -273,10 +326,7 @@ export default function PropertyMap({
           attachPolygonPathListeners(polygon);
           emitArea(polygonPath);
           onBoundaryStatusChangeRef.current?.('drawn');
-        }
-
-        if (!cancelled && polygonPath.length < 3) {
-          await tryAutoBoundary();
+          setHasBoundary(true);
         }
       } catch (err) {
         if (!cancelled) {
@@ -288,9 +338,9 @@ export default function PropertyMap({
 
     return () => {
       cancelled = true;
-      stopMapClickDrawing();
+      stopAllInteractions();
       clearPolygonListeners();
-      clearDraftPolyline();
+      resetDraftVisuals();
 
       try {
         polygonRef.current?.setMap?.(null);
@@ -314,6 +364,7 @@ export default function PropertyMap({
       polygon.setMap(map);
       polygon.setEditable(activeTool === 'edit');
       attachPolygonPathListeners(polygon);
+      setHasBoundary(true);
     }
   }, [polygonPath, mapReady, activeTool]);
 
@@ -327,15 +378,7 @@ export default function PropertyMap({
     }
   }, [mapType]);
 
-  function startDrawing() {
-    const map = mapInstanceRef.current;
-    if (!map || !mapReady) return;
-
-    stopMapClickDrawing();
-    clearDraftPolyline();
-    draftVerticesRef.current = [];
-    setDraftPointCount(0);
-
+  function clearCompletedPolygon() {
     const polygon = polygonRef.current;
     if (polygon) {
       polygon.setPath([]);
@@ -343,7 +386,6 @@ export default function PropertyMap({
       polygon.setEditable(false);
       clearPolygonListeners();
     }
-
     onPolygonChangeRef.current?.([]);
     onAreaChangeRef.current?.({
       treatmentAcreage: 0,
@@ -352,70 +394,124 @@ export default function PropertyMap({
       rawSquareFeet: 0,
     });
     onBoundaryStatusChangeRef.current?.('manual');
-    setAutoDetectMessage(null);
-    setActiveTool('draw');
+    setHasBoundary(false);
+  }
 
-    mapClickCleanupRef.current = addMapsListener(map, 'click', (event) => {
-      const latLng = event?.latLng;
-      if (!latLng) return;
-      draftVerticesRef.current = [
-        ...draftVerticesRef.current,
-        { lat: latLng.lat(), lng: latLng.lng() },
-      ];
+  function startPolygonMode() {
+    const map = mapInstanceRef.current;
+    if (!map || !mapReady) return;
+
+    stopAllInteractions();
+    resetDraftVisuals();
+    clearCompletedPolygon();
+    map.setOptions({ draggable: false });
+    setActiveTool('polygon');
+
+    const clickCleanup = addMapsListener(map, 'click', (event) => {
+      const point = latLngToPoint(event?.latLng);
+      if (!point) return;
+      const maps = window.google?.maps;
+      draftVerticesRef.current = [...draftVerticesRef.current, point];
       setDraftPointCount(draftVerticesRef.current.length);
+      const marker = maps ? createVertexMarker(maps, map, point) : null;
+      if (marker) draftMarkersRef.current.push(marker);
       updateDraftPolyline();
     });
+    if (clickCleanup) interactionCleanupsRef.current.push(clickCleanup);
+
+    const moveCleanup = addMapsListener(map, 'mousemove', (event) => {
+      if (activeToolRef.current !== 'polygon') return;
+      updatePreviewLine(event?.latLng);
+    });
+    if (moveCleanup) interactionCleanupsRef.current.push(moveCleanup);
   }
 
-  function finishDrawing() {
+  function startRectangleMode() {
+    const map = mapInstanceRef.current;
+    if (!map || !mapReady) return;
+
+    stopAllInteractions();
+    resetDraftVisuals();
+    clearCompletedPolygon();
+    map.setOptions({ draggable: false });
+    setActiveTool('rectangle');
+
+    const downCleanup = addMapsListener(map, 'mousedown', (event) => {
+      const point = latLngToPoint(event?.latLng);
+      if (!point) return;
+      rectangleStartRef.current = point;
+      clearDraftRectangle();
+    });
+    if (downCleanup) interactionCleanupsRef.current.push(downCleanup);
+
+    const moveCleanup = addMapsListener(map, 'mousemove', (event) => {
+      if (!rectangleStartRef.current) return;
+      const point = latLngToPoint(event?.latLng);
+      if (point) updateDraftRectangle(point);
+    });
+    if (moveCleanup) interactionCleanupsRef.current.push(moveCleanup);
+
+    const upCleanup = addMapsListener(map, 'mouseup', (event) => {
+      if (!rectangleStartRef.current) return;
+      const end = latLngToPoint(event?.latLng);
+      if (!end) return;
+      const path = rectangleToPolygon(rectangleStartRef.current, end);
+      stopAllInteractions();
+      resetDraftVisuals();
+      if (path.length >= 3 && computeAreaMetrics(path).sqFt > 50) {
+        applyPolygonPath(path, { editable: false });
+      }
+      setActiveTool(null);
+    });
+    if (upCleanup) interactionCleanupsRef.current.push(upCleanup);
+  }
+
+  function undoLastPoint() {
+    if (draftVerticesRef.current.length === 0) return;
+    draftVerticesRef.current = draftVerticesRef.current.slice(0, -1);
+    const lastMarker = draftMarkersRef.current.pop();
+    try {
+      lastMarker?.setMap?.(null);
+    } catch {
+      /* ignore */
+    }
+    setDraftPointCount(draftVerticesRef.current.length);
+    if (draftVerticesRef.current.length === 0) {
+      clearDraftPolyline();
+      clearPreviewLine();
+      return;
+    }
+    updateDraftPolyline();
+  }
+
+  function finishPolygonDrawing() {
     if (draftVerticesRef.current.length < 3) return;
-
-    stopMapClickDrawing();
-    clearDraftPolyline();
+    stopAllInteractions();
     applyPolygonPath([...draftVerticesRef.current], { editable: false });
-    draftVerticesRef.current = [];
-    setDraftPointCount(0);
+    resetDraftVisuals();
     setActiveTool(null);
-    setAutoDetectMessage(null);
   }
 
-  function setEditMode() {
-    stopMapClickDrawing();
-    clearDraftPolyline();
-    draftVerticesRef.current = [];
-    setDraftPointCount(0);
-
+  function startEditMode() {
+    stopAllInteractions();
+    resetDraftVisuals();
     const polygon = polygonRef.current;
-    if (!polygon) return;
+    if (!polygon || !hasBoundary) return;
     polygon.setEditable(true);
     attachPolygonPathListeners(polygon);
     setActiveTool('edit');
   }
 
-  function clearPolygon() {
-    stopMapClickDrawing();
-    clearDraftPolyline();
-    draftVerticesRef.current = [];
-    setDraftPointCount(0);
-
-    const polygon = polygonRef.current;
-    if (polygon) {
-      polygon.setPath([]);
-      polygon.setMap(null);
-      polygon.setEditable(false);
-      clearPolygonListeners();
-    }
-
+  function clearDrawing() {
+    stopAllInteractions();
+    resetDraftVisuals();
+    clearCompletedPolygon();
     setActiveTool(null);
-    setAutoDetectMessage('Click Draw Polygon, then click the map to place treatment area vertices.');
-    onPolygonChangeRef.current?.([]);
-    onAreaChangeRef.current?.({
-      treatmentAcreage: 0,
-      treatmentSquareFeet: 0,
-      rawAcreage: 0,
-      rawSquareFeet: 0,
-    });
-    onBoundaryStatusChangeRef.current?.('manual');
+  }
+
+  function redraw() {
+    clearDrawing();
+    startPolygonMode();
   }
 
   if (status === 'no_key') {
@@ -423,47 +519,90 @@ export default function PropertyMap({
   }
 
   const showMapShell = status !== 'loading' && status !== 'error';
+  const polygonActive = activeTool === 'polygon';
+  const rectangleActive = activeTool === 'rectangle';
 
   return (
-    <div>
-      <div className="intake-map-toolbar">
-        <button
-          type="button"
-          className={`intake-map-btn ${activeTool === 'draw' ? 'intake-map-btn--active' : ''}`}
-          onClick={startDrawing}
-          disabled={!mapReady}
-        >
-          Draw Polygon
-        </button>
-        <button
-          type="button"
-          className="intake-map-btn intake-map-btn--primary"
-          onClick={finishDrawing}
-          disabled={!mapReady || activeTool !== 'draw' || draftPointCount < 3}
-        >
-          Finish Drawing
-        </button>
-        <button
-          type="button"
-          className={`intake-map-btn ${activeTool === 'edit' ? 'intake-map-btn--active' : ''}`}
-          onClick={setEditMode}
-          disabled={!mapReady}
-        >
-          Edit Polygon
-        </button>
-        <button
-          type="button"
-          className="intake-map-btn"
-          onClick={clearPolygon}
-          disabled={!mapReady}
-        >
-          Clear / Redraw
-        </button>
+    <div className="intake-property-map">
+      <div className="intake-map-toolbar intake-map-toolbar--stacked">
+        <div className="intake-map-toolbar__row">
+          <button
+            type="button"
+            className={`intake-map-btn ${polygonActive ? 'intake-map-btn--active' : ''}`}
+            onClick={startPolygonMode}
+            disabled={!mapReady}
+          >
+            Draw Polygon
+          </button>
+          <button
+            type="button"
+            className={`intake-map-btn ${rectangleActive ? 'intake-map-btn--active' : ''}`}
+            onClick={startRectangleMode}
+            disabled={!mapReady}
+          >
+            Quick Rectangle
+          </button>
+          <button
+            type="button"
+            className="intake-map-btn"
+            onClick={undoLastPoint}
+            disabled={!mapReady || !polygonActive || draftPointCount === 0}
+          >
+            Undo Point
+          </button>
+          <button
+            type="button"
+            className="intake-map-btn intake-map-btn--primary"
+            onClick={finishPolygonDrawing}
+            disabled={!mapReady || !polygonActive || draftPointCount < 3}
+          >
+            Finish Drawing
+          </button>
+        </div>
+        <div className="intake-map-toolbar__row">
+          <button
+            type="button"
+            className={`intake-map-btn ${activeTool === 'edit' ? 'intake-map-btn--active' : ''}`}
+            onClick={startEditMode}
+            disabled={!mapReady || !hasBoundary}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="intake-map-btn"
+            onClick={clearDrawing}
+            disabled={!mapReady}
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            className="intake-map-btn"
+            onClick={redraw}
+            disabled={!mapReady}
+          >
+            Redraw
+          </button>
+        </div>
       </div>
 
-      {activeTool === 'draw' && (
-        <p className="intake-map-hint">
-          Click the map to add vertices ({draftPointCount} placed). Select Finish Drawing when done.
+      <p className="intake-map-hint">
+        Use Quick Rectangle for fast estimates or Polygon for irregular treatment areas.
+      </p>
+      <p className="intake-map-hint intake-map-hint--subtle">
+        Treatment area is rep-estimated and can be adjusted before quote.
+      </p>
+
+      {polygonActive && (
+        <p className="intake-map-hint intake-map-hint--active">
+          Click to place vertices ({draftPointCount}). Hover shows the next segment. Finish when the shape is closed.
+        </p>
+      )}
+
+      {rectangleActive && (
+        <p className="intake-map-hint intake-map-hint--active">
+          Click and drag on the map to draw a rectangle around the treatment area.
         </p>
       )}
 
@@ -471,12 +610,15 @@ export default function PropertyMap({
         <p className="intake-map-hint intake-map-hint--warn">{geometryWarning}</p>
       )}
 
-      {autoDetectMessage && (
-        <p className="intake-map-hint">{autoDetectMessage}</p>
-      )}
-
       {mapInitError && (
         <p className="intake-map-hint intake-map-hint--warn">{mapInitError}</p>
+      )}
+
+      {hasBoundary && activeTool !== 'polygon' && activeTool !== 'rectangle' && (
+        <div className="intake-map-boundary-status">
+          <span className="intake-map-boundary-status__badge">Boundary Drawn</span>
+          <span>Acreage and sq ft calculated below</span>
+        </div>
       )}
 
       {status === 'loading' && (
@@ -488,7 +630,7 @@ export default function PropertyMap({
       )}
 
       {showMapShell && (
-        <div ref={mapRef} className="intake-map-shell" />
+        <div ref={mapRef} className="intake-map-shell intake-map-shell--draw" />
       )}
     </div>
   );
