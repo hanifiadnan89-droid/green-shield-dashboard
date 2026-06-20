@@ -20,11 +20,9 @@ export default class IntakePropertyErrorBoundary extends Component {
     if (!error) return this.props.children;
 
     return (
-      <div className="intake-workspace">
-        <div className="intake-workspace__content">
-          <div className="intake-page">
-            <div className="intake-page__inner max-w-3xl">
-              <div className="intake-card space-y-4">
+      <div className="intake-page">
+        <div className="intake-page__inner max-w-3xl">
+          <div className="intake-card space-y-4">
                 <h1 className="intake-card__title">Property Intelligence unavailable</h1>
                 <p className="intake-card__subtitle">
                   The map could not be loaded, but your customer intake data is still saved.
@@ -44,8 +42,6 @@ export default class IntakePropertyErrorBoundary extends Component {
                     Try again
                   </button>
                 </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

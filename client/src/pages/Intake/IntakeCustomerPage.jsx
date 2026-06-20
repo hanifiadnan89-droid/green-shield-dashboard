@@ -5,8 +5,8 @@ import {
   ArrowRight, Mail, MapPin, Phone, User, FileText, Users,
 } from 'lucide-react';
 import AddressAutocomplete from './components/AddressAutocomplete.jsx';
-import IntakeWorkspaceShell from './components/IntakeWorkspaceShell.jsx';
 import IntakePageHeader from './components/IntakePageHeader.jsx';
+import IntakeKpiBar from './components/IntakeKpiBar.jsx';
 import IntakeProgressTracker from './components/IntakeProgressTracker.jsx';
 import IntakeInputField from './components/IntakeInputField.jsx';
 import IntakeStatusCards from './components/IntakeStatusCards.jsx';
@@ -134,26 +134,32 @@ export default function IntakeCustomerPage() {
   }
 
   return (
-    <IntakeWorkspaceShell>
-      <div className="intake-page">
-        <div className="intake-page__inner">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <IntakePageHeader
-              title="Customer Intake"
-              subtitle="Capture customer details, verify the service address, and prepare property intelligence for quoting."
-              continueFormId="intake-customer-form"
-              continueDisabled={submitting}
-              continueLabel={submitting ? 'Validating address…' : 'Continue'}
-            />
+    <div className="intake-page">
+      <div className="intake-page__inner">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <IntakePageHeader
+            title="Customer Intake"
+            subtitle="Capture customer details, verify service address, and prepare property intelligence for quoting."
+            continueFormId="intake-customer-form"
+            continueDisabled={submitting}
+            continueLabel={submitting ? 'Validating address…' : 'Continue'}
+          />
 
-            <IntakeProgressTracker currentStep={1} />
+          <IntakeKpiBar form={form} />
 
-            <div className="intake-workspace__columns">
-              <form id="intake-customer-form" onSubmit={handleContinue} className="intake-card space-y-4">
+          <IntakeProgressTracker currentStep={1} />
+
+          <div className="intake-workspace__columns">
+            <form id="intake-customer-form" onSubmit={handleContinue} className="intake-card intake-card--primary space-y-3">
+              <div className="intake-card__heading">
+                <div className="intake-card__heading-icon" aria-hidden>
+                  <User size={18} />
+                </div>
                 <div>
                   <h2 className="intake-card__title">Customer Information</h2>
                   <p className="intake-card__subtitle">Service address uses Google Places Autocomplete and validation.</p>
                 </div>
+              </div>
 
                 <div className="intake-form-grid">
                   <IntakeInputField id="firstName" label="First Name" icon={User}>
@@ -211,10 +217,9 @@ export default function IntakeCustomerPage() {
               </form>
 
               <IntakePropertyPreviewPanel form={form} />
-            </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </div>
-    </IntakeWorkspaceShell>
+    </div>
   );
 }

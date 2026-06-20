@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowRight, CloudSun, MapPin } from 'lucide-react';
 import PropertyMap from './components/PropertyMap.jsx';
-import IntakeWorkspaceShell from './components/IntakeWorkspaceShell.jsx';
 import IntakePageHeader from './components/IntakePageHeader.jsx';
+import IntakeKpiBar from './components/IntakeKpiBar.jsx';
 import IntakeProgressTracker from './components/IntakeProgressTracker.jsx';
 import IntakeInputField from './components/IntakeInputField.jsx';
 import IntakeStatusCards from './components/IntakeStatusCards.jsx';
@@ -154,19 +154,20 @@ export default function IntakePropertyPage() {
   );
 
   return (
-    <IntakeWorkspaceShell>
-      <div className="intake-page">
-        <div className="intake-page__inner">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <IntakePageHeader
-              title="Property Intelligence"
-              subtitle="Review the property, draw the treatment area, and check weather suitability before sending the agreement."
-              continueType="button"
-              onContinueClick={handleContinue}
-              continueLabel={<>Continue to Send Template <ArrowRight size={14} /></>}
-            />
+    <div className="intake-page">
+      <div className="intake-page__inner">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <IntakePageHeader
+            title="Property Intelligence"
+            subtitle="Review the property, draw the treatment area, and check weather suitability before sending the agreement."
+            continueType="button"
+            onContinueClick={handleContinue}
+            continueLabel={<>Continue to Send Template <ArrowRight size={14} /></>}
+          />
 
-            <IntakeProgressTracker currentStep={2} />
+          <IntakeKpiBar form={customer} verified />
+
+          <IntakeProgressTracker currentStep={2} />
 
             <div className="intake-workspace__columns">
               <div className="space-y-5">
@@ -254,10 +255,9 @@ export default function IntakePropertyPage() {
                 treatmentSquareFeet={treatmentSquareFeet}
                 mapSlot={mapSlot}
               />
-            </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </div>
-    </IntakeWorkspaceShell>
+    </div>
   );
 }
