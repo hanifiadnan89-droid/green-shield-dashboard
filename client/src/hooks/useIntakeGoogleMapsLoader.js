@@ -21,11 +21,7 @@ function removeScriptTag() {
 }
 
 function mapsReady() {
-  return Boolean(
-    window.google?.maps?.Map
-    && window.google?.maps?.drawing?.DrawingManager
-    && window.google?.maps?.geometry?.spherical,
-  );
+  return Boolean(window.google?.maps?.Map);
 }
 
 function loadScript() {
@@ -87,7 +83,7 @@ function loadScript() {
     script.onerror = () => fail('script_error', 'script.onerror');
     script.src =
       `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}` +
-      `&libraries=places,drawing,geometry` +
+      `&libraries=places,geometry` +
       `&v=weekly&loading=async&callback=${CALLBACK_NAME}`;
 
     document.head.appendChild(script);
