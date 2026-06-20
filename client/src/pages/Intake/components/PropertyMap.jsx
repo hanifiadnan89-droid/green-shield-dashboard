@@ -127,6 +127,8 @@ export default function PropertyMap({
 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const mapOverlayRef = useRef(null);
+  const mapOverlayProjectionRef = useRef(null);
   const polygonRef = useRef(null);
   const draftPolylineRef = useRef(null);
   const previewLineRef = useRef(null);
@@ -166,6 +168,12 @@ export default function PropertyMap({
       const active = isMapInFullscreen(mapEl);
       setIsMapFullscreen(active);
       setFullscreenHost(active ? fs : null);
+
+      const map = mapInstanceRef.current;
+      const mapsEvent = window.google?.maps?.event;
+      if (map && mapsEvent) {
+        mapsEvent.trigger(map, 'resize');
+      }
     };
 
     document.addEventListener('fullscreenchange', syncFullscreen);
@@ -353,6 +361,18 @@ export default function PropertyMap({
         });
 
         mapInstanceRef.current = map;
+
+        const overlay = new maps.OverlayView();
+        overlay.onAdd = function onAdd() {
+          mapOverlayProjectionRef.current = this.getProjection();
+        };
+        overlay.draw = function draw() {};
+        overlay.onRemove = function onRemove() {
+          mapOverlayProjectionRef.current = null;
+        };
+        overlay.setMap(map);
+        mapOverlayRef.current = overlay;
+
         setMapReady(true);
 
         try {
@@ -395,6 +415,15 @@ export default function PropertyMap({
       stopAllInteractions();
       clearPolygonListeners();
       resetDraftVisuals();
+
+      try {
+        mapOverlayRef.current?.setMap?.(null);
+      } catch {
+        /* ignore */
+      }
+
+      mapOverlayRef.current = null;
+      mapOverlayProjectionRef.current = null;
 
       try {
         polygonRef.current?.setMap?.(null);
@@ -467,7 +496,9 @@ export default function PropertyMap({
       const maps = window.google?.maps;
       const verts = draftVerticesRef.current;
 
-      if (shouldClosePolygonOnClick(point, verts, maps, map, event)) {
+      if (shouldClosePolygonOnClick(point, verts, maps, map, event, {
+        containerProjection: mapOverlayProjectionRef.current,
+      })) {
         finishPolygonDrawing();
         return;
       }

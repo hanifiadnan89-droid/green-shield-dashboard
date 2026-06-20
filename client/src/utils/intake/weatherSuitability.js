@@ -39,7 +39,7 @@ export function evaluateWeatherSuitability(weather = {}) {
   if (!Number.isFinite(rainProb)) {
     return {
       level: 'monitor',
-      label: 'Moderation Needed',
+      label: 'Needs Moderation',
       reasons,
     };
   }
@@ -55,7 +55,7 @@ export function evaluateWeatherSuitability(weather = {}) {
   if (rainProb > 30) {
     return {
       level: 'monitor',
-      label: 'Moderation Needed',
+      label: 'Needs Moderation',
       reasons,
     };
   }
