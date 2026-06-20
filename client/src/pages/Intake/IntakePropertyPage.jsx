@@ -19,6 +19,7 @@ import {
 import { buildLeadFromIntakeSession } from '../../utils/intake/buildIntakeLead.js';
 import { evaluateWeatherSuitability } from '../../utils/intake/weatherSuitability.js';
 import { formatAcreage, formatSquareFeet } from '../../utils/intake/polygonArea.js';
+import { formatDisplayAddress } from '../../utils/intake/formatDisplayAddress.js';
 import './intake.css';
 
 export default function IntakePropertyPage() {
@@ -171,7 +172,7 @@ export default function IntakePropertyPage() {
               <div className="space-y-5">
                 <section className="intake-card intake-card--address">
                   <h2 className="intake-card__title flex items-center gap-2"><MapPin size={16} /> Verified Address</h2>
-                  <p className="intake-address-display">{customer.verifiedAddress}</p>
+                  <p className="intake-address-display">{formatDisplayAddress(customer.verifiedAddress)}</p>
                 </section>
 
                 <IntakeWeatherWidget
