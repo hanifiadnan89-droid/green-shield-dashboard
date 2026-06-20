@@ -1,10 +1,10 @@
 import { CheckCircle2, CloudSun, Database, MapPin } from 'lucide-react';
 
-function StatusCard({ icon: Icon, title, value, tone = 'pending' }) {
+function StatusCard({ icon: Icon, title, value, variant = 'pending' }) {
   return (
-    <div className={`intake-status-card intake-status-card--${tone}`}>
-      <div className="intake-status-card__icon">
-        <Icon size={16} />
+    <div className={`intake-status-card intake-status-card--${variant}`}>
+      <div className="intake-status-card__icon-wrap">
+        <Icon size={16} className="intake-status-card__icon" />
       </div>
       <div>
         <p className="intake-status-card__title">{title}</p>
@@ -23,26 +23,26 @@ export default function IntakeStatusCards({ form = {}, verified = false }) {
       <StatusCard
         icon={MapPin}
         title="Address Verified"
-        value={verified || hasAddress ? 'Ready for validation' : 'Enter service address'}
-        tone={verified || hasAddress ? 'ready' : 'pending'}
+        value={verified ? 'Verified' : hasAddress ? 'Ready for validation' : 'Enter service address'}
+        variant={verified || hasAddress ? 'green' : 'pending'}
       />
       <StatusCard
         icon={CheckCircle2}
         title="Service Available"
         value={hasService ? form.serviceType : 'Select a service type'}
-        tone={hasService ? 'ready' : 'pending'}
+        variant={hasService ? 'emerald' : 'pending'}
       />
       <StatusCard
         icon={CloudSun}
         title="Weather Suitable"
         value="Checked on Property Intelligence"
-        tone="pending"
+        variant="blue"
       />
       <StatusCard
         icon={Database}
         title="Property Data"
         value={hasAddress ? 'Address captured' : 'Awaiting address'}
-        tone={hasAddress ? 'ready' : 'pending'}
+        variant={hasAddress ? 'teal' : 'pending'}
       />
     </div>
   );

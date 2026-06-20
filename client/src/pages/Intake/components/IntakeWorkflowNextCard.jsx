@@ -1,26 +1,40 @@
+import {
+  ArrowRight, CalendarCheck, ClipboardCheck, FileText, MapPinned, Sparkles,
+} from 'lucide-react';
+
 const STEPS = [
-  { title: 'Property Intelligence', detail: 'Verify map, acreage, and conditions' },
-  { title: 'Quote & Proposal', detail: 'Build pricing in Send Template' },
-  { title: 'Agreement', detail: 'Select and send customer agreement' },
-  { title: 'Scheduling', detail: 'Coordinate service date with customer' },
-  { title: 'Confirmation', detail: 'Finalize intake and follow-up' },
+  { title: 'Property Intelligence', icon: MapPinned },
+  { title: 'Quote & Proposal', icon: FileText },
+  { title: 'Agreement', icon: ClipboardCheck },
+  { title: 'Scheduling', icon: CalendarCheck },
+  { title: 'Confirmation', icon: Sparkles },
 ];
 
 export default function IntakeWorkflowNextCard() {
   return (
     <section className="intake-next-card">
       <h3 className="intake-next-card__title">What happens next</h3>
-      <ol className="intake-next-card__list">
-        {STEPS.map((step, index) => (
-          <li key={step.title} className="intake-next-card__item">
-            <span className="intake-next-card__index">{index + 1}</span>
-            <div>
-              <p className="intake-next-card__item-title">{step.title}</p>
-              <p className="intake-next-card__item-detail">{step.detail}</p>
+      <div className="intake-next-card__timeline" aria-label="Intake workflow timeline">
+        {STEPS.map((step, index) => {
+          const Icon = step.icon;
+          const isLast = index === STEPS.length - 1;
+          return (
+            <div key={step.title} className="intake-next-card__step">
+              <div className="intake-next-card__node">
+                <span className="intake-next-card__node-icon" aria-hidden>
+                  <Icon size={14} />
+                </span>
+                <span className="intake-next-card__node-label">{step.title}</span>
+              </div>
+              {!isLast && (
+                <span className="intake-next-card__arrow" aria-hidden>
+                  <ArrowRight size={14} />
+                </span>
+              )}
             </div>
-          </li>
-        ))}
-      </ol>
+          );
+        })}
+      </div>
     </section>
   );
 }
