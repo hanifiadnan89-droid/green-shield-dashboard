@@ -10,6 +10,7 @@ import IntakeInputField from './components/IntakeInputField.jsx';
 import IntakeStatusCards from './components/IntakeStatusCards.jsx';
 import IntakeWorkflowNextCard from './components/IntakeWorkflowNextCard.jsx';
 import IntakePropertyPreviewPanel from './components/IntakePropertyPreviewPanel.jsx';
+import IntakePageShell from './components/IntakePageShell.jsx';
 import { api } from '../../api/client.js';
 import {
   loadIntakeSession,
@@ -42,6 +43,9 @@ export default function IntakePropertyPage() {
   const [weather, setWeather] = useState(session.property?.weather || null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
+  const [boundaryStatus, setBoundaryStatus] = useState(
+    session.property?.treatmentPolygon?.length >= 3 ? 'drawn' : 'none',
+  );
 
   useEffect(() => {
     if (!customer) {
@@ -136,9 +140,11 @@ export default function IntakePropertyPage() {
       <PropertyMap
         center={center}
         polygonPath={treatmentPolygon}
+        suggestedBoundary={customer.suggestedTreatmentPolygon || []}
         mapType={mapType}
         onPolygonChange={setTreatmentPolygon}
         onAreaChange={handleAreaChange}
+        onBoundaryStatusChange={setBoundaryStatus}
       />
       <div className="intake-stat-grid mt-4">
         <div className="intake-stat">
@@ -154,8 +160,7 @@ export default function IntakePropertyPage() {
   );
 
   return (
-    <div className="intake-page">
-      <div className="intake-page__inner">
+    <IntakePageShell>
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <IntakePageHeader
             title="Property Intelligence"
@@ -253,11 +258,11 @@ export default function IntakePropertyPage() {
                 suitability={suitability}
                 treatmentAcreage={treatmentAcreage}
                 treatmentSquareFeet={treatmentSquareFeet}
+                boundaryStatus={boundaryStatus}
                 mapSlot={mapSlot}
               />
           </div>
         </motion.div>
-      </div>
-    </div>
+    </IntakePageShell>
   );
 }

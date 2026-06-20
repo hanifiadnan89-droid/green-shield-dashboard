@@ -23,6 +23,13 @@ function PlaceholderBlock({ icon: Icon, title, detail }) {
   );
 }
 
+function boundaryLabel(status) {
+  if (status === 'detected') return 'Boundary Detected';
+  if (status === 'drawn') return 'Boundary Drawn';
+  if (status === 'manual') return 'Draw treatment area';
+  return 'Pending';
+}
+
 export default function IntakePropertyPreviewPanel({
   form = {},
   customer = null,
@@ -31,16 +38,20 @@ export default function IntakePropertyPreviewPanel({
   mapSlot = null,
   treatmentAcreage = null,
   treatmentSquareFeet = null,
+  boundaryStatus = 'none',
 }) {
   const source = customer || form;
   const name = [source.firstName, source.lastName].filter(Boolean).join(' ') || 'New customer';
   const address = customer?.verifiedAddress
+    || source.formattedAddress
     || [source.serviceAddress, source.city, source.state, source.zip].filter(Boolean).join(', ')
     || null;
   const hasAddress = Boolean(address);
-  const propertyType = customer?.propertyUseEstimate || null;
-  const confidence = customer?.propertyConfidence || null;
-  const confidencePct = suitability?.level === 'good' ? 92 : suitability?.level === 'monitor' ? 74 : suitability ? 58 : null;
+  const hasCoords = Number.isFinite(Number(source.latitude)) && Number.isFinite(Number(source.longitude));
+  const propertyType = source.propertyUseEstimate || null;
+  const confidence = customer?.propertyConfidence || source.propertyUseConfidence || null;
+  const confidencePct = suitability?.level === 'good' ? 92 : suitability?.level === 'monitor' ? 74 : suitability ? 58 : hasCoords ? 68 : null;
+  const hasPolygon = treatmentAcreage != null || boundaryStatus === 'detected' || boundaryStatus === 'drawn';
 
   return (
     <aside className="intake-preview-panel">
@@ -69,7 +80,7 @@ export default function IntakePropertyPreviewPanel({
         <h3>Property Overview</h3>
         <div className="intake-info-grid">
           <InfoCard label="Property Type" value={propertyType || 'Residential'} pending={!propertyType} />
-          <InfoCard label="Location" value={hasAddress ? 'Captured' : 'Pending'} pending={!hasAddress} />
+          <InfoCard label="Address" value={hasAddress ? address : 'Pending'} pending={!hasAddress} />
           <InfoCard
             label="Treatment Acreage"
             value={treatmentAcreage != null ? `${treatmentAcreage} ac` : 'Pending'}
@@ -77,8 +88,24 @@ export default function IntakePropertyPreviewPanel({
           />
           <InfoCard
             label="Property Confidence"
-            value={confidence ? String(confidence) : 'Pending'}
-            pending={!confidence}
+            value={confidence ? String(confidence) : hasCoords ? 'Preliminary' : 'Pending'}
+            pending={!confidence && !hasCoords}
+          />
+        </div>
+      </section>
+
+      <section className="intake-preview-panel__section">
+        <h3><Target size={14} /> Treatment Area Status</h3>
+        <div className="intake-info-grid intake-info-grid--compact">
+          <InfoCard
+            label="Boundary"
+            value={boundaryLabel(boundaryStatus)}
+            pending={!hasPolygon}
+          />
+          <InfoCard
+            label="Sq Ft"
+            value={treatmentSquareFeet != null ? treatmentSquareFeet.toLocaleString('en-US') : 'Pending'}
+            pending={treatmentSquareFeet == null}
           />
         </div>
       </section>
@@ -127,27 +154,8 @@ export default function IntakePropertyPreviewPanel({
           </ul>
         )}
         <span className={`intake-preview-panel__status-badge intake-preview-panel__status-badge--${suitability?.level || 'pending'}`}>
-          {suitability?.label ? 'Analysis complete' : 'Awaiting data'}
+          {suitability?.label ? 'Analysis complete' : hasCoords ? 'Address captured' : 'Awaiting data'}
         </span>
-      </section>
-
-      <section className="intake-preview-panel__section">
-        <h3><Target size={14} /> Treatment Suitability</h3>
-        {treatmentAcreage != null ? (
-          <div className="intake-info-grid intake-info-grid--compact">
-            <InfoCard label="Acreage" value={`${treatmentAcreage} ac`} />
-            <InfoCard
-              label="Sq Ft"
-              value={treatmentSquareFeet != null ? treatmentSquareFeet.toLocaleString('en-US') : '—'}
-            />
-          </div>
-        ) : (
-          <PlaceholderBlock
-            icon={Target}
-            title="Draw treatment area"
-            detail="Polygon acreage appears after mapping on Property Intelligence"
-          />
-        )}
       </section>
 
       <div className="intake-preview-panel__meta-row">

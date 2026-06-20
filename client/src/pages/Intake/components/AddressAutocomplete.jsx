@@ -6,6 +6,7 @@ const PLACE_FIELDS = [
   'addressComponents',
   'formattedAddress',
   'location',
+  'viewport',
   'id',
   'types',
   'primaryType',
