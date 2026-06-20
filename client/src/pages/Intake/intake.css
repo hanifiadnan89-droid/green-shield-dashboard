@@ -876,111 +876,215 @@
 }
 
 .intake-weather-widget--sunny .intake-weather-widget__layer--glow {
-  background: radial-gradient(circle at 82% 18%, rgba(251, 191, 36, 0.55), transparent 42%);
+  background: radial-gradient(circle at 82% 18%, rgba(251, 191, 36, 0.65), transparent 46%);
   animation: intake-weather-sun-pulse 6s ease-in-out infinite;
 }
 
 .intake-weather-widget--sunny .intake-weather-widget__layer--sun::before {
   content: '';
   position: absolute;
-  top: 8%;
-  right: 10%;
-  width: 72px;
-  height: 72px;
+  top: 6%;
+  right: 8%;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(253, 224, 71, 0.95) 0%, rgba(251, 191, 36, 0.35) 55%, transparent 72%);
+  background: radial-gradient(circle, rgba(253, 224, 71, 0.98) 0%, rgba(251, 191, 36, 0.42) 55%, transparent 74%);
   animation: intake-weather-sun-pulse 5s ease-in-out infinite;
+  box-shadow: 0 0 48px rgba(251, 191, 36, 0.45);
+}
+
+.intake-weather-widget--sunny .intake-weather-widget__layer--shimmer {
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 42%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.08) 58%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: intake-weather-shimmer 7s ease-in-out infinite;
 }
 
 .intake-weather-widget--rain {
-  background: linear-gradient(165deg, #0f172a 0%, #1e3a5f 45%, #334155 100%);
+  background: linear-gradient(165deg, #020617 0%, #0f172a 35%, #1e293b 100%);
+}
+
+.intake-weather-widget--rain .intake-weather-widget__layer--rain-clouds {
+  background:
+    radial-gradient(ellipse 180px 64px at 22% 18%, rgba(148, 163, 184, 0.28), transparent 72%),
+    radial-gradient(ellipse 220px 72px at 72% 10%, rgba(100, 116, 139, 0.32), transparent 74%);
+  animation: intake-weather-cloud-drift 16s ease-in-out infinite alternate;
 }
 
 .intake-weather-widget--rain .intake-weather-widget__layer--rain {
   background-image:
-    linear-gradient(180deg, transparent 0%, rgba(148, 163, 184, 0.08) 100%),
+    linear-gradient(180deg, transparent 0%, rgba(148, 163, 184, 0.12) 100%),
     repeating-linear-gradient(
       118deg,
-      transparent 0 14px,
-      rgba(191, 219, 254, 0.14) 14px 15px
+      transparent 0 10px,
+      rgba(191, 219, 254, 0.22) 10px 11px
     );
-  background-size: 100% 100%, 28px 48px;
-  animation: intake-weather-rain-fall 0.9s linear infinite;
-  opacity: 0.75;
+  background-size: 100% 100%, 22px 40px;
+  animation: intake-weather-rain-fall 0.65s linear infinite;
+  opacity: 0.9;
+}
+
+.intake-weather-widget--rain .intake-weather-widget__layer--rain-alt {
+  background-image: repeating-linear-gradient(
+    112deg,
+    transparent 0 18px,
+    rgba(147, 197, 253, 0.16) 18px 19px
+  );
+  background-size: 32px 56px;
+  animation: intake-weather-rain-fall 0.95s linear infinite reverse;
+  opacity: 0.55;
 }
 
 .intake-weather-widget--storm {
-  background: linear-gradient(165deg, #020617 0%, #1e1b4b 40%, #312e81 100%);
+  background: linear-gradient(165deg, #020617 0%, #0f0a1e 35%, #1e1b4b 100%);
 }
 
 .intake-weather-widget--storm .intake-weather-widget__layer--storm {
   background:
-    radial-gradient(circle at 20% 10%, rgba(148, 163, 184, 0.2), transparent 35%),
-    radial-gradient(circle at 70% 0%, rgba(99, 102, 241, 0.25), transparent 40%);
+    radial-gradient(circle at 20% 10%, rgba(71, 85, 105, 0.35), transparent 38%),
+    radial-gradient(circle at 70% 0%, rgba(67, 56, 202, 0.3), transparent 42%);
   animation: intake-weather-cloud-drift 14s ease-in-out infinite alternate;
 }
 
+.intake-weather-widget--storm .intake-weather-widget__layer--storm-clouds {
+  background:
+    radial-gradient(ellipse 200px 70px at 55% 22%, rgba(148, 163, 184, 0.22), transparent 72%),
+    radial-gradient(ellipse 160px 58px at 15% 30%, rgba(100, 116, 139, 0.18), transparent 70%);
+  animation: intake-weather-cloud-drift 20s ease-in-out infinite alternate-reverse;
+}
+
 .intake-weather-widget--storm .intake-weather-widget__layer--lightning {
-  background: radial-gradient(circle at 68% 22%, rgba(255, 255, 255, 0.45), transparent 28%);
+  background:
+    radial-gradient(circle at 68% 22%, rgba(255, 255, 255, 0.55), transparent 30%),
+    radial-gradient(circle at 42% 12%, rgba(191, 219, 254, 0.2), transparent 24%);
   opacity: 0;
-  animation: intake-weather-lightning 7s ease-in-out infinite;
+  animation: intake-weather-lightning 6s ease-in-out infinite;
 }
 
 .intake-weather-widget--cloudy {
-  background: linear-gradient(165deg, #334155 0%, #475569 45%, #64748b 100%);
+  background: linear-gradient(165deg, #1e293b 0%, #334155 45%, #475569 100%);
 }
 
 .intake-weather-widget--cloudy .intake-weather-widget__layer--clouds {
   background:
-    radial-gradient(ellipse 120px 48px at 18% 28%, rgba(255, 255, 255, 0.18), transparent 70%),
-    radial-gradient(ellipse 160px 56px at 62% 18%, rgba(255, 255, 255, 0.14), transparent 72%),
-    radial-gradient(ellipse 140px 50px at 82% 42%, rgba(255, 255, 255, 0.1), transparent 70%);
+    radial-gradient(ellipse 160px 58px at 18% 28%, rgba(255, 255, 255, 0.22), transparent 70%),
+    radial-gradient(ellipse 200px 68px at 62% 18%, rgba(255, 255, 255, 0.18), transparent 72%),
+    radial-gradient(ellipse 150px 54px at 82% 42%, rgba(255, 255, 255, 0.14), transparent 70%);
   animation: intake-weather-cloud-drift 18s ease-in-out infinite alternate;
 }
 
+.intake-weather-widget--cloudy .intake-weather-widget__layer--clouds-alt {
+  background:
+    radial-gradient(ellipse 140px 50px at 40% 55%, rgba(255, 255, 255, 0.12), transparent 68%),
+    radial-gradient(ellipse 120px 44px at 78% 62%, rgba(255, 255, 255, 0.1), transparent 66%);
+  animation: intake-weather-cloud-drift 24s ease-in-out infinite alternate-reverse;
+  opacity: 0.85;
+}
+
 .intake-weather-widget--windy {
-  background: linear-gradient(165deg, #0f766e 0%, #0e7490 50%, #475569 100%);
+  background: linear-gradient(165deg, #0f4c5c 0%, #0e7490 42%, #334155 100%);
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--clouds {
+  background:
+    radial-gradient(ellipse 170px 60px at 12% 24%, rgba(255, 255, 255, 0.2), transparent 70%),
+    radial-gradient(ellipse 190px 66px at 58% 14%, rgba(255, 255, 255, 0.16), transparent 72%);
+  animation: intake-weather-cloud-drift 12s ease-in-out infinite alternate;
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--clouds-alt {
+  background:
+    radial-gradient(ellipse 150px 52px at 78% 38%, rgba(255, 255, 255, 0.14), transparent 68%),
+    radial-gradient(ellipse 130px 46px at 34% 58%, rgba(255, 255, 255, 0.1), transparent 66%);
+  animation: intake-weather-cloud-drift 16s ease-in-out infinite alternate-reverse;
 }
 
 .intake-weather-widget--windy .intake-weather-widget__layer--wind {
   background:
     repeating-linear-gradient(
-      8deg,
-      transparent 0 36px,
-      rgba(255, 255, 255, 0.06) 36px 38px
+      6deg,
+      transparent 0 28px,
+      rgba(255, 255, 255, 0.1) 28px 30px
+    ),
+    repeating-linear-gradient(
+      -4deg,
+      transparent 0 44px,
+      rgba(255, 255, 255, 0.06) 44px 46px
     );
-  animation: intake-weather-wind-sweep 4s linear infinite;
+  animation: intake-weather-wind-sweep 3.2s linear infinite;
+  opacity: 0.75;
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--wind-particles {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.55) 0 1px, transparent 2px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.35) 0 1px, transparent 2px);
+  background-size: 48px 32px, 64px 40px;
+  background-position: 0 0, 20px 12px;
+  animation: intake-weather-particles-drift 5s linear infinite;
+  opacity: 0.45;
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--wind-streaks {
+  background-image: repeating-linear-gradient(
+    8deg,
+    transparent 0 52px,
+    rgba(255, 255, 255, 0.14) 52px 54px,
+    transparent 54px 88px,
+    rgba(255, 255, 255, 0.08) 88px 90px
+  );
+  animation: intake-weather-wind-sweep 2.4s linear infinite reverse;
+  opacity: 0.6;
 }
 
 @keyframes intake-weather-sun-pulse {
-  0%, 100% { opacity: 0.75; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.06); }
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes intake-weather-shimmer {
+  0% { transform: translateX(-120%); opacity: 0; }
+  20% { opacity: 0.7; }
+  55% { transform: translateX(120%); opacity: 0.5; }
+  100% { transform: translateX(120%); opacity: 0; }
 }
 
 @keyframes intake-weather-rain-fall {
   from { background-position: 0 0, 0 0; }
-  to { background-position: 0 0, 0 48px; }
+  to { background-position: 0 0, 0 40px; }
 }
 
 @keyframes intake-weather-cloud-drift {
-  from { transform: translateX(-6px); }
-  to { transform: translateX(10px); }
+  from { transform: translateX(-12px) translateY(0); }
+  to { transform: translateX(16px) translateY(4px); }
 }
 
 @keyframes intake-weather-lightning {
-  0%, 92%, 100% { opacity: 0; }
-  93% { opacity: 0.85; }
-  94% { opacity: 0.15; }
-  95% { opacity: 0.7; }
+  0%, 88%, 100% { opacity: 0; }
+  89% { opacity: 0.95; }
+  90% { opacity: 0.2; }
+  91% { opacity: 0.8; }
+  92% { opacity: 0.1; }
 }
 
 @keyframes intake-weather-wind-sweep {
-  from { transform: translateX(-12px); }
-  to { transform: translateX(18px); }
+  from { transform: translateX(-18px); }
+  to { transform: translateX(28px); }
+}
+
+@keyframes intake-weather-particles-drift {
+  from { background-position: 0 0, 20px 12px; }
+  to { background-position: 48px 16px, 68px 28px; }
 }
 
 .intake-property-map {
-  @apply space-y-1;
+  @apply space-y-0.5;
 }
 
 .intake-map-boundary-status {

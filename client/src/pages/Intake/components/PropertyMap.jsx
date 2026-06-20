@@ -587,13 +587,6 @@ export default function PropertyMap({
         </div>
       </div>
 
-      <p className="intake-map-hint">
-        Use Quick Rectangle for fast estimates or Polygon for irregular treatment areas.
-      </p>
-      <p className="intake-map-hint intake-map-hint--subtle">
-        Treatment area is rep-estimated and can be adjusted before quote.
-      </p>
-
       {polygonActive && (
         <p className="intake-map-hint intake-map-hint--active">
           Click to place vertices ({draftPointCount}). Hover shows the next segment. Finish when the shape is closed.
