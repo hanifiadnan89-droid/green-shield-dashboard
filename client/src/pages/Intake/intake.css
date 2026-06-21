@@ -748,6 +748,38 @@
   @apply bg-slate-950;
 }
 
+.intake-preview-map-wrap:fullscreen,
+.intake-preview-map-wrap:-webkit-full-screen,
+.intake-property-map-wrap:fullscreen,
+.intake-property-map-wrap:-webkit-full-screen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-width: 100vw;
+  max-height: 100dvh;
+  background: #020617;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.intake-preview-map-wrap:fullscreen .intake-map-shell--preview,
+.intake-preview-map-wrap:-webkit-full-screen .intake-map-shell--preview,
+.intake-property-map-wrap:fullscreen .intake-map-shell--draw,
+.intake-property-map-wrap:-webkit-full-screen .intake-map-shell--draw {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0 !important;
+  height: auto !important;
+  border-radius: 0;
+  border: none;
+}
+
+.intake-preview-map-wrap:fullscreen .intake-preview-map-pin,
+.intake-preview-map-wrap:-webkit-full-screen .intake-preview-map-pin {
+  z-index: 2;
+}
+
 .intake-preview-map-wrap--fullscreen,
 .intake-property-map-wrap--fullscreen {
   width: 100%;
@@ -761,11 +793,6 @@
 
 .intake-property-map-wrap {
   @apply relative rounded-xl overflow-hidden;
-}
-
-.intake-property-map-wrap--fullscreen .intake-map-shell--draw {
-  min-height: 100%;
-  height: 100%;
 }
 
 .intake-map-toolbar--overlay-draw {

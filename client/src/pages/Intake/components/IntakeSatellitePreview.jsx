@@ -25,6 +25,11 @@ export default function IntakeSatellitePreview({
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const overlaysRef = useRef([]);
+  const enable3dRef = useRef(enable3d);
+
+  useEffect(() => {
+    enable3dRef.current = enable3d;
+  }, [enable3d]);
 
   const { status } = useIntakeGoogleMapsLoader();
   const [mapReady, setMapReady] = useState(false);
@@ -41,6 +46,17 @@ export default function IntakeSatellitePreview({
     wrapRef,
     mapInstanceRef,
     mapReady,
+    {
+      mapContainerRef: mapRef,
+      onFullscreenChange: (active) => {
+        const map = mapInstanceRef.current;
+        if (!map?.setOptions) return;
+        map.setOptions({
+          gestureHandling: active || enable3dRef.current ? 'greedy' : 'none',
+          zoomControl: true,
+        });
+      },
+    },
   );
 
   function clearOverlays() {
@@ -163,9 +179,9 @@ export default function IntakeSatellitePreview({
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map?.setOptions || !mapReady) return;
-    const interactive = enable3d || isMapFullscreen;
     map.setOptions({
-      gestureHandling: interactive ? 'greedy' : 'none',
+      gestureHandling: isMapFullscreen || enable3d ? 'greedy' : 'none',
+      zoomControl: true,
     });
   }, [enable3d, isMapFullscreen, mapReady]);
 
