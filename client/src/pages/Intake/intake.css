@@ -789,6 +789,18 @@
   background: rgba(15, 23, 42, 0.88);
 }
 
+.intake-map-3d-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.intake-map-shell--behind-3d {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .intake-map-3d-fallback {
   position: absolute;
   left: 8px;
