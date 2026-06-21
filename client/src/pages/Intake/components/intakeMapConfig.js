@@ -81,12 +81,12 @@ export function buildIntakeMapOptions({
 }) {
   const mapId = getIntakeMapId();
   const isRoadmap = mapType === 'roadmap';
-  const use3d = enable3d;
+  const use3d = enable3d && Boolean(mapId);
 
   const options = {
     center,
-    zoom,
-    mapTypeId: isRoadmap ? 'roadmap' : 'hybrid',
+    zoom: use3d && Number.isFinite(Number(zoom)) && Number(zoom) < MIN_3D_ZOOM ? MIN_3D_ZOOM : zoom,
+    mapTypeId: use3d && isRoadmap ? 'hybrid' : (isRoadmap ? 'roadmap' : 'hybrid'),
     streetViewControl: false,
     mapTypeControl: false,
     tilt: 0,
@@ -96,6 +96,7 @@ export function buildIntakeMapOptions({
     ...extra,
   };
 
+  // mapId MUST be set at construction — Google Maps does not allow changing it later.
   if (mapId && use3d) {
     options.mapId = mapId;
     const vectorType = getVectorRenderingType(maps);
@@ -111,10 +112,10 @@ export function buildIntakeMapOptions({
 }
 
 /**
- * Apply or remove 3D preview on an existing map.
- * Waits for idle + explicit setTilt because vector tilt is applied asynchronously.
+ * Verify 3D preview after the map was constructed with mapId (enable3d: true).
+ * Do not use setOptions({ mapId }) — the Maps API ignores mapId after instantiation.
  */
-export async function apply3dPreviewToMap(map, maps, enable3d, { phase = 'toggle' } = {}) {
+export async function verify3dPreviewOnMap(map, maps, { phase = 'verify' } = {}) {
   const before = readMap3dState(map, maps);
 
   if (!map?.setOptions) {
@@ -130,77 +131,13 @@ export async function apply3dPreviewToMap(map, maps, enable3d, { phase = 'toggle
   }
 
   const mapsApi = await ensureMapsNamespace(maps);
-  const mapId = getIntakeMapId();
-
-  if (!enable3d) {
-    try {
-      map.setOptions({
-        tilt: 0,
-        heading: 0,
-        tiltInteractionEnabled: false,
-        headingInteractionEnabled: false,
-      });
-      applyTiltAndHeading(map, false);
-    } catch (error) {
-      const result = {
-        ok: false,
-        reason: 'set_options_failed',
-        before,
-        after: readMap3dState(map, mapsApi),
-        error,
-      };
-      logIntake3dDiagnostics(phase, result);
-      return result;
-    }
-
-    const after = readMap3dState(map, mapsApi);
-    const result = { ok: true, reason: 'disabled', before, after };
-    logIntake3dDiagnostics(phase, result);
-    return result;
-  }
-
-  const vectorType = getVectorRenderingType(mapsApi);
-  const options = {
-    mapId,
-    tilt: INTAKE_3D_TILT,
-    heading: map.getHeading?.() ?? 0,
-    tiltInteractionEnabled: true,
-    headingInteractionEnabled: true,
-  };
-
-  if (vectorType) {
-    options.renderingType = vectorType;
-  }
-
-  const currentMapTypeId = map.getMapTypeId?.();
-  if (currentMapTypeId === 'roadmap') {
-    options.mapTypeId = 'hybrid';
-  }
-
-  const currentZoom = Number(map.getZoom?.());
-  if (Number.isFinite(currentZoom) && currentZoom < MIN_3D_ZOOM) {
-    options.zoom = MIN_3D_ZOOM;
-  }
-
-  try {
-    map.setOptions(options);
-  } catch (error) {
-    const result = {
-      ok: false,
-      reason: 'set_options_failed',
-      before,
-      after: readMap3dState(map, mapsApi),
-      error,
-    };
-    logIntake3dDiagnostics(phase, result);
-    return result;
-  }
 
   await waitForMapIdle(map, mapsApi);
   applyTiltAndHeading(map, true);
   await waitForMapIdle(map, mapsApi, 1500);
 
   const after = readMap3dState(map, mapsApi);
+  const vectorType = getVectorRenderingType(mapsApi);
   let ok = after.tilt > 0;
   let reason = ok ? 'tilt_applied' : 'tilt_zero_at_location';
 
@@ -219,7 +156,21 @@ export async function apply3dPreviewToMap(map, maps, enable3d, { phase = 'toggle
   const result = { ok, reason, before, after };
   logIntake3dDiagnostics(phase, {
     ...result,
-    extra: { fallback: ok ? null : describe3dFallbackReason(reason, after) },
+    extra: {
+      fallback: ok ? null : describe3dFallbackReason(reason, after),
+      note: 'mapId must be set when the map is constructed, not via setOptions',
+    },
   });
   return result;
+}
+
+/** @deprecated Use verify3dPreviewOnMap after constructing the map with enable3d: true */
+export async function apply3dPreviewToMap(map, maps, enable3d, options = {}) {
+  if (!enable3d) {
+    const before = readMap3dState(map, maps);
+    const result = { ok: true, reason: 'disabled', before, after: before };
+    logIntake3dDiagnostics(options.phase || 'disable', result);
+    return result;
+  }
+  return verify3dPreviewOnMap(map, maps, options);
 }

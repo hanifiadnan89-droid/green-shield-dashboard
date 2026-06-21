@@ -7,7 +7,7 @@ import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
 import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
 import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
-import { apply3dPreviewToMap, buildIntakeMapOptions, canUse3dPreview } from './intakeMapConfig.js';
+import { buildIntakeMapOptions, canUse3dPreview, verify3dPreviewOnMap } from './intakeMapConfig.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
 
@@ -112,7 +112,7 @@ export default function IntakeSatellitePreview({
       center: { lat: view.lat, lng: view.lng },
       zoom: view.zoom,
       mapType,
-      enable3d: false,
+      enable3d,
       maps,
       extra: {
         disableDefaultUI: true,
@@ -147,7 +147,7 @@ export default function IntakeSatellitePreview({
       mapInstanceRef.current = null;
       setMapReady(false);
     };
-  }, [status, lat, lng, hasCoords, isExpanded, address, showFootprint, footprintPolygon]);
+  }, [status, lat, lng, hasCoords, isExpanded, enable3d, address, showFootprint, footprintPolygon]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -160,21 +160,21 @@ export default function IntakeSatellitePreview({
     const maps = window.google?.maps;
     if (!map || !mapReady) return undefined;
 
+    if (!enable3d) {
+      setPreview3dFallback(null);
+      return undefined;
+    }
+
     let cancelled = false;
 
     (async () => {
-      if (enable3d) {
-        const result = await apply3dPreviewToMap(map, maps, true, { phase: 'satellite-enable' });
-        if (cancelled) return;
-        if (!result.ok) {
-          setEnable3d(false);
-          setPreview3dFallback('3D Preview unavailable for this property. Showing satellite view.');
-        } else {
-          setPreview3dFallback(null);
-        }
+      const result = await verify3dPreviewOnMap(map, maps, { phase: 'satellite-verify' });
+      if (cancelled) return;
+      if (!result.ok) {
+        setEnable3d(false);
+        setPreview3dFallback('3D Preview unavailable for this property. Showing satellite view.');
       } else {
-        await apply3dPreviewToMap(map, maps, false, { phase: 'satellite-disable' });
-        if (!cancelled) setPreview3dFallback(null);
+        setPreview3dFallback(null);
       }
     })();
 
