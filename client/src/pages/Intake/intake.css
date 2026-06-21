@@ -789,6 +789,24 @@
   background: rgba(15, 23, 42, 0.88);
 }
 
+.intake-map-3d-fallback {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 6;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fde68a;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+}
+
 .intake-map-frame--expanded {
   flex: 1 1 auto;
   min-height: 0;

@@ -5,6 +5,8 @@ import { isCompactPolygon } from './propertyMapDrawing.js';
 import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
 import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
+import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
+import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
 import { apply3dPreviewToMap, buildIntakeMapOptions, canUse3dPreview } from './intakeMapConfig.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
@@ -29,6 +31,7 @@ export default function IntakeSatellitePreview({
   const [mapType, setMapType] = useState('satellite');
   const [enable3d, setEnable3d] = useState(false);
   const [can3d, setCan3d] = useState(false);
+  const [preview3dFallback, setPreview3dFallback] = useState(null);
 
   const {
     isExpanded,
@@ -125,7 +128,16 @@ export default function IntakeSatellitePreview({
     renderOverlays(map, maps);
     disconnectResize = observeMapContainerResize(map, container);
 
-    if (!cancelled) setMapReady(true);
+    if (!cancelled) {
+      setMapReady(true);
+      logIntake3dDiagnostics('satellite-init', {
+        before: readMap3dState(map, maps),
+        after: readMap3dState(map, maps),
+        ok: true,
+        reason: 'map_ready',
+        extra: { isExpanded },
+      });
+    }
 
     return () => {
       cancelled = true;
@@ -146,14 +158,27 @@ export default function IntakeSatellitePreview({
   useEffect(() => {
     const map = mapInstanceRef.current;
     const maps = window.google?.maps;
-    if (!map || !mapReady) return;
+    if (!map || !mapReady) return undefined;
 
-    if (enable3d) {
-      const applied = apply3dPreviewToMap(map, maps, true);
-      if (!applied) setEnable3d(false);
-    } else {
-      apply3dPreviewToMap(map, maps, false);
-    }
+    let cancelled = false;
+
+    (async () => {
+      if (enable3d) {
+        const result = await apply3dPreviewToMap(map, maps, true, { phase: 'satellite-enable' });
+        if (cancelled) return;
+        if (!result.ok) {
+          setEnable3d(false);
+          setPreview3dFallback('3D Preview unavailable for this property. Showing satellite view.');
+        } else {
+          setPreview3dFallback(null);
+        }
+      } else {
+        await apply3dPreviewToMap(map, maps, false, { phase: 'satellite-disable' });
+        if (!cancelled) setPreview3dFallback(null);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [enable3d, mapReady]);
 
   useEffect(() => {
@@ -196,6 +221,7 @@ export default function IntakeSatellitePreview({
           <span>Service location</span>
         </div>
       )}
+      <IntakeMap3dFallback message={preview3dFallback} />
     </div>
   );
 

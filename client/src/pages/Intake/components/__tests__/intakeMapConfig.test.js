@@ -6,11 +6,50 @@ import {
   INTAKE_3D_TILT,
 } from '../intakeMapConfig.js';
 
-describe('intakeMapConfig', () => {
-  const mockMaps = {
+function createMockMaps() {
+  return {
     Map: function Map() {},
-    RenderingType: { VECTOR: 'VECTOR' },
+    RenderingType: { VECTOR: 'VECTOR', RASTER: 'RASTER' },
+    event: {
+      addListenerOnce: (_map, event, cb) => {
+        if (event === 'idle') {
+          globalThis.setTimeout(cb, 0);
+        }
+        return {};
+      },
+    },
   };
+}
+
+function createMockMap(overrides = {}) {
+  const applied = [];
+  let tilt = 0;
+  let heading = 0;
+
+  return {
+    getHeading: () => heading,
+    getTilt: () => tilt,
+    getRenderingType: () => 'VECTOR',
+    getMapTypeId: () => 'hybrid',
+    getZoom: () => 19,
+    setTilt(value) {
+      tilt = value;
+    },
+    setHeading(value) {
+      heading = value;
+    },
+    setOptions(opts) {
+      applied.push(opts);
+      if (typeof opts.tilt === 'number') tilt = opts.tilt;
+      if (typeof opts.heading === 'number') heading = opts.heading;
+    },
+    applied,
+    ...overrides,
+  };
+}
+
+describe('intakeMapConfig', () => {
+  const mockMaps = createMockMaps();
 
   it('builds flat satellite options by default', () => {
     const options = buildIntakeMapOptions({
@@ -56,27 +95,44 @@ describe('intakeMapConfig', () => {
     import.meta.env.VITE_GOOGLE_MAP_ID = prevMapId;
   });
 
-  it('applies 3D options to an existing map instance', () => {
+  it('applies 3D options to an existing map instance after idle', async () => {
     const prevMapId = import.meta.env.VITE_GOOGLE_MAP_ID;
     import.meta.env.VITE_GOOGLE_MAP_ID = 'test-map-id';
 
-    const applied = [];
-    const map = {
-      getHeading: () => 15,
-      getTilt: () => INTAKE_3D_TILT,
-      setOptions(opts) {
-        applied.push(opts);
-      },
-    };
+    const map = createMockMap();
 
-    expect(apply3dPreviewToMap(map, mockMaps, true)).toBe(true);
-    expect(applied[0]).toMatchObject({
+    const result = await apply3dPreviewToMap(map, mockMaps, true, { phase: 'test-enable' });
+
+    expect(result.ok).toBe(true);
+    expect(result.after.tilt).toBe(INTAKE_3D_TILT);
+    expect(map.applied[0]).toMatchObject({
       mapId: 'test-map-id',
       renderingType: 'VECTOR',
       tilt: INTAKE_3D_TILT,
       tiltInteractionEnabled: true,
       headingInteractionEnabled: true,
     });
+
+    import.meta.env.VITE_GOOGLE_MAP_ID = prevMapId;
+  });
+
+  it('returns a fallback reason when tilt stays at zero', async () => {
+    const prevMapId = import.meta.env.VITE_GOOGLE_MAP_ID;
+    import.meta.env.VITE_GOOGLE_MAP_ID = 'test-map-id';
+
+    const map = createMockMap({
+      setTilt() {},
+      setOptions(opts) {
+        this.applied.push(opts);
+      },
+      getTilt: () => 0,
+      getRenderingType: () => 'RASTER',
+    });
+
+    const result = await apply3dPreviewToMap(map, mockMaps, true, { phase: 'test-fallback' });
+
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('vector_mode_unavailable');
 
     import.meta.env.VITE_GOOGLE_MAP_ID = prevMapId;
   });
