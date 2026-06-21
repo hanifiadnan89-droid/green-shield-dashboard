@@ -3,7 +3,10 @@ import helmet from 'helmet';
 /**
  * Content-Security-Policy for the dashboard SPA.
  * Extends Helmet defaults with domains required for Route Finder maps,
- * Intake Places (New) autocomplete, and technician headshots.
+ * Intake Places (New) autocomplete, technician headshots, and Google Maps
+ * vector/WebGL 3D preview (wasm + workers).
+ *
+ * @see https://developers.google.com/maps/documentation/javascript/content-security-policy
  */
 export function buildContentSecurityPolicyDirectives() {
   const defaults = helmet.contentSecurityPolicy.getDefaultDirectives();
@@ -15,16 +18,28 @@ export function buildContentSecurityPolicyDirectives() {
     'https://*.gstatic.com',
   ];
 
+  const googleMapsWorkers = [
+    'blob:',
+    'https://maps.gstatic.com',
+    'https://*.gstatic.com',
+  ];
+
   return {
     ...defaults,
     'script-src': [
       "'self'",
       ...googleMapsScripts,
+      // Vector/WebGL Maps renderer compiles WebAssembly and uses eval-based loaders.
+      "'unsafe-eval'",
+      "'wasm-unsafe-eval'",
+      'blob:',
     ],
     'connect-src': [
       "'self'",
       'https://maps.googleapis.com',
       'https://maps.gstatic.com',
+      'https://*.googleapis.com',
+      'https://*.gstatic.com',
       'https://places.googleapis.com',
       'https://weather.googleapis.com',
       'https://addressvalidation.googleapis.com',
@@ -33,6 +48,7 @@ export function buildContentSecurityPolicyDirectives() {
       'https://khms1.googleapis.com',
       'https://khms2.googleapis.com',
       'https://khms3.googleapis.com',
+      'blob:',
     ],
     'img-src': [
       "'self'",
@@ -57,8 +73,9 @@ export function buildContentSecurityPolicyDirectives() {
       'data:',
       'https://fonts.gstatic.com',
     ],
-    // Google Maps JS API uses blob workers for some map features
-    'worker-src': ["'self'", 'blob:'],
+    // Maps vector renderer spawns blob: and gstatic workers (e.g. shared-label-worker.js).
+    'worker-src': ["'self'", ...googleMapsWorkers],
+    'child-src': ["'self'", ...googleMapsWorkers],
   };
 }
 

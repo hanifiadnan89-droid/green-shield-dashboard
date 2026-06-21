@@ -1,4 +1,5 @@
 import {
+  createCspViolationTracker,
   describe3dFallbackReason,
   logIntake3dDiagnostics,
   readMap3dState,
@@ -131,10 +132,15 @@ export async function verify3dPreviewOnMap(map, maps, { phase = 'verify' } = {})
   }
 
   const mapsApi = await ensureMapsNamespace(maps);
+  const cspTracker = createCspViolationTracker();
 
-  await waitForMapIdle(map, mapsApi);
-  applyTiltAndHeading(map, true);
-  await waitForMapIdle(map, mapsApi, 1500);
+  try {
+    await waitForMapIdle(map, mapsApi);
+    applyTiltAndHeading(map, true);
+    await waitForMapIdle(map, mapsApi, 1500);
+  } finally {
+    cspTracker.stop();
+  }
 
   const after = readMap3dState(map, mapsApi);
   const vectorType = getVectorRenderingType(mapsApi);
@@ -149,6 +155,10 @@ export async function verify3dPreviewOnMap(map, maps, { phase = 'verify' } = {})
     ok = false;
   }
 
+  if (!ok && cspTracker.hasMaps3dViolation()) {
+    reason = 'csp_blocked';
+  }
+
   if (!ok && after.tilt <= 0) {
     reason = reason === 'tilt_applied' ? 'tilt_timeout' : reason;
   }
@@ -158,7 +168,8 @@ export async function verify3dPreviewOnMap(map, maps, { phase = 'verify' } = {})
     ...result,
     extra: {
       fallback: ok ? null : describe3dFallbackReason(reason, after),
-      note: 'mapId must be set when the map is constructed, not via setOptions',
+      cspViolations: cspTracker.getViolations(),
+      note: 'mapId must be set when the map is constructed; vector maps need CSP unsafe-eval/wasm and worker-src blob:',
     },
   });
   return result;
