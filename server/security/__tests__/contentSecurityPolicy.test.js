@@ -42,6 +42,7 @@ describe('contentSecurityPolicy', () => {
     expect(d['script-src']).toContain("'wasm-unsafe-eval'");
     expect(d['script-src']).toContain('blob:');
     expect(d['connect-src']).toContain('blob:');
+    expect(d['connect-src']).toContain('data:');
     expect(d['worker-src']).toContain('https://maps.gstatic.com');
     expect(d['worker-src']).toContain('https://*.gstatic.com');
     expect(d['child-src']).toContain('https://maps.gstatic.com');

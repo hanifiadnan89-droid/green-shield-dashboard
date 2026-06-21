@@ -8,7 +8,7 @@ import {
 /** Default tilt for 3D preview (within 45–60° range). */
 export const INTAKE_3D_TILT = 52;
 
-const MIN_3D_ZOOM = 18;
+const MIN_3D_ZOOM = 19;
 
 export function getIntakeMapId() {
   return (import.meta.env.VITE_GOOGLE_MAP_ID || '').trim() || null;
@@ -20,6 +20,14 @@ export function getVectorRenderingType(maps) {
 
 export function canUse3dPreview(maps) {
   return Boolean(getIntakeMapId() && maps?.Map);
+}
+
+export function get3dConstructionMapTypeId() {
+  return 'roadmap';
+}
+
+export function get2dMapTypeId(mapType) {
+  return mapType === 'roadmap' ? 'roadmap' : 'hybrid';
 }
 
 async function ensureMapsNamespace(maps) {
@@ -53,19 +61,26 @@ function waitForMapIdle(map, maps, timeoutMs = 3000) {
   });
 }
 
-function applyTiltAndHeading(map, enable3d) {
+function applyTiltAndHeading(map) {
   if (!map) return;
 
   try {
-    if (enable3d) {
-      map.setTilt?.(INTAKE_3D_TILT);
-      if (typeof map.getHeading === 'function' && typeof map.setHeading === 'function') {
-        const heading = map.getHeading();
-        if (Number.isFinite(heading)) map.setHeading(heading);
-      }
-    } else {
-      map.setTilt?.(0);
-      map.setHeading?.(0);
+    map.setTilt?.(INTAKE_3D_TILT);
+    if (typeof map.getHeading === 'function' && typeof map.setHeading === 'function') {
+      const heading = map.getHeading();
+      if (Number.isFinite(heading)) map.setHeading(heading);
+    }
+  } catch {
+    /* map may be tearing down */
+  }
+}
+
+function ensureVectorRoadmapFor3d(map) {
+  if (!map?.setMapTypeId) return;
+
+  try {
+    if (map.getMapTypeId?.() !== 'roadmap') {
+      map.setMapTypeId('roadmap');
     }
   } catch {
     /* map may be tearing down */
@@ -81,13 +96,14 @@ export function buildIntakeMapOptions({
   extra = {},
 }) {
   const mapId = getIntakeMapId();
-  const isRoadmap = mapType === 'roadmap';
   const use3d = enable3d && Boolean(mapId);
+  const zoomLevel = Number(zoom);
+  const safeZoom = Number.isFinite(zoomLevel) ? zoomLevel : MIN_3D_ZOOM;
 
   const options = {
     center,
-    zoom: use3d && Number.isFinite(Number(zoom)) && Number(zoom) < MIN_3D_ZOOM ? MIN_3D_ZOOM : zoom,
-    mapTypeId: use3d && isRoadmap ? 'hybrid' : (isRoadmap ? 'roadmap' : 'hybrid'),
+    zoom: use3d && safeZoom < MIN_3D_ZOOM ? MIN_3D_ZOOM : safeZoom,
+    mapTypeId: use3d ? get3dConstructionMapTypeId() : get2dMapTypeId(mapType),
     streetViewControl: false,
     mapTypeControl: false,
     tilt: 0,
@@ -114,7 +130,6 @@ export function buildIntakeMapOptions({
 
 /**
  * Verify 3D preview after the map was constructed with mapId (enable3d: true).
- * Do not use setOptions({ mapId }) — the Maps API ignores mapId after instantiation.
  */
 export async function verify3dPreviewOnMap(map, maps, { phase = 'verify' } = {}) {
   const before = readMap3dState(map, maps);
@@ -136,7 +151,15 @@ export async function verify3dPreviewOnMap(map, maps, { phase = 'verify' } = {})
 
   try {
     await waitForMapIdle(map, mapsApi);
-    applyTiltAndHeading(map, true);
+    ensureVectorRoadmapFor3d(map);
+
+    const currentZoom = Number(map.getZoom?.());
+    if (Number.isFinite(currentZoom) && currentZoom < MIN_3D_ZOOM) {
+      map.setZoom?.(MIN_3D_ZOOM);
+    }
+
+    await waitForMapIdle(map, mapsApi);
+    applyTiltAndHeading(map);
     await waitForMapIdle(map, mapsApi, 1500);
   } finally {
     cspTracker.stop();
@@ -169,7 +192,7 @@ export async function verify3dPreviewOnMap(map, maps, { phase = 'verify' } = {})
     extra: {
       fallback: ok ? null : describe3dFallbackReason(reason, after),
       cspViolations: cspTracker.getViolations(),
-      note: 'mapId must be set when the map is constructed; vector maps need CSP unsafe-eval/wasm and worker-src blob:',
+      note: '3D uses vector roadmap at construction; hybrid/satellite skipped while 3D is active',
     },
   });
   return result;

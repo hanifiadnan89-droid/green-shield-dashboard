@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoader.js';
 import { formatAcreage, formatSquareFeet } from '../../../utils/intake/polygonArea.js';
 import { computeAreaMetrics } from './propertyMapArea.js';
@@ -11,11 +11,11 @@ import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
 import {
   buildIntakeMapOptions,
   canUse3dPreview,
-  verify3dPreviewOnMap,
 } from './intakeMapConfig.js';
-import { get3dFallbackMessage, logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
+import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
+import { useIntake3dMapControl } from './useIntake3dMapControl.js';
 
 const POLYGON_STYLE = {
   strokeColor: '#22c55e',
@@ -152,7 +152,10 @@ export default function PropertyMap({
   const [draftPointCount, setDraftPointCount] = useState(0);
   const [hasBoundary, setHasBoundary] = useState(polygonPath.length >= 3);
   const [can3d, setCan3d] = useState(false);
-  const [preview3dFallback, setPreview3dFallback] = useState(null);
+
+  const setEnable3dLifted = useCallback((next) => {
+    onEnable3dChange?.(next);
+  }, [onEnable3dChange]);
 
   const {
     isExpanded,
@@ -162,9 +165,20 @@ export default function PropertyMap({
     rememberView,
   } = useIntakeMapExpanded();
 
-  const activeContainerRef = isExpanded ? expandedMapRef : mapRef;
   const drawingActive = activeTool === 'polygon' || activeTool === 'edit';
   const enable3dEffective = enable3d && !drawingActive;
+  const activeContainerRef = isExpanded ? expandedMapRef : mapRef;
+
+  const {
+    preview3dFallback,
+    requestEnable3d,
+    verifyAfter3dInit,
+    invalidateVerify,
+    canShow3dButton,
+  } = useIntake3dMapControl({
+    enable3d: enable3dEffective,
+    setEnable3d: setEnable3dLifted,
+  });
 
   useEffect(() => {
     activeToolRef.current = activeTool;
@@ -379,8 +393,12 @@ export default function PropertyMap({
           after: readMap3dState(map, maps),
           ok: true,
           reason: 'map_ready',
-          extra: { isExpanded },
+          extra: { isExpanded, enable3d: enable3dEffective },
         });
+
+        if (enable3dEffective) {
+          void verifyAfter3dInit(map, maps, 'property-verify');
+        }
 
         try {
           await window.google.maps.importLibrary('geometry');
@@ -419,6 +437,7 @@ export default function PropertyMap({
 
     return () => {
       cancelled = true;
+      invalidateVerify();
       rememberView(mapInstanceRef.current);
       disconnectResize();
       stopAllInteractions();
@@ -472,34 +491,8 @@ export default function PropertyMap({
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapReady) return;
-    applyMapType(map, mapType);
-  }, [mapType, mapReady]);
-
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    const maps = window.google?.maps;
-    if (!map || !mapReady) return undefined;
-
-    if (!enable3dEffective) {
-      setPreview3dFallback(null);
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      const result = await verify3dPreviewOnMap(map, maps, { phase: 'property-verify' });
-      if (cancelled) return;
-      if (!result.ok) {
-        onEnable3dChange?.(false);
-        setPreview3dFallback(get3dFallbackMessage(result.reason));
-      } else {
-        setPreview3dFallback(null);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [enable3dEffective, mapReady, onEnable3dChange]);
+    applyMapType(map, mapType, { enable3d: enable3dEffective });
+  }, [mapType, mapReady, enable3dEffective]);
 
   function clearCompletedPolygon() {
     const polygon = polygonRef.current;
@@ -630,8 +623,8 @@ export default function PropertyMap({
     mapType,
     onMapTypeChange,
     enable3d,
-    onEnable3dChange,
-    can3d,
+    onEnable3dChange: requestEnable3d,
+    can3d: canShow3dButton(can3d),
   };
 
   const renderMapFrame = (mapContainerRef, { expanded = false } = {}) => (

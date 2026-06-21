@@ -48,6 +48,7 @@ export function buildContentSecurityPolicyDirectives() {
       'https://khms1.googleapis.com',
       'https://khms2.googleapis.com',
       'https://khms3.googleapis.com',
+      'data:',
       'blob:',
     ],
     'img-src': [

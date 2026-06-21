@@ -2,15 +2,16 @@ function getIntakeMapId() {
   return (import.meta.env.VITE_GOOGLE_MAP_ID || '').trim() || null;
 }
 
-export const INTAKE_3D_FALLBACK_MESSAGE =
-  '3D Preview unavailable for this property. Showing satellite view.';
+export const INTAKE_3D_SIMPLE_FALLBACK =
+  '3D Preview unavailable. Showing satellite view.';
 
-export const INTAKE_3D_CSP_FALLBACK_MESSAGE =
-  '3D Preview unavailable due to browser/security policy. Satellite view is still available.';
+export const INTAKE_3D_FALLBACK_MESSAGE = INTAKE_3D_SIMPLE_FALLBACK;
+
+export const INTAKE_3D_CSP_FALLBACK_MESSAGE = INTAKE_3D_SIMPLE_FALLBACK;
 
 export function get3dFallbackMessage(reason) {
-  if (reason === 'csp_blocked') return INTAKE_3D_CSP_FALLBACK_MESSAGE;
-  return INTAKE_3D_FALLBACK_MESSAGE;
+  if (reason === 'csp_blocked') return INTAKE_3D_SIMPLE_FALLBACK;
+  return INTAKE_3D_SIMPLE_FALLBACK;
 }
 
 export function createCspViolationTracker() {
@@ -38,9 +39,11 @@ export function createCspViolationTracker() {
           || uri.includes('googleapis')
           || uri.includes('wasm')
           || uri.includes('webgl')
+          || uri.startsWith('data:')
           || directive.includes('script-src')
           || directive.includes('worker-src')
-          || directive.includes('child-src');
+          || directive.includes('child-src')
+          || directive.includes('connect-src');
       });
     },
     stop() {
