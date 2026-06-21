@@ -10,7 +10,6 @@ import IntakeKpiBar from './components/IntakeKpiBar.jsx';
 import IntakeProgressTracker from './components/IntakeProgressTracker.jsx';
 import IntakeInputField from './components/IntakeInputField.jsx';
 import IntakeStatusCards from './components/IntakeStatusCards.jsx';
-import IntakeWorkflowNextCard from './components/IntakeWorkflowNextCard.jsx';
 import IntakePropertyPreviewPanel from './components/IntakePropertyPreviewPanel.jsx';
 import { api } from '../../api/client.js';
 import { updateIntakeCustomer } from '../../utils/intake/intakeSession.js';
@@ -246,7 +245,6 @@ export default function IntakeCustomerPage() {
                 {error && <div className="intake-error">{error}</div>}
 
                 <IntakeStatusCards form={form} />
-                <IntakeWorkflowNextCard />
 
                 <div className="intake-actions lg:hidden">
                   <button type="submit" className="intake-primary-btn" disabled={submitting}>

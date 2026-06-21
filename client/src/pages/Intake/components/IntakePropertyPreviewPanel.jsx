@@ -1,6 +1,4 @@
-import {
-  AlertTriangle, Brain, CloudSun, Gauge, MapPin, ShieldCheck, Sparkles, Target,
-} from 'lucide-react';
+import { CloudSun, MapPin, Sparkles, Target } from 'lucide-react';
 
 function InfoCard({ label, value, pending = false }) {
   return (
@@ -47,11 +45,13 @@ export default function IntakePropertyPreviewPanel({
     || source.formattedAddress
     || [source.serviceAddress, source.city, source.state, source.zip].filter(Boolean).join(', ')
     || null;
+  const streetAddress = source.serviceAddress || null;
+  const city = source.city || null;
+  const state = source.state || null;
+  const zip = source.zip || null;
   const hasAddress = Boolean(address);
   const propertyType = source.propertyUseEstimate || null;
   const isPropertyPage = variant === 'property';
-  const hasCoords = Number.isFinite(Number(source.latitude)) && Number.isFinite(Number(source.longitude));
-  const confidencePct = suitability?.level === 'good' ? 92 : suitability?.level === 'monitor' ? 74 : suitability ? 58 : hasCoords ? 68 : null;
   const hasPolygon = treatmentAcreage != null || boundaryStatus === 'detected' || boundaryStatus === 'drawn';
 
   return (
@@ -127,108 +127,16 @@ export default function IntakePropertyPreviewPanel({
           </section>
         </>
       ) : (
-        <>
-          <section className="intake-preview-panel__section">
-            <h3>Property Overview</h3>
-            <div className="intake-info-grid">
-              <InfoCard label="Property Type" value={propertyType || 'Residential'} pending={!propertyType} />
-              <InfoCard label="Address" value={hasAddress ? address : 'Pending'} pending={!hasAddress} />
-              <InfoCard
-                label="Treatment Acreage"
-                value={treatmentAcreage != null ? `${treatmentAcreage} ac` : 'Pending'}
-                pending={treatmentAcreage == null}
-              />
-              <InfoCard
-                label="Property Confidence"
-                value={customer?.propertyConfidence || source.propertyUseConfidence || (hasAddress ? 'Preliminary' : 'Pending')}
-                pending={!customer?.propertyConfidence && !source.propertyUseConfidence && !hasAddress}
-              />
-            </div>
-          </section>
-
-          <section className="intake-preview-panel__section">
-            <h3><Target size={14} /> Treatment Area Status</h3>
-            <div className="intake-info-grid intake-info-grid--compact">
-              <InfoCard
-                label="Boundary"
-                value={boundaryLabel(boundaryStatus)}
-                pending={!hasPolygon}
-              />
-              <InfoCard
-                label="Sq Ft"
-                value={treatmentSquareFeet != null ? treatmentSquareFeet.toLocaleString('en-US') : 'Pending'}
-                pending={treatmentSquareFeet == null}
-              />
-            </div>
-          </section>
-
-          <section className="intake-preview-panel__section">
-            <h3><CloudSun size={14} /> Current Conditions</h3>
-            {weather ? (
-              <div className="intake-info-grid intake-info-grid--compact">
-                <InfoCard label="Date" value={weather.date || '—'} />
-                <InfoCard label="Rain" value={weather.rainProbabilityPercent != null ? `${weather.rainProbabilityPercent}%` : '—'} />
-                <InfoCard label="Wind" value={weather.windSpeedMph != null ? `${weather.windSpeedMph} mph` : '—'} />
-                <InfoCard label="Temp" value={weather.temperatureF != null ? `${weather.temperatureF}°F` : '—'} />
-              </div>
-            ) : (
-              <PlaceholderBlock
-                icon={CloudSun}
-                title="Weather data pending"
-                detail="Conditions load on Property Intelligence step"
-              />
-            )}
-          </section>
-
-          <section className="intake-preview-panel__section intake-preview-panel__ai">
-            <div className="intake-preview-panel__ai-header">
-              <Brain size={16} />
-              <div>
-                <p className="intake-preview-panel__ai-brand">Green Shield Intelligence™</p>
-                <p className="intake-preview-panel__ai-sub">Recommended Service</p>
-              </div>
-              {suitability?.level && (
-                <span className="intake-preview-panel__confidence">
-                  {suitability.level === 'good' ? 92 : suitability.level === 'monitor' ? 74 : 58}%
-                </span>
-              )}
-            </div>
-            <p className="intake-preview-panel__recommendation">
-              {suitability?.label || source.serviceType || 'Complete intake to generate treatment recommendations.'}
-            </p>
-            {suitability?.reasons?.length ? (
-              <ul className="intake-preview-panel__reasons">
-                {suitability.reasons.map((reason) => <li key={reason}>{reason}</li>)}
-              </ul>
-            ) : (
-              <ul className="intake-preview-panel__reasons intake-preview-panel__reasons--placeholder">
-                <li>Address validation confirms service territory</li>
-                <li>Property type informs treatment protocol</li>
-                <li>Weather suitability evaluated before scheduling</li>
-              </ul>
-            )}
-            <span className={`intake-preview-panel__status-badge intake-preview-panel__status-badge--${suitability?.level || 'pending'}`}>
-              {suitability?.label ? 'Analysis complete' : hasCoords ? 'Address captured' : 'Awaiting data'}
-            </span>
-          </section>
-
-          <div className="intake-preview-panel__meta-row">
-            <div className="intake-preview-meta intake-preview-meta--status">
-              <ShieldCheck size={14} />
-              <span>Property Status: {hasAddress ? 'Active lead' : 'Draft'}</span>
-            </div>
-            <div className="intake-preview-meta intake-preview-meta--risk">
-              <AlertTriangle size={14} />
-              <span>Risk: {suitability?.level === 'not_recommended' ? 'Monitor' : 'Low'}</span>
-            </div>
-            {confidencePct != null && (
-              <div className="intake-preview-meta intake-preview-meta--score">
-                <Gauge size={14} />
-                <span>Confidence: {confidencePct}%</span>
-              </div>
-            )}
+        <section className="intake-preview-panel__section intake-preview-panel__section--overview">
+          <h3>Property Overview</h3>
+          <div className="intake-info-grid intake-info-grid--address">
+            <InfoCard label="Property Type" value={propertyType || 'Residential'} pending={!propertyType} />
+            <InfoCard label="Address" value={streetAddress || 'Pending'} pending={!streetAddress} />
+            <InfoCard label="City" value={city || 'Pending'} pending={!city} />
+            <InfoCard label="State" value={state || 'Pending'} pending={!state} />
+            <InfoCard label="Zip Code" value={zip || 'Pending'} pending={!zip} />
           </div>
-        </>
+        </section>
       )}
     </aside>
   );
