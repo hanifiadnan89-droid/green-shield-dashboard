@@ -6,15 +6,6 @@ import IntakeRentCastConfirmModal from './IntakeRentCastConfirmModal.jsx';
 import IntakeRentCastUsageModal from './IntakeRentCastUsageModal.jsx';
 import IntakePropertyRecordsPanel from './IntakePropertyRecordsPanel.jsx';
 
-function formatBedsBaths(records) {
-  const beds = records?.bedrooms;
-  const baths = records?.bathrooms;
-  if (beds == null && baths == null) return null;
-  const bedLabel = beds != null ? `${beds} bed` : '— bed';
-  const bathLabel = baths != null ? `${baths} bath` : '— bath';
-  return `${bedLabel} / ${bathLabel}`;
-}
-
 export default function IntakePropertyRecordsSection({
   customer,
   records,
@@ -104,20 +95,10 @@ export default function IntakePropertyRecordsSection({
     }
   }
 
-  const bedsBaths = formatBedsBaths(records);
-
   return (
-    <section className="intake-card intake-card--property-records">
-      <div className="intake-property-records__header">
-        <div>
-          <h2 className="intake-card__title flex items-center gap-2">
-            <Database size={16} />
-            Property Records
-          </h2>
-          <p className="intake-property-records__subtitle">
-            Optional RentCast lookup for structure, lot, and ownership context. Does not change treatment acreage.
-          </p>
-        </div>
+    <section className="intake-preview-panel__section intake-preview-panel__section--compact intake-preview-panel__section--records">
+      <div className="intake-property-records__preview-header">
+        <h3><Database size={14} /> Property Records</h3>
         <div className="intake-property-records__actions">
           <button
             type="button"
@@ -128,7 +109,7 @@ export default function IntakePropertyRecordsSection({
           </button>
           <button
             type="button"
-            className="intake-primary-btn"
+            className="intake-primary-btn intake-property-records__lookup-btn"
             onClick={handleLookupClick}
             disabled={loading}
           >
@@ -152,7 +133,6 @@ export default function IntakePropertyRecordsSection({
         loading={loading}
         error={error}
         status={status}
-        bedsBaths={bedsBaths}
       />
 
       <IntakeRentCastConfirmModal

@@ -1,5 +1,5 @@
-import { CloudSun, Database, MapPin, Sparkles, Target } from 'lucide-react';
-import IntakePropertyRecordsPanel from './IntakePropertyRecordsPanel.jsx';
+import { CloudSun, MapPin, Sparkles, Target } from 'lucide-react';
+import IntakePropertyRecordsSection from './IntakePropertyRecordsSection.jsx';
 
 function InfoCard({ label, value, pending = false }) {
   return (
@@ -39,9 +39,13 @@ export default function IntakePropertyPreviewPanel({
   treatmentSquareFeet = null,
   boundaryStatus = 'none',
   propertyRecords = null,
+  onPropertyRecordsChange,
   propertyRecordsStatus = 'idle',
+  onPropertyRecordsStatusChange,
   propertyRecordsLoading = false,
+  onPropertyRecordsLoadingChange,
   propertyRecordsError = null,
+  onPropertyRecordsErrorChange,
   variant = 'default',
 }) {
   const source = customer || form;
@@ -114,17 +118,6 @@ export default function IntakePropertyPreviewPanel({
           </section>
 
           <section className="intake-preview-panel__section intake-preview-panel__section--compact">
-            <h3><Database size={14} /> Property Records</h3>
-            <IntakePropertyRecordsPanel
-              records={propertyRecords}
-              loading={propertyRecordsLoading}
-              error={propertyRecordsError}
-              status={propertyRecordsStatus}
-              compact
-            />
-          </section>
-
-          <section className="intake-preview-panel__section intake-preview-panel__section--compact">
             <h3><CloudSun size={14} /> Current Conditions</h3>
             {weather ? (
               <div className="intake-info-grid intake-info-grid--compact">
@@ -141,6 +134,18 @@ export default function IntakePropertyPreviewPanel({
               />
             )}
           </section>
+
+          <IntakePropertyRecordsSection
+            customer={customer}
+            records={propertyRecords}
+            onRecordsChange={onPropertyRecordsChange}
+            loading={propertyRecordsLoading}
+            onLoadingChange={onPropertyRecordsLoadingChange}
+            error={propertyRecordsError}
+            onErrorChange={onPropertyRecordsErrorChange}
+            status={propertyRecordsStatus}
+            onStatusChange={onPropertyRecordsStatusChange}
+          />
         </>
       ) : (
         <section className="intake-preview-panel__section intake-preview-panel__section--overview">
