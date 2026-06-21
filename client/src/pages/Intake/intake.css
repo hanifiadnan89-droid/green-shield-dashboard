@@ -1396,25 +1396,25 @@
   background-size: 48px 48px;
 }
 
-/* ── RentCast property records ── */
-.intake-card--property-records {
-  @apply space-y-4;
+/* ── RentCast property records (preview panel) ── */
+.intake-preview-panel__section--records {
+  @apply space-y-3;
 }
 
-.intake-property-records__header {
-  @apply flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between;
+.intake-property-records__preview-header {
+  @apply flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between;
 }
 
-.intake-property-records__subtitle {
-  @apply text-sm mt-1 max-w-2xl;
-  color: rgba(15, 23, 42, 0.62);
+.intake-property-records__preview-header h3 {
+  @apply mb-0;
 }
 
 .intake-property-records__actions {
   @apply flex flex-wrap items-center gap-2 shrink-0;
 }
 
-.intake-property-records__usage-btn {
+.intake-property-records__usage-btn,
+.intake-property-records__lookup-btn {
   @apply text-xs px-3 py-1.5;
 }
 
@@ -1444,10 +1444,6 @@
 
 .intake-property-records__grid {
   @apply grid grid-cols-1 sm:grid-cols-2 gap-3;
-}
-
-.intake-property-records__panel--compact .intake-property-records__grid {
-  @apply grid-cols-2 gap-2;
 }
 
 .intake-property-records__field {

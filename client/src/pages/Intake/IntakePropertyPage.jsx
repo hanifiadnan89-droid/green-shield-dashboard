@@ -9,7 +9,6 @@ import IntakeProgressTracker from './components/IntakeProgressTracker.jsx';
 import IntakeStatusCards from './components/IntakeStatusCards.jsx';
 import IntakePropertyPreviewPanel from './components/IntakePropertyPreviewPanel.jsx';
 import IntakeWeatherWidget from './components/IntakeWeatherWidget.jsx';
-import IntakePropertyRecordsSection from './components/IntakePropertyRecordsSection.jsx';
 import IntakePageShell from './components/IntakePageShell.jsx';
 import { api } from '../../api/client.js';
 import {
@@ -187,18 +186,6 @@ export default function IntakePropertyPage() {
                   error={weatherError}
                 />
 
-                <IntakePropertyRecordsSection
-                  customer={customer}
-                  records={propertyRecords}
-                  onRecordsChange={setPropertyRecords}
-                  loading={propertyRecordsLoading}
-                  onLoadingChange={setPropertyRecordsLoading}
-                  error={propertyRecordsError}
-                  onErrorChange={setPropertyRecordsError}
-                  status={propertyRecordsStatus}
-                  onStatusChange={setPropertyRecordsStatus}
-                />
-
                 <IntakeStatusCards
                   form={customer}
                   verified
@@ -224,9 +211,13 @@ export default function IntakePropertyPage() {
                 treatmentSquareFeet={treatmentSquareFeet}
                 boundaryStatus={boundaryStatus}
                 propertyRecords={propertyRecords}
-                propertyRecordsStatus={propertyRecordsStatus}
+                onPropertyRecordsChange={setPropertyRecords}
                 propertyRecordsLoading={propertyRecordsLoading}
+                onPropertyRecordsLoadingChange={setPropertyRecordsLoading}
                 propertyRecordsError={propertyRecordsError}
+                onPropertyRecordsErrorChange={setPropertyRecordsError}
+                propertyRecordsStatus={propertyRecordsStatus}
+                onPropertyRecordsStatusChange={setPropertyRecordsStatus}
                 mapSlot={mapSlot}
               />
           </div>
