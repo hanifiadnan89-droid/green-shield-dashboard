@@ -463,6 +463,26 @@
   color: #475569;
 }
 
+.intake-preview-panel__section-heading {
+  @apply flex items-center justify-between gap-3 mb-2.5;
+}
+
+.intake-preview-panel__section-heading h3 {
+  @apply mb-0;
+}
+
+.intake-zillow-link {
+  @apply inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors shrink-0;
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.intake-zillow-link:hover {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 /* Info cards in preview */
 .intake-info-grid {
   @apply grid grid-cols-2 gap-2;

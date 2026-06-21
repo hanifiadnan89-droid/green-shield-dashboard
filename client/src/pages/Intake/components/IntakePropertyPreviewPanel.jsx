@@ -1,5 +1,6 @@
-import { CloudSun, MapPin, Sparkles, Target } from 'lucide-react';
+import { CloudSun, ExternalLink, MapPin, Sparkles, Target } from 'lucide-react';
 import IntakePropertyRecordsSection from './IntakePropertyRecordsSection.jsx';
+import { buildZillowSearchUrl } from '../../../utils/intake/buildZillowSearchUrl.js';
 
 function InfoCard({ label, value, pending = false }) {
   return (
@@ -101,6 +102,8 @@ export default function IntakePropertyPreviewPanel({
     : 'Pending';
   const yearBuiltPending = !hasRecords;
 
+  const zillowUrl = hasAddress ? buildZillowSearchUrl(source) : null;
+
   return (
     <aside className={`intake-preview-panel${isPropertyPage ? ' intake-preview-panel--property' : ''}`}>
       <div className="intake-preview-panel__header">
@@ -127,7 +130,20 @@ export default function IntakePropertyPreviewPanel({
       {isPropertyPage ? (
         <>
           <section className="intake-preview-panel__section intake-preview-panel__section--compact">
-            <h3>Property Overview</h3>
+            <div className="intake-preview-panel__section-heading">
+              <h3>Property Overview</h3>
+              {zillowUrl && (
+                <a
+                  href={zillowUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="intake-zillow-link"
+                >
+                  View on Zillow
+                  <ExternalLink size={13} aria-hidden />
+                </a>
+              )}
+            </div>
             <div className="intake-info-grid intake-info-grid--single">
               <InfoCard label="Property Type" value={propertyType} pending={propertyTypePending} />
               <InfoCard label="Address" value={hasAddress ? address : 'Pending'} pending={!hasAddress} />
