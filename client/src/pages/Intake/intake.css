@@ -400,6 +400,10 @@
   box-shadow: 0 8px 32px rgba(15, 23, 42, 0.07);
 }
 
+.intake-preview-panel:not(.intake-preview-panel--property) {
+  @apply space-y-3 p-3.5;
+}
+
 .intake-preview-panel__header {
   @apply flex items-start gap-3;
 }
@@ -466,6 +470,26 @@
 
 .intake-info-grid--compact {
   @apply grid-cols-2;
+}
+
+.intake-info-grid--address {
+  @apply grid-cols-2 gap-1.5;
+}
+
+.intake-preview-panel:not(.intake-preview-panel--property) .intake-info-card {
+  @apply px-2 py-1.5;
+}
+
+.intake-preview-panel:not(.intake-preview-panel--property) .intake-info-card__value {
+  @apply text-xs normal-case leading-snug;
+}
+
+.intake-preview-panel__section--overview {
+  @apply mb-0;
+}
+
+.intake-preview-panel__section--overview h3 {
+  @apply mb-2;
 }
 
 .intake-info-card {
