@@ -1,4 +1,5 @@
 import { Maximize2, Minimize2 } from 'lucide-react';
+import { INTAKE_3D_PREVIEW_ENABLED } from './intakeMapConfig.js';
 
 export default function IntakeMapViewToolbar({
   mapType = 'satellite',
@@ -7,10 +8,11 @@ export default function IntakeMapViewToolbar({
   onEnable3dChange,
   can3d = true,
   onExpand,
-  isFullscreen = false,
+  isExpanded = false,
   className = '',
   overlay = false,
 }) {
+  const show3d = INTAKE_3D_PREVIEW_ENABLED && can3d;
   return (
     <div
       className={[
@@ -34,24 +36,25 @@ export default function IntakeMapViewToolbar({
       >
         Map
       </button>
-      <button
-        type="button"
-        className={`intake-map-btn ${enable3d ? 'intake-map-btn--active' : ''}`}
-        onClick={() => onEnable3dChange?.(!enable3d)}
-        disabled={!can3d}
-        title={can3d ? 'Toggle 3D preview' : 'Set VITE_GOOGLE_MAP_ID to enable 3D preview'}
-      >
-        3D Preview
-      </button>
+      {show3d && (
+        <button
+          type="button"
+          className={`intake-map-btn ${enable3d ? 'intake-map-btn--active' : ''}`}
+          onClick={() => onEnable3dChange?.(!enable3d)}
+          title="Toggle 3D preview"
+        >
+          3D Preview
+        </button>
+      )}
       {onExpand && (
         <button
           type="button"
           className="intake-map-btn intake-map-btn--icon"
           onClick={onExpand}
-          aria-label={isFullscreen ? 'Exit fullscreen map' : 'Expand map'}
-          title={isFullscreen ? 'Exit fullscreen' : 'Expand map'}
+          aria-label={isExpanded ? 'Close expanded map' : 'Expand map'}
+          title={isExpanded ? 'Close expanded map' : 'Expand map'}
         >
-          {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </button>
       )}
     </div>

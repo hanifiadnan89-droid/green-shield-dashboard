@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoader.js';
 import { formatAcreage, formatSquareFeet } from '../../../utils/intake/polygonArea.js';
 import { computeAreaMetrics } from './propertyMapArea.js';
 import { addMapsListener, runListenerCleanups } from './propertyMapListeners.js';
 import { createVertexMarker, shouldClosePolygonOnClick } from './propertyMapDrawing.js';
 import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
+import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
 import {
-  apply3dPreviewToMap,
   buildIntakeMapOptions,
-  canUse3dPreview,
 } from './intakeMapConfig.js';
-import { useIntakeMapFullscreen } from './intakeMapFullscreen.js';
+import { useIntakeMapExpanded } from './intakeMapExpanded.js';
+import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
 
 const POLYGON_STYLE = {
   strokeColor: '#22c55e',
@@ -123,8 +122,8 @@ export default function PropertyMap({
   onAreaChange,
   onBoundaryStatusChange,
 }) {
-  const wrapRef = useRef(null);
   const mapRef = useRef(null);
+  const expandedMapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const mapOverlayRef = useRef(null);
   const mapOverlayProjectionRef = useRef(null);
@@ -147,26 +146,16 @@ export default function PropertyMap({
   const [activeTool, setActiveTool] = useState(null);
   const [draftPointCount, setDraftPointCount] = useState(0);
   const [hasBoundary, setHasBoundary] = useState(polygonPath.length >= 3);
-  const [can3d, setCan3d] = useState(false);
 
-  const { isMapFullscreen, fullscreenHost, toggleFullscreen } = useIntakeMapFullscreen(
-    wrapRef,
-    mapInstanceRef,
-    mapReady,
-    {
-      mapContainerRef: mapRef,
-      onFullscreenChange: (active, map) => {
-        if (!map?.setOptions) return;
-        map.setOptions({
-          gestureHandling: active ? 'greedy' : 'auto',
-          zoomControl: active,
-        });
-      },
-    },
-  );
+  const {
+    isExpanded,
+    toggleExpanded,
+    closeExpanded,
+    getSavedView,
+    rememberView,
+  } = useIntakeMapExpanded();
 
-  const drawingActive = activeTool === 'polygon' || activeTool === 'edit';
-  const enable3dEffective = enable3d && !drawingActive;
+  const activeContainerRef = isExpanded ? expandedMapRef : mapRef;
 
   useEffect(() => {
     activeToolRef.current = activeTool;
@@ -321,13 +310,17 @@ export default function PropertyMap({
   }
 
   useEffect(() => {
-    if (status !== 'ready' || !mapRef.current || !center) return undefined;
+    if (status !== 'ready' || !center) return undefined;
+
+    const container = activeContainerRef.current;
+    if (!container) return undefined;
 
     const lat = Number(center.lat);
     const lng = Number(center.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
 
     let cancelled = false;
+    let disconnectResize = () => {};
 
     (async () => {
       setMapInitError(null);
@@ -341,24 +334,22 @@ export default function PropertyMap({
       }
 
       try {
-        if (!mapRef.current) return;
-
-        setCan3d(canUse3dPreview(maps));
-
-        const map = new maps.Map(mapRef.current, buildIntakeMapOptions({
-          center: { lat, lng },
-          zoom: 19,
+        const view = getSavedView(center, 19);
+        const map = new maps.Map(container, buildIntakeMapOptions({
+          center: { lat: view.lat, lng: view.lng },
+          zoom: view.zoom,
           mapType,
           enable3d: false,
           maps,
           extra: {
             fullscreenControl: false,
-            zoomControl: false,
-            gestureHandling: 'auto',
+            zoomControl: isExpanded,
+            gestureHandling: isExpanded ? 'greedy' : 'auto',
           },
         }));
 
         mapInstanceRef.current = map;
+        disconnectResize = observeMapContainerResize(map, container);
 
         const overlay = new maps.OverlayView();
         overlay.onAdd = function onAdd() {
@@ -410,6 +401,8 @@ export default function PropertyMap({
 
     return () => {
       cancelled = true;
+      rememberView(mapInstanceRef.current);
+      disconnectResize();
       stopAllInteractions();
       clearPolygonListeners();
       resetDraftVisuals();
@@ -433,7 +426,16 @@ export default function PropertyMap({
       polygonRef.current = null;
       setMapReady(false);
     };
-  }, [status, center?.lat, center?.lng]);
+  }, [status, center?.lat, center?.lng, isExpanded]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map?.setOptions || !mapReady) return;
+    map.setOptions({
+      gestureHandling: isExpanded ? 'greedy' : 'auto',
+      zoomControl: isExpanded,
+    });
+  }, [isExpanded, mapReady]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -451,26 +453,9 @@ export default function PropertyMap({
 
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map?.setMapTypeId) return;
-    try {
-      map.setMapTypeId(mapType === 'roadmap' ? 'roadmap' : 'hybrid');
-    } catch {
-      /* map may be tearing down */
-    }
-  }, [mapType]);
-
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    const maps = window.google?.maps;
     if (!map || !mapReady) return;
-
-    if (enable3dEffective) {
-      const applied = apply3dPreviewToMap(map, maps, true);
-      if (!applied && enable3d) onEnable3dChange?.(false);
-    } else {
-      apply3dPreviewToMap(map, maps, false);
-    }
-  }, [enable3dEffective, enable3d, mapReady, onEnable3dChange]);
+    applyMapType(map, mapType);
+  }, [mapType, mapReady]);
 
   function clearCompletedPolygon() {
     const polygon = polygonRef.current;
@@ -600,37 +585,12 @@ export default function PropertyMap({
   const viewToolbarProps = {
     mapType,
     onMapTypeChange,
-    enable3d,
-    onEnable3dChange,
-    can3d,
-    onExpand: toggleFullscreen,
-    isFullscreen: isMapFullscreen,
+    onExpand: () => toggleExpanded(mapInstanceRef.current),
+    isExpanded,
   };
 
-  const fullscreenViewToolbar = isMapFullscreen && fullscreenHost
-    ? createPortal(
-      <IntakeMapViewToolbar {...viewToolbarProps} overlay />,
-      fullscreenHost,
-    )
-    : null;
-
-  const fullscreenDrawToolbar = isMapFullscreen && fullscreenHost
-    ? createPortal(
-      <MapDrawToolbar
-        {...toolbarProps}
-        className="intake-map-toolbar--overlay intake-map-toolbar--overlay-draw"
-      />,
-      fullscreenHost,
-    )
-    : null;
-
-  return (
-    <div className="intake-property-map">
-      {!isMapFullscreen && onMapTypeChange && (
-        <IntakeMapViewToolbar {...viewToolbarProps} />
-      )}
-      {!isMapFullscreen && <MapDrawToolbar {...toolbarProps} />}
-
+  const mapHints = (
+    <>
       {polygonActive && (
         <p className="intake-map-hint intake-map-hint--active">
           Click to place vertices ({draftPointCount}). Click near the first point to close the shape.
@@ -651,6 +611,23 @@ export default function PropertyMap({
           <span>Acreage and sq ft calculated below</span>
         </div>
       )}
+    </>
+  );
+
+  const expandedToolbar = (
+    <div className="intake-map-expanded-overlay__toolbars">
+      {onMapTypeChange && <IntakeMapViewToolbar {...viewToolbarProps} overlay />}
+      <MapDrawToolbar {...toolbarProps} className="intake-map-toolbar--overlay intake-map-toolbar--overlay-draw" />
+    </div>
+  );
+
+  return (
+    <div className="intake-property-map">
+      {!isExpanded && onMapTypeChange && (
+        <IntakeMapViewToolbar {...viewToolbarProps} />
+      )}
+      {!isExpanded && <MapDrawToolbar {...toolbarProps} />}
+      {!isExpanded && mapHints}
 
       {status === 'loading' && (
         <div className="intake-map-shell flex items-center justify-center text-sm text-slate-500">Loading map…</div>
@@ -660,17 +637,19 @@ export default function PropertyMap({
         <div className="intake-error">Unable to load Google Maps.</div>
       )}
 
-      {showMapShell && (
-        <div
-          ref={wrapRef}
-          className={`intake-property-map-wrap${isMapFullscreen ? ' intake-property-map-wrap--fullscreen' : ''}`}
-        >
+      {showMapShell && !isExpanded && (
+        <div className="intake-property-map-wrap">
           <div ref={mapRef} className="intake-map-shell intake-map-shell--draw" />
         </div>
       )}
 
-      {fullscreenViewToolbar}
-      {fullscreenDrawToolbar}
+      <IntakeMapExpandedOverlay
+        open={isExpanded && showMapShell}
+        onClose={() => closeExpanded(mapInstanceRef.current)}
+        toolbar={expandedToolbar}
+      >
+        <div ref={expandedMapRef} className="intake-map-shell intake-map-shell--draw intake-map-shell--expanded" />
+      </IntakeMapExpandedOverlay>
     </div>
   );
 }
