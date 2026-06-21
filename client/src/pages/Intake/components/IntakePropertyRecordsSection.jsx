@@ -1,14 +1,12 @@
 import { useCallback, useState } from 'react';
-import { Building2, Database, Loader2 } from 'lucide-react';
+import { Building2, Loader2 } from 'lucide-react';
 import { api } from '../../../api/client.js';
 import { buildRentCastAddress } from '../../../utils/intake/buildRentCastAddress.js';
 import IntakeRentCastConfirmModal from './IntakeRentCastConfirmModal.jsx';
 import IntakeRentCastUsageModal from './IntakeRentCastUsageModal.jsx';
-import IntakePropertyRecordsPanel from './IntakePropertyRecordsPanel.jsx';
 
 export default function IntakePropertyRecordsSection({
   customer,
-  records,
   onRecordsChange,
   loading = false,
   onLoadingChange,
@@ -95,45 +93,43 @@ export default function IntakePropertyRecordsSection({
     }
   }
 
+  const showUnavailable = status === 'unavailable' && !loading;
+
   return (
-    <section className="intake-preview-panel__section intake-preview-panel__section--compact intake-preview-panel__section--records">
-      <div className="intake-property-records__preview-header">
-        <h3><Database size={14} /> Property Records</h3>
-        <div className="intake-property-records__actions">
-          <button
-            type="button"
-            className="intake-secondary-btn intake-property-records__usage-btn"
-            onClick={handleUsageClick}
-          >
-            API Usage
-          </button>
-          <button
-            type="button"
-            className="intake-primary-btn intake-property-records__lookup-btn"
-            onClick={handleLookupClick}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Looking up…
-              </>
-            ) : (
-              <>
-                <Building2 size={14} />
-                Lookup Property Records
-              </>
-            )}
-          </button>
-        </div>
+    <div className="intake-property-records__actions-bar">
+      <div className="intake-property-records__actions">
+        <button
+          type="button"
+          className="intake-secondary-btn intake-property-records__usage-btn"
+          onClick={handleUsageClick}
+        >
+          API Usage
+        </button>
+        <button
+          type="button"
+          className="intake-primary-btn intake-property-records__lookup-btn"
+          onClick={handleLookupClick}
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Looking up…
+            </>
+          ) : (
+            <>
+              <Building2 size={14} />
+              Lookup Property Records
+            </>
+          )}
+        </button>
       </div>
 
-      <IntakePropertyRecordsPanel
-        records={records}
-        loading={loading}
-        error={error}
-        status={status}
-      />
+      {showUnavailable && (
+        <p className="intake-property-records__status-note">
+          {error || 'Property records unavailable. Existing property details are unchanged.'}
+        </p>
+      )}
 
       <IntakeRentCastConfirmModal
         open={confirmOpen}
@@ -155,6 +151,6 @@ export default function IntakePropertyRecordsSection({
         error={usageError}
         onClose={() => setUsageOpen(false)}
       />
-    </section>
+    </div>
   );
 }
