@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom';
 export default function IntakeMapExpandedOverlay({
   open,
   onClose,
-  toolbar = null,
   children,
 }) {
   useEffect(() => {
@@ -29,12 +28,7 @@ export default function IntakeMapExpandedOverlay({
 
   return createPortal(
     <div className="intake-map-expanded-overlay" role="dialog" aria-modal="true" aria-label="Expanded map">
-      {toolbar ? (
-        <div className="intake-map-expanded-overlay__toolbar">
-          {toolbar}
-        </div>
-      ) : null}
-      <div className="intake-map-expanded-overlay__map">
+      <div className="intake-map-expanded-overlay__content">
         {children}
       </div>
     </div>,

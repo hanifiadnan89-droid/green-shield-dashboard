@@ -1,9 +1,6 @@
 /** Default tilt for 3D preview (within 45–60° range). */
 export const INTAKE_3D_TILT = 52;
 
-/** Temporarily disabled until expanded Satellite/Map view is stable. */
-export const INTAKE_3D_PREVIEW_ENABLED = false;
-
 export function getIntakeMapId() {
   return (import.meta.env.VITE_GOOGLE_MAP_ID || '').trim() || null;
 }
@@ -13,7 +10,7 @@ export function getVectorRenderingType(maps) {
 }
 
 export function canUse3dPreview(maps) {
-  return INTAKE_3D_PREVIEW_ENABLED && Boolean(getIntakeMapId() && maps?.Map);
+  return Boolean(getIntakeMapId() && maps?.Map);
 }
 
 export function buildIntakeMapOptions({
@@ -26,7 +23,7 @@ export function buildIntakeMapOptions({
 }) {
   const mapId = getIntakeMapId();
   const isRoadmap = mapType === 'roadmap';
-  const use3d = INTAKE_3D_PREVIEW_ENABLED && enable3d;
+  const use3d = enable3d;
 
   const options = {
     center,
@@ -59,7 +56,7 @@ export function buildIntakeMapOptions({
  * Apply or remove 3D preview on an existing map. Returns false when vector/tilt is unavailable.
  */
 export function apply3dPreviewToMap(map, maps, enable3d) {
-  if (!INTAKE_3D_PREVIEW_ENABLED || !map?.setOptions || !canUse3dPreview(maps)) return false;
+  if (!map?.setOptions || !getIntakeMapId()) return false;
 
   const mapId = getIntakeMapId();
   const options = {

@@ -5,9 +5,12 @@ import { computeAreaMetrics } from './propertyMapArea.js';
 import { addMapsListener, runListenerCleanups } from './propertyMapListeners.js';
 import { createVertexMarker, shouldClosePolygonOnClick } from './propertyMapDrawing.js';
 import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
+import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
 import {
+  apply3dPreviewToMap,
   buildIntakeMapOptions,
+  canUse3dPreview,
 } from './intakeMapConfig.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
@@ -146,6 +149,7 @@ export default function PropertyMap({
   const [activeTool, setActiveTool] = useState(null);
   const [draftPointCount, setDraftPointCount] = useState(0);
   const [hasBoundary, setHasBoundary] = useState(polygonPath.length >= 3);
+  const [can3d, setCan3d] = useState(false);
 
   const {
     isExpanded,
@@ -156,6 +160,8 @@ export default function PropertyMap({
   } = useIntakeMapExpanded();
 
   const activeContainerRef = isExpanded ? expandedMapRef : mapRef;
+  const drawingActive = activeTool === 'polygon' || activeTool === 'edit';
+  const enable3dEffective = enable3d && !drawingActive;
 
   useEffect(() => {
     activeToolRef.current = activeTool;
@@ -334,6 +340,8 @@ export default function PropertyMap({
       }
 
       try {
+        setCan3d(canUse3dPreview(maps));
+
         const view = getSavedView(center, 19);
         const map = new maps.Map(container, buildIntakeMapOptions({
           center: { lat: view.lat, lng: view.lng },
@@ -456,6 +464,19 @@ export default function PropertyMap({
     if (!map || !mapReady) return;
     applyMapType(map, mapType);
   }, [mapType, mapReady]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const maps = window.google?.maps;
+    if (!map || !mapReady) return;
+
+    if (enable3dEffective) {
+      const applied = apply3dPreviewToMap(map, maps, true);
+      if (!applied && enable3d) onEnable3dChange?.(false);
+    } else {
+      apply3dPreviewToMap(map, maps, false);
+    }
+  }, [enable3dEffective, enable3d, mapReady, onEnable3dChange]);
 
   function clearCompletedPolygon() {
     const polygon = polygonRef.current;
@@ -585,9 +606,30 @@ export default function PropertyMap({
   const viewToolbarProps = {
     mapType,
     onMapTypeChange,
-    onExpand: () => toggleExpanded(mapInstanceRef.current),
-    isExpanded,
+    enable3d,
+    onEnable3dChange,
+    can3d,
   };
+
+  const renderMapFrame = (mapContainerRef, { expanded = false } = {}) => (
+    <div className={`intake-map-frame${expanded ? ' intake-map-frame--expanded' : ''}`}>
+      {onMapTypeChange && (
+        <div className="intake-map-frame__toolbar">
+          <IntakeMapViewToolbar {...viewToolbarProps} overlay />
+        </div>
+      )}
+      <IntakeMapExpandButton
+        isExpanded={expanded}
+        onClick={() => (expanded
+          ? closeExpanded(mapInstanceRef.current)
+          : toggleExpanded(mapInstanceRef.current))}
+      />
+      <div
+        ref={mapContainerRef}
+        className={`intake-map-shell intake-map-shell--draw${expanded ? ' intake-map-shell--expanded' : ''}`}
+      />
+    </div>
+  );
 
   const mapHints = (
     <>
@@ -614,18 +656,19 @@ export default function PropertyMap({
     </>
   );
 
-  const expandedToolbar = (
-    <div className="intake-map-expanded-overlay__toolbars">
-      {onMapTypeChange && <IntakeMapViewToolbar {...viewToolbarProps} overlay />}
-      <MapDrawToolbar {...toolbarProps} className="intake-map-toolbar--overlay intake-map-toolbar--overlay-draw" />
+  const expandedContent = (
+    <div className="intake-map-expanded-overlay__content">
+      <MapDrawToolbar
+        {...toolbarProps}
+        className="intake-map-toolbar--overlay intake-map-toolbar--overlay-draw intake-map-toolbar--overlay-standalone"
+      />
+      {mapHints}
+      {renderMapFrame(expandedMapRef, { expanded: true })}
     </div>
   );
 
   return (
     <div className="intake-property-map">
-      {!isExpanded && onMapTypeChange && (
-        <IntakeMapViewToolbar {...viewToolbarProps} />
-      )}
       {!isExpanded && <MapDrawToolbar {...toolbarProps} />}
       {!isExpanded && mapHints}
 
@@ -637,18 +680,13 @@ export default function PropertyMap({
         <div className="intake-error">Unable to load Google Maps.</div>
       )}
 
-      {showMapShell && !isExpanded && (
-        <div className="intake-property-map-wrap">
-          <div ref={mapRef} className="intake-map-shell intake-map-shell--draw" />
-        </div>
-      )}
+      {showMapShell && !isExpanded && renderMapFrame(mapRef)}
 
       <IntakeMapExpandedOverlay
         open={isExpanded && showMapShell}
         onClose={() => closeExpanded(mapInstanceRef.current)}
-        toolbar={expandedToolbar}
       >
-        <div ref={expandedMapRef} className="intake-map-shell intake-map-shell--draw intake-map-shell--expanded" />
+        {expandedContent}
       </IntakeMapExpandedOverlay>
     </div>
   );
