@@ -9,6 +9,7 @@ import IntakeProgressTracker from './components/IntakeProgressTracker.jsx';
 import IntakeStatusCards from './components/IntakeStatusCards.jsx';
 import IntakePropertyPreviewPanel from './components/IntakePropertyPreviewPanel.jsx';
 import IntakeWeatherWidget from './components/IntakeWeatherWidget.jsx';
+import IntakePropertyRecordsSection from './components/IntakePropertyRecordsSection.jsx';
 import IntakePageShell from './components/IntakePageShell.jsx';
 import { api } from '../../api/client.js';
 import {
@@ -40,6 +41,12 @@ export default function IntakePropertyPage() {
   const [weatherError, setWeatherError] = useState(null);
   const [boundaryStatus, setBoundaryStatus] = useState(
     session.property?.treatmentPolygon?.length >= 3 ? 'drawn' : 'none',
+  );
+  const [propertyRecords, setPropertyRecords] = useState(session.property?.propertyRecords || null);
+  const [propertyRecordsLoading, setPropertyRecordsLoading] = useState(false);
+  const [propertyRecordsError, setPropertyRecordsError] = useState(null);
+  const [propertyRecordsStatus, setPropertyRecordsStatus] = useState(
+    session.property?.propertyRecords ? 'loaded' : 'idle',
   );
 
   useEffect(() => {
@@ -108,6 +115,7 @@ export default function IntakePropertyPage() {
       weatherDate,
       weather,
       weatherSuitability: suitability,
+      propertyRecords,
     };
 
     const nextSession = updateIntakeProperty(property);
@@ -179,7 +187,23 @@ export default function IntakePropertyPage() {
                   error={weatherError}
                 />
 
-                <IntakeStatusCards form={customer} verified />
+                <IntakePropertyRecordsSection
+                  customer={customer}
+                  records={propertyRecords}
+                  onRecordsChange={setPropertyRecords}
+                  loading={propertyRecordsLoading}
+                  onLoadingChange={setPropertyRecordsLoading}
+                  error={propertyRecordsError}
+                  onErrorChange={setPropertyRecordsError}
+                  status={propertyRecordsStatus}
+                  onStatusChange={setPropertyRecordsStatus}
+                />
+
+                <IntakeStatusCards
+                  form={customer}
+                  verified
+                  propertyRecordsStatus={propertyRecordsStatus}
+                />
 
                 <div className="intake-actions">
                   <button type="button" className="intake-secondary-btn" onClick={() => navigate('/intake')}>
@@ -199,6 +223,10 @@ export default function IntakePropertyPage() {
                 treatmentAcreage={treatmentAcreage}
                 treatmentSquareFeet={treatmentSquareFeet}
                 boundaryStatus={boundaryStatus}
+                propertyRecords={propertyRecords}
+                propertyRecordsStatus={propertyRecordsStatus}
+                propertyRecordsLoading={propertyRecordsLoading}
+                propertyRecordsError={propertyRecordsError}
                 mapSlot={mapSlot}
               />
           </div>

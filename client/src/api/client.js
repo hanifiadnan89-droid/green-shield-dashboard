@@ -125,6 +125,11 @@ export const api = {
     weather: ({ date, lat, lng }) => request(
       `/intake/weather?date=${encodeURIComponent(date)}&lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`,
     ),
+    propertyRecords: (body) => request('/intake/property-records', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    propertyRecordsUsage: () => request('/intake/property-records/usage'),
   },
 
   routes: {

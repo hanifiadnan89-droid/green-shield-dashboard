@@ -14,9 +14,23 @@ function StatusCard({ icon: Icon, title, value, variant = 'pending' }) {
   );
 }
 
-export default function IntakeStatusCards({ form = {}, verified = false }) {
+export default function IntakeStatusCards({ form = {}, verified = false, propertyRecordsStatus = 'idle' }) {
   const hasAddress = Boolean(form.serviceAddress && form.city && form.state && form.zip);
   const hasService = Boolean(form.serviceType);
+  const propertyDataValue = propertyRecordsStatus === 'loaded'
+    ? 'Records loaded'
+    : propertyRecordsStatus === 'unavailable'
+      ? 'Records unavailable'
+      : hasAddress
+        ? 'Optional lookup available'
+        : 'Awaiting address';
+  const propertyDataVariant = propertyRecordsStatus === 'loaded'
+    ? 'teal'
+    : propertyRecordsStatus === 'unavailable'
+      ? 'pending'
+      : hasAddress
+        ? 'teal'
+        : 'pending';
 
   return (
     <div className="intake-status-grid">
@@ -41,8 +55,8 @@ export default function IntakeStatusCards({ form = {}, verified = false }) {
       <StatusCard
         icon={Database}
         title="Property Data"
-        value={hasAddress ? 'Address captured' : 'Awaiting address'}
-        variant={hasAddress ? 'teal' : 'pending'}
+        value={propertyDataValue}
+        variant={propertyDataVariant}
       />
     </div>
   );
