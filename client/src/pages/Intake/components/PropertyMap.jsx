@@ -153,6 +153,16 @@ export default function PropertyMap({
     wrapRef,
     mapInstanceRef,
     mapReady,
+    {
+      mapContainerRef: mapRef,
+      onFullscreenChange: (active, map) => {
+        if (!map?.setOptions) return;
+        map.setOptions({
+          gestureHandling: active ? 'greedy' : 'auto',
+          zoomControl: active,
+        });
+      },
+    },
   );
 
   const drawingActive = activeTool === 'polygon' || activeTool === 'edit';
@@ -343,6 +353,8 @@ export default function PropertyMap({
           maps,
           extra: {
             fullscreenControl: false,
+            zoomControl: false,
+            gestureHandling: 'auto',
           },
         }));
 
