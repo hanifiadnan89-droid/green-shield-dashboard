@@ -20,8 +20,8 @@ export function getMapTypeId(mapType) {
   return mapType === 'roadmap' ? 'roadmap' : 'hybrid';
 }
 
-export function applyMapType(map, mapType, { enable3d = false } = {}) {
-  if (!map?.setMapTypeId || enable3d) return;
+export function applyMapType(map, mapType) {
+  if (!map?.setMapTypeId) return;
   try {
     map.setMapTypeId(getMapTypeId(mapType));
     notifyMapResize(map);

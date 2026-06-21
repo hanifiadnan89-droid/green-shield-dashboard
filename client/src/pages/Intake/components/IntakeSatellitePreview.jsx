@@ -6,7 +6,7 @@ import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
 import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
 import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
-import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
+import IntakeMap3dSurface from './IntakeMap3dSurface.jsx';
 import { buildIntakeMapOptions, canUse3dPreview } from './intakeMapConfig.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
@@ -36,8 +36,8 @@ export default function IntakeSatellitePreview({
   const {
     preview3dFallback,
     requestEnable3d,
-    verifyAfter3dInit,
-    invalidateVerify,
+    handle3dSurfaceReady,
+    handle3dSurfaceFailure,
     canShow3dButton,
   } = useIntake3dMapControl({ enable3d, setEnable3d });
 
@@ -120,13 +120,11 @@ export default function IntakeSatellitePreview({
       center: { lat: view.lat, lng: view.lng },
       zoom: view.zoom,
       mapType,
-      enable3d,
-      maps,
       extra: {
         disableDefaultUI: true,
         zoomControl: true,
         fullscreenControl: false,
-        gestureHandling: isExpanded || enable3d ? 'greedy' : 'none',
+        gestureHandling: isExpanded ? 'greedy' : 'none',
         keyboardShortcuts: isExpanded,
         clickableIcons: false,
       },
@@ -136,47 +134,33 @@ export default function IntakeSatellitePreview({
     renderOverlays(map, maps);
     disconnectResize = observeMapContainerResize(map, container);
 
-    if (!cancelled) {
-      setMapReady(true);
-      logIntake3dDiagnostics('satellite-init', {
-        before: readMap3dState(map, maps),
-        after: readMap3dState(map, maps),
-        ok: true,
-        reason: 'map_ready',
-        extra: { isExpanded, enable3d },
-      });
-
-      if (enable3d) {
-        void verifyAfter3dInit(map, maps, 'satellite-verify');
-      }
-    }
+    if (!cancelled) setMapReady(true);
 
     return () => {
       cancelled = true;
-      invalidateVerify();
       rememberView(map);
       disconnectResize();
       clearOverlays();
       mapInstanceRef.current = null;
       setMapReady(false);
     };
-  }, [status, lat, lng, hasCoords, isExpanded, enable3d, address, showFootprint, footprintPolygon]);
+  }, [status, lat, lng, hasCoords, isExpanded, address, showFootprint, footprintPolygon]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapReady) return;
-    applyMapType(map, mapType, { enable3d });
-  }, [mapType, mapReady, enable3d]);
+    applyMapType(map, mapType);
+  }, [mapType, mapReady]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map?.setOptions || !mapReady) return;
     map.setOptions({
-      gestureHandling: isExpanded || enable3d ? 'greedy' : 'none',
+      gestureHandling: isExpanded ? 'greedy' : 'none',
       keyboardShortcuts: isExpanded,
       zoomControl: true,
     });
-  }, [isExpanded, enable3d, mapReady]);
+  }, [isExpanded, mapReady]);
 
   const toolbarProps = {
     mapType,
@@ -199,8 +183,21 @@ export default function IntakeSatellitePreview({
       />
       <div
         ref={mapRef}
-        className={`intake-map-shell ${expanded ? 'intake-map-shell--expanded' : 'intake-map-shell--preview'}`}
+        className={[
+          'intake-map-shell',
+          expanded ? 'intake-map-shell--expanded' : 'intake-map-shell--preview',
+          enable3d ? 'intake-map-shell--behind-3d' : '',
+        ].filter(Boolean).join(' ')}
         aria-label={`${expanded ? 'Expanded' : ''} satellite preview for ${address || 'selected address'}`}
+      />
+      <IntakeMap3dSurface
+        active={enable3d && expanded === isExpanded}
+        latitude={lat}
+        longitude={lng}
+        mapType={mapType}
+        phase={expanded ? 'satellite-3d-expanded' : 'satellite-3d'}
+        onReady={handle3dSurfaceReady}
+        onFailure={handle3dSurfaceFailure}
       />
       {!expanded && (
         <div className="intake-preview-map-pin" aria-hidden>

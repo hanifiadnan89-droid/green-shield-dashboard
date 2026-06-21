@@ -7,12 +7,12 @@ import { createVertexMarker, shouldClosePolygonOnClick } from './propertyMapDraw
 import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
 import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
+import IntakeMap3dSurface from './IntakeMap3dSurface.jsx';
 import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
 import {
   buildIntakeMapOptions,
   canUse3dPreview,
 } from './intakeMapConfig.js';
-import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
 import { useIntake3dMapControl } from './useIntake3dMapControl.js';
@@ -172,8 +172,8 @@ export default function PropertyMap({
   const {
     preview3dFallback,
     requestEnable3d,
-    verifyAfter3dInit,
-    invalidateVerify,
+    handle3dSurfaceReady,
+    handle3dSurfaceFailure,
     canShow3dButton,
   } = useIntake3dMapControl({
     enable3d: enable3dEffective,
@@ -364,8 +364,6 @@ export default function PropertyMap({
           center: { lat: view.lat, lng: view.lng },
           zoom: view.zoom,
           mapType,
-          enable3d: enable3dEffective,
-          maps,
           extra: {
             fullscreenControl: false,
             zoomControl: isExpanded,
@@ -388,17 +386,6 @@ export default function PropertyMap({
         mapOverlayRef.current = overlay;
 
         setMapReady(true);
-        logIntake3dDiagnostics('property-init', {
-          before: readMap3dState(map, maps),
-          after: readMap3dState(map, maps),
-          ok: true,
-          reason: 'map_ready',
-          extra: { isExpanded, enable3d: enable3dEffective },
-        });
-
-        if (enable3dEffective) {
-          void verifyAfter3dInit(map, maps, 'property-verify');
-        }
 
         try {
           await window.google.maps.importLibrary('geometry');
@@ -437,7 +424,6 @@ export default function PropertyMap({
 
     return () => {
       cancelled = true;
-      invalidateVerify();
       rememberView(mapInstanceRef.current);
       disconnectResize();
       stopAllInteractions();
@@ -463,7 +449,7 @@ export default function PropertyMap({
       polygonRef.current = null;
       setMapReady(false);
     };
-  }, [status, center?.lat, center?.lng, isExpanded, enable3dEffective]);
+  }, [status, center?.lat, center?.lng, isExpanded]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -491,8 +477,8 @@ export default function PropertyMap({
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapReady) return;
-    applyMapType(map, mapType, { enable3d: enable3dEffective });
-  }, [mapType, mapReady, enable3dEffective]);
+    applyMapType(map, mapType);
+  }, [mapType, mapReady]);
 
   function clearCompletedPolygon() {
     const polygon = polygonRef.current;
@@ -642,7 +628,20 @@ export default function PropertyMap({
       />
       <div
         ref={mapContainerRef}
-        className={`intake-map-shell intake-map-shell--draw${expanded ? ' intake-map-shell--expanded' : ''}`}
+        className={[
+          'intake-map-shell intake-map-shell--draw',
+          expanded ? 'intake-map-shell--expanded' : '',
+          enable3dEffective ? 'intake-map-shell--behind-3d' : '',
+        ].filter(Boolean).join(' ')}
+      />
+      <IntakeMap3dSurface
+        active={enable3dEffective}
+        latitude={center?.lat}
+        longitude={center?.lng}
+        mapType={mapType}
+        phase={expanded ? 'property-3d-expanded' : 'property-3d'}
+        onReady={handle3dSurfaceReady}
+        onFailure={handle3dSurfaceFailure}
       />
       <IntakeMap3dFallback message={preview3dFallback} />
     </div>
