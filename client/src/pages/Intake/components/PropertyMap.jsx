@@ -5,6 +5,13 @@ import { formatAcreage, formatSquareFeet } from '../../../utils/intake/polygonAr
 import { computeAreaMetrics } from './propertyMapArea.js';
 import { addMapsListener, runListenerCleanups } from './propertyMapListeners.js';
 import { createVertexMarker, shouldClosePolygonOnClick } from './propertyMapDrawing.js';
+import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
+import {
+  apply3dPreviewToMap,
+  buildIntakeMapOptions,
+  canUse3dPreview,
+} from './intakeMapConfig.js';
+import { useIntakeMapFullscreen } from './intakeMapFullscreen.js';
 
 const POLYGON_STYLE = {
   strokeColor: '#22c55e',
@@ -44,18 +51,6 @@ function pathToArray(polygon) {
 function latLngToPoint(latLng) {
   if (!latLng) return null;
   return { lat: latLng.lat(), lng: latLng.lng() };
-}
-
-function getFullscreenElement() {
-  return document.fullscreenElement
-    || document.webkitFullscreenElement
-    || null;
-}
-
-function isMapInFullscreen(mapEl) {
-  const fs = getFullscreenElement();
-  if (!fs || !mapEl) return false;
-  return fs === mapEl || mapEl.contains(fs) || fs.contains(mapEl);
 }
 
 function MapDrawToolbar({
@@ -121,10 +116,14 @@ export default function PropertyMap({
   center,
   polygonPath = [],
   mapType = 'satellite',
+  onMapTypeChange,
+  enable3d = false,
+  onEnable3dChange,
   onPolygonChange,
   onAreaChange,
   onBoundaryStatusChange,
 }) {
+  const wrapRef = useRef(null);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const mapOverlayRef = useRef(null);
@@ -148,8 +147,16 @@ export default function PropertyMap({
   const [activeTool, setActiveTool] = useState(null);
   const [draftPointCount, setDraftPointCount] = useState(0);
   const [hasBoundary, setHasBoundary] = useState(polygonPath.length >= 3);
-  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
-  const [fullscreenHost, setFullscreenHost] = useState(null);
+  const [can3d, setCan3d] = useState(false);
+
+  const { isMapFullscreen, fullscreenHost, toggleFullscreen } = useIntakeMapFullscreen(
+    wrapRef,
+    mapInstanceRef,
+    mapReady,
+  );
+
+  const drawingActive = activeTool === 'polygon' || activeTool === 'edit';
+  const enable3dEffective = enable3d && !drawingActive;
 
   useEffect(() => {
     activeToolRef.current = activeTool;
@@ -160,31 +167,6 @@ export default function PropertyMap({
     onAreaChangeRef.current = onAreaChange;
     onBoundaryStatusChangeRef.current = onBoundaryStatusChange;
   }, [onPolygonChange, onAreaChange, onBoundaryStatusChange]);
-
-  useEffect(() => {
-    const syncFullscreen = () => {
-      const mapEl = mapRef.current;
-      const fs = getFullscreenElement();
-      const active = isMapInFullscreen(mapEl);
-      setIsMapFullscreen(active);
-      setFullscreenHost(active ? fs : null);
-
-      const map = mapInstanceRef.current;
-      const mapsEvent = window.google?.maps?.event;
-      if (map && mapsEvent) {
-        mapsEvent.trigger(map, 'resize');
-      }
-    };
-
-    document.addEventListener('fullscreenchange', syncFullscreen);
-    document.addEventListener('webkitfullscreenchange', syncFullscreen);
-    syncFullscreen();
-
-    return () => {
-      document.removeEventListener('fullscreenchange', syncFullscreen);
-      document.removeEventListener('webkitfullscreenchange', syncFullscreen);
-    };
-  }, [mapReady]);
 
   useEffect(() => {
     stopAllInteractions();
@@ -351,14 +333,18 @@ export default function PropertyMap({
       try {
         if (!mapRef.current) return;
 
-        const map = new maps.Map(mapRef.current, {
+        setCan3d(canUse3dPreview(maps));
+
+        const map = new maps.Map(mapRef.current, buildIntakeMapOptions({
           center: { lat, lng },
           zoom: 19,
-          mapTypeId: mapType === 'roadmap' ? 'roadmap' : 'hybrid',
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: true,
-        });
+          mapType,
+          enable3d: false,
+          maps,
+          extra: {
+            fullscreenControl: false,
+          },
+        }));
 
         mapInstanceRef.current = map;
 
@@ -460,6 +446,19 @@ export default function PropertyMap({
       /* map may be tearing down */
     }
   }, [mapType]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const maps = window.google?.maps;
+    if (!map || !mapReady) return;
+
+    if (enable3dEffective) {
+      const applied = apply3dPreviewToMap(map, maps, true);
+      if (!applied && enable3d) onEnable3dChange?.(false);
+    } else {
+      apply3dPreviewToMap(map, maps, false);
+    }
+  }, [enable3dEffective, enable3d, mapReady, onEnable3dChange]);
 
   function clearCompletedPolygon() {
     const polygon = polygonRef.current;
@@ -586,11 +585,28 @@ export default function PropertyMap({
     onRedraw: redraw,
   };
 
-  const fullscreenToolbar = isMapFullscreen && fullscreenHost
+  const viewToolbarProps = {
+    mapType,
+    onMapTypeChange,
+    enable3d,
+    onEnable3dChange,
+    can3d,
+    onExpand: toggleFullscreen,
+    isFullscreen: isMapFullscreen,
+  };
+
+  const fullscreenViewToolbar = isMapFullscreen && fullscreenHost
+    ? createPortal(
+      <IntakeMapViewToolbar {...viewToolbarProps} overlay />,
+      fullscreenHost,
+    )
+    : null;
+
+  const fullscreenDrawToolbar = isMapFullscreen && fullscreenHost
     ? createPortal(
       <MapDrawToolbar
         {...toolbarProps}
-        className="intake-map-toolbar--overlay"
+        className="intake-map-toolbar--overlay intake-map-toolbar--overlay-draw"
       />,
       fullscreenHost,
     )
@@ -598,6 +614,9 @@ export default function PropertyMap({
 
   return (
     <div className="intake-property-map">
+      {!isMapFullscreen && onMapTypeChange && (
+        <IntakeMapViewToolbar {...viewToolbarProps} />
+      )}
       {!isMapFullscreen && <MapDrawToolbar {...toolbarProps} />}
 
       {polygonActive && (
@@ -630,10 +649,16 @@ export default function PropertyMap({
       )}
 
       {showMapShell && (
-        <div ref={mapRef} className="intake-map-shell intake-map-shell--draw" />
+        <div
+          ref={wrapRef}
+          className={`intake-property-map-wrap${isMapFullscreen ? ' intake-property-map-wrap--fullscreen' : ''}`}
+        >
+          <div ref={mapRef} className="intake-map-shell intake-map-shell--draw" />
+        </div>
       )}
 
-      {fullscreenToolbar}
+      {fullscreenViewToolbar}
+      {fullscreenDrawToolbar}
     </div>
   );
 }

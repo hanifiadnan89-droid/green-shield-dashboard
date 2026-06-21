@@ -732,6 +732,46 @@
   min-width: 7rem;
 }
 
+.intake-map-btn--icon {
+  @apply inline-flex items-center justify-center shrink-0;
+  min-width: 2.25rem !important;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.intake-preview-map-slot {
+  @apply space-y-0;
+}
+
+.intake-preview-map-wrap--fullscreen,
+.intake-property-map-wrap--fullscreen {
+  @apply bg-slate-950;
+}
+
+.intake-preview-map-wrap--fullscreen,
+.intake-property-map-wrap--fullscreen {
+  width: 100%;
+  height: 100%;
+}
+
+.intake-map-shell--preview-fullscreen {
+  min-height: 100%;
+  height: 100%;
+}
+
+.intake-property-map-wrap {
+  @apply relative rounded-xl overflow-hidden;
+}
+
+.intake-property-map-wrap--fullscreen .intake-map-shell--draw {
+  min-height: 100%;
+  height: 100%;
+}
+
+.intake-map-toolbar--overlay-draw {
+  top: 56px;
+}
+
 .intake-map-toolbar--draw {
   @apply flex w-full gap-1.5 mb-2;
 }
