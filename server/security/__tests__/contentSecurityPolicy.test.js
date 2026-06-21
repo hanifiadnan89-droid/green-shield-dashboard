@@ -12,6 +12,8 @@ describe('contentSecurityPolicy', () => {
 
     expect(d['connect-src']).toContain('https://maps.googleapis.com');
     expect(d['connect-src']).toContain('https://maps.gstatic.com');
+    expect(d['connect-src']).toContain('https://*.googleapis.com');
+    expect(d['connect-src']).toContain('https://*.gstatic.com');
     expect(d['connect-src']).toContain('https://places.googleapis.com');
     expect(d['connect-src']).toContain('https://weather.googleapis.com');
     expect(d['connect-src']).toContain('https://addressvalidation.googleapis.com');
@@ -30,6 +32,20 @@ describe('contentSecurityPolicy', () => {
     expect(d['frame-src']).toContain('https://*.gstatic.com');
 
     expect(d['worker-src']).toContain('blob:');
+    expect(d['child-src']).toContain('blob:');
+  });
+
+  it('allows Google Maps vector/WebGL wasm and eval requirements', () => {
+    const d = buildContentSecurityPolicyDirectives();
+
+    expect(d['script-src']).toContain("'unsafe-eval'");
+    expect(d['script-src']).toContain("'wasm-unsafe-eval'");
+    expect(d['script-src']).toContain('blob:');
+    expect(d['connect-src']).toContain('blob:');
+    expect(d['worker-src']).toContain('https://maps.gstatic.com');
+    expect(d['worker-src']).toContain('https://*.gstatic.com');
+    expect(d['child-src']).toContain('https://maps.gstatic.com');
+    expect(d['child-src']).toContain('https://*.gstatic.com');
   });
 
   it('keeps default-src self restriction', () => {

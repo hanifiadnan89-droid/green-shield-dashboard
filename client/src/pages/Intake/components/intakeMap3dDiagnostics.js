@@ -5,6 +5,52 @@ function getIntakeMapId() {
 export const INTAKE_3D_FALLBACK_MESSAGE =
   '3D Preview unavailable for this property. Showing satellite view.';
 
+export const INTAKE_3D_CSP_FALLBACK_MESSAGE =
+  '3D Preview unavailable due to browser/security policy. Satellite view is still available.';
+
+export function get3dFallbackMessage(reason) {
+  if (reason === 'csp_blocked') return INTAKE_3D_CSP_FALLBACK_MESSAGE;
+  return INTAKE_3D_FALLBACK_MESSAGE;
+}
+
+export function createCspViolationTracker() {
+  const violations = [];
+
+  const handler = (event) => {
+    violations.push({
+      blockedURI: event.blockedURI,
+      violatedDirective: event.violatedDirective,
+      effectiveDirective: event.effectiveDirective,
+    });
+  };
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('securitypolicyviolation', handler);
+  }
+
+  return {
+    getViolations: () => violations.slice(),
+    hasMaps3dViolation() {
+      return violations.some((v) => {
+        const uri = `${v.blockedURI || ''}`;
+        const directive = `${v.effectiveDirective || v.violatedDirective || ''}`;
+        return uri.includes('gstatic')
+          || uri.includes('googleapis')
+          || uri.includes('wasm')
+          || uri.includes('webgl')
+          || directive.includes('script-src')
+          || directive.includes('worker-src')
+          || directive.includes('child-src');
+      });
+    },
+    stop() {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('securitypolicyviolation', handler);
+      }
+    },
+  };
+}
+
 export function readMap3dState(map, maps) {
   const renderingType = map?.getRenderingType?.();
   const vectorEnum = maps?.RenderingType?.VECTOR ?? null;
@@ -42,6 +88,8 @@ export function describe3dFallbackReason(reason, state) {
       return `Tilt remained 0 after apply (zoom=${state?.zoom ?? '?'}, mapTypeId=${state?.mapTypeId ?? '?'})`;
     case 'tilt_timeout':
       return 'Timed out waiting for vector map idle/tilt';
+    case 'csp_blocked':
+      return 'Content Security Policy blocked Maps WebGL/WebAssembly (unsafe-eval, wasm, or workers)';
     default:
       return reason || 'Unknown 3D preview failure';
   }

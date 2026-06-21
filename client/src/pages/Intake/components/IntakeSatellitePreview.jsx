@@ -6,7 +6,7 @@ import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
 import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
 import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
-import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
+import { get3dFallbackMessage, logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
 import { buildIntakeMapOptions, canUse3dPreview, verify3dPreviewOnMap } from './intakeMapConfig.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
@@ -172,7 +172,7 @@ export default function IntakeSatellitePreview({
       if (cancelled) return;
       if (!result.ok) {
         setEnable3d(false);
-        setPreview3dFallback('3D Preview unavailable for this property. Showing satellite view.');
+        setPreview3dFallback(get3dFallbackMessage(result.reason));
       } else {
         setPreview3dFallback(null);
       }
