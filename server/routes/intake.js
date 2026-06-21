@@ -6,6 +6,10 @@ import {
   lookupWeatherForDate,
   getIntakeApiDiagnostics,
 } from '../services/googleIntakeApis.js';
+import {
+  lookupPropertyRecords,
+  getRentCastDiagnostics,
+} from '../services/rentCastPropertyRecords.js';
 
 const router = express.Router();
 
@@ -22,7 +26,47 @@ router.get('/status', (_req, res) => {
   res.json({
     enabled: isIntakeEnabled(),
     google: getIntakeApiDiagnostics(),
+    rentCast: getRentCastDiagnostics(),
   });
+});
+
+router.get('/property-records/usage', (_req, res) => {
+  res.json({ usage: getRentCastDiagnostics().usage });
+});
+
+router.post('/property-records', async (req, res) => {
+  try {
+    const {
+      street,
+      city,
+      state,
+      zip,
+      address,
+      confirmPaidLookup = false,
+    } = req.body || {};
+
+    const result = await lookupPropertyRecords({
+      street,
+      city,
+      state,
+      zip,
+      address,
+      confirmPaidLookup: Boolean(confirmPaidLookup),
+    });
+
+    res.json(result);
+  } catch (err) {
+    const status = err.code === 'INTAKE_PROPERTY_RECORDS_INVALID' ? 400
+      : err.code === 'INTAKE_RENTCAST_KEY_MISSING' ? 503
+        : err.code === 'INTAKE_PROPERTY_RECORDS_LIMIT' ? 429
+          : 502;
+    console.error('[intake] property-records failed:', err.message);
+    res.status(status).json({
+      error: err.message,
+      code: err.code || 'INTAKE_PROPERTY_RECORDS_FAILED',
+      usage: err.usage || undefined,
+    });
+  }
 });
 
 router.post('/validate-address', async (req, res) => {

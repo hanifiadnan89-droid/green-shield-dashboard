@@ -1,4 +1,5 @@
-import { CloudSun, MapPin, Sparkles, Target } from 'lucide-react';
+import { CloudSun, Database, MapPin, Sparkles, Target } from 'lucide-react';
+import IntakePropertyRecordsPanel from './IntakePropertyRecordsPanel.jsx';
 
 function InfoCard({ label, value, pending = false }) {
   return (
@@ -37,6 +38,10 @@ export default function IntakePropertyPreviewPanel({
   treatmentAcreage = null,
   treatmentSquareFeet = null,
   boundaryStatus = 'none',
+  propertyRecords = null,
+  propertyRecordsStatus = 'idle',
+  propertyRecordsLoading = false,
+  propertyRecordsError = null,
   variant = 'default',
 }) {
   const source = customer || form;
@@ -106,6 +111,17 @@ export default function IntakePropertyPreviewPanel({
                 pending={treatmentSquareFeet == null}
               />
             </div>
+          </section>
+
+          <section className="intake-preview-panel__section intake-preview-panel__section--compact">
+            <h3><Database size={14} /> Property Records</h3>
+            <IntakePropertyRecordsPanel
+              records={propertyRecords}
+              loading={propertyRecordsLoading}
+              error={propertyRecordsError}
+              status={propertyRecordsStatus}
+              compact
+            />
           </section>
 
           <section className="intake-preview-panel__section intake-preview-panel__section--compact">

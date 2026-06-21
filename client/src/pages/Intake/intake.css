@@ -1395,3 +1395,177 @@
     linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
   background-size: 48px 48px;
 }
+
+/* ── RentCast property records ── */
+.intake-card--property-records {
+  @apply space-y-4;
+}
+
+.intake-property-records__header {
+  @apply flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between;
+}
+
+.intake-property-records__subtitle {
+  @apply text-sm mt-1 max-w-2xl;
+  color: rgba(15, 23, 42, 0.62);
+}
+
+.intake-property-records__actions {
+  @apply flex flex-wrap items-center gap-2 shrink-0;
+}
+
+.intake-property-records__usage-btn {
+  @apply text-xs px-3 py-1.5;
+}
+
+.intake-property-records__panel {
+  @apply rounded-2xl border p-4;
+  border-color: rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.intake-property-records__panel--idle,
+.intake-property-records__panel--loading {
+  @apply flex items-start gap-3 text-sm;
+  color: rgba(15, 23, 42, 0.68);
+}
+
+.intake-property-records__panel--empty {
+  @apply text-sm;
+}
+
+.intake-property-records__empty-title {
+  @apply font-semibold text-slate-800;
+}
+
+.intake-property-records__empty-detail {
+  @apply mt-1 text-slate-600;
+}
+
+.intake-property-records__grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-3;
+}
+
+.intake-property-records__panel--compact .intake-property-records__grid {
+  @apply grid-cols-2 gap-2;
+}
+
+.intake-property-records__field {
+  @apply rounded-xl border px-3 py-2.5;
+  border-color: rgba(15, 23, 42, 0.07);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.intake-property-records__field--pending .intake-property-records__field-value {
+  color: rgba(100, 116, 139, 0.9);
+}
+
+.intake-property-records__field-label {
+  @apply block text-[11px] font-semibold uppercase tracking-wide;
+  color: rgba(100, 116, 139, 0.95);
+}
+
+.intake-property-records__field-value {
+  @apply block mt-1 text-sm font-semibold text-slate-800;
+}
+
+.intake-property-records__notes {
+  @apply mt-4 rounded-xl border px-3 py-3;
+  border-color: rgba(22, 163, 74, 0.18);
+  background: rgba(240, 253, 244, 0.75);
+}
+
+.intake-property-records__notes-header {
+  @apply flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-800;
+}
+
+.intake-property-records__notes ul {
+  @apply mt-2 space-y-1.5 text-sm text-emerald-950/80 list-disc pl-4;
+}
+
+.intake-property-records__cache-note {
+  @apply mt-3 text-xs text-slate-500;
+}
+
+.intake-rentcast-modal__backdrop {
+  @apply fixed inset-0 z-[120] flex items-center justify-center p-4;
+  background: rgba(2, 6, 23, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.intake-rentcast-modal {
+  @apply w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.intake-rentcast-modal--usage {
+  @apply max-w-lg p-0 overflow-hidden;
+}
+
+.intake-rentcast-modal__header {
+  @apply flex items-center justify-between gap-3 border-b px-5 py-4;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.intake-rentcast-modal__header-title {
+  @apply flex items-center gap-2 text-base font-semibold text-slate-900;
+}
+
+.intake-rentcast-modal__close {
+  @apply inline-flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100;
+}
+
+.intake-rentcast-modal__icon-wrap {
+  @apply inline-flex items-center justify-center rounded-full w-10 h-10 mb-3;
+}
+
+.intake-rentcast-modal__icon-wrap--warning {
+  @apply bg-amber-100 text-amber-700;
+}
+
+.intake-rentcast-modal__title {
+  @apply text-lg font-semibold text-slate-900;
+}
+
+.intake-rentcast-modal__body {
+  @apply mt-2 text-sm leading-relaxed text-slate-600;
+}
+
+.intake-rentcast-modal__warning {
+  @apply mt-3 rounded-xl border px-3 py-2 text-sm;
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(255, 251, 235, 0.9);
+  color: #92400e;
+}
+
+.intake-rentcast-modal__error {
+  @apply px-5 py-4 text-sm text-red-600;
+}
+
+.intake-rentcast-modal__actions {
+  @apply mt-5 flex flex-wrap justify-end gap-2;
+}
+
+.intake-rentcast-usage {
+  @apply px-5 py-4 space-y-2;
+}
+
+.intake-rentcast-usage__row {
+  @apply flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-sm;
+  border-color: rgba(15, 23, 42, 0.07);
+  background: #f8fafc;
+  color: #475569;
+}
+
+.intake-rentcast-usage__row strong {
+  @apply text-slate-900;
+}
+
+.intake-rentcast-usage__row--highlight {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(255, 251, 235, 0.75);
+}
+
+.intake-rentcast-usage__footnote {
+  @apply pt-2 text-xs text-slate-500;
+}
