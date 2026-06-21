@@ -7,8 +7,10 @@ import {
   recordRentCastApiCall,
   getMonthlyLookupLimit,
 } from './rentCastUsageTracker.js';
+import { buildRentCastAddressVariants } from './rentCastAddressVariants.js';
 
 const RENTCAST_PROPERTIES_URL = 'https://api.rentcast.io/v1/properties';
+export const PROPERTY_RECORDS_UNAVAILABLE_MESSAGE = 'Property records unavailable for this address';
 
 function getRentCastApiKey() {
   return process.env.RENTCAST_API_KEY?.trim() || '';
@@ -190,6 +192,21 @@ async function fetchRentCastProperties(queryAddress) {
     },
   });
 
+  if (response.status === 404) {
+    return { record: null, notFound: true, queryAddress };
+  }
+
+  if (response.status === 400) {
+    let message = 'RentCast could not parse the address.';
+    try {
+      const body = await response.json();
+      message = body?.message || message;
+    } catch {
+      /* ignore parse errors */
+    }
+    return { record: null, notFound: true, queryAddress, parseError: message };
+  }
+
   if (!response.ok) {
     const err = new Error(`RentCast property lookup failed (${response.status}).`);
     err.code = 'INTAKE_PROPERTY_RECORDS_FAILED';
@@ -199,7 +216,41 @@ async function fetchRentCastProperties(queryAddress) {
 
   const payload = await response.json();
   const record = Array.isArray(payload) ? payload[0] : null;
-  return mapRentCastPropertyRecord(record) || { unavailable: true };
+  if (!record) {
+    return { record: null, notFound: true, queryAddress };
+  }
+
+  return {
+    record: mapRentCastPropertyRecord(record),
+    notFound: false,
+    queryAddress,
+  };
+}
+
+async function fetchRentCastPropertiesWithFallbacks(variants) {
+  const attempts = [];
+  for (const queryAddress of variants) {
+    const result = await fetchRentCastProperties(queryAddress);
+    attempts.push({
+      queryAddress,
+      notFound: result.notFound,
+      parseError: result.parseError || null,
+    });
+
+    if (!result.notFound && result.record && !result.record.unavailable) {
+      return {
+        records: result.record,
+        matchedAddress: queryAddress,
+        attempts,
+      };
+    }
+  }
+
+  return {
+    records: { unavailable: true },
+    matchedAddress: null,
+    attempts,
+  };
 }
 
 export async function lookupPropertyRecords({
@@ -208,13 +259,22 @@ export async function lookupPropertyRecords({
   state,
   zip,
   address,
+  verifiedAddress,
   confirmPaidLookup = false,
 }) {
   const queryAddress = buildRentCastQueryAddress({ street, city, state, zip, address });
   const normalizedAddress = normalizeRentCastAddress({ street, city, state, zip, address: queryAddress });
   const usage = getRentCastUsage();
+  const addressVariants = buildRentCastAddressVariants({
+    street,
+    city,
+    state,
+    zip,
+    address: address || queryAddress,
+    verifiedAddress,
+  });
 
-  if (!normalizedAddress) {
+  if (!normalizedAddress || !addressVariants.length) {
     const err = new Error('A validated address is required for property records lookup.');
     err.code = 'INTAKE_PROPERTY_RECORDS_INVALID';
     throw err;
@@ -227,6 +287,7 @@ export async function lookupPropertyRecords({
       cached: true,
       usage,
       normalizedAddress,
+      message: cached.unavailable ? PROPERTY_RECORDS_UNAVAILABLE_MESSAGE : undefined,
     };
   }
 
@@ -248,14 +309,34 @@ export async function lookupPropertyRecords({
     };
   }
 
-  const records = await fetchRentCastProperties(queryAddress);
+  const lookup = await fetchRentCastPropertiesWithFallbacks(addressVariants);
   recordRentCastApiCall();
+
+  const records = lookup.records?.unavailable
+    ? { unavailable: true }
+    : lookup.records;
+
   setCachedPropertyRecords(normalizedAddress, records);
+
+  if (records.unavailable) {
+    console.info('[intake] RentCast property records not found after fallback attempts:', {
+      normalizedAddress,
+      attempts: lookup.attempts?.length || 0,
+      variants: lookup.attempts?.map((attempt) => attempt.queryAddress),
+    });
+  } else {
+    console.info('[intake] RentCast property records matched:', {
+      normalizedAddress,
+      matchedAddress: lookup.matchedAddress,
+    });
+  }
 
   return {
     records,
     cached: false,
     usage: getRentCastUsage(),
     normalizedAddress,
+    matchedAddress: lookup.matchedAddress || undefined,
+    message: records.unavailable ? PROPERTY_RECORDS_UNAVAILABLE_MESSAGE : undefined,
   };
 }

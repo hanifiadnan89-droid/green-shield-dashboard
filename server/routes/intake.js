@@ -42,6 +42,7 @@ router.post('/property-records', async (req, res) => {
       state,
       zip,
       address,
+      verifiedAddress,
       confirmPaidLookup = false,
     } = req.body || {};
 
@@ -51,6 +52,7 @@ router.post('/property-records', async (req, res) => {
       state,
       zip,
       address,
+      verifiedAddress,
       confirmPaidLookup: Boolean(confirmPaidLookup),
     });
 
