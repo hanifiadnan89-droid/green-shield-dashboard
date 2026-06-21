@@ -12,10 +12,10 @@ export default function IntakeMapViewToolbar({
   const mapIdConfigured = Boolean(getIntakeMapId());
   const threeDAvailable = can3d && mapIdConfigured;
   const threeDTitle = threeDAvailable
-    ? 'Toggle 3D preview'
+    ? 'Toggle 3D preview (remounts map with vector Map ID)'
     : mapIdConfigured
       ? '3D preview unavailable for this map'
-      : 'Set VITE_GOOGLE_MAP_ID to enable 3D preview';
+      : 'VITE_GOOGLE_MAP_ID is not set in this client build — redeploy with the env var';
 
   return (
     <div

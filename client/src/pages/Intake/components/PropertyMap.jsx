@@ -9,9 +9,9 @@ import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
 import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
 import {
-  apply3dPreviewToMap,
   buildIntakeMapOptions,
   canUse3dPreview,
+  verify3dPreviewOnMap,
 } from './intakeMapConfig.js';
 import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
@@ -350,7 +350,7 @@ export default function PropertyMap({
           center: { lat: view.lat, lng: view.lng },
           zoom: view.zoom,
           mapType,
-          enable3d: false,
+          enable3d: enable3dEffective,
           maps,
           extra: {
             fullscreenControl: false,
@@ -444,7 +444,7 @@ export default function PropertyMap({
       polygonRef.current = null;
       setMapReady(false);
     };
-  }, [status, center?.lat, center?.lng, isExpanded]);
+  }, [status, center?.lat, center?.lng, isExpanded, enable3dEffective]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -480,26 +480,26 @@ export default function PropertyMap({
     const maps = window.google?.maps;
     if (!map || !mapReady) return undefined;
 
+    if (!enable3dEffective) {
+      setPreview3dFallback(null);
+      return undefined;
+    }
+
     let cancelled = false;
 
     (async () => {
-      if (enable3dEffective) {
-        const result = await apply3dPreviewToMap(map, maps, true, { phase: 'property-enable' });
-        if (cancelled) return;
-        if (!result.ok) {
-          onEnable3dChange?.(false);
-          setPreview3dFallback('3D Preview unavailable for this property. Showing satellite view.');
-        } else {
-          setPreview3dFallback(null);
-        }
+      const result = await verify3dPreviewOnMap(map, maps, { phase: 'property-verify' });
+      if (cancelled) return;
+      if (!result.ok) {
+        onEnable3dChange?.(false);
+        setPreview3dFallback('3D Preview unavailable for this property. Showing satellite view.');
       } else {
-        await apply3dPreviewToMap(map, maps, false, { phase: 'property-disable' });
-        if (!cancelled) setPreview3dFallback(null);
+        setPreview3dFallback(null);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [enable3dEffective, enable3d, mapReady, onEnable3dChange]);
+  }, [enable3dEffective, mapReady, onEnable3dChange]);
 
   function clearCompletedPolygon() {
     const polygon = polygonRef.current;

@@ -4,6 +4,7 @@ import {
   buildIntakeMapOptions,
   canUse3dPreview,
   INTAKE_3D_TILT,
+  verify3dPreviewOnMap,
 } from '../intakeMapConfig.js';
 
 function createMockMaps() {
@@ -64,7 +65,7 @@ describe('intakeMapConfig', () => {
     expect(options.mapId).toBeUndefined();
   });
 
-  it('enables vector tilt options when 3D preview is on and map id exists', () => {
+  it('includes mapId at construction when 3D preview is on', () => {
     const prevMapId = import.meta.env.VITE_GOOGLE_MAP_ID;
     import.meta.env.VITE_GOOGLE_MAP_ID = 'test-map-id';
 
@@ -95,23 +96,16 @@ describe('intakeMapConfig', () => {
     import.meta.env.VITE_GOOGLE_MAP_ID = prevMapId;
   });
 
-  it('applies 3D options to an existing map instance after idle', async () => {
+  it('verifies tilt after a vector map is constructed with mapId', async () => {
     const prevMapId = import.meta.env.VITE_GOOGLE_MAP_ID;
     import.meta.env.VITE_GOOGLE_MAP_ID = 'test-map-id';
 
-    const map = createMockMap();
+    const map = createMockMap({ tilt: INTAKE_3D_TILT });
 
-    const result = await apply3dPreviewToMap(map, mockMaps, true, { phase: 'test-enable' });
+    const result = await verify3dPreviewOnMap(map, mockMaps, { phase: 'test-verify' });
 
     expect(result.ok).toBe(true);
     expect(result.after.tilt).toBe(INTAKE_3D_TILT);
-    expect(map.applied[0]).toMatchObject({
-      mapId: 'test-map-id',
-      renderingType: 'VECTOR',
-      tilt: INTAKE_3D_TILT,
-      tiltInteractionEnabled: true,
-      headingInteractionEnabled: true,
-    });
 
     import.meta.env.VITE_GOOGLE_MAP_ID = prevMapId;
   });
@@ -122,9 +116,6 @@ describe('intakeMapConfig', () => {
 
     const map = createMockMap({
       setTilt() {},
-      setOptions(opts) {
-        this.applied.push(opts);
-      },
       getTilt: () => 0,
       getRenderingType: () => 'RASTER',
     });
