@@ -27,6 +27,7 @@ export default function IntakePropertyPage() {
   const customer = session.customer;
 
   const [mapType, setMapType] = useState('satellite');
+  const [enable3d, setEnable3d] = useState(false);
   const [treatmentPolygon, setTreatmentPolygon] = useState(session.property?.treatmentPolygon || []);
   const [treatmentAcreage, setTreatmentAcreage] = useState(session.property?.treatmentAcreage ?? null);
   const [treatmentSquareFeet, setTreatmentSquareFeet] = useState(session.property?.treatmentSquareFeet ?? null);
@@ -123,18 +124,13 @@ export default function IntakePropertyPage() {
 
   const mapSlot = (
     <div className="intake-property-map-slot">
-      <div className="intake-map-toolbar intake-map-toolbar--type">
-        <button type="button" className={`intake-map-btn ${mapType === 'satellite' ? 'intake-map-btn--active' : ''}`} onClick={() => setMapType('satellite')}>
-          Satellite
-        </button>
-        <button type="button" className={`intake-map-btn ${mapType === 'roadmap' ? 'intake-map-btn--active' : ''}`} onClick={() => setMapType('roadmap')}>
-          Map
-        </button>
-      </div>
       <PropertyMap
         center={center}
         polygonPath={treatmentPolygon}
         mapType={mapType}
+        onMapTypeChange={setMapType}
+        enable3d={enable3d}
+        onEnable3dChange={setEnable3d}
         onPolygonChange={setTreatmentPolygon}
         onAreaChange={handleAreaChange}
         onBoundaryStatusChange={setBoundaryStatus}
