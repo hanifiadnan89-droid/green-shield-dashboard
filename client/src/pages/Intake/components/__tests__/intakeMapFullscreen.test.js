@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { notifyMapResize } from '../intakeMapFullscreen.js';
+import { notifyMapResize } from '../intakeMapView.js';
 
 describe('intakeMapFullscreen', () => {
   it('triggers google maps resize immediately and on animation frame', () => {

@@ -1,19 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { MapPin } from 'lucide-react';
 import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoader.js';
 import { isCompactPolygon } from './propertyMapDrawing.js';
 import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
-import {
-  apply3dPreviewToMap,
-  buildIntakeMapOptions,
-  canUse3dPreview,
-} from './intakeMapConfig.js';
-import { useIntakeMapFullscreen } from './intakeMapFullscreen.js';
+import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
+import { buildIntakeMapOptions } from './intakeMapConfig.js';
+import { useIntakeMapExpanded } from './intakeMapExpanded.js';
+import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
 
 /**
  * Read-only intake preview — pin + zoom, optional compact footprint overlay.
- * Supports Satellite / Map / 3D preview and fullscreen expand.
+ * Expanded view uses a dedicated full-viewport map surface.
  */
 export default function IntakeSatellitePreview({
   latitude,
@@ -21,43 +18,28 @@ export default function IntakeSatellitePreview({
   address,
   footprintPolygon = null,
 }) {
-  const wrapRef = useRef(null);
-  const mapRef = useRef(null);
+  const embeddedMapRef = useRef(null);
+  const expandedMapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const overlaysRef = useRef([]);
 
   const { status } = useIntakeGoogleMapsLoader();
   const [mapReady, setMapReady] = useState(false);
   const [mapType, setMapType] = useState('satellite');
-  const [enable3d, setEnable3d] = useState(false);
-  const [can3d, setCan3d] = useState(false);
-  const enable3dRef = useRef(enable3d);
 
-  useEffect(() => {
-    enable3dRef.current = enable3d;
-  }, [enable3d]);
+  const {
+    isExpanded,
+    toggleExpanded,
+    closeExpanded,
+    getSavedView,
+    rememberView,
+  } = useIntakeMapExpanded();
 
   const lat = Number(latitude);
   const lng = Number(longitude);
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
   const showFootprint = isCompactPolygon(footprintPolygon);
-
-  const { isMapFullscreen, fullscreenHost, toggleFullscreen } = useIntakeMapFullscreen(
-    wrapRef,
-    mapInstanceRef,
-    mapReady,
-    {
-      mapContainerRef: mapRef,
-      onFullscreenChange: (active) => {
-        const map = mapInstanceRef.current;
-        if (!map?.setOptions) return;
-        map.setOptions({
-          gestureHandling: active || enable3dRef.current ? 'greedy' : 'none',
-          zoomControl: true,
-        });
-      },
-    },
-  );
+  const activeContainerRef = isExpanded ? expandedMapRef : embeddedMapRef;
 
   function clearOverlays() {
     overlaysRef.current.forEach((overlay) => {
@@ -105,102 +87,74 @@ export default function IntakeSatellitePreview({
   }
 
   useEffect(() => {
-    if (status !== 'ready' || !mapRef.current || !hasCoords) return undefined;
+    if (status !== 'ready' || !hasCoords) return undefined;
+
+    const container = activeContainerRef.current;
+    if (!container) return undefined;
 
     let cancelled = false;
+    let disconnectResize = () => {};
 
-    (async () => {
-      const maps = window.google?.maps;
-      if (!maps?.Map || cancelled || !mapRef.current) return;
+    const maps = window.google?.maps;
+    if (!maps?.Map) return undefined;
 
-      setMapReady(false);
-      setCan3d(canUse3dPreview(maps));
+    setMapReady(false);
 
-      const map = new maps.Map(mapRef.current, buildIntakeMapOptions({
-        center: { lat, lng },
-        zoom: 20,
-        mapType,
-        enable3d: false,
-        maps,
-        extra: {
-          disableDefaultUI: true,
-          zoomControl: true,
-          fullscreenControl: false,
-          gestureHandling: 'none',
-          keyboardShortcuts: false,
-          clickableIcons: false,
-        },
-      }));
+    const view = getSavedView({ lat, lng }, 20);
+    const map = new maps.Map(container, buildIntakeMapOptions({
+      center: { lat: view.lat, lng: view.lng },
+      zoom: view.zoom,
+      mapType,
+      enable3d: false,
+      maps,
+      extra: {
+        disableDefaultUI: true,
+        zoomControl: true,
+        fullscreenControl: false,
+        gestureHandling: isExpanded ? 'greedy' : 'none',
+        keyboardShortcuts: isExpanded,
+        clickableIcons: false,
+      },
+    }));
 
-      mapInstanceRef.current = map;
-      renderOverlays(map, maps);
-      if (!cancelled) setMapReady(true);
-    })();
+    mapInstanceRef.current = map;
+    renderOverlays(map, maps);
+    disconnectResize = observeMapContainerResize(map, container);
+
+    if (!cancelled) setMapReady(true);
 
     return () => {
       cancelled = true;
+      rememberView(map);
+      disconnectResize();
       clearOverlays();
       mapInstanceRef.current = null;
       setMapReady(false);
     };
-  }, [status, lat, lng, hasCoords]);
+  }, [status, lat, lng, hasCoords, isExpanded, address, showFootprint, footprintPolygon]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map?.setCenter || !hasCoords || !mapReady) return;
-    map.setCenter({ lat, lng });
-    const maps = window.google?.maps;
-    if (maps) renderOverlays(map, maps);
-  }, [lat, lng, hasCoords, mapReady, showFootprint, footprintPolygon, address]);
-
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map?.setMapTypeId || !mapReady) return;
-    try {
-      map.setMapTypeId(mapType === 'roadmap' ? 'roadmap' : 'hybrid');
-    } catch {
-      /* map may be tearing down */
-    }
-  }, [mapType, mapReady]);
-
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    const maps = window.google?.maps;
     if (!map || !mapReady) return;
-
-    if (enable3d) {
-      const applied = apply3dPreviewToMap(map, maps, true);
-      if (!applied) setEnable3d(false);
-    } else {
-      apply3dPreviewToMap(map, maps, false);
-    }
-  }, [enable3d, mapReady]);
+    applyMapType(map, mapType);
+  }, [mapType, mapReady]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map?.setOptions || !mapReady) return;
     map.setOptions({
-      gestureHandling: isMapFullscreen || enable3d ? 'greedy' : 'none',
+      gestureHandling: isExpanded ? 'greedy' : 'none',
+      keyboardShortcuts: isExpanded,
       zoomControl: true,
     });
-  }, [enable3d, isMapFullscreen, mapReady]);
+  }, [isExpanded, mapReady]);
 
   const toolbarProps = {
     mapType,
     onMapTypeChange: setMapType,
-    enable3d,
-    onEnable3dChange: setEnable3d,
-    can3d,
-    onExpand: toggleFullscreen,
-    isFullscreen: isMapFullscreen,
+    onExpand: () => toggleExpanded(mapInstanceRef.current),
+    isExpanded,
   };
-
-  const fullscreenToolbar = isMapFullscreen && fullscreenHost
-    ? createPortal(
-      <IntakeMapViewToolbar {...toolbarProps} overlay />,
-      fullscreenHost,
-    )
-    : null;
 
   if (!hasCoords) {
     return (
@@ -229,24 +183,33 @@ export default function IntakeSatellitePreview({
 
   return (
     <div className="intake-preview-map-slot">
-      {!isMapFullscreen && <IntakeMapViewToolbar {...toolbarProps} />}
+      {!isExpanded && <IntakeMapViewToolbar {...toolbarProps} />}
 
-      <div
-        ref={wrapRef}
-        className={`intake-preview-map-wrap${isMapFullscreen ? ' intake-preview-map-wrap--fullscreen' : ''}`}
+      {!isExpanded && (
+        <div className="intake-preview-map-wrap">
+          <div
+            ref={embeddedMapRef}
+            className="intake-map-shell intake-map-shell--preview"
+            aria-label={`Satellite preview for ${address || 'selected address'}`}
+          />
+          <div className="intake-preview-map-pin" aria-hidden>
+            <MapPin size={14} />
+            <span>Service location</span>
+          </div>
+        </div>
+      )}
+
+      <IntakeMapExpandedOverlay
+        open={isExpanded}
+        onClose={() => closeExpanded(mapInstanceRef.current)}
+        toolbar={<IntakeMapViewToolbar {...toolbarProps} overlay />}
       >
         <div
-          ref={mapRef}
-          className={`intake-map-shell intake-map-shell--preview${isMapFullscreen ? ' intake-map-shell--preview-fullscreen' : ''}`}
-          aria-label={`Satellite preview for ${address || 'selected address'}`}
+          ref={expandedMapRef}
+          className="intake-map-shell intake-map-shell--expanded"
+          aria-label={`Expanded satellite preview for ${address || 'selected address'}`}
         />
-        <div className="intake-preview-map-pin" aria-hidden>
-          <MapPin size={14} />
-          <span>Service location</span>
-        </div>
-      </div>
-
-      {fullscreenToolbar}
+      </IntakeMapExpandedOverlay>
     </div>
   );
 }
