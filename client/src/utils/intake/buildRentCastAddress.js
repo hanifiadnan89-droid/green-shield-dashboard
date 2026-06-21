@@ -3,6 +3,7 @@ export function buildRentCastAddress(customer = {}) {
   const city = customer.city || '';
   const state = customer.state || '';
   const zip = customer.zip || '';
+  const verifiedAddress = customer.verifiedAddress || customer.formattedAddress || '';
 
   if (street && city && state && zip) {
     return {
@@ -10,16 +11,17 @@ export function buildRentCastAddress(customer = {}) {
       city,
       state,
       zip,
+      verifiedAddress: verifiedAddress || undefined,
       address: `${street}, ${city}, ${state}, ${zip}`,
     };
   }
 
-  const fallback = customer.verifiedAddress || customer.formattedAddress || '';
   return {
     street: street || undefined,
     city: city || undefined,
     state: state || undefined,
     zip: zip || undefined,
-    address: fallback || undefined,
+    verifiedAddress: verifiedAddress || undefined,
+    address: verifiedAddress || undefined,
   };
 }

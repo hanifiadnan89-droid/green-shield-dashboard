@@ -183,5 +183,57 @@ describe('rentCastPropertyRecords', () => {
     });
 
     expect(result.records.unavailable).toBe(true);
+    expect(result.message).toBe('Property records unavailable for this address');
+  });
+
+  it('treats RentCast 404 as address not found and tries fallback variants', async () => {
+    let calls = 0;
+    const fetchMock = vi.fn().mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve({ status: 404, ok: false });
+      }
+      return Promise.resolve({
+        status: 200,
+        ok: true,
+        json: async () => ([{
+          propertyType: 'Single Family',
+          squareFootage: 1456,
+          lotSize: 5227,
+          yearBuilt: 2013,
+        }]),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await lookupPropertyRecords({
+      street: '34B Cloudman St',
+      city: 'Westbrook',
+      state: 'ME',
+      zip: '04092',
+      verifiedAddress: '34B Cloudman Street, Westbrook, ME 04092-3404, USA',
+    });
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+    expect(result.records.propertyType).toBe('Single Family');
+    expect(result.records.unavailable).not.toBe(true);
+  });
+
+  it('returns unavailable message after all fallback variants 404', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 404,
+      ok: false,
+    }));
+
+    const result = await lookupPropertyRecords({
+      street: '999 Unknown Rd',
+      city: 'Westbrook',
+      state: 'ME',
+      zip: '04092',
+      verifiedAddress: '999 Unknown Road, Westbrook, ME 04092, USA',
+    });
+
+    expect(result.records.unavailable).toBe(true);
+    expect(result.message).toBe('Property records unavailable for this address');
   });
 });

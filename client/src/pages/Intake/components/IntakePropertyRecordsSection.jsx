@@ -51,6 +51,7 @@ export default function IntakePropertyRecordsSection({
 
       if (!result.records || result.records.unavailable) {
         onRecordsChange?.(null);
+        onErrorChange?.(result.message || 'Property records unavailable for this address');
         onStatusChange?.('unavailable');
         return;
       }
@@ -127,7 +128,7 @@ export default function IntakePropertyRecordsSection({
 
       {showUnavailable && (
         <p className="intake-property-records__status-note">
-          {error || 'Property records unavailable. Existing property details are unchanged.'}
+          {error || 'Property records unavailable for this address'}
         </p>
       )}
 
