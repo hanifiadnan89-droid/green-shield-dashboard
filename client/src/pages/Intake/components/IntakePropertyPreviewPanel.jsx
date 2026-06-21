@@ -29,6 +29,17 @@ function boundaryLabel(status) {
   return 'Pending';
 }
 
+function formatOwnerOccupied(value) {
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  return '—';
+}
+
+function formatBuildingSqFt(value) {
+  if (value == null) return null;
+  return `${Number(value).toLocaleString('en-US')} sq ft`;
+}
+
 export default function IntakePropertyPreviewPanel({
   form = {},
   customer = null,
@@ -59,9 +70,36 @@ export default function IntakePropertyPreviewPanel({
   const state = source.state || null;
   const zip = source.zip || null;
   const hasAddress = Boolean(address);
-  const propertyType = source.propertyUseEstimate || null;
   const isPropertyPage = variant === 'property';
   const hasPolygon = treatmentAcreage != null || boundaryStatus === 'detected' || boundaryStatus === 'drawn';
+  const hasRecords = propertyRecordsStatus === 'loaded' && propertyRecords;
+
+  const propertyType = hasRecords
+    ? (propertyRecords.propertyType || '—')
+    : (source.propertyUseEstimate || 'Residential');
+  const propertyTypePending = !hasRecords && !source.propertyUseEstimate;
+
+  const acreageValue = hasRecords
+    ? (propertyRecords.lotAcreage || '—')
+    : (treatmentAcreage != null ? `${treatmentAcreage} ac` : 'Pending');
+  const acreagePending = !hasRecords && treatmentAcreage == null;
+
+  const sqFtValue = hasRecords
+    ? (formatBuildingSqFt(propertyRecords.buildingSquareFeet) || '—')
+    : (treatmentSquareFeet != null ? treatmentSquareFeet.toLocaleString('en-US') : 'Pending');
+  const sqFtPending = !hasRecords && treatmentSquareFeet == null;
+
+  const ownerOccupiedValue = hasRecords
+    ? formatOwnerOccupied(propertyRecords.ownerOccupied === null || propertyRecords.ownerOccupied === undefined
+      ? null
+      : propertyRecords.ownerOccupied)
+    : 'Pending';
+  const ownerOccupiedPending = !hasRecords;
+
+  const yearBuiltValue = hasRecords
+    ? (propertyRecords.yearBuilt ?? '—')
+    : 'Pending';
+  const yearBuiltPending = !hasRecords;
 
   return (
     <aside className={`intake-preview-panel${isPropertyPage ? ' intake-preview-panel--property' : ''}`}>
@@ -91,7 +129,7 @@ export default function IntakePropertyPreviewPanel({
           <section className="intake-preview-panel__section intake-preview-panel__section--compact">
             <h3>Property Overview</h3>
             <div className="intake-info-grid intake-info-grid--single">
-              <InfoCard label="Property Type" value={propertyType || 'Residential'} pending={!propertyType} />
+              <InfoCard label="Property Type" value={propertyType} pending={propertyTypePending} />
               <InfoCard label="Address" value={hasAddress ? address : 'Pending'} pending={!hasAddress} />
             </div>
           </section>
@@ -106,13 +144,23 @@ export default function IntakePropertyPreviewPanel({
               />
               <InfoCard
                 label="Acreage"
-                value={treatmentAcreage != null ? `${treatmentAcreage} ac` : 'Pending'}
-                pending={treatmentAcreage == null}
+                value={acreageValue}
+                pending={acreagePending}
               />
               <InfoCard
                 label="Sq Ft"
-                value={treatmentSquareFeet != null ? treatmentSquareFeet.toLocaleString('en-US') : 'Pending'}
-                pending={treatmentSquareFeet == null}
+                value={sqFtValue}
+                pending={sqFtPending}
+              />
+              <InfoCard
+                label="Owner Occupied"
+                value={ownerOccupiedValue}
+                pending={ownerOccupiedPending}
+              />
+              <InfoCard
+                label="Year Built"
+                value={yearBuiltValue}
+                pending={yearBuiltPending}
               />
             </div>
           </section>
@@ -124,7 +172,6 @@ export default function IntakePropertyPreviewPanel({
                 <InfoCard label="Date" value={weather.date || '—'} />
                 <InfoCard label="Rain" value={weather.rainProbabilityPercent != null ? `${weather.rainProbabilityPercent}%` : '—'} />
                 <InfoCard label="Wind" value={weather.windSpeedMph != null ? `${weather.windSpeedMph} mph` : '—'} />
-                <InfoCard label="Temp" value={weather.temperatureF != null ? `${weather.temperatureF}°F` : '—'} />
               </div>
             ) : (
               <PlaceholderBlock
@@ -137,7 +184,6 @@ export default function IntakePropertyPreviewPanel({
 
           <IntakePropertyRecordsSection
             customer={customer}
-            records={propertyRecords}
             onRecordsChange={onPropertyRecordsChange}
             loading={propertyRecordsLoading}
             onLoadingChange={onPropertyRecordsLoadingChange}
@@ -151,7 +197,7 @@ export default function IntakePropertyPreviewPanel({
         <section className="intake-preview-panel__section intake-preview-panel__section--overview">
           <h3>Property Overview</h3>
           <div className="intake-info-grid intake-info-grid--address">
-            <InfoCard label="Property Type" value={propertyType || 'Residential'} pending={!propertyType} />
+            <InfoCard label="Property Type" value={source.propertyUseEstimate || 'Residential'} pending={!source.propertyUseEstimate} />
             <InfoCard label="Address" value={streetAddress || 'Pending'} pending={!streetAddress} />
             <InfoCard label="City" value={city || 'Pending'} pending={!city} />
             <InfoCard label="State" value={state || 'Pending'} pending={!state} />
