@@ -3,8 +3,9 @@ import { MapPin } from 'lucide-react';
 import { useIntakeGoogleMapsLoader } from '../../../hooks/useIntakeGoogleMapsLoader.js';
 import { isCompactPolygon } from './propertyMapDrawing.js';
 import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
+import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
-import { buildIntakeMapOptions } from './intakeMapConfig.js';
+import { apply3dPreviewToMap, buildIntakeMapOptions, canUse3dPreview } from './intakeMapConfig.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
 
@@ -26,6 +27,8 @@ export default function IntakeSatellitePreview({
   const { status } = useIntakeGoogleMapsLoader();
   const [mapReady, setMapReady] = useState(false);
   const [mapType, setMapType] = useState('satellite');
+  const [enable3d, setEnable3d] = useState(false);
+  const [can3d, setCan3d] = useState(false);
 
   const {
     isExpanded,
@@ -99,6 +102,7 @@ export default function IntakeSatellitePreview({
     if (!maps?.Map) return undefined;
 
     setMapReady(false);
+    setCan3d(canUse3dPreview(maps));
 
     const view = getSavedView({ lat, lng }, 20);
     const map = new maps.Map(container, buildIntakeMapOptions({
@@ -111,7 +115,7 @@ export default function IntakeSatellitePreview({
         disableDefaultUI: true,
         zoomControl: true,
         fullscreenControl: false,
-        gestureHandling: isExpanded ? 'greedy' : 'none',
+        gestureHandling: isExpanded || enable3d ? 'greedy' : 'none',
         keyboardShortcuts: isExpanded,
         clickableIcons: false,
       },
@@ -141,20 +145,59 @@ export default function IntakeSatellitePreview({
 
   useEffect(() => {
     const map = mapInstanceRef.current;
+    const maps = window.google?.maps;
+    if (!map || !mapReady) return;
+
+    if (enable3d) {
+      const applied = apply3dPreviewToMap(map, maps, true);
+      if (!applied) setEnable3d(false);
+    } else {
+      apply3dPreviewToMap(map, maps, false);
+    }
+  }, [enable3d, mapReady]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
     if (!map?.setOptions || !mapReady) return;
     map.setOptions({
-      gestureHandling: isExpanded ? 'greedy' : 'none',
+      gestureHandling: isExpanded || enable3d ? 'greedy' : 'none',
       keyboardShortcuts: isExpanded,
       zoomControl: true,
     });
-  }, [isExpanded, mapReady]);
+  }, [isExpanded, enable3d, mapReady]);
 
   const toolbarProps = {
     mapType,
     onMapTypeChange: setMapType,
-    onExpand: () => toggleExpanded(mapInstanceRef.current),
-    isExpanded,
+    enable3d,
+    onEnable3dChange: setEnable3d,
+    can3d,
   };
+
+  const mapFrame = (mapRef, { expanded = false } = {}) => (
+    <div className={`intake-map-frame${expanded ? ' intake-map-frame--expanded' : ''}`}>
+      <div className="intake-map-frame__toolbar">
+        <IntakeMapViewToolbar {...toolbarProps} overlay />
+      </div>
+      <IntakeMapExpandButton
+        isExpanded={expanded}
+        onClick={() => (expanded
+          ? closeExpanded(mapInstanceRef.current)
+          : toggleExpanded(mapInstanceRef.current))}
+      />
+      <div
+        ref={mapRef}
+        className={`intake-map-shell ${expanded ? 'intake-map-shell--expanded' : 'intake-map-shell--preview'}`}
+        aria-label={`${expanded ? 'Expanded' : ''} satellite preview for ${address || 'selected address'}`}
+      />
+      {!expanded && (
+        <div className="intake-preview-map-pin" aria-hidden>
+          <MapPin size={14} />
+          <span>Service location</span>
+        </div>
+      )}
+    </div>
+  );
 
   if (!hasCoords) {
     return (
@@ -183,32 +226,13 @@ export default function IntakeSatellitePreview({
 
   return (
     <div className="intake-preview-map-slot">
-      {!isExpanded && <IntakeMapViewToolbar {...toolbarProps} />}
-
-      {!isExpanded && (
-        <div className="intake-preview-map-wrap">
-          <div
-            ref={embeddedMapRef}
-            className="intake-map-shell intake-map-shell--preview"
-            aria-label={`Satellite preview for ${address || 'selected address'}`}
-          />
-          <div className="intake-preview-map-pin" aria-hidden>
-            <MapPin size={14} />
-            <span>Service location</span>
-          </div>
-        </div>
-      )}
+      {!isExpanded && mapFrame(embeddedMapRef)}
 
       <IntakeMapExpandedOverlay
         open={isExpanded}
         onClose={() => closeExpanded(mapInstanceRef.current)}
-        toolbar={<IntakeMapViewToolbar {...toolbarProps} overlay />}
       >
-        <div
-          ref={expandedMapRef}
-          className="intake-map-shell intake-map-shell--expanded"
-          aria-label={`Expanded satellite preview for ${address || 'selected address'}`}
-        />
+        {mapFrame(expandedMapRef, { expanded: true })}
       </IntakeMapExpandedOverlay>
     </div>
   );

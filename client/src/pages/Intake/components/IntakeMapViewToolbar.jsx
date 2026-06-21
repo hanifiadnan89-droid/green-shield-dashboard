@@ -1,5 +1,4 @@
-import { Maximize2, Minimize2 } from 'lucide-react';
-import { INTAKE_3D_PREVIEW_ENABLED } from './intakeMapConfig.js';
+import { getIntakeMapId } from './intakeMapConfig.js';
 
 export default function IntakeMapViewToolbar({
   mapType = 'satellite',
@@ -7,12 +6,17 @@ export default function IntakeMapViewToolbar({
   enable3d = false,
   onEnable3dChange,
   can3d = true,
-  onExpand,
-  isExpanded = false,
   className = '',
   overlay = false,
 }) {
-  const show3d = INTAKE_3D_PREVIEW_ENABLED && can3d;
+  const mapIdConfigured = Boolean(getIntakeMapId());
+  const threeDAvailable = can3d && mapIdConfigured;
+  const threeDTitle = threeDAvailable
+    ? 'Toggle 3D preview'
+    : mapIdConfigured
+      ? '3D preview unavailable for this map'
+      : 'Set VITE_GOOGLE_MAP_ID to enable 3D preview';
+
   return (
     <div
       className={[
@@ -22,41 +26,37 @@ export default function IntakeMapViewToolbar({
         className,
       ].filter(Boolean).join(' ')}
     >
-      <button
-        type="button"
-        className={`intake-map-btn ${mapType === 'satellite' ? 'intake-map-btn--active' : ''}`}
-        onClick={() => onMapTypeChange?.('satellite')}
-      >
-        Satellite
-      </button>
-      <button
-        type="button"
-        className={`intake-map-btn ${mapType === 'roadmap' ? 'intake-map-btn--active' : ''}`}
-        onClick={() => onMapTypeChange?.('roadmap')}
-      >
-        Map
-      </button>
-      {show3d && (
+      <div className="intake-map-toolbar__left">
+        <button
+          type="button"
+          className={`intake-map-btn ${mapType === 'satellite' ? 'intake-map-btn--active' : ''}`}
+          onClick={() => onMapTypeChange?.('satellite')}
+        >
+          Satellite
+        </button>
+      </div>
+
+      <div className="intake-map-toolbar__center">
         <button
           type="button"
           className={`intake-map-btn ${enable3d ? 'intake-map-btn--active' : ''}`}
           onClick={() => onEnable3dChange?.(!enable3d)}
-          title="Toggle 3D preview"
+          disabled={!threeDAvailable}
+          title={threeDTitle}
         >
           3D Preview
         </button>
-      )}
-      {onExpand && (
+      </div>
+
+      <div className="intake-map-toolbar__right">
         <button
           type="button"
-          className="intake-map-btn intake-map-btn--icon"
-          onClick={onExpand}
-          aria-label={isExpanded ? 'Close expanded map' : 'Expand map'}
-          title={isExpanded ? 'Close expanded map' : 'Expand map'}
+          className={`intake-map-btn ${mapType === 'roadmap' ? 'intake-map-btn--active' : ''}`}
+          onClick={() => onMapTypeChange?.('roadmap')}
         >
-          {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          Map
         </button>
-      )}
+      </div>
     </div>
   );
 }
