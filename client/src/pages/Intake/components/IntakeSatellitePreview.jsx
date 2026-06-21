@@ -6,10 +6,11 @@ import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
 import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
 import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
-import { get3dFallbackMessage, logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
-import { buildIntakeMapOptions, canUse3dPreview, verify3dPreviewOnMap } from './intakeMapConfig.js';
+import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
+import { buildIntakeMapOptions, canUse3dPreview } from './intakeMapConfig.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
+import { useIntake3dMapControl } from './useIntake3dMapControl.js';
 
 /**
  * Read-only intake preview — pin + zoom, optional compact footprint overlay.
@@ -31,7 +32,14 @@ export default function IntakeSatellitePreview({
   const [mapType, setMapType] = useState('satellite');
   const [enable3d, setEnable3d] = useState(false);
   const [can3d, setCan3d] = useState(false);
-  const [preview3dFallback, setPreview3dFallback] = useState(null);
+
+  const {
+    preview3dFallback,
+    requestEnable3d,
+    verifyAfter3dInit,
+    invalidateVerify,
+    canShow3dButton,
+  } = useIntake3dMapControl({ enable3d, setEnable3d });
 
   const {
     isExpanded,
@@ -135,12 +143,17 @@ export default function IntakeSatellitePreview({
         after: readMap3dState(map, maps),
         ok: true,
         reason: 'map_ready',
-        extra: { isExpanded },
+        extra: { isExpanded, enable3d },
       });
+
+      if (enable3d) {
+        void verifyAfter3dInit(map, maps, 'satellite-verify');
+      }
     }
 
     return () => {
       cancelled = true;
+      invalidateVerify();
       rememberView(map);
       disconnectResize();
       clearOverlays();
@@ -152,34 +165,8 @@ export default function IntakeSatellitePreview({
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapReady) return;
-    applyMapType(map, mapType);
-  }, [mapType, mapReady]);
-
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    const maps = window.google?.maps;
-    if (!map || !mapReady) return undefined;
-
-    if (!enable3d) {
-      setPreview3dFallback(null);
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      const result = await verify3dPreviewOnMap(map, maps, { phase: 'satellite-verify' });
-      if (cancelled) return;
-      if (!result.ok) {
-        setEnable3d(false);
-        setPreview3dFallback(get3dFallbackMessage(result.reason));
-      } else {
-        setPreview3dFallback(null);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [enable3d, mapReady]);
+    applyMapType(map, mapType, { enable3d });
+  }, [mapType, mapReady, enable3d]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -195,8 +182,8 @@ export default function IntakeSatellitePreview({
     mapType,
     onMapTypeChange: setMapType,
     enable3d,
-    onEnable3dChange: setEnable3d,
-    can3d,
+    onEnable3dChange: requestEnable3d,
+    can3d: canShow3dButton(can3d),
   };
 
   const mapFrame = (mapRef, { expanded = false } = {}) => (

@@ -77,6 +77,7 @@ describe('intakeMapConfig', () => {
     });
 
     expect(options.mapId).toBe('test-map-id');
+    expect(options.mapTypeId).toBe('roadmap');
     expect(options.renderingType).toBe('VECTOR');
     expect(options.tilt).toBe(INTAKE_3D_TILT);
     expect(options.tiltInteractionEnabled).toBe(true);
