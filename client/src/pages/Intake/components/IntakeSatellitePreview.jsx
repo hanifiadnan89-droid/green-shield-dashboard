@@ -25,17 +25,17 @@ export default function IntakeSatellitePreview({
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const overlaysRef = useRef([]);
-  const enable3dRef = useRef(enable3d);
-
-  useEffect(() => {
-    enable3dRef.current = enable3d;
-  }, [enable3d]);
 
   const { status } = useIntakeGoogleMapsLoader();
   const [mapReady, setMapReady] = useState(false);
   const [mapType, setMapType] = useState('satellite');
   const [enable3d, setEnable3d] = useState(false);
   const [can3d, setCan3d] = useState(false);
+  const enable3dRef = useRef(enable3d);
+
+  useEffect(() => {
+    enable3dRef.current = enable3d;
+  }, [enable3d]);
 
   const lat = Number(latitude);
   const lng = Number(longitude);
