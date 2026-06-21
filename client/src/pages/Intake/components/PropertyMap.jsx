@@ -7,11 +7,13 @@ import { createVertexMarker, shouldClosePolygonOnClick } from './propertyMapDraw
 import IntakeMapViewToolbar from './IntakeMapViewToolbar.jsx';
 import IntakeMapExpandButton from './IntakeMapExpandButton.jsx';
 import IntakeMapExpandedOverlay from './IntakeMapExpandedOverlay.jsx';
+import IntakeMap3dFallback from './IntakeMap3dFallback.jsx';
 import {
   apply3dPreviewToMap,
   buildIntakeMapOptions,
   canUse3dPreview,
 } from './intakeMapConfig.js';
+import { logIntake3dDiagnostics, readMap3dState } from './intakeMap3dDiagnostics.js';
 import { useIntakeMapExpanded } from './intakeMapExpanded.js';
 import { applyMapType, observeMapContainerResize } from './intakeMapView.js';
 
@@ -150,6 +152,7 @@ export default function PropertyMap({
   const [draftPointCount, setDraftPointCount] = useState(0);
   const [hasBoundary, setHasBoundary] = useState(polygonPath.length >= 3);
   const [can3d, setCan3d] = useState(false);
+  const [preview3dFallback, setPreview3dFallback] = useState(null);
 
   const {
     isExpanded,
@@ -371,6 +374,13 @@ export default function PropertyMap({
         mapOverlayRef.current = overlay;
 
         setMapReady(true);
+        logIntake3dDiagnostics('property-init', {
+          before: readMap3dState(map, maps),
+          after: readMap3dState(map, maps),
+          ok: true,
+          reason: 'map_ready',
+          extra: { isExpanded },
+        });
 
         try {
           await window.google.maps.importLibrary('geometry');
@@ -468,14 +478,27 @@ export default function PropertyMap({
   useEffect(() => {
     const map = mapInstanceRef.current;
     const maps = window.google?.maps;
-    if (!map || !mapReady) return;
+    if (!map || !mapReady) return undefined;
 
-    if (enable3dEffective) {
-      const applied = apply3dPreviewToMap(map, maps, true);
-      if (!applied && enable3d) onEnable3dChange?.(false);
-    } else {
-      apply3dPreviewToMap(map, maps, false);
-    }
+    let cancelled = false;
+
+    (async () => {
+      if (enable3dEffective) {
+        const result = await apply3dPreviewToMap(map, maps, true, { phase: 'property-enable' });
+        if (cancelled) return;
+        if (!result.ok) {
+          onEnable3dChange?.(false);
+          setPreview3dFallback('3D Preview unavailable for this property. Showing satellite view.');
+        } else {
+          setPreview3dFallback(null);
+        }
+      } else {
+        await apply3dPreviewToMap(map, maps, false, { phase: 'property-disable' });
+        if (!cancelled) setPreview3dFallback(null);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [enable3dEffective, enable3d, mapReady, onEnable3dChange]);
 
   function clearCompletedPolygon() {
@@ -628,6 +651,7 @@ export default function PropertyMap({
         ref={mapContainerRef}
         className={`intake-map-shell intake-map-shell--draw${expanded ? ' intake-map-shell--expanded' : ''}`}
       />
+      <IntakeMap3dFallback message={preview3dFallback} />
     </div>
   );
 
