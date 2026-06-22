@@ -102,7 +102,7 @@ for (const date of dates) {
 }
 
 const normalizedReports = reports.map(normalizeCalibrationReportForSummary);
-
+const summary = summarizeMultiDateCalibration(normalizedReports);
 const highConfidenceFailures = normalizedReports.flatMap(report => (
   (report.realRouteFailures ?? []).filter(failure => failure.dispatcherConfidence === 'high')
 ));
@@ -117,8 +117,20 @@ const printedComparisons = highConfidenceFailures.length
     examples,
     techniciansByExampleId,
     scoreExample,
-  })
-  : [];
+  })).filter(
+    comparison => !hasCorridorOwnerNotScheduledComparisonDiagnostics(
+      comparison.expectedTerritory,
+      comparison.winnerTerritory,
+    ),
+  )
+  : normalizedReports.flatMap(report => (
+    (report.highConfidenceScoreComparisons ?? []).filter(
+      comparison => !hasCorridorOwnerNotScheduledComparisonDiagnostics(
+        comparison.expectedTerritory,
+        comparison.winnerTerritory,
+      ),
+    )
+  ));
 
 const {
   reports: finalizedReports,
