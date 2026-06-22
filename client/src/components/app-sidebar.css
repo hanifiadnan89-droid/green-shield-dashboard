@@ -52,11 +52,10 @@
 }
 
 .premium-sidebar .sidebar-brand__logo {
-  width: min(100%, 228px);
+  width: min(100%, 236px);
   height: auto;
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.28));
 }
 
 .premium-sidebar .sidebar-nav {
