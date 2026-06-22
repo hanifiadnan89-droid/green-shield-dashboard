@@ -184,7 +184,7 @@ export default function RouteMatchCardContent({
     </>
   );
 
-  return (
+  const cardContent = (
     <>
       {multiDay && match.dayOfWeekLabel && (
         <p className="rf-match-date-label">{match.dayOfWeekLabel}</p>
@@ -254,7 +254,7 @@ export default function RouteMatchCardContent({
         </div>
       )}
 
-      <div className={`rf-mini-kpis ${compact ? 'mt-1.5' : 'mt-2'}`}>
+      <div className={`rf-mini-kpis ${compact ? 'mt-1.5' : 'rf-mini-kpis--detail'}`}>
         {scoreKeys.map(k => {
           const v = match.scores[k] ?? 0;
           const tier = v >= 70 ? 'high' : v >= 45 ? 'mid' : 'low';
@@ -267,5 +267,15 @@ export default function RouteMatchCardContent({
         })}
       </div>
     </>
+  );
+
+  if (compact) {
+    return cardContent;
+  }
+
+  return (
+    <div className="rf-route-card-content rf-route-card-content--detail">
+      {cardContent}
+    </div>
   );
 }
