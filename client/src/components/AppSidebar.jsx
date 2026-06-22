@@ -230,21 +230,21 @@ function AppSidebar({
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         ].join(' ')}
       >
+        <button
+          type="button"
+          className="sidebar-close lg:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close navigation"
+        >
+          <X size={13} />
+        </button>
+
         <div className="sidebar-brand shrink-0">
-          <div className="sidebar-brand__stack">
-            <img
-              src="/green-shield-logo-sidebar.png"
-              alt="Green Shield Pest Solutions"
-              className="sidebar-brand__logo"
-            />
-          </div>
-          <button
-            className="sidebar-brand__close lg:hidden"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close navigation"
-          >
-            <X size={13} style={{ color: 'rgba(255,255,255,0.55)' }} />
-          </button>
+          <img
+            src="/green-shield-logo-sidebar.png"
+            alt="Green Shield Pest Solutions"
+            className="sidebar-brand__logo"
+          />
         </div>
 
         <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3 space-y-4">
