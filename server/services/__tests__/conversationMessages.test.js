@@ -6,8 +6,12 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STORE_FILE = path.join(__dirname, '..', '..', 'data', 'conversation-messages.json');
 
+const mockWriteRepliesLastReadAt = vi.fn().mockResolvedValue({ updated: true });
+const mockUpdateLead = vi.fn().mockResolvedValue({ updated: true });
+
 vi.mock('../sheets.js', () => ({
-  updateLead: vi.fn().mockResolvedValue({ updated: true }),
+  updateLead: mockUpdateLead,
+  writeRepliesLastReadAt: mockWriteRepliesLastReadAt,
 }));
 
 describe('conversationMessages', () => {
@@ -124,5 +128,64 @@ describe('conversationMessages', () => {
     });
     expect(messages.some(m => m.meta?.isTemplate)).toBe(true);
     expect(messages.some(m => m.direction === 'inbound' && m.body === 'Thanks')).toBe(true);
+  });
+
+  it('persistReadAtToSheet uses writeRepliesLastReadAt, not updateLead', async () => {
+    const lead = { row_number: 200, name: 'Dana', sent: '2024-06-01T10:00:00.000Z', notes: 'na' };
+    mod.syncLeadMessages({ ...lead, sms_reply: 'Need help' });
+    const messages = mod.getMessagesForLead(200);
+    const readKey = mod.getLatestInboundReadKey(messages);
+    await mod.markThreadRead(200, readKey);
+
+    expect(mockWriteRepliesLastReadAt).toHaveBeenCalled();
+    expect(mockUpdateLead).not.toHaveBeenCalled();
+  });
+
+  it('persistReadAtToSheet writes the correct row number and ISO timestamp to column O', async () => {
+    const lead = { row_number: 201, name: 'Morgan', sent: '2024-06-01T10:00:00.000Z', notes: 'na' };
+    mod.syncLeadMessages({ ...lead, sms_reply: 'Call me' });
+    const messages = mod.getMessagesForLead(201);
+    const latestInbound = mod.getLatestInbound(messages);
+    const readKey = mod.getLatestInboundReadKey(messages);
+    await mod.markThreadRead(201, readKey);
+
+    const [calledRowNumber, calledIso] = mockWriteRepliesLastReadAt.mock.calls[0];
+    expect(calledRowNumber).toBe(201);
+    expect(calledIso).toBe(latestInbound.ts);
+  });
+
+  it('read state survives JSON deletion when replies_last_read_at is in the sheet', async () => {
+    const body = 'Surviving reply';
+    const stableTs = mod.stableInboundTs(202, 'sms', body);
+    const lead = {
+      row_number: 202,
+      name: 'River',
+      sent: '2024-06-01T10:00:00.000Z',
+      notes: 'na',
+      sms_reply: body,
+      replies_last_read_at: stableTs,
+    };
+
+    // Simulate: JSON was deleted (server restart), sheet has replies_last_read_at
+    if (fs.existsSync(STORE_FILE)) fs.unlinkSync(STORE_FILE);
+
+    mod.syncLeadMessages(lead);
+    expect(mod.getThreadMeta(202, lead).unread).toBe(false);
+  });
+
+  it('thread shows unread after JSON deletion when replies_last_read_at is absent', () => {
+    const lead = {
+      row_number: 203,
+      name: 'Quinn',
+      sent: '2024-06-01T10:00:00.000Z',
+      notes: 'na',
+      sms_reply: 'New message',
+      // no replies_last_read_at — as if persistReadAtToSheet never wrote it
+    };
+
+    if (fs.existsSync(STORE_FILE)) fs.unlinkSync(STORE_FILE);
+
+    mod.syncLeadMessages(lead);
+    expect(mod.getThreadMeta(203, lead).unread).toBe(true);
   });
 });
