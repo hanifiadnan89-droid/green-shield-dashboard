@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Send, Clock, Activity,
-  MessageSquare, Navigation, ClipboardList, Settings,
+  MessageSquare, Navigation, ClipboardList,
 } from 'lucide-react';
 
 /** Shared sidebar structure — WORKSPACE / OPERATIONS / TOOLS */
@@ -26,7 +26,6 @@ export const SIDEBAR_NAV = [
     items: [
       { type: 'link', to: '/tools/route-finder', icon: Navigation, label: 'Route Finder' },
       { type: 'link', to: '/replies', icon: MessageSquare, label: 'Replies', badge: 'replied' },
-      { type: 'static', icon: Settings, label: 'Settings' },
     ],
   },
 ];
