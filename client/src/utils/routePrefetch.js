@@ -8,6 +8,8 @@ const loaders = {
   '/followups': () => import('../pages/Followups.jsx'),
   '/activity': () => import('../pages/ActivityLog.jsx'),
   '/tools/route-finder': () => import('../pages/RouteFinder/RouteFinderPage.jsx'),
+  '/intake': () => import('../pages/Intake/IntakeGate.jsx'),
+  '/intake/property': () => import('../pages/Intake/IntakePropertyGate.jsx'),
 };
 
 const warmed = new Set();

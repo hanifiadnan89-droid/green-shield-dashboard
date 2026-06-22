@@ -25,7 +25,9 @@ import {
   buildHighConfidenceFailureComparisonsWithRescore,
   formatHighConfidenceFailureComparisonReportFromComparisons,
 } from '../client/src/utils/routeFinderV2/buildHighConfidenceFailureComparisons.js';
-import { hasCorridorOwnerNotScheduledComparisonDiagnostics } from '../client/src/utils/routeFinderV2/validationCalibrationSummarySafety.js';
+import {
+  applyPrintedComparisonsToCalibrationReports,
+} from '../client/src/utils/routeFinderV2/validationCalibrationSummarySafety.js';
 import { getValidationExamples } from '../client/src/utils/routeFinderV2/validationExamples.js';
 import { scoreSingleDateV2 } from '../client/src/utils/routeFinderScoringV2.js';
 
@@ -74,6 +76,12 @@ if (missing.length) {
 process.env.VITE_ROUTE_FINDER_V2_SCORING = 'true';
 
 const reports = [];
+const examples = getValidationExamples();
+
+async function scoreExample(example, lead, technicians, topN) {
+  const bundle = await scoreSingleDateV2(technicians, lead, topN, { prefetchTravel: false });
+  return bundle.result;
+}
 
 for (const date of dates) {
   const payload = await loadNormalizedRoutesFromDisk(date);
@@ -95,7 +103,6 @@ for (const date of dates) {
 
 const normalizedReports = reports.map(normalizeCalibrationReportForSummary);
 const summary = summarizeMultiDateCalibration(normalizedReports);
-
 const highConfidenceFailures = normalizedReports.flatMap(report => (
   (report.realRouteFailures ?? []).filter(failure => failure.dispatcherConfidence === 'high')
 ));
@@ -104,15 +111,10 @@ const techniciansByExampleId = Object.assign(
   ...normalizedReports.map(report => report.techniciansByExampleId ?? {}),
 );
 
-async function scoreExample(example, lead, technicians, topN) {
-  const bundle = await scoreSingleDateV2(technicians, lead, topN, { prefetchTravel: false });
-  return bundle.result;
-}
-
-const highConfidenceComparisons = highConfidenceFailures.length
-  ? (await buildHighConfidenceFailureComparisonsWithRescore({
+const printedComparisons = highConfidenceFailures.length
+  ? await buildHighConfidenceFailureComparisonsWithRescore({
     failures: highConfidenceFailures,
-    examples: getValidationExamples(),
+    examples,
     techniciansByExampleId,
     scoreExample,
   })).filter(
@@ -130,8 +132,20 @@ const highConfidenceComparisons = highConfidenceFailures.length
     )
   ));
 
+const {
+  reports: finalizedReports,
+  printedComparisons: comparisonsForPrint,
+  windhamSafetyGateApplied,
+} = applyPrintedComparisonsToCalibrationReports(
+  normalizedReports,
+  printedComparisons,
+);
+
+console.log(`windham safety gate applied: ${windhamSafetyGateApplied}`);
+
+const summary = summarizeMultiDateCalibration(finalizedReports);
 const highConfidenceComparisonText = formatHighConfidenceFailureComparisonReportFromComparisons(
-  highConfidenceComparisons,
+  comparisonsForPrint,
 );
 
 console.log(summary.reportText);

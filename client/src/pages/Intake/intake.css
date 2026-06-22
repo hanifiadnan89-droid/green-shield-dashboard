@@ -1,0 +1,1519 @@
+/* Green Shield Intake — premium SaaS appearance (dark workspace shell) */
+
+.intake-page {
+  @apply relative flex flex-col flex-1 min-h-0 overflow-hidden;
+  background: #050807;
+  color: #f8fafc;
+}
+
+.intake-page__ambient {
+  @apply absolute inset-0 pointer-events-none overflow-hidden;
+  z-index: 0;
+}
+
+.intake-page__inner {
+  @apply relative z-[1] flex-1 min-h-0 overflow-y-auto max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5;
+}
+
+/* ── Header ── */
+.intake-header {
+  @apply flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4;
+}
+
+.intake-header__title {
+  @apply text-2xl sm:text-[1.75rem] font-bold tracking-tight;
+  color: #f8fafc;
+}
+
+.intake-header__subtitle {
+  @apply text-sm mt-1 max-w-2xl leading-relaxed;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.intake-header__saved {
+  @apply inline-flex items-center gap-1.5 mt-2 text-xs font-medium;
+  color: #4ade80;
+}
+
+.intake-header__saved::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+
+.intake-header__actions {
+  @apply flex flex-wrap items-center gap-2 sm:gap-2.5 shrink-0;
+}
+
+.intake-header__draft-btn,
+.intake-header__continue-btn,
+.intake-primary-btn,
+.intake-secondary-btn {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all;
+}
+
+.intake-header__draft-btn,
+.intake-secondary-btn {
+  @apply border bg-white hover:bg-slate-50;
+  border-color: #e5e7eb;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.intake-header__continue-btn,
+.intake-primary-btn {
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  border: 1px solid #15803d;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.28);
+}
+
+.intake-header__continue-btn:hover:not(:disabled),
+.intake-primary-btn:hover:not(:disabled) {
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.34);
+  transform: translateY(-1px);
+}
+
+.intake-header__continue-btn:disabled,
+.intake-primary-btn:disabled {
+  @apply opacity-45 cursor-not-allowed;
+  transform: none;
+}
+
+/* ── KPI bar ── */
+.intake-kpi-bar {
+  @apply grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-4;
+}
+
+.intake-kpi-card {
+  @apply rounded-xl border px-3.5 py-2.5;
+  background: #fff;
+  border-color: #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.intake-kpi-card--lead {
+  border-left: 3px solid #16a34a;
+}
+
+.intake-kpi-card--ready {
+  border-left: 3px solid #22c55e;
+}
+
+.intake-kpi-card--progress {
+  border-left: 3px solid #f59e0b;
+}
+
+.intake-kpi-card--pending {
+  border-left: 3px solid #cbd5e1;
+}
+
+.intake-kpi-card__label {
+  @apply text-[10px] font-bold uppercase tracking-[0.1em];
+  color: #64748b;
+}
+
+.intake-kpi-card__value {
+  @apply text-sm font-semibold mt-0.5 truncate;
+  color: #0f172a;
+}
+
+/* ── Progress stepper ── */
+.intake-progress-wrap {
+  @apply mb-4;
+}
+
+.intake-progress {
+  @apply relative flex flex-col sm:flex-row sm:items-stretch gap-0 list-none p-0 m-0;
+}
+
+.intake-progress::before {
+  content: '';
+  @apply hidden sm:block absolute top-[22px] left-[8%] right-[8%] h-0.5 -z-0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.intake-progress__step {
+  @apply relative z-10 flex flex-1 items-center gap-2.5 rounded-xl border px-3 py-2.5 mb-2 sm:mb-0 sm:mx-1;
+  background: #fff;
+  border-color: #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.intake-progress__step.is-active {
+  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  border-color: #15803d;
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.28);
+}
+
+.intake-progress__step.is-active .intake-progress__marker {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.intake-progress__step.is-active .intake-progress__label {
+  color: #fff;
+  font-weight: 600;
+}
+
+.intake-progress__step.is-done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.intake-progress__step.is-upcoming {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.intake-progress__step.is-upcoming .intake-progress__label {
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.intake-progress__marker {
+  @apply w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.intake-progress__step.is-done .intake-progress__marker {
+  background: #16a34a;
+  color: #fff;
+}
+
+.intake-progress__label {
+  @apply text-xs sm:text-sm font-medium leading-tight;
+  color: #475569;
+}
+
+.intake-progress__step.is-done .intake-progress__label {
+  color: #15803d;
+}
+
+/* ── Layout columns ── */
+.intake-workspace__columns {
+  @apply grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] items-start;
+}
+
+/* ── Cards ── */
+.intake-card {
+  @apply rounded-2xl border bg-white p-4 sm:p-5;
+  border-color: #e5e7eb;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
+.intake-card--primary {
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+}
+
+.intake-card__heading {
+  @apply flex items-start gap-3 mb-1;
+}
+
+.intake-card__heading-icon {
+  @apply inline-flex items-center justify-center w-9 h-9 rounded-xl shrink-0;
+  background: linear-gradient(180deg, #ecfdf5, #dcfce7);
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+}
+
+.intake-card__title {
+  @apply text-base font-semibold;
+  color: #0f172a;
+}
+
+.intake-card__subtitle {
+  @apply text-xs mt-0.5 leading-relaxed;
+  color: #64748b;
+}
+
+/* ── Form grid & fields ── */
+.intake-form-grid {
+  @apply grid gap-3 sm:grid-cols-2;
+}
+
+.intake-form-grid--full {
+  @apply sm:col-span-2;
+}
+
+.intake-label {
+  @apply text-xs font-medium mb-1 block;
+  color: #475569;
+}
+
+.intake-field__control {
+  @apply relative;
+}
+
+.intake-field__icon {
+  @apply absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none;
+  color: #94a3b8;
+}
+
+.intake-input {
+  @apply w-full rounded-xl border bg-white px-3 py-2 text-sm transition-all;
+  border-color: #e5e7eb;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.intake-input:hover:not(:focus):not(:disabled) {
+  border-color: #cbd5e1;
+}
+
+.intake-field__control .intake-input,
+.intake-field__control .intake-address-autocomplete-host {
+  @apply pl-9;
+}
+
+.intake-field--multiline .intake-field__icon {
+  top: 0.7rem;
+  transform: none;
+}
+
+.intake-input:focus {
+  @apply outline-none;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
+}
+
+/* ── Status cards ── */
+.intake-status-grid {
+  @apply grid gap-2.5 sm:grid-cols-2 mt-4;
+}
+
+.intake-status-card {
+  @apply flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5;
+}
+
+.intake-status-card--pending {
+  border-color: #e5e7eb;
+  background: #f8fafc;
+}
+
+.intake-status-card--green {
+  border-color: #bbf7d0;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+}
+
+.intake-status-card--green .intake-status-card__icon-wrap {
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
+}
+
+.intake-status-card--emerald {
+  border-color: #a7f3d0;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.intake-status-card--emerald .intake-status-card__icon-wrap {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+.intake-status-card--blue {
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.intake-status-card--blue .intake-status-card__icon-wrap {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.intake-status-card--teal {
+  border-color: #99f6e4;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+}
+
+.intake-status-card--teal .intake-status-card__icon-wrap {
+  background: rgba(20, 184, 166, 0.12);
+  color: #0d9488;
+}
+
+.intake-status-card__icon-wrap {
+  @apply inline-flex items-center justify-center w-8 h-8 rounded-lg shrink-0 mt-0.5;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.intake-status-card__title {
+  @apply text-[10px] font-bold uppercase tracking-[0.08em];
+  color: #64748b;
+}
+
+.intake-status-card__value {
+  @apply text-sm font-medium mt-0.5 leading-snug;
+  color: #0f172a;
+}
+
+/* ── What happens next timeline ── */
+.intake-next-card {
+  @apply rounded-2xl border bg-white p-4 mt-4;
+  border-color: #e5e7eb;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.intake-next-card__title {
+  @apply text-sm font-semibold mb-3;
+  color: #0f172a;
+}
+
+.intake-next-card__timeline {
+  @apply flex flex-wrap items-center gap-1;
+}
+
+.intake-next-card__step {
+  @apply flex items-center gap-1;
+}
+
+.intake-next-card__node {
+  @apply flex items-center gap-1.5 rounded-lg px-2 py-1.5;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.intake-next-card__node-icon {
+  @apply inline-flex items-center justify-center w-6 h-6 rounded-md;
+  background: #ecfdf5;
+  color: #16a34a;
+}
+
+.intake-next-card__node-label {
+  @apply text-xs font-medium whitespace-nowrap;
+  color: #334155;
+}
+
+.intake-next-card__arrow {
+  @apply inline-flex items-center px-0.5;
+  color: #94a3b8;
+}
+
+/* ── Property intelligence panel ── */
+.intake-preview-panel {
+  @apply rounded-2xl border bg-white p-4 space-y-4 sticky top-3;
+  border-color: #e5e7eb;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.07);
+}
+
+.intake-preview-panel:not(.intake-preview-panel--property) {
+  @apply space-y-3 p-3.5;
+}
+
+.intake-preview-panel__header {
+  @apply flex items-start gap-3;
+}
+
+.intake-preview-panel__header-icon {
+  @apply inline-flex items-center justify-center w-9 h-9 rounded-xl shrink-0;
+  background: linear-gradient(180deg, #ecfdf5, #dcfce7);
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+}
+
+.intake-preview-panel__eyebrow {
+  @apply text-[10px] font-bold uppercase tracking-[0.12em];
+  color: #16a34a;
+}
+
+.intake-preview-panel__title {
+  @apply text-base font-semibold mt-0.5;
+  color: #0f172a;
+}
+
+.intake-preview-panel__map,
+.intake-map-shell {
+  @apply rounded-xl overflow-hidden border min-h-[200px];
+  border-color: #e5e7eb;
+  background: #f1f5f9;
+}
+
+.intake-preview-panel__map-placeholder {
+  @apply relative h-full min-h-[200px] flex flex-col items-center justify-center text-center px-5 py-6;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(34, 197, 94, 0.1), transparent 50%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #64748b;
+}
+
+.intake-preview-panel__map-placeholder-grid {
+  @apply absolute inset-0 opacity-30;
+  background-image:
+    linear-gradient(#e2e8f0 1px, transparent 1px),
+    linear-gradient(90deg, #e2e8f0 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.intake-preview-panel__map-placeholder p {
+  @apply text-sm font-semibold mt-2 relative z-10;
+  color: #334155;
+}
+
+.intake-preview-panel__map-placeholder span {
+  @apply text-xs mt-1 max-w-[240px] relative z-10;
+  color: #64748b;
+}
+
+.intake-preview-panel__section h3 {
+  @apply flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] mb-2.5;
+  color: #475569;
+}
+
+.intake-preview-panel__section-heading {
+  @apply flex items-center justify-between gap-3 mb-2.5;
+}
+
+.intake-preview-panel__section-heading h3 {
+  @apply mb-0;
+}
+
+.intake-zillow-link {
+  @apply inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors shrink-0;
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.intake-zillow-link:hover {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* Info cards in preview */
+.intake-info-grid {
+  @apply grid grid-cols-2 gap-2;
+}
+
+.intake-info-grid--compact {
+  @apply grid-cols-2;
+}
+
+.intake-info-grid--address {
+  @apply grid-cols-2 gap-1.5;
+}
+
+.intake-preview-panel:not(.intake-preview-panel--property) .intake-info-card {
+  @apply px-2 py-1.5;
+}
+
+.intake-preview-panel:not(.intake-preview-panel--property) .intake-info-card__value {
+  @apply text-xs normal-case leading-snug;
+}
+
+.intake-preview-panel__section--overview {
+  @apply mb-0;
+}
+
+.intake-preview-panel__section--overview h3 {
+  @apply mb-2;
+}
+
+.intake-info-card {
+  @apply rounded-lg border px-2.5 py-2;
+  border-color: #e5e7eb;
+  background: #f8fafc;
+}
+
+.intake-info-card--pending {
+  border-style: dashed;
+  background: #fafbfc;
+}
+
+.intake-info-card__label {
+  @apply text-[10px] font-semibold uppercase tracking-wide;
+  color: #94a3b8;
+}
+
+.intake-info-card__value {
+  @apply text-sm font-semibold mt-0.5 capitalize;
+  color: #0f172a;
+}
+
+.intake-preview-placeholder {
+  @apply flex items-start gap-2.5 rounded-lg border border-dashed px-3 py-2.5;
+  border-color: #e2e8f0;
+  background: #fafbfc;
+}
+
+.intake-preview-placeholder__icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.intake-preview-placeholder__title {
+  @apply text-xs font-semibold;
+  color: #475569;
+}
+
+.intake-preview-placeholder__detail {
+  @apply text-[11px] mt-0.5 leading-relaxed;
+  color: #94a3b8;
+}
+
+/* AI recommendation */
+.intake-preview-panel__ai {
+  @apply rounded-xl border p-3.5;
+  border-color: #bbf7d0;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f8fafc 100%);
+}
+
+.intake-preview-panel__ai-header {
+  @apply flex items-start gap-2.5 mb-2;
+  color: #16a34a;
+}
+
+.intake-preview-panel__ai-brand {
+  @apply text-xs font-bold;
+  color: #15803d;
+}
+
+.intake-preview-panel__ai-sub {
+  @apply text-[10px] font-semibold uppercase tracking-wide;
+  color: #64748b;
+}
+
+.intake-preview-panel__confidence {
+  @apply ml-auto text-sm font-bold shrink-0;
+  color: #16a34a;
+}
+
+.intake-preview-panel__recommendation {
+  @apply text-sm font-medium leading-relaxed;
+  color: #14532d;
+}
+
+.intake-preview-panel__reasons {
+  @apply mt-2 space-y-1 text-xs list-disc pl-4;
+  color: #166534;
+}
+
+.intake-preview-panel__reasons--placeholder {
+  color: #4ade80;
+  opacity: 0.85;
+}
+
+.intake-preview-panel__reasons--placeholder li {
+  color: #15803d;
+}
+
+.intake-preview-panel__status-badge {
+  @apply inline-flex mt-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide;
+}
+
+.intake-preview-panel__status-badge--pending {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.intake-preview-panel__status-badge--good {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.intake-preview-panel__status-badge--monitor {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.intake-preview-panel__status-badge--not_recommended {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.intake-preview-panel__meta-row {
+  @apply flex flex-wrap gap-2 pt-1;
+}
+
+.intake-preview-meta {
+  @apply inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium;
+}
+
+.intake-preview-meta--status {
+  background: #ecfdf5;
+  color: #15803d;
+}
+
+.intake-preview-meta--risk {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.intake-preview-meta--score {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+/* ── Map toolbar & stats ── */
+.intake-map-toolbar {
+  @apply flex flex-wrap gap-1.5 mb-2;
+}
+
+.intake-map-btn {
+  @apply px-2.5 py-1 rounded-lg text-xs font-semibold border bg-white transition-colors;
+  border-color: #e5e7eb;
+  color: #475569;
+}
+
+.intake-map-btn:hover {
+  background: #f8fafc;
+}
+
+.intake-map-btn--active {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.intake-stat-grid {
+  @apply grid gap-2 sm:grid-cols-2 lg:grid-cols-3;
+}
+
+.intake-stat {
+  @apply rounded-xl border px-3 py-2.5;
+  border-color: #e5e7eb;
+  background: #f8fafc;
+}
+
+.intake-stat__label {
+  @apply text-[10px] uppercase tracking-widest font-semibold;
+  color: #64748b;
+}
+
+.intake-stat__value {
+  @apply text-sm font-semibold mt-0.5;
+  color: #0f172a;
+}
+
+/* ── Weather pill ── */
+.intake-weather-pill {
+  @apply inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold;
+}
+
+.intake-weather-pill--good {
+  @apply bg-emerald-100 text-emerald-800 border border-emerald-200;
+}
+
+.intake-weather-pill--monitor {
+  @apply bg-amber-100 text-amber-900 border border-amber-200;
+}
+
+.intake-weather-pill--not_recommended {
+  @apply bg-red-100 text-red-800 border border-red-200;
+}
+
+/* ── Actions & errors ── */
+.intake-actions {
+  @apply flex flex-wrap gap-2 justify-end mt-4 pt-3 border-t;
+  border-color: #e5e7eb;
+}
+
+.intake-error {
+  @apply text-sm rounded-xl px-3 py-2;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+/* ── Address autocomplete ── */
+.intake-address-autocomplete-host {
+  @apply w-full;
+}
+
+.intake-address-autocomplete-host gmp-place-autocomplete,
+.intake-address-autocomplete-host .intake-place-autocomplete {
+  display: block;
+  width: 100%;
+  color-scheme: light;
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.intake-address-autocomplete-host--disabled {
+  @apply opacity-60 pointer-events-none;
+}
+
+.intake-map-shell--preview {
+  min-height: 200px;
+  height: 200px;
+}
+
+.intake-map-toolbar--type {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.375rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.intake-map-toolbar__left {
+  justify-self: start;
+}
+
+.intake-map-toolbar__center {
+  justify-self: center;
+}
+
+.intake-map-toolbar__right {
+  justify-self: end;
+}
+
+.intake-map-toolbar--type .intake-map-btn {
+  min-width: 7rem;
+}
+
+.intake-map-frame {
+  position: relative;
+  width: 100%;
+}
+
+.intake-map-frame__toolbar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 44px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.intake-map-frame__toolbar > * {
+  pointer-events: auto;
+}
+
+.intake-map-expand-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.28);
+  transition: background 0.15s ease;
+}
+
+.intake-map-expand-btn:hover {
+  background: rgba(15, 23, 42, 0.88);
+}
+
+.intake-map-3d-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.intake-map-shell--behind-3d {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.intake-map-3d-fallback {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 6;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fde68a;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+}
+
+.intake-map-frame--expanded {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.intake-map-expanded-overlay__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.intake-preview-map-slot {
+  @apply space-y-0;
+}
+
+.intake-map-expanded-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  background: #020617;
+}
+
+.intake-map-expanded-overlay__map {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.intake-map-shell--expanded,
+.intake-map-frame--expanded .intake-map-shell--draw,
+.intake-map-frame--expanded .intake-map-shell--expanded {
+  width: 100%;
+  height: 100%;
+  min-height: 0 !important;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.intake-property-map-wrap {
+  @apply relative rounded-xl overflow-hidden;
+}
+
+.intake-map-toolbar--overlay-draw {
+  top: 56px;
+}
+
+.intake-map-toolbar--draw {
+  @apply flex w-full gap-1.5 mb-2;
+}
+
+.intake-map-toolbar--draw .intake-map-btn {
+  @apply flex-1 text-center;
+  min-width: 0;
+}
+
+.intake-map-toolbar--overlay {
+  margin: 0;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.intake-map-toolbar--overlay-standalone {
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: auto;
+  display: flex;
+  gap: 0.375rem;
+  padding: 6px;
+}
+
+.intake-map-toolbar--overlay .intake-map-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f8fafc;
+  min-width: 7rem;
+}
+
+.intake-map-toolbar--overlay .intake-map-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.intake-map-toolbar--overlay .intake-map-btn--active,
+.intake-map-toolbar--overlay .intake-map-btn--primary {
+  background: rgba(34, 197, 94, 0.22);
+  border-color: rgba(134, 239, 172, 0.45);
+  color: #bbf7d0;
+}
+
+.intake-map-toolbar--stacked {
+  @apply flex flex-col gap-2;
+}
+
+.intake-map-toolbar__row {
+  @apply flex flex-wrap gap-1.5;
+}
+
+.intake-map-hint--subtle {
+  color: rgba(248, 250, 252, 0.45);
+  margin-top: -0.25rem;
+}
+
+.intake-map-hint--active {
+  color: #86efac;
+}
+
+.intake-map-shell--draw {
+  min-height: 504px;
+}
+
+.intake-preview-panel--property {
+  @apply space-y-3;
+}
+
+.intake-preview-panel__map--property {
+  min-height: 0;
+}
+
+.intake-preview-panel--property .intake-map-shell--draw {
+  min-height: 504px;
+  height: 504px;
+}
+
+.intake-property-map-slot .intake-map-shell--draw {
+  min-height: 504px;
+  height: 504px;
+}
+
+.intake-preview-panel__section--compact {
+  @apply mb-0;
+}
+
+.intake-info-grid--single {
+  @apply grid-cols-1;
+}
+
+.intake-stat-grid--treatment {
+  @apply grid-cols-2;
+}
+
+.intake-stat-grid--treatment .intake-stat {
+  background: #fff;
+}
+
+/* ── Verified address (property page) ── */
+.intake-card--address {
+  @apply py-4;
+}
+
+.intake-address-display {
+  @apply text-sm font-medium leading-relaxed mt-3 px-1;
+  color: #0f172a;
+}
+
+/* ── Immersive weather widget ── */
+.intake-weather-widget {
+  @apply relative overflow-hidden rounded-2xl border;
+  border-color: rgba(255, 255, 255, 0.14);
+  min-height: 280px;
+}
+
+.intake-weather-widget__backdrop {
+  @apply absolute inset-0 overflow-hidden;
+}
+
+.intake-weather-widget__layer {
+  @apply absolute inset-0;
+}
+
+.intake-weather-widget__content {
+  @apply relative z-10 p-5 space-y-3;
+}
+
+.intake-weather-widget__header {
+  @apply flex items-start justify-between gap-3;
+}
+
+.intake-weather-widget__eyebrow {
+  @apply text-[10px] font-bold uppercase tracking-[0.12em];
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.intake-weather-widget__title {
+  @apply text-lg font-semibold mt-0.5;
+  color: #fff;
+}
+
+.intake-weather-widget__icon {
+  color: rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.25));
+}
+
+.intake-weather-widget__subtitle {
+  @apply text-xs;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.intake-weather-widget__controls {
+  @apply flex flex-wrap items-end gap-3 pt-1;
+}
+
+.intake-weather-widget__date {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  color-scheme: dark;
+}
+
+.intake-weather-widget__date::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+.intake-weather-widget__controls .intake-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.intake-weather-widget__status {
+  @apply text-sm;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.intake-weather-widget__error {
+  @apply text-sm rounded-xl px-3 py-2;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.45);
+  border: 1px solid rgba(254, 202, 202, 0.35);
+}
+
+.intake-weather-widget__condition {
+  @apply text-sm font-medium capitalize;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.intake-weather-widget__metrics {
+  @apply grid grid-cols-3 gap-2;
+}
+
+.intake-weather-widget__metric {
+  @apply rounded-xl px-3 py-2.5 border;
+  background: rgba(15, 23, 42, 0.22);
+  border-color: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+}
+
+.intake-weather-widget__metric-label {
+  @apply block text-[10px] font-bold uppercase tracking-wide;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.intake-weather-widget__metric-value {
+  @apply block text-sm font-semibold mt-1;
+  color: #fff;
+}
+
+.intake-weather-widget__metric-value--good {
+  color: #86efac;
+}
+
+.intake-weather-widget__metric-value--monitor {
+  color: #fde047;
+}
+
+.intake-weather-widget__metric-value--not_recommended {
+  color: #fca5a5;
+}
+
+.intake-weather-widget__reasons {
+  @apply text-xs list-disc pl-4 space-y-1 pt-1;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* Weather themes */
+.intake-weather-widget--sunny {
+  background: linear-gradient(160deg, #0c4a6e 0%, #0369a1 38%, #f59e0b 120%);
+}
+
+.intake-weather-widget--sunny .intake-weather-widget__layer--glow {
+  background: radial-gradient(circle at 82% 18%, rgba(251, 191, 36, 0.65), transparent 46%);
+  animation: intake-weather-sun-pulse 6s ease-in-out infinite;
+}
+
+.intake-weather-widget--sunny .intake-weather-widget__layer--sun::before {
+  content: '';
+  position: absolute;
+  top: 6%;
+  right: 8%;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(253, 224, 71, 0.98) 0%, rgba(251, 191, 36, 0.42) 55%, transparent 74%);
+  animation: intake-weather-sun-pulse 5s ease-in-out infinite;
+  box-shadow: 0 0 48px rgba(251, 191, 36, 0.45);
+}
+
+.intake-weather-widget--sunny .intake-weather-widget__layer--shimmer {
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 42%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.08) 58%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: intake-weather-shimmer 7s ease-in-out infinite;
+}
+
+.intake-weather-widget--rain {
+  background: linear-gradient(165deg, #020617 0%, #0f172a 35%, #1e293b 100%);
+}
+
+.intake-weather-widget--rain .intake-weather-widget__layer--rain-clouds {
+  background:
+    radial-gradient(ellipse 180px 64px at 22% 18%, rgba(148, 163, 184, 0.28), transparent 72%),
+    radial-gradient(ellipse 220px 72px at 72% 10%, rgba(100, 116, 139, 0.32), transparent 74%);
+  animation: intake-weather-cloud-drift 16s ease-in-out infinite alternate;
+}
+
+.intake-weather-widget--rain .intake-weather-widget__layer--rain {
+  background-image:
+    linear-gradient(180deg, transparent 0%, rgba(148, 163, 184, 0.12) 100%),
+    repeating-linear-gradient(
+      118deg,
+      transparent 0 10px,
+      rgba(191, 219, 254, 0.22) 10px 11px
+    );
+  background-size: 100% 100%, 22px 40px;
+  animation: intake-weather-rain-fall 0.65s linear infinite;
+  opacity: 0.9;
+}
+
+.intake-weather-widget--rain .intake-weather-widget__layer--rain-alt {
+  background-image: repeating-linear-gradient(
+    112deg,
+    transparent 0 18px,
+    rgba(147, 197, 253, 0.16) 18px 19px
+  );
+  background-size: 32px 56px;
+  animation: intake-weather-rain-fall 0.95s linear infinite reverse;
+  opacity: 0.55;
+}
+
+.intake-weather-widget--storm {
+  background: linear-gradient(165deg, #020617 0%, #0f0a1e 35%, #1e1b4b 100%);
+}
+
+.intake-weather-widget--storm .intake-weather-widget__layer--storm {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(71, 85, 105, 0.35), transparent 38%),
+    radial-gradient(circle at 70% 0%, rgba(67, 56, 202, 0.3), transparent 42%);
+  animation: intake-weather-cloud-drift 14s ease-in-out infinite alternate;
+}
+
+.intake-weather-widget--storm .intake-weather-widget__layer--storm-clouds {
+  background:
+    radial-gradient(ellipse 200px 70px at 55% 22%, rgba(148, 163, 184, 0.22), transparent 72%),
+    radial-gradient(ellipse 160px 58px at 15% 30%, rgba(100, 116, 139, 0.18), transparent 70%);
+  animation: intake-weather-cloud-drift 20s ease-in-out infinite alternate-reverse;
+}
+
+.intake-weather-widget--storm .intake-weather-widget__layer--lightning {
+  background:
+    radial-gradient(circle at 68% 22%, rgba(255, 255, 255, 0.55), transparent 30%),
+    radial-gradient(circle at 42% 12%, rgba(191, 219, 254, 0.2), transparent 24%);
+  opacity: 0;
+  animation: intake-weather-lightning 6s ease-in-out infinite;
+}
+
+.intake-weather-widget--cloudy {
+  background: linear-gradient(165deg, #1e293b 0%, #334155 45%, #475569 100%);
+}
+
+.intake-weather-widget--cloudy .intake-weather-widget__layer--clouds {
+  background:
+    radial-gradient(ellipse 160px 58px at 18% 28%, rgba(255, 255, 255, 0.22), transparent 70%),
+    radial-gradient(ellipse 200px 68px at 62% 18%, rgba(255, 255, 255, 0.18), transparent 72%),
+    radial-gradient(ellipse 150px 54px at 82% 42%, rgba(255, 255, 255, 0.14), transparent 70%);
+  animation: intake-weather-cloud-drift 18s ease-in-out infinite alternate;
+}
+
+.intake-weather-widget--cloudy .intake-weather-widget__layer--clouds-alt {
+  background:
+    radial-gradient(ellipse 140px 50px at 40% 55%, rgba(255, 255, 255, 0.12), transparent 68%),
+    radial-gradient(ellipse 120px 44px at 78% 62%, rgba(255, 255, 255, 0.1), transparent 66%);
+  animation: intake-weather-cloud-drift 24s ease-in-out infinite alternate-reverse;
+  opacity: 0.85;
+}
+
+.intake-weather-widget--windy {
+  background: linear-gradient(165deg, #0f4c5c 0%, #1e4d63 38%, #334155 100%);
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--wind-clouds {
+  background:
+    radial-gradient(ellipse 190px 68px at 10% 22%, rgba(255, 255, 255, 0.22), transparent 72%),
+    radial-gradient(ellipse 220px 76px at 58% 12%, rgba(255, 255, 255, 0.18), transparent 74%);
+  animation: intake-weather-cloud-drift 11s ease-in-out infinite alternate;
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--wind-clouds-alt {
+  background:
+    radial-gradient(ellipse 170px 60px at 78% 36%, rgba(255, 255, 255, 0.16), transparent 70%),
+    radial-gradient(ellipse 150px 54px at 30% 58%, rgba(255, 255, 255, 0.12), transparent 68%);
+  animation: intake-weather-cloud-drift 15s ease-in-out infinite alternate-reverse;
+  opacity: 0.9;
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--wind-mist {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 35%, rgba(255, 255, 255, 0.14) 50%, rgba(255, 255, 255, 0.08) 65%, transparent 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 55%);
+  animation: intake-weather-mist-flow 8s ease-in-out infinite;
+  opacity: 0.75;
+}
+
+.intake-weather-widget--windy .intake-weather-widget__layer--wind-gusts {
+  background-image:
+    linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.16) 48%, transparent 92%),
+    linear-gradient(104deg, transparent 8%, rgba(255, 255, 255, 0.1) 52%, transparent 96%),
+    linear-gradient(98deg, transparent 4%, rgba(255, 255, 255, 0.08) 50%, transparent 94%);
+  background-size: 180% 100%, 200% 100%, 160% 100%;
+  background-position: -40% 28%, -20% 62%, -60% 44%;
+  animation: intake-weather-gust-ribbons 5.5s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+@keyframes intake-weather-mist-flow {
+  0%, 100% { transform: translateX(-8px); opacity: 0.55; }
+  50% { transform: translateX(14px); opacity: 0.85; }
+}
+
+@keyframes intake-weather-gust-ribbons {
+  0% { background-position: -40% 28%, -20% 62%, -60% 44%; }
+  50% { background-position: 20% 24%, 40% 58%, 0% 40%; }
+  100% { background-position: 80% 30%, 100% 64%, 60% 46%; }
+}
+
+@keyframes intake-weather-sun-pulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes intake-weather-shimmer {
+  0% { transform: translateX(-120%); opacity: 0; }
+  20% { opacity: 0.7; }
+  55% { transform: translateX(120%); opacity: 0.5; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+@keyframes intake-weather-rain-fall {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 0 40px; }
+}
+
+@keyframes intake-weather-cloud-drift {
+  from { transform: translateX(-12px) translateY(0); }
+  to { transform: translateX(16px) translateY(4px); }
+}
+
+@keyframes intake-weather-lightning {
+  0%, 88%, 100% { opacity: 0; }
+  89% { opacity: 0.95; }
+  90% { opacity: 0.2; }
+  91% { opacity: 0.8; }
+  92% { opacity: 0.1; }
+}
+
+.intake-property-map {
+  @apply space-y-0.5;
+}
+
+.intake-map-boundary-status {
+  @apply flex flex-wrap items-center gap-2 text-xs px-1 py-1;
+  color: rgba(248, 250, 252, 0.7);
+}
+
+.intake-map-boundary-status__badge {
+  @apply inline-flex px-2 py-0.5 rounded-full font-semibold;
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+  border: 1px solid rgba(134, 239, 172, 0.35);
+}
+
+.intake-preview-map-wrap {
+  @apply relative;
+}
+
+.intake-preview-map-pin {
+  @apply absolute bottom-2 left-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.intake-map-hint {
+  @apply text-xs mb-2 px-1 leading-relaxed;
+  color: rgba(248, 250, 252, 0.62);
+}
+
+.intake-map-btn--primary {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.intake-map-btn--primary:disabled {
+  background: #fff;
+  border-color: #e5e7eb;
+  color: #94a3b8;
+}
+
+.intake-map-hint--warn {
+  color: #fbbf24;
+}
+
+.intake-map-btn:disabled {
+  @apply opacity-40 cursor-not-allowed;
+}
+
+.intake-pac-container {
+  z-index: 10000;
+}
+
+/* Ambient background — scoped to intake page */
+.intake-page .lc-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.intake-page .lc-ambient__mesh {
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(
+    125deg,
+    rgba(74, 222, 128, 0.07) 0%,
+    transparent 40%,
+    rgba(56, 189, 248, 0.04) 60%,
+    transparent 100%
+  );
+  background-size: 200% 200%;
+}
+
+.intake-page .lc-ambient__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(48px);
+}
+
+.intake-page .lc-ambient__grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ── RentCast property records (preview panel actions) ── */
+.intake-property-records__actions-bar {
+  @apply pt-1 space-y-2;
+}
+
+.intake-property-records__actions {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.intake-property-records__usage-btn,
+.intake-property-records__lookup-btn {
+  @apply text-xs px-3 py-1.5;
+}
+
+.intake-property-records__status-note {
+  @apply text-xs leading-relaxed;
+  color: #64748b;
+}
+
+.intake-rentcast-modal__backdrop {
+  @apply fixed inset-0 z-[120] flex items-center justify-center p-4;
+  background: rgba(2, 6, 23, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.intake-rentcast-modal {
+  @apply w-full max-w-md rounded-2xl border bg-white p-5 shadow-2xl;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.intake-rentcast-modal--usage {
+  @apply max-w-lg p-0 overflow-hidden;
+}
+
+.intake-rentcast-modal__header {
+  @apply flex items-center justify-between gap-3 border-b px-5 py-4;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.intake-rentcast-modal__header-title {
+  @apply flex items-center gap-2 text-base font-semibold text-slate-900;
+}
+
+.intake-rentcast-modal__close {
+  @apply inline-flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100;
+}
+
+.intake-rentcast-modal__icon-wrap {
+  @apply inline-flex items-center justify-center rounded-full w-10 h-10 mb-3;
+}
+
+.intake-rentcast-modal__icon-wrap--warning {
+  @apply bg-amber-100 text-amber-700;
+}
+
+.intake-rentcast-modal__title {
+  @apply text-lg font-semibold text-slate-900;
+}
+
+.intake-rentcast-modal__body {
+  @apply mt-2 text-sm leading-relaxed text-slate-600;
+}
+
+.intake-rentcast-modal__warning {
+  @apply mt-3 rounded-xl border px-3 py-2 text-sm;
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(255, 251, 235, 0.9);
+  color: #92400e;
+}
+
+.intake-rentcast-modal__error {
+  @apply px-5 py-4 text-sm text-red-600;
+}
+
+.intake-rentcast-modal__actions {
+  @apply mt-5 flex flex-wrap justify-end gap-2;
+}
+
+.intake-rentcast-usage {
+  @apply px-5 py-4 space-y-2;
+}
+
+.intake-rentcast-usage__row {
+  @apply flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-sm;
+  border-color: rgba(15, 23, 42, 0.07);
+  background: #f8fafc;
+  color: #475569;
+}
+
+.intake-rentcast-usage__row strong {
+  @apply text-slate-900;
+}
+
+.intake-rentcast-usage__row--highlight {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(255, 251, 235, 0.75);
+}
+
+.intake-rentcast-usage__footnote {
+  @apply pt-2 text-xs text-slate-500;
+}

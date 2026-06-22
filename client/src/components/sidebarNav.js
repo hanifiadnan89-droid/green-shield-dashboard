@@ -1,10 +1,19 @@
 import {
   LayoutDashboard, Users, Send, Clock, Activity,
-  MessageSquare, Navigation,
+  MessageSquare, Navigation, ClipboardList,
 } from 'lucide-react';
 
-/** Shared sidebar structure — WORKSPACE / TOOLS on every page */
+/** Shared sidebar structure — OPERATIONS / WORKSPACE */
 export const SIDEBAR_NAV = [
+  {
+    group: 'OPERATIONS',
+    items: [
+      { type: 'link', to: '/intake', icon: ClipboardList, label: 'Intake', feature: 'intake' },
+      { type: 'link', to: '/send', icon: Send, label: 'Send Template' },
+      { type: 'link', to: '/tools/route-finder', icon: Navigation, label: 'Route Finder' },
+      { type: 'link', to: '/replies', icon: MessageSquare, label: 'Replies', badge: 'replied' },
+    ],
+  },
   {
     group: 'WORKSPACE',
     items: [
@@ -12,14 +21,6 @@ export const SIDEBAR_NAV = [
       { type: 'link', to: '/leads', icon: Users, label: 'All Leads' },
       { type: 'link', to: '/followups', icon: Clock, label: 'Follow-ups' },
       { type: 'link', to: '/activity', icon: Activity, label: 'Activity Log' },
-    ],
-  },
-  {
-    group: 'TOOLS',
-    items: [
-      { type: 'link', to: '/tools/route-finder', icon: Navigation, label: 'Route Finder' },
-      { type: 'link', to: '/send', icon: Send, label: 'Send Template' },
-      { type: 'link', to: '/replies', icon: MessageSquare, label: 'Replies', badge: 'replied' },
     ],
   },
 ];

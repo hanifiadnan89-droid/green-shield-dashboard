@@ -12,6 +12,7 @@ import {
   validateBedBugForm,
 } from './bedBugAgreementUtils.js';
 import { buildCustomerAddressFromLead, prefillEmptyFields } from './customerPrefill.js';
+import { buildIntakeQuotePrefill } from '../../utils/intake/buildIntakeLead.js';
 
 /* ── Quote Documents Section ── */
 export default function QuoteDocumentsSection({
@@ -26,6 +27,8 @@ export default function QuoteDocumentsSection({
   const [address, setAddress]         = useState({ street: '', cityState: '' });
   const [agreementStartDate, setAgreementStartDate] = useState('');
   const [notes, setNotes]             = useState('');
+  const [treatmentAcreage, setTreatmentAcreage] = useState(null);
+  const [treatmentSquareFeet, setTreatmentSquareFeet] = useState(null);
   const [bedBugForm, setBedBugForm]   = useState(null);
   const [previewFingerprint, setPreviewFingerprint] = useState(null);
   const [loading, setLoading]         = useState(true);
@@ -56,7 +59,14 @@ export default function QuoteDocumentsSection({
   useEffect(() => {
     if (!lead) return;
     setAddress((prev) => buildCustomerAddressFromLead(lead, prev));
-  }, [lead?.row_number]);
+    if (lead.fromIntake || lead.intake) {
+      const intakePrefill = buildIntakeQuotePrefill(lead);
+      setAddress((prev) => prefillEmptyFields(prev, intakePrefill.address));
+      setNotes((prev) => prev || intakePrefill.notes || '');
+      setTreatmentAcreage((prev) => prev ?? intakePrefill.treatmentAcreage);
+      setTreatmentSquareFeet((prev) => prev ?? intakePrefill.treatmentSquareFeet);
+    }
+  }, [lead?.row_number, lead?.fromIntake, lead?.intake?.customer?.serviceAddress]);
 
   useEffect(() => {
     if (isBedBug && lead) {
@@ -88,8 +98,19 @@ export default function QuoteDocumentsSection({
   }, [isBedBug, bedBugForm?.initialQuote, bedBugForm?.initialDiscount, bedBugForm?.recurringCharge, bedBugForm?.serviceAddress, bedBugForm?.city, bedBugForm?.state, bedBugForm?.zip, bedBugForm?.agreementDate]);
 
   useEffect(() => {
-    onStateChange?.({ pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified });
-  }, [pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified, onStateChange]);
+    onStateChange?.({
+      pricing,
+      address,
+      notes,
+      selected,
+      agreementStartDate,
+      bedBugForm,
+      previewVerified,
+      treatmentAcreage,
+      treatmentSquareFeet,
+      intake: lead?.intake || null,
+    });
+  }, [pricing, address, notes, selected, agreementStartDate, bedBugForm, previewVerified, treatmentAcreage, treatmentSquareFeet, lead?.intake, onStateChange]);
 
   useEffect(() => {
     if (!lead?.row_number || !selected) {
@@ -122,6 +143,9 @@ export default function QuoteDocumentsSection({
       agreementStartDate: agreementStartDate || undefined,
       startDate: agreementStartDate || undefined,
       prepGuideIndices,
+      treatmentAcreage: treatmentAcreage ?? undefined,
+      treatmentSquareFeet: treatmentSquareFeet ?? undefined,
+      intake: lead?.intake || undefined,
       ...extra,
     };
     if (isBedBug && bedBugForm) {
@@ -331,6 +355,32 @@ export default function QuoteDocumentsSection({
                       <p className="send-preview-profile__value">{val || '—'}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {lead?.fromIntake && (treatmentAcreage != null || treatmentSquareFeet != null) && (
+              <div className="send-preview-profile mt-3">
+                <p className="send-preview-profile__title">Intake property intelligence</p>
+                <div className="send-preview-profile__grid">
+                  {treatmentAcreage != null && (
+                    <div className="send-preview-profile__cell">
+                      <p className="send-preview-profile__label">Treatment acreage</p>
+                      <p className="send-preview-profile__value">{treatmentAcreage} acres</p>
+                    </div>
+                  )}
+                  {treatmentSquareFeet != null && (
+                    <div className="send-preview-profile__cell">
+                      <p className="send-preview-profile__label">Treatment sq ft</p>
+                      <p className="send-preview-profile__value">{Number(treatmentSquareFeet).toLocaleString('en-US')}</p>
+                    </div>
+                  )}
+                  {lead.intake?.latitude != null && (
+                    <div className="send-preview-profile__cell">
+                      <p className="send-preview-profile__label">Coordinates</p>
+                      <p className="send-preview-profile__value">{lead.intake.latitude}, {lead.intake.longitude}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

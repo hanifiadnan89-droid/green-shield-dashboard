@@ -82,4 +82,18 @@ export async function appendLead(lead) {
   return { appended: true };
 }
 
+/** Write replies_last_read_at (column O) for a single row — one API call, no row read. */
+export async function writeRepliesLastReadAt(rowNumber, iso) {
+  if (process.env.TEST_MODE === 'true') return { updated: true, testMode: true };
+  const auth = getAuth();
+  const sheets = google.sheets({ version: 'v4', auth });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAME}!O${rowNumber}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[iso]] },
+  });
+  return { updated: true };
+}
+
 export { COLUMNS, SHEET_NAME };

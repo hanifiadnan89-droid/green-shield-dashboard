@@ -15,6 +15,7 @@ const EASE = [0.22, 1, 0.36, 1];
 export default function SendTemplate({ testMode }) {
   const location   = useLocation();
   const preselected = location.state?.lead || null;
+  const fromIntake = Boolean(location.state?.fromIntake || preselected?.fromIntake);
 
   const [step, setStep]                   = useState(preselected ? 2 : 1);
   const [leads, setLeads]                 = useState([]);
@@ -143,6 +144,7 @@ export default function SendTemplate({ testMode }) {
           <StepChooseTemplate
             selectedLead={selectedLead}
             preselected={preselected}
+            fromIntake={fromIntake}
             highlightedTemplate={highlightedTemplate}
             onHighlightTemplate={setHighlightedTemplate}
             onChangeLead={() => { setSelectedLead(null); setHighlightedTemplate(null); setStep(1); }}

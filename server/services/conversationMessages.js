@@ -118,8 +118,8 @@ function parseTimeMs(value) {
 async function persistReadAtToSheet(rowNumber, iso) {
   if (process.env.TEST_MODE === 'true' || !iso) return;
   try {
-    const { updateLead } = await import('./sheets.js');
-    await updateLead(rowNumber, { replies_last_read_at: iso });
+    const { writeRepliesLastReadAt } = await import('./sheets.js');
+    await writeRepliesLastReadAt(rowNumber, iso);
   } catch (err) {
     console.warn('[conversationMessages] Sheet read-state persist failed:', err.message);
   }

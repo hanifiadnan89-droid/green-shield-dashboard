@@ -46,6 +46,9 @@ import { collectRealRouteFailures } from './validationCalibrationDiagnostics.js'
  * @returns {import('./validationCalibrationDiagnostics.js').RealRouteValidationFailureSummary[]}
  */
 export function resolvePostSafetyGateRealRouteFailures(report) {
+  if (report.comparisonSafetyGateApplied) {
+    return report.realRouteFailures ?? [];
+  }
   const results = report.realRoute?.results;
   if (!Array.isArray(results)) {
     return report.realRouteFailures ?? [];
@@ -72,6 +75,9 @@ export function resolvePostSafetyGateRealRouteFailures(report) {
  * @returns {ValidationCalibrationReport}
  */
 export function normalizeCalibrationReportForSummary(report) {
+  if (report.comparisonSafetyGateApplied) {
+    return report;
+  }
   const routeSummary = report.realRoute?.summary;
   const realRouteFailures = resolvePostSafetyGateRealRouteFailures(report);
 

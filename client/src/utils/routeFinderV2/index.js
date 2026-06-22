@@ -110,6 +110,7 @@ export {
   buildHighConfidenceFailureComparisons,
   buildComparisonTerritoryDiagnostic,
   buildTechnicianScoreSnapshot,
+  comparisonDiagnosticsIndicateCorridorOwnerNotScheduled,
   explainWhyWinnerBeatExpected,
   findMatchInScoringPool,
   findTechnicianScoreSnapshot,
@@ -232,9 +233,14 @@ export {
 
 export {
   applyCorridorOwnerNotScheduledSummarySafetyGate,
+  applyComparisonDiagnosticFailureFilterToReport,
+  applyPrintedComparisonsToCalibrationReports,
+  finalizeCalibrationReportForMultiDateOutput,
   hasCorridorOwnerNotScheduledComparisonDiagnostics,
   isTerritoryDiagnosticNotScheduled,
+  prepareCalibrationReportsForMultiDateSummary,
   reclassifyRealRouteResultAsCorridorOwnerNotScheduled,
+  shouldExcludeFailureFromComparisonDiagnostics,
   shouldReclassifyFailureFromComparisonDiagnostics,
 } from './validationCalibrationSummarySafety.js';
 

@@ -14,6 +14,8 @@ const Followups        = lazy(() => import('./pages/Followups.jsx'));
 const ActivityLog      = lazy(() => import('./pages/ActivityLog.jsx'));
 const ComponentPreview = lazy(() => import('./pages/ComponentPreview.jsx'));
 const RouteFinderPage  = lazy(() => import('./pages/RouteFinder/RouteFinderPage.jsx'));
+const IntakeGate         = lazy(() => import('./pages/Intake/IntakeGate.jsx'));
+const IntakePropertyGate = lazy(() => import('./pages/Intake/IntakePropertyGate.jsx'));
 const AgreementSignPage = lazy(() => import('./pages/AgreementSign/AgreementSignPage.jsx'));
 
 function googleCredsBannerMessage(googleCreds) {
@@ -83,6 +85,8 @@ export default function App() {
         <Route path="/followups" element={<Followups />} />
         <Route path="/activity" element={<ActivityLog />} />
         <Route path="/tools/route-finder" element={<RouteFinderPage />} />
+        <Route path="/intake" element={<IntakeGate />} />
+        <Route path="/intake/property" element={<IntakePropertyGate />} />
         <Route path="/component-preview" element={<ComponentPreview />} />
       </Route>
     </Routes>
