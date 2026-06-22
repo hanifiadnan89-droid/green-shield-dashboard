@@ -232,21 +232,11 @@ function AppSidebar({
       >
         <div className="sidebar-brand shrink-0">
           <div className="sidebar-brand__stack">
-            <div className="sidebar-brand__mark">
-              <img
-                src="/green-shield-logo.png"
-                alt=""
-                className="sidebar-brand__logo"
-              />
-            </div>
-            <div className="sidebar-brand__copy">
-              <p className="sidebar-brand__title">
-                <span className="sidebar-brand__title-green">Green</span>
-                {' '}
-                <span className="sidebar-brand__title-shield">Shield</span>
-              </p>
-              <p className="sidebar-brand__sub">Pest Solutions</p>
-            </div>
+            <img
+              src="/green-shield-logo-sidebar.png"
+              alt="Green Shield Pest Solutions"
+              className="sidebar-brand__logo"
+            />
           </div>
           <button
             className="sidebar-brand__close lg:hidden"
