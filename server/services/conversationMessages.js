@@ -116,11 +116,18 @@ function parseTimeMs(value) {
 }
 
 async function persistReadAtToSheet(rowNumber, iso) {
-  if (process.env.TEST_MODE === 'true' || !iso) return;
+  console.log(`[READ-DIAG] persistReadAtToSheet entry: rowNumber=${rowNumber} iso=${iso}`);
+  if (process.env.TEST_MODE === 'true' || !iso) {
+    console.log(`[READ-DIAG] persistReadAtToSheet skipped: TEST_MODE=${process.env.TEST_MODE} iso=${iso}`);
+    return;
+  }
   try {
-    const { writeRepliesLastReadAt } = await import('./sheets.js');
-    await writeRepliesLastReadAt(rowNumber, iso);
+    console.log(`[READ-DIAG] persistReadAtToSheet calling updateLead: rowNumber=${rowNumber}`);
+    const { updateLead } = await import('./sheets.js');
+    await updateLead(rowNumber, { replies_last_read_at: iso });
+    console.log(`[READ-DIAG] persistReadAtToSheet updateLead success: rowNumber=${rowNumber}`);
   } catch (err) {
+    console.warn(`[READ-DIAG] persistReadAtToSheet updateLead FAILED: rowNumber=${rowNumber} err=${err.message}`);
     console.warn('[conversationMessages] Sheet read-state persist failed:', err.message);
   }
 }
@@ -250,9 +257,13 @@ export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
     ? { inboundKey: inboundKeyOrOptions }
     : (inboundKeyOrOptions || {});
 
+  console.log(`[READ-DIAG] markThreadRead entry: rowNumber=${rowNumber} markAllInbound=${!!options.markAllInbound} inboundKey=${options.inboundKey || '(none)'}`);
+
   const store = readStore();
   const thread = getThread(store, rowNumber);
   const messages = sortMessages((thread.messages || []).map(normalizeMessage).filter(Boolean));
+
+  console.log(`[READ-DIAG] markThreadRead state: rowNumber=${rowNumber} thread.messages.length=${messages.length} thread.lastReadAt=${thread.lastReadAt}`);
 
   let inboundKey = options.inboundKey || getLatestInboundReadKey(messages);
   const latestInbound = getLatestInbound(messages);
@@ -260,7 +271,10 @@ export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
   const lastReadAt = options.lastReadAt
     || (inboundMs != null ? new Date(inboundMs).toISOString() : new Date().toISOString());
 
+  console.log(`[READ-DIAG] markThreadRead resolved: rowNumber=${rowNumber} inboundKey=${inboundKey || '(null)'} latestInbound.ts=${latestInbound?.ts || '(null)'} lastReadAt=${lastReadAt}`);
+
   if (!inboundKey && !latestInbound) {
+    console.warn(`[READ-DIAG] markThreadRead THROWING: rowNumber=${rowNumber} no inbound messages found`);
     throw new Error('No inbound message to mark read');
   }
 
@@ -297,6 +311,7 @@ export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
 
 /** Mark every current inbound message in the thread as read (opening a conversation). */
 export async function markAllInboundRead(rowNumber) {
+  console.log(`[READ-DIAG] markAllInboundRead entry: rowNumber=${rowNumber}`);
   return markThreadRead(rowNumber, { markAllInbound: true });
 }
 

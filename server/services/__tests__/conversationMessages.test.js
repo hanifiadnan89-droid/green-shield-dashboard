@@ -130,18 +130,20 @@ describe('conversationMessages', () => {
     expect(messages.some(m => m.direction === 'inbound' && m.body === 'Thanks')).toBe(true);
   });
 
-  it('persistReadAtToSheet uses writeRepliesLastReadAt, not updateLead', async () => {
+  it('persistReadAtToSheet uses updateLead with replies_last_read_at', async () => {
     const lead = { row_number: 200, name: 'Dana', sent: '2024-06-01T10:00:00.000Z', notes: 'na' };
     mod.syncLeadMessages({ ...lead, sms_reply: 'Need help' });
     const messages = mod.getMessagesForLead(200);
     const readKey = mod.getLatestInboundReadKey(messages);
     await mod.markThreadRead(200, readKey);
 
-    expect(mockWriteRepliesLastReadAt).toHaveBeenCalled();
-    expect(mockUpdateLead).not.toHaveBeenCalled();
+    expect(mockUpdateLead).toHaveBeenCalled();
+    const [calledRowNumber, calledUpdates] = mockUpdateLead.mock.calls[0];
+    expect(calledRowNumber).toBe(200);
+    expect(typeof calledUpdates.replies_last_read_at).toBe('string');
   });
 
-  it('persistReadAtToSheet writes the correct row number and ISO timestamp to column O', async () => {
+  it('persistReadAtToSheet passes the inbound message timestamp as replies_last_read_at', async () => {
     const lead = { row_number: 201, name: 'Morgan', sent: '2024-06-01T10:00:00.000Z', notes: 'na' };
     mod.syncLeadMessages({ ...lead, sms_reply: 'Call me' });
     const messages = mod.getMessagesForLead(201);
@@ -149,9 +151,8 @@ describe('conversationMessages', () => {
     const readKey = mod.getLatestInboundReadKey(messages);
     await mod.markThreadRead(201, readKey);
 
-    const [calledRowNumber, calledIso] = mockWriteRepliesLastReadAt.mock.calls[0];
-    expect(calledRowNumber).toBe(201);
-    expect(calledIso).toBe(latestInbound.ts);
+    const [, calledUpdates] = mockUpdateLead.mock.calls[0];
+    expect(calledUpdates.replies_last_read_at).toBe(latestInbound.ts);
   });
 
   it('read state survives JSON deletion when replies_last_read_at is in the sheet', async () => {
