@@ -1,6 +1,6 @@
 import { useState, useEffect, memo } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Shield, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { SIDEBAR_NAV } from './sidebarNav.js';
 import { prefetchRoute } from '../utils/routePrefetch.js';
 import { isIntakeEnabled } from '../utils/intake/intakeFeatureFlag.js';
@@ -231,27 +231,33 @@ function AppSidebar({
         ].join(' ')}
       >
         <div className="sidebar-brand shrink-0">
-          <div className="sidebar-brand__row">
-            <div className="sidebar-brand__icon">
-              <Shield size={20} />
+          <div className="sidebar-brand__stack">
+            <div className="sidebar-brand__mark">
+              <img
+                src="/green-shield-logo.png"
+                alt=""
+                className="sidebar-brand__logo"
+              />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="sidebar-brand__title">GREEN SHIELD</p>
-              <p className="sidebar-brand__sub">Pest Solutions CRM</p>
+            <div className="sidebar-brand__copy">
+              <p className="sidebar-brand__title">
+                <span className="sidebar-brand__title-green">Green</span>
+                {' '}
+                <span className="sidebar-brand__title-shield">Shield</span>
+              </p>
+              <p className="sidebar-brand__sub">Pest Solutions</p>
             </div>
-            <button
-              className="lg:hidden flex items-center justify-center w-7 h-7 rounded-lg cursor-pointer shrink-0"
-              style={{ background: 'rgba(255,255,255,0.06)' }}
-              onClick={() => setMobileOpen(false)}
-              aria-label="Close navigation"
-            >
-              <X size={13} style={{ color: 'rgba(255,255,255,0.55)' }} />
-            </button>
           </div>
-          <span className="sidebar-brand__badge">Enterprise Edition</span>
+          <button
+            className="sidebar-brand__close lg:hidden"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation"
+          >
+            <X size={13} style={{ color: 'rgba(255,255,255,0.55)' }} />
+          </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+        <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3 space-y-4">
           {visibleSidebarNav().map(({ group, items }) => (
             <div key={group}>
               <p className="sidebar-group-label">{group}</p>
@@ -262,19 +268,10 @@ function AppSidebar({
           ))}
         </nav>
 
-        <div className="shrink-0 pb-3">
+        <div className="sidebar-footer shrink-0 px-3 pb-4 pt-2">
           <div className={`sidebar-mode-pill${testMode ? ' is-test' : ''}`}>
             <span className="sidebar-mode-pill__dot" />
             <span className="sidebar-mode-pill__label">{testMode ? 'Test Mode' : 'Live Mode'}</span>
-          </div>
-
-          <div className="sidebar-user-card">
-            <div className="sidebar-user-card__avatar">GS</div>
-            <div className="min-w-0">
-              <p className="sidebar-user-card__name">Sales Representative</p>
-              <p className="sidebar-user-card__role">Field Sales · Green Shield</p>
-              <p className="sidebar-user-card__email">sales@gshieldpest.com</p>
-            </div>
           </div>
         </div>
       </aside>
