@@ -98,6 +98,16 @@ app.use(express.json());
 // Customer e-sign routes (no dashboard login)
 app.use('/api/signing/public', signingPublicRouter);
 
+// Serve static assets and the signing page BEFORE the dashboard auth wall.
+// Static bundles (JS/CSS) contain no sensitive data — API responses are what's protected.
+// /sign/:token must be reachable by customers who have no dashboard credentials.
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('/sign/:token', (req, res) => {
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
 app.use(requireDashboardLogin);
 
 app.get('/api/health', (req, res) => {
@@ -133,9 +143,8 @@ app.use('/api/geocode', geocodeRouter);
 app.use('/api/intake', intakeRouter);
 app.use('/api/messages', messagesRouter);
 
+// Dashboard SPA catch-all — after auth, so direct navigation to /leads etc. requires login.
 if (fs.existsSync(clientDistPath)) {
-  app.use(express.static(clientDistPath));
-
   app.get('*', (req, res) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));
   });
