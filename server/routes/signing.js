@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { generateIcs } from '../services/icsGenerator.js';
 import { appendLog } from '../services/activity.js';
 import { updateLead } from '../services/sheets.js';
 import {
@@ -83,6 +84,21 @@ publicRouter.get('/:token/document.pdf', async (req, res) => {
     res.send(bytes);
   } catch {
     res.status(404).json({ error: 'Document not available' });
+  }
+});
+
+publicRouter.get('/:token/calendar.ics', async (req, res) => {
+  try {
+    const session = await loadSigningSession(req.params.token);
+    if (!session || !session.calendarParams) return res.status(404).json({ error: 'Calendar not found' });
+    if (isSigningSessionExpired(session)) return res.status(410).json({ error: 'Link expired' });
+    const ics = generateIcs(session.calendarParams);
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="green-shield-appointment.ics"`);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(ics.content);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
