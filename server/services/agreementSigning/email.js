@@ -14,14 +14,11 @@ export function buildSigningRequestEmailHtml({
   agreementLabel = 'service',
   hasPrepGuide,
   includePreview,
+  calendarUrl = null,
 }) {
-  const attachmentText = hasPrepGuide
-    ? `your ${agreementLabel} agreement and preparation guide`
-    : `your ${agreementLabel} agreement`;
-
   const previewBlock = includePreview
     ? `
-          <div style="margin:0 0 20px;">
+          <div style="margin:0 0 24px;">
             <img
               src="cid:quote-agreement-preview"
               alt="Agreement preview"
@@ -30,22 +27,21 @@ export function buildSigningRequestEmailHtml({
           </div>`
     : '';
 
+  const BTN_BASE = 'display:inline-block;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:8px;font-size:15px;color:#fff;';
+  const signBtn = `<a href="${signUrl}" style="${BTN_BASE}background:#148A43;">Review &amp; Sign Agreement</a>`;
+  const calBtn  = calendarUrl
+    ? `<a href="${calendarUrl}" style="${BTN_BASE}background:#1a73e8;margin-left:10px;">Add To Calendar</a>`
+    : '';
+
   return `
         <div style="font-family:Arial,sans-serif;max-width:${BED_BUG_EMAIL_PREVIEW_MAX_WIDTH_PX}px;color:#1a1a1a">
           <p>Hi ${firstName},</p>
           ${previewBlock}
-          <p>Please review and sign ${attachmentText} using the secure link below.</p>
-          <p style="margin:24px 0;">
-            <a href="${signUrl}"
-               style="display:inline-block;background:#148A43;color:#fff;text-decoration:none;font-weight:bold;padding:14px 24px;border-radius:8px;font-size:16px;">
-              Review &amp; Sign Agreement
-            </a>
-          </p>
+          <p style="margin:0 0 24px;">${signBtn}${calBtn}</p>
           <p style="font-size:14px;color:#555;">
             On the signing page you can add your initials, signature, and date, then submit.
             A signed PDF copy will be emailed to you for your records.
           </p>
-          <p style="font-size:13px;color:#777;word-break:break-all;">Or copy this link: ${signUrl}</p>
           <p>If you have any questions, reply here or call <strong>(207) 815-2234</strong>.</p>
           <br>
           ${COMPANY_FOOTER}
@@ -95,7 +91,7 @@ export async function sendSigningRequestEmail({
   hasPrepGuide,
   previewPngBuffer,
   prepGuideAttachments = [],
-  calendarAttachment = null,
+  calendarUrl = null,
 }) {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -112,15 +108,12 @@ export async function sendSigningRequestEmail({
       contentType: 'image/png',
     });
   }
-  if (calendarAttachment) {
-    attachments.push(calendarAttachment);
-  }
 
   await transporter.sendMail({
     from: `Green Shield Pest Solutions <${process.env.GMAIL_USER}>`,
     to,
     subject: 'Please Review & Sign Your Green Shield Agreement',
-    html: buildSigningRequestEmailHtml({ firstName, signUrl, agreementLabel, hasPrepGuide, includePreview }),
+    html: buildSigningRequestEmailHtml({ firstName, signUrl, agreementLabel, hasPrepGuide, includePreview, calendarUrl }),
     attachments,
   });
 }

@@ -20,7 +20,7 @@ import { buildTickMosquitoMonthlyAgreementPdf } from '../services/tickMosquitoMo
 import { isTickMosquitoMonthlyVectorPdfEnabled } from '../services/tickMosquitoMonthlyVectorPdfFlag.js';
 import { createAgreementSigningSession, getAgreementTypeLabel, resolveAgreementType } from '../services/agreementSigning/agreementSigning.js';
 import { sendSigningRequestEmail } from '../services/agreementSigning/email.js';
-import { readPreviewPng } from '../services/agreementSigning/storage.js';
+import { readPreviewPng, updateSigningSession, publicSigningBaseUrl } from '../services/agreementSigning/storage.js';
 import { appendLog } from '../services/activity.js';
 import { updateLead } from '../services/sheets.js';
 import {
@@ -39,7 +39,7 @@ import {
   resolveQuoteTemplateFilename,
 } from '../services/quoteDocumentsList.js';
 import { applyCustomerFriendlyViewerPreferences } from '../services/pdf/customerViewerPreferences.js';
-import { generateIcs, buildIcsAttachment } from '../services/icsGenerator.js';
+import { generateIcs } from '../services/icsGenerator.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
@@ -837,21 +837,15 @@ router.post('/email-quote', async (req, res) => {
     const agreementType = resolveAgreementType({ templateName, serviceType });
     const useSigningFlow = Boolean(lead.email);
 
-    let calendarAttachment = null;
+    let calendarParams = null;
     if (calendarInvite && appointmentDate) {
-      try {
-        const location = [address.street, address.cityState].filter(Boolean).join(', ');
-        const ics = generateIcs({
-          appointmentDate,
-          appointmentWindow,
-          location: location || undefined,
-          uid: lead.row_number || 'treatment',
-        });
-        calendarAttachment = buildIcsAttachment(ics);
-        console.log(`[email-quote] Calendar invite generated: ${ics.filename} (isAllDay=${ics.isAllDay})`);
-      } catch (err) {
-        console.warn('[email-quote] Calendar invite generation failed:', err.message);
-      }
+      const location = [address.street, address.cityState].filter(Boolean).join(', ');
+      calendarParams = {
+        appointmentDate,
+        appointmentWindow,
+        location: location || undefined,
+        uid: lead.row_number || 'treatment',
+      };
     }
 
     if (useSigningFlow) {
@@ -887,6 +881,12 @@ router.post('/email-quote', async (req, res) => {
         previewPngBuffer = null;
       }
 
+      let calendarUrl = null;
+      if (calendarParams) {
+        await updateSigningSession(session.token, { calendarParams });
+        calendarUrl = `${publicSigningBaseUrl(req)}/api/signing/public/${session.token}/calendar.ics`;
+      }
+
       const firstName = (lead.name || '').split(' ')[0] || 'there';
       const agreementLabel = getAgreementTypeLabel(agreementType);
       await sendSigningRequestEmail({
@@ -897,7 +897,7 @@ router.post('/email-quote', async (req, res) => {
         hasPrepGuide: prepGuideAttached.length > 0,
         previewPngBuffer,
         prepGuideAttachments,
-        calendarAttachment,
+        calendarUrl,
       });
 
       appendLog({
@@ -939,7 +939,6 @@ router.post('/email-quote', async (req, res) => {
     for (const pgAttachment of prepGuideAttachments) {
       attachments.push(pgAttachment);
     }
-    if (calendarAttachment) attachments.push(calendarAttachment);
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
