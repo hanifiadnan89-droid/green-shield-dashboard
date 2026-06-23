@@ -492,6 +492,41 @@ export default function QuoteDocumentsSection({
                 </p>
               )}
             </div>
+
+            <div className="send-preview-pricing-edit">
+              <p className="send-preview-pricing-edit__title flex items-center gap-1.5">
+                <Calendar size={12} className="text-gs-accent" aria-hidden="true" />
+                Appointment scheduling
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
+                    Appointment date
+                  </label>
+                  <input
+                    type="date"
+                    className="send-command-input text-sm"
+                    value={appointmentDate}
+                    onChange={e => setAppointmentDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
+                    Appointment window
+                  </label>
+                  <input
+                    type="text"
+                    className="send-command-input text-sm"
+                    placeholder="e.g. 8:00 AM – 11:00 AM"
+                    value={appointmentWindow}
+                    onChange={e => setAppointmentWindow(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-gs-muted mt-1.5">
+                Required for calendar invite — optional for agreement only.
+              </p>
+            </div>
           </>
         )}
 
@@ -582,61 +617,26 @@ export default function QuoteDocumentsSection({
 
         {/* Send Agreement + Calendar Invite */}
         {useSigningFlow && selected && !bedBugEmailDisabled && (
-          <div className="border-t border-gs-border pt-2 space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gs-muted flex items-center gap-1.5">
-              <Calendar size={10} aria-hidden /> Calendar Invite (sold customers)
-            </p>
-            <div className="space-y-1.5">
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
-                  Appointment date
-                </label>
-                <input
-                  type="date"
-                  className="send-command-input text-sm"
-                  value={appointmentDate}
-                  onChange={e => setAppointmentDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
-                  Appointment window
-                </label>
-                <input
-                  type="text"
-                  className="send-command-input text-sm"
-                  placeholder="e.g. 8:00 AM – 11:00 AM"
-                  value={appointmentWindow}
-                  onChange={e => setAppointmentWindow(e.target.value)}
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleEmailWithCalendar}
-              disabled={!selected || !lead?.email || emailing || generating || previewing || emailBlocked}
-              title={
-                !lead?.email ? 'No email address on this lead'
-                : !appointmentDate ? 'Enter appointment date above'
-                : !appointmentWindow.trim() ? 'Enter appointment window above'
+          <button
+            onClick={handleEmailWithCalendar}
+            disabled={!selected || !lead?.email || emailing || generating || previewing || emailBlocked}
+            title={
+              !lead?.email ? 'No email address on this lead'
+              : !appointmentDate ? 'Enter appointment date in the scheduling section above'
+              : !appointmentWindow.trim() ? 'Enter appointment window in the scheduling section above'
+              : ''
+            }
+            className={`send-launch-cta text-xs ${
+              !selected || !lead?.email || emailing || generating || previewing || emailBlocked || !appointmentDate || !appointmentWindow.trim()
+                ? 'opacity-40 cursor-not-allowed'
                 : ''
-              }
-              className={`send-launch-cta text-xs ${
-                !selected || !lead?.email || emailing || generating || previewing || emailBlocked
-                  ? 'opacity-40 cursor-not-allowed'
-                  : ''
-              }`}
-            >
-              {emailing
-                ? <><Spinner size={12} /> Sending...</>
-                : <><Calendar size={12} /> Email Signing Link + Calendar to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
-              }
-            </button>
-            {(!appointmentDate || !appointmentWindow.trim()) && lead?.email && selected && (
-              <p className="text-[10px] text-gs-muted text-center flex items-center justify-center gap-1">
-                <AlertTriangle size={9} /> Enter date and window to enable calendar invite
-              </p>
-            )}
-          </div>
+            }`}
+          >
+            {emailing
+              ? <><Spinner size={12} /> Sending...</>
+              : <><Calendar size={12} /> Email Signing Link + Calendar to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
+            }
+          </button>
         )}
 
         {bedBugEmailDisabled && selected && isBedBug && (
