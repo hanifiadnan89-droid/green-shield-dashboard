@@ -10,6 +10,31 @@ function todayIsoDate() {
   return local.toISOString().slice(0, 10);
 }
 
+function deriveInitials(name) {
+  if (!name) return '';
+  return name.trim().split(/\s+/)
+    .filter(p => /^[a-zA-Z]/.test(p))
+    .map(p => p[0].toUpperCase())
+    .slice(0, 3)
+    .join('');
+}
+
+function initialsToDataUrl(text) {
+  if (!text) return null;
+  const c = document.createElement('canvas');
+  c.width = 320;
+  c.height = 120;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#111827';
+  ctx.font = 'bold 68px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, c.width / 2, c.height / 2);
+  return c.toDataURL('image/png');
+}
+
 async function fetchSigningSession(token) {
   const res = await fetch(`/api/signing/public/${encodeURIComponent(token)}`);
   const data = await res.json().catch(() => ({}));
@@ -36,11 +61,20 @@ export default function AgreementSignPage() {
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
 
+  // Feature 1: tap-to-enlarge preview
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Feature 2: text-based initials (no drawing required)
+  const [initialsText, setInitialsText] = useState('');
+  const [initialsEditMode, setInitialsEditMode] = useState(false);
   const [initialsPng, setInitialsPng] = useState(null);
+
+  // Signature: still drawn
   const [signaturePng, setSignaturePng] = useState(null);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+
   const [signatureDate, setSignatureDate] = useState(todayIsoDate());
   const [consentAccepted, setConsentAccepted] = useState(false);
-  const [activePad, setActivePad] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +85,12 @@ export default function AgreementSignPage() {
         if (cancelled) return;
         setSession(data);
         setCompleted(data.status === 'signed');
+        // Auto-derive initials from customer name — no drawing needed
+        const derived = deriveInitials(data.customerName);
+        if (derived) {
+          setInitialsText(derived);
+          setInitialsPng(initialsToDataUrl(derived));
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -65,6 +105,13 @@ export default function AgreementSignPage() {
     () => (session?.hasPreview ? `/api/signing/public/${token}/preview.png` : null),
     [session?.hasPreview, token],
   );
+
+  function applyInitialsText() {
+    const text = initialsText.trim().toUpperCase();
+    if (!text) return;
+    setInitialsPng(initialsToDataUrl(text));
+    setInitialsEditMode(false);
+  }
 
   const canSubmit = Boolean(
     initialsPng
@@ -85,6 +132,7 @@ export default function AgreementSignPage() {
         signaturePng,
         signatureDate,
         consentAccepted: true,
+        typedInitials: initialsText,
       });
       setCompleted(true);
       setSession((prev) => ({ ...prev, status: 'signed' }));
@@ -148,33 +196,108 @@ export default function AgreementSignPage() {
           </div>
         ) : null}
 
+        {/* Feature 1: tappable preview with fullscreen lightbox */}
         {previewUrl ? (
-          <div className="agreement-sign-page__preview">
-            <img src={previewUrl} alt="Agreement preview" />
-          </div>
+          <>
+            <button
+              type="button"
+              className="agreement-sign-page__preview agreement-sign-page__preview--tap"
+              onClick={() => setPreviewOpen(true)}
+              aria-label="Tap to enlarge agreement preview"
+            >
+              <img src={previewUrl} alt="Agreement preview" />
+              <span className="agreement-sign-page__preview-hint">Tap to enlarge &amp; review</span>
+            </button>
+
+            {previewOpen ? (
+              <div
+                className="agreement-sign-page__lightbox"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Agreement preview"
+              >
+                <button
+                  type="button"
+                  className="agreement-sign-page__lightbox-close"
+                  onClick={() => setPreviewOpen(false)}
+                  aria-label="Close preview"
+                >
+                  ✕
+                </button>
+                <div className="agreement-sign-page__lightbox-body">
+                  <img src={previewUrl} alt="Agreement preview" />
+                  <a
+                    href={`/api/signing/public/${token}/document.pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="agreement-sign-page__lightbox-pdf"
+                  >
+                    View full PDF
+                  </a>
+                </div>
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         {!completed && session?.status === 'pending' && !session?.expired ? (
           <div className="agreement-sign-page__panel">
             <h2>Sign your agreement</h2>
             <p>
-              Tap each field below to add your initials, signature, and signing date.
-              When everything is complete, submit the agreement.
+              Review the agreement above, then complete the fields below and submit.
             </p>
 
             <div className="agreement-sign-page__fields">
-              <div className={`agreement-sign-page__field ${initialsPng ? 'agreement-sign-page__field--done' : ''}`}>
+              {/* Feature 2: initials auto-filled from customer name — no drawing needed */}
+              <div className={`agreement-sign-page__field ${initialsPng && !initialsEditMode ? 'agreement-sign-page__field--done' : ''}`}>
                 <div className="agreement-sign-page__field-label">Customer Initials</div>
-                <div className="agreement-sign-page__field-preview">
-                  {initialsPng
-                    ? <img src={initialsPng} alt="Initials preview" />
-                    : <span>Tap to add initials</span>}
-                </div>
-                <button type="button" onClick={() => setActivePad('initials')}>
-                  {initialsPng ? 'Edit Initials' : 'Add Initials'}
-                </button>
+
+                {initialsEditMode || !initialsPng ? (
+                  <div className="agreement-sign-page__initials-edit">
+                    <input
+                      type="text"
+                      className="agreement-sign-page__initials-input"
+                      value={initialsText}
+                      maxLength={4}
+                      placeholder="e.g. MS"
+                      autoCapitalize="characters"
+                      onChange={(e) => setInitialsText(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === 'Enter' && applyInitialsText()}
+                    />
+                    <button
+                      type="button"
+                      className="agreement-sign-page__initials-apply"
+                      disabled={!initialsText.trim()}
+                      onClick={applyInitialsText}
+                    >
+                      Apply Initials
+                    </button>
+                    {initialsEditMode ? (
+                      <button
+                        type="button"
+                        className="agreement-sign-page__initials-cancel"
+                        onClick={() => setInitialsEditMode(false)}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <>
+                    <div className="agreement-sign-page__field-preview">
+                      <img src={initialsPng} alt="Your initials" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInitialsEditMode(true)}
+                    >
+                      Edit Initials
+                    </button>
+                  </>
+                )}
               </div>
 
+              {/* Signature — still drawn */}
               <div className={`agreement-sign-page__field ${signaturePng ? 'agreement-sign-page__field--done' : ''}`}>
                 <div className="agreement-sign-page__field-label">Customer Signature</div>
                 <div className="agreement-sign-page__field-preview">
@@ -182,7 +305,7 @@ export default function AgreementSignPage() {
                     ? <img src={signaturePng} alt="Signature preview" />
                     : <span>Tap to sign</span>}
                 </div>
-                <button type="button" onClick={() => setActivePad('signature')}>
+                <button type="button" onClick={() => setShowSignaturePad(true)}>
                   {signaturePng ? 'Edit Signature' : 'Add Signature'}
                 </button>
               </div>
@@ -223,23 +346,23 @@ export default function AgreementSignPage() {
         ) : null}
       </div>
 
-      {activePad ? (
+      {/* Signature pad modal — only for the drawn signature */}
+      {showSignaturePad ? (
         <div className="agreement-sign-page__modal-backdrop" role="presentation">
           <div className="agreement-sign-page__modal" role="dialog" aria-modal="true">
             <SignaturePad
-              label={activePad === 'initials' ? 'Draw your initials' : 'Draw your signature'}
+              label="Draw your signature"
               hint="Use your finger or mouse, then tap Done."
-              height={activePad === 'initials' ? 120 : 180}
+              height={180}
               onDone={(dataUrl) => {
-                if (activePad === 'initials') setInitialsPng(dataUrl);
-                else setSignaturePng(dataUrl);
-                setActivePad(null);
+                setSignaturePng(dataUrl);
+                setShowSignaturePad(false);
               }}
             />
             <button
               type="button"
               className="agreement-sign-page__modal-close"
-              onClick={() => setActivePad(null)}
+              onClick={() => setShowSignaturePad(false)}
             >
               Cancel
             </button>

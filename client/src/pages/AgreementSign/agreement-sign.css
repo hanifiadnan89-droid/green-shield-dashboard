@@ -55,6 +55,88 @@
   height: auto;
 }
 
+/* Feature 1: tappable preview */
+.agreement-sign-page__preview--tap {
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  transition: box-shadow 0.15s ease;
+}
+
+.agreement-sign-page__preview--tap:hover,
+.agreement-sign-page__preview--tap:focus-visible {
+  box-shadow: 0 8px 30px rgba(16, 32, 24, 0.14);
+  outline: none;
+}
+
+.agreement-sign-page__preview-hint {
+  display: block;
+  text-align: center;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #148a43;
+  background: #f2fbf5;
+  border-top: 1px solid #d7e3d8;
+  letter-spacing: 0.01em;
+}
+
+/* Lightbox (fullscreen preview modal) */
+.agreement-sign-page__lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 100;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.agreement-sign-page__lightbox-close {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 101;
+  display: grid;
+  place-items: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.agreement-sign-page__lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.agreement-sign-page__lightbox-body {
+  padding: 56px 0 40px;
+}
+
+.agreement-sign-page__lightbox-body img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.agreement-sign-page__lightbox-pdf {
+  display: block;
+  text-align: center;
+  padding: 20px 16px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  text-decoration: underline;
+}
+
 .agreement-sign-page__panel {
   background: #fff;
   border: 1px solid #d7e3d8;
@@ -273,4 +355,59 @@
 .signature-pad__primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Feature 2: initials text entry */
+.agreement-sign-page__initials-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agreement-sign-page__initials-input {
+  width: 100%;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-align: center;
+  text-transform: uppercase;
+  color: #111827;
+  box-sizing: border-box;
+}
+
+.agreement-sign-page__initials-input:focus {
+  outline: none;
+  border-color: #148a43;
+  box-shadow: 0 0 0 2px rgba(20, 138, 67, 0.18);
+}
+
+.agreement-sign-page__initials-apply {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #148a43;
+  color: #fff;
+}
+
+.agreement-sign-page__initials-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.agreement-sign-page__initials-cancel {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.9rem;
 }
