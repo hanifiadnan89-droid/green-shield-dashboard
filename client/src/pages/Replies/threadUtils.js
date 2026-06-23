@@ -44,17 +44,18 @@ export function buildThreadWithDateDividers(thread) {
   const items = [];
   let lastDateKey = null;
   for (const msg of display) {
-    if (!msg.ts) {
+    const displayTs = msg.receivedAt || msg.ts;
+    if (!displayTs) {
       items.push({ type: 'message', msg });
       continue;
     }
-    const d = new Date(msg.ts);
+    const d = new Date(displayTs);
     if (Number.isNaN(d.getTime())) {
       items.push({ type: 'message', msg });
       continue;
     }
-    const label = formatDateSeparator(msg.ts);
-    const dateKey = label || msg.ts;
+    const label = formatDateSeparator(displayTs);
+    const dateKey = label || displayTs;
     if (dateKey && dateKey !== lastDateKey) {
       lastDateKey = dateKey;
       items.push({ type: 'date', id: `date-${dateKey}-${msg.id}`, label });
@@ -203,6 +204,7 @@ export function mapServerMessage(m) {
     channel: m.channel || 'sms',
     text: m.body,
     ts: m.ts,
+    receivedAt: m.receivedAt || null,
     sender: m.sender,
     status: m.status,
     isTemplate,
@@ -297,10 +299,12 @@ export function buildThread(lead, history, serverMessages) {
 }
 
 function compareByTs(a, b) {
-  if (!a.ts && !b.ts) return 0;
-  if (!a.ts) return 1;
-  if (!b.ts) return -1;
-  return new Date(a.ts) - new Date(b.ts);
+  const ta = a.receivedAt || a.ts;
+  const tb = b.receivedAt || b.ts;
+  if (!ta && !tb) return 0;
+  if (!ta) return 1;
+  if (!tb) return -1;
+  return new Date(ta) - new Date(tb);
 }
 
 export function getLatestInbound(messages) {

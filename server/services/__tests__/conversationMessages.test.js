@@ -174,6 +174,35 @@ describe('conversationMessages', () => {
     expect(mod.getThreadMeta(202, lead).unread).toBe(false);
   });
 
+  it('new inbound message gets receivedAt set to a current ISO timestamp', () => {
+    const before = Date.now();
+    const lead = { row_number: 300, name: 'Test', sent: '2024-06-01T10:00:00.000Z', notes: 'na', sms_reply: 'Fresh reply' };
+    mod.syncLeadMessages(lead);
+    const messages = mod.getMessagesForLead(300);
+    const inbound = messages.find(m => m.direction === 'inbound');
+    expect(inbound?.receivedAt).toBeTruthy();
+    expect(new Date(inbound.receivedAt).getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  it('re-sync preserves existing receivedAt for unchanged inbound', () => {
+    const lead = { row_number: 301, name: 'Test2', sent: '2024-06-01T10:00:00.000Z', notes: 'na', sms_reply: 'Same reply' };
+    mod.syncLeadMessages(lead);
+    const first = mod.getMessagesForLead(301).find(m => m.direction === 'inbound');
+    const firstReceivedAt = first?.receivedAt;
+    mod.syncLeadMessages(lead);
+    const second = mod.getMessagesForLead(301).find(m => m.direction === 'inbound');
+    expect(second?.receivedAt).toBe(firstReceivedAt);
+  });
+
+  it('getConversationPreview uses receivedAt for lastAt when available', () => {
+    const lead = { row_number: 302, name: 'Test3', sent: '2024-06-01T10:00:00.000Z', notes: 'na', sms_reply: 'Reply text' };
+    mod.syncLeadMessages(lead);
+    const messages = mod.getMessagesForLead(302);
+    const inbound = messages.find(m => m.direction === 'inbound');
+    const preview = mod.getConversationPreview(messages);
+    expect(preview.lastAt).toBe(inbound.receivedAt);
+  });
+
   it('thread shows unread after JSON deletion when replies_last_read_at is absent', () => {
     const lead = {
       row_number: 203,

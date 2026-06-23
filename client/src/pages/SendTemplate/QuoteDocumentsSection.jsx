@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Send, CheckCircle, FileText, ExternalLink, Check, AlertTriangle, MapPin, Eye } from 'lucide-react';
+import { Send, CheckCircle, FileText, ExternalLink, Check, AlertTriangle, MapPin, Eye, Calendar } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Spinner from '../../components/Spinner.jsx';
 import { formatMoney, computeFinalQuote } from './previewSendUtils.js';
@@ -39,6 +39,8 @@ export default function QuoteDocumentsSection({
   const [signingSessions, setSigningSessions] = useState([]);
   const [genError, setGenError]       = useState(null);
   const [missing, setMissing]         = useState(false);
+  const [appointmentDate, setAppointmentDate]     = useState('');
+  const [appointmentWindow, setAppointmentWindow] = useState('');
 
   const isBedBug = selected?.templateKind === 'bed_bug' || selected?.name === 'Bed Bug.pdf';
   const useSigningFlow = Boolean(lead?.email);
@@ -237,11 +239,30 @@ export default function QuoteDocumentsSection({
     setEmailResult(null);
     try {
       const result = await api.documents.emailQuote(buildPayload({ previewVerified: true }));
-      setEmailResult({
-        ok: true,
-        to: lead.email,
-        signing: result.signing || null,
-      });
+      setEmailResult({ ok: true, to: lead.email, signing: result.signing || null });
+    } catch (err) {
+      setEmailResult({ ok: false, error: err.message });
+    } finally {
+      setEmailing(false);
+    }
+  }
+
+  async function handleEmailWithCalendar() {
+    if (!selected || !lead?.email) return;
+    if (!appointmentDate) { setGenError('Enter an appointment date for the calendar invite.'); return; }
+    if (!appointmentWindow.trim()) { setGenError('Enter an appointment window (e.g. 8:00 AM – 11:00 AM).'); return; }
+    if (isBedBug && !previewVerified) { setGenError('Preview the Bed Bug agreement PDF before emailing.'); return; }
+    setEmailing(true);
+    setGenError(null);
+    setEmailResult(null);
+    try {
+      const result = await api.documents.emailQuote(buildPayload({
+        previewVerified: true,
+        calendarInvite: true,
+        appointmentDate,
+        appointmentWindow: appointmentWindow.trim(),
+      }));
+      setEmailResult({ ok: true, to: lead.email, signing: result.signing || null, hasCalendar: true });
     } catch (err) {
       setEmailResult({ ok: false, error: err.message });
     } finally {
@@ -471,6 +492,41 @@ export default function QuoteDocumentsSection({
                 </p>
               )}
             </div>
+
+            <div className="send-preview-pricing-edit">
+              <p className="send-preview-pricing-edit__title flex items-center gap-1.5">
+                <Calendar size={12} className="text-gs-accent" aria-hidden="true" />
+                Appointment scheduling
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
+                    Appointment date
+                  </label>
+                  <input
+                    type="date"
+                    className="send-command-input text-sm"
+                    value={appointmentDate}
+                    onChange={e => setAppointmentDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-gs-muted mb-1 block">
+                    Appointment window
+                  </label>
+                  <input
+                    type="text"
+                    className="send-command-input text-sm"
+                    placeholder="e.g. 8:00 AM – 11:00 AM"
+                    value={appointmentWindow}
+                    onChange={e => setAppointmentWindow(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-gs-muted mt-1.5">
+                Required for calendar invite — optional for agreement only.
+              </p>
+            </div>
           </>
         )}
 
@@ -501,7 +557,7 @@ export default function QuoteDocumentsSection({
                 <p className="send-command-alert send-command-alert--success flex items-center gap-1.5">
                   <CheckCircle size={11} />
                   {emailResult.signing
-                    ? `Signing link sent to ${emailResult.to}`
+                    ? `Signing link${emailResult.hasCalendar ? ' + calendar invite' : ''} sent to ${emailResult.to}`
                     : `Quote sent to ${emailResult.to}`}
                 </p>
                 {emailResult.signing?.signUrl ? (
@@ -558,6 +614,30 @@ export default function QuoteDocumentsSection({
             : <><Send size={12} /> {useSigningFlow ? 'Email Signing Link' : 'Email Quote'} to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
           }
         </button>
+
+        {/* Send Agreement + Calendar Invite */}
+        {useSigningFlow && selected && !bedBugEmailDisabled && (
+          <button
+            onClick={handleEmailWithCalendar}
+            disabled={!selected || !lead?.email || emailing || generating || previewing || emailBlocked}
+            title={
+              !lead?.email ? 'No email address on this lead'
+              : !appointmentDate ? 'Enter appointment date in the scheduling section above'
+              : !appointmentWindow.trim() ? 'Enter appointment window in the scheduling section above'
+              : ''
+            }
+            className={`send-launch-cta text-xs ${
+              !selected || !lead?.email || emailing || generating || previewing || emailBlocked || !appointmentDate || !appointmentWindow.trim()
+                ? 'opacity-40 cursor-not-allowed'
+                : ''
+            }`}
+          >
+            {emailing
+              ? <><Spinner size={12} /> Sending...</>
+              : <><Calendar size={12} /> Email Signing Link + Calendar to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
+            }
+          </button>
+        )}
 
         {bedBugEmailDisabled && selected && isBedBug && (
           <p className="send-command-alert send-command-alert--warning flex items-center gap-1.5 text-xs">
