@@ -61,7 +61,6 @@ export function useUnreadReplies() {
         lastReadAt: readByRowRef.current[row]?.lastReadAt,
         lastReadInboundKey: readByRowRef.current[row]?.lastReadInboundKey,
         readInboundKeys: readByRowRef.current[row]?.readInboundKeys,
-        unread: false,
       },
       readByRowRef.current,
       row,
