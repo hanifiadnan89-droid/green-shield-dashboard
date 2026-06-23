@@ -916,8 +916,8 @@ router.post('/email-quote', async (req, res) => {
           const cleanPhone = String(lead.phone).replace(/\D/g, '');
           const toNumber = cleanPhone.startsWith('1') ? `+${cleanPhone}` : `+1${cleanPhone}`;
           const smsBody = calendarUrl
-            ? `Hi ${firstName}, Green Shield Pest Solutions sent your service agreement and calendar reminder for your upcoming treatment. Review/sign here: ${signUrl}. Add to calendar: ${calendarUrl}`
-            : `Hi ${firstName}, Green Shield Pest Solutions sent your service agreement for review and signature: ${signUrl}`;
+            ? `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign:\n\nSign: ${signUrl}\n\nCalendar: ${calendarUrl}\n\nQuestions? (207) 815-2234`
+            : `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign:\n\n${signUrl}\n\nQuestions? (207) 815-2234`;
           const twilioSms = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
           const sent = await twilioSms.messages.create({ body: smsBody, from: process.env.TWILIO_PHONE_NUMBER, to: toNumber });
           channels.sms = true;
