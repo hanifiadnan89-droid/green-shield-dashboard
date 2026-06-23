@@ -40,6 +40,8 @@ import {
 } from '../services/quoteDocumentsList.js';
 import { applyCustomerFriendlyViewerPreferences } from '../services/pdf/customerViewerPreferences.js';
 import { generateIcs } from '../services/icsGenerator.js';
+import twilio from 'twilio';
+import { appendMessage } from '../services/conversationMessages.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
@@ -759,7 +761,7 @@ router.post('/email-quote', async (req, res) => {
     } = req.body;
 
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
-    if (!lead.email) return res.status(400).json({ error: 'lead email is required to send' });
+    if (!lead.email && !lead.phone) return res.status(400).json({ error: 'lead email or phone is required to send' });
 
     const templateName = await resolveQuoteTemplateFilename(QUOTES_DIR, index);
     if (templateName === BED_BUG_TEMPLATE && BED_BUG_EMAIL_DISABLED) {
@@ -777,8 +779,11 @@ router.post('/email-quote', async (req, res) => {
       }
     }
 
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    if (lead.email && (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD)) {
       return res.status(500).json({ error: 'Gmail credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD missing from server/.env)' });
+    }
+    if (lead.phone && !lead.email && (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER)) {
+      return res.status(500).json({ error: 'Twilio credentials not configured for SMS-only delivery' });
     }
 
     const { outBytes, outName } = await buildQuotePdf({
@@ -835,7 +840,7 @@ router.post('/email-quote', async (req, res) => {
     }
 
     const agreementType = resolveAgreementType({ templateName, serviceType });
-    const useSigningFlow = Boolean(lead.email);
+    const useSigningFlow = Boolean(lead.email || lead.phone);
 
     let calendarParams = null;
     if (calendarInvite && appointmentDate) {
@@ -889,16 +894,52 @@ router.post('/email-quote', async (req, res) => {
 
       const firstName = (lead.name || '').split(' ')[0] || 'there';
       const agreementLabel = getAgreementTypeLabel(agreementType);
-      await sendSigningRequestEmail({
-        to: lead.email,
-        firstName,
-        signUrl,
-        agreementLabel,
-        hasPrepGuide: prepGuideAttached.length > 0,
-        previewPngBuffer,
-        prepGuideAttachments,
-        calendarUrl,
-      });
+
+      const channels = { email: false, sms: false };
+
+      if (lead.email && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+        await sendSigningRequestEmail({
+          to: lead.email,
+          firstName,
+          signUrl,
+          agreementLabel,
+          hasPrepGuide: prepGuideAttached.length > 0,
+          previewPngBuffer,
+          prepGuideAttachments,
+          calendarUrl,
+        });
+        channels.email = true;
+      }
+
+      if (lead.phone && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+        try {
+          const cleanPhone = String(lead.phone).replace(/\D/g, '');
+          const toNumber = cleanPhone.startsWith('1') ? `+${cleanPhone}` : `+1${cleanPhone}`;
+          const smsBody = calendarUrl
+            ? `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign:\n\nSign: ${signUrl}\n\nCalendar: ${calendarUrl}\n\nQuestions? (207) 815-2234`
+            : `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign:\n\n${signUrl}\n\nQuestions? (207) 815-2234`;
+          const twilioSms = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+          const sent = await twilioSms.messages.create({ body: smsBody, from: process.env.TWILIO_PHONE_NUMBER, to: toNumber });
+          channels.sms = true;
+          if (lead.row_number) {
+            try {
+              appendMessage(lead.row_number, {
+                direction: 'outbound',
+                channel: 'sms',
+                body: smsBody,
+                ts: new Date().toISOString(),
+                sender: 'You',
+                status: sent.status || 'sent',
+                meta: { twilioSid: sent.sid },
+              });
+            } catch (err) {
+              console.warn('[email-quote] SMS message persist failed:', err.message);
+            }
+          }
+        } catch (err) {
+          console.warn('[email-quote] SMS send failed:', err.message);
+        }
+      }
 
       appendLog({
         type: 'agreement_signing_sent',
@@ -909,6 +950,7 @@ router.post('/email-quote', async (req, res) => {
         customerName: lead.name ?? '',
         customerEmail: lead.email ?? '',
         leadRowNumber: lead.row_number ?? null,
+        channels,
       });
 
       if (lead.row_number) {
@@ -919,13 +961,14 @@ router.post('/email-quote', async (req, res) => {
         }
       }
 
-      console.log(`[email-quote] Signing link sent to ${lead.email} (${agreementType}) — ${signUrl}`);
+      console.log(`[email-quote] Signing link sent (${agreementType}) email=${channels.email} sms=${channels.sms} — ${signUrl}`);
 
       return res.json({
         success: true,
-        to: lead.email,
+        to: lead.email || lead.phone,
         filename: outName,
         prepGuides: prepGuideAttached,
+        channels,
         signing: {
           token: session.token,
           signUrl,

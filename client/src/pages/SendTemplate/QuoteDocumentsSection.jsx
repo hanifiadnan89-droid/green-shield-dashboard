@@ -43,7 +43,7 @@ export default function QuoteDocumentsSection({
   const [appointmentWindow, setAppointmentWindow] = useState('');
 
   const isBedBug = selected?.templateKind === 'bed_bug' || selected?.name === 'Bed Bug.pdf';
-  const useSigningFlow = Boolean(lead?.email);
+  const useSigningFlow = Boolean(lead?.email || lead?.phone);
   const currentFingerprint = useMemo(
     () => (isBedBug && bedBugForm ? bedBugFormFingerprint(bedBugForm, pricing, address, agreementStartDate) : null),
     [isBedBug, bedBugForm, pricing, address, agreementStartDate],
@@ -229,7 +229,7 @@ export default function QuoteDocumentsSection({
   }
 
   async function handleEmail() {
-    if (!selected || !lead?.email) return;
+    if (!selected || (!lead?.email && !lead?.phone)) return;
     if (isBedBug && !previewVerified) {
       setGenError('Preview the Bed Bug agreement PDF before emailing.');
       return;
@@ -239,7 +239,7 @@ export default function QuoteDocumentsSection({
     setEmailResult(null);
     try {
       const result = await api.documents.emailQuote(buildPayload({ previewVerified: true }));
-      setEmailResult({ ok: true, to: lead.email, signing: result.signing || null });
+      setEmailResult({ ok: true, signing: result.signing || null, channels: result.channels || {} });
     } catch (err) {
       setEmailResult({ ok: false, error: err.message });
     } finally {
@@ -248,7 +248,7 @@ export default function QuoteDocumentsSection({
   }
 
   async function handleEmailWithCalendar() {
-    if (!selected || !lead?.email) return;
+    if (!selected || (!lead?.email && !lead?.phone)) return;
     if (!appointmentDate) { setGenError('Enter an appointment date for the calendar invite.'); return; }
     if (!appointmentWindow.trim()) { setGenError('Enter an appointment window (e.g. 8:00 AM – 11:00 AM).'); return; }
     if (isBedBug && !previewVerified) { setGenError('Preview the Bed Bug agreement PDF before emailing.'); return; }
@@ -262,7 +262,7 @@ export default function QuoteDocumentsSection({
         appointmentDate,
         appointmentWindow: appointmentWindow.trim(),
       }));
-      setEmailResult({ ok: true, to: lead.email, signing: result.signing || null, hasCalendar: true });
+      setEmailResult({ ok: true, signing: result.signing || null, hasCalendar: true, channels: result.channels || {} });
     } catch (err) {
       setEmailResult({ ok: false, error: err.message });
     } finally {
@@ -438,12 +438,6 @@ export default function QuoteDocumentsSection({
                     onChange={e => setAddress(p => ({ ...p, zip: e.target.value }))}
                   />
                 </div>
-                <input
-                  className="send-command-input text-sm"
-                  placeholder="City, State ZIP (optional combined)"
-                  value={address.cityState || ''}
-                  onChange={e => setAddress(p => ({ ...p, cityState: e.target.value }))}
-                />
               </div>
             </div>
 
@@ -523,8 +517,14 @@ export default function QuoteDocumentsSection({
                 <p className="send-command-alert send-command-alert--success flex items-center gap-1.5">
                   <CheckCircle size={11} />
                   {emailResult.signing
-                    ? `Signing link${emailResult.hasCalendar ? ' + calendar invite' : ''} sent to ${emailResult.to}`
-                    : `Quote sent to ${emailResult.to}`}
+                    ? (() => {
+                        const via = [
+                          emailResult.channels?.email && 'email',
+                          emailResult.channels?.sms && 'SMS',
+                        ].filter(Boolean).join(' + ');
+                        return `Signing link${emailResult.hasCalendar ? ' + calendar' : ''} sent via ${via || 'email'}`;
+                      })()
+                    : `Quote sent to ${lead?.email || lead?.phone}`}
                 </p>
                 {emailResult.signing?.signUrl ? (
                   <p className="text-[11px] text-gs-muted break-all">
@@ -556,30 +556,35 @@ export default function QuoteDocumentsSection({
           {generating ? <><Spinner size={12} /> Generating...</> : <><FileText size={12} /> Download PDF</>}
         </button>
 
-        {/* Email to customer — direct from CRM, no n8n */}
+        {/* Send signing link / quote to customer */}
         <button
           onClick={handleEmail}
-          disabled={!selected || !lead?.email || emailing || generating || previewing || emailBlocked}
+          disabled={!selected || (!lead?.email && !lead?.phone) || emailing || generating || previewing || emailBlocked}
           title={
             bedBugEmailDisabled
               ? bedBugEmailDisabledMessage
               : isBedBug && !previewVerified
-                ? 'Preview the agreement PDF before emailing'
-                : !lead?.email
-                  ? 'No email address on this lead'
+                ? 'Preview the agreement PDF before sending'
+                : (!lead?.email && !lead?.phone)
+                  ? 'No email or phone on this lead'
                   : ''
           }
           className={`send-launch-cta text-xs ${
-            !selected || !lead?.email || emailing || generating || previewing || emailBlocked
+            !selected || (!lead?.email && !lead?.phone) || emailing || generating || previewing || emailBlocked
               ? 'opacity-40 cursor-not-allowed'
               : ''
           }`}
         >
           {emailing
             ? <><Spinner size={12} /> Sending...</>
-            : <><Send size={12} /> {useSigningFlow ? 'Email Signing Link' : 'Email Quote'} to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
+            : <><Send size={12} /> {useSigningFlow ? 'Send Signing Link' : 'Email Quote'} to {lead?.name?.split(' ')[0] || 'Customer'}</>
           }
         </button>
+        {useSigningFlow && selected && (lead?.email || lead?.phone) && (
+          <p className="text-[10px] text-gs-muted text-center">
+            via {[lead?.email && 'email', lead?.phone && 'SMS'].filter(Boolean).join(' + ')}
+          </p>
+        )}
 
         {/* Send Agreement + Calendar Invite */}
         {useSigningFlow && selected && !bedBugEmailDisabled && (
@@ -614,22 +619,22 @@ export default function QuoteDocumentsSection({
             </div>
             <button
               onClick={handleEmailWithCalendar}
-              disabled={!selected || !lead?.email || emailing || generating || previewing || emailBlocked}
+              disabled={!selected || (!lead?.email && !lead?.phone) || emailing || generating || previewing || emailBlocked}
               title={
-                !lead?.email ? 'No email address on this lead'
+                (!lead?.email && !lead?.phone) ? 'No email or phone on this lead'
                 : !appointmentDate ? 'Enter appointment date above'
                 : !appointmentWindow.trim() ? 'Enter appointment window above'
                 : ''
               }
               className={`send-launch-cta text-xs ${
-                !selected || !lead?.email || emailing || generating || previewing || emailBlocked || !appointmentDate || !appointmentWindow.trim()
+                !selected || (!lead?.email && !lead?.phone) || emailing || generating || previewing || emailBlocked || !appointmentDate || !appointmentWindow.trim()
                   ? 'opacity-40 cursor-not-allowed'
                   : ''
               }`}
             >
               {emailing
                 ? <><Spinner size={12} /> Sending...</>
-                : <><Calendar size={12} /> Email Signing Link + Calendar to {lead?.email ? lead.name?.split(' ')[0] || 'Customer' : 'Customer'}</>
+                : <><Calendar size={12} /> Send Signing Link + Calendar to {lead?.name?.split(' ')[0] || 'Customer'}</>
               }
             </button>
           </div>
@@ -647,8 +652,8 @@ export default function QuoteDocumentsSection({
           </p>
         )}
 
-        {!lead?.email && selected && !bedBugEmailDisabled && (
-          <p className="text-gs-muted text-xs text-center">No email on this lead — can't send directly</p>
+        {!lead?.email && !lead?.phone && selected && !bedBugEmailDisabled && (
+          <p className="text-gs-muted text-xs text-center">No email or phone on this lead — can't send directly</p>
         )}
 
         {selected && !isBedBug && !selected.serviceType && (
