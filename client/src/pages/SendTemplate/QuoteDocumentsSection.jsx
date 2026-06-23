@@ -526,6 +526,11 @@ export default function QuoteDocumentsSection({
                       })()
                     : `Quote sent to ${lead?.email || lead?.phone}`}
                 </p>
+                {emailResult.channels?.smsError && (
+                  <p className="send-command-alert send-command-alert--warn flex items-center gap-1.5 text-xs">
+                    <AlertTriangle size={11} /> SMS failed: {emailResult.channels.smsError}
+                  </p>
+                )}
                 {emailResult.signing?.signUrl ? (
                   <p className="text-[11px] text-gs-muted break-all">
                     Sign link: {emailResult.signing.signUrl}

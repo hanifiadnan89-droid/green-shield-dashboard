@@ -895,7 +895,7 @@ router.post('/email-quote', async (req, res) => {
       const firstName = (lead.name || '').split(' ')[0] || 'there';
       const agreementLabel = getAgreementTypeLabel(agreementType);
 
-      const channels = { email: false, sms: false };
+      const channels = { email: false, sms: false, smsError: null };
 
       if (lead.email && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
         await sendSigningRequestEmail({
@@ -911,16 +911,29 @@ router.post('/email-quote', async (req, res) => {
         channels.email = true;
       }
 
-      if (lead.phone && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+      const hasTwilioCreds = Boolean(
+        process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER,
+      );
+      console.log('[email-quote] SMS check:', {
+        hasPhone: Boolean(lead.phone),
+        phoneRaw: lead.phone ? `***${String(lead.phone).slice(-4)}` : null,
+        hasTwilioSid: Boolean(process.env.TWILIO_ACCOUNT_SID),
+        hasTwilioToken: Boolean(process.env.TWILIO_AUTH_TOKEN),
+        hasTwilioFrom: Boolean(process.env.TWILIO_PHONE_NUMBER),
+      });
+
+      if (lead.phone && hasTwilioCreds) {
         try {
           const cleanPhone = String(lead.phone).replace(/\D/g, '');
           const toNumber = cleanPhone.startsWith('1') ? `+${cleanPhone}` : `+1${cleanPhone}`;
           const smsBody = calendarUrl
             ? `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign:\n\nSign: ${signUrl}\n\nCalendar: ${calendarUrl}\n\nQuestions? (207) 815-2234`
             : `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign:\n\n${signUrl}\n\nQuestions? (207) 815-2234`;
+          console.log(`[email-quote] Sending SMS to ${toNumber}`);
           const twilioSms = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
           const sent = await twilioSms.messages.create({ body: smsBody, from: process.env.TWILIO_PHONE_NUMBER, to: toNumber });
           channels.sms = true;
+          console.log(`[email-quote] SMS sent — sid=${sent.sid} status=${sent.status}`);
           if (lead.row_number) {
             try {
               appendMessage(lead.row_number, {
@@ -933,12 +946,16 @@ router.post('/email-quote', async (req, res) => {
                 meta: { twilioSid: sent.sid },
               });
             } catch (err) {
-              console.warn('[email-quote] SMS message persist failed:', err.message);
+              console.warn('[email-quote] SMS persist failed:', err.message);
             }
           }
         } catch (err) {
-          console.warn('[email-quote] SMS send failed:', err.message);
+          channels.smsError = err.message;
+          console.error('[email-quote] SMS send failed:', err.message);
         }
+      } else if (lead.phone && !hasTwilioCreds) {
+        channels.smsError = 'Twilio credentials not configured on server';
+        console.warn('[email-quote] SMS skipped — Twilio env vars missing');
       }
 
       appendLog({
@@ -961,7 +978,7 @@ router.post('/email-quote', async (req, res) => {
         }
       }
 
-      console.log(`[email-quote] Signing link sent (${agreementType}) email=${channels.email} sms=${channels.sms} — ${signUrl}`);
+      console.log(`[email-quote] Signing link sent (${agreementType}) email=${channels.email} sms=${channels.sms}${channels.smsError ? ` smsError="${channels.smsError}"` : ''} — ${signUrl}`);
 
       return res.json({
         success: true,
