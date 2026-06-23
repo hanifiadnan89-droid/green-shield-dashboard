@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 export default function ReplyPageHeader({
   loading,
   archivedCount,
+  archivedUnreadCount = 0,
   showArchived,
   onToggleArchived,
   onRefresh,
@@ -21,15 +22,23 @@ export default function ReplyPageHeader({
         </span>
       </div>
       <div className="rc-header__actions">
-        {archivedCount > 0 && (
+        {(archivedCount > 0 || archivedUnreadCount > 0) && (
           <motion.button
             type="button"
             onClick={onToggleArchived}
-            className={`rc-btn-ghost ${showArchived ? 'rc-btn-ghost--active' : ''}`}
+            className={`rc-btn-ghost ${showArchived ? 'rc-btn-ghost--active' : ''} relative`}
             whileTap={{ scale: 0.96 }}
           >
             <Archive size={13} aria-hidden />
             {showArchived ? 'Hide archived' : `${archivedCount} archived`}
+            {archivedUnreadCount > 0 && (
+              <span
+                className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none"
+                aria-label={`${archivedUnreadCount} unread in archived`}
+              >
+                {archivedUnreadCount}
+              </span>
+            )}
           </motion.button>
         )}
         <motion.button

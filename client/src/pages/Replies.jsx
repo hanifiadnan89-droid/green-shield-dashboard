@@ -22,6 +22,7 @@ import {
   archKey,
   getConversationSortTime,
   partitionSearchedReplyLeads,
+  getLatestInbound,
 } from './Replies/threadUtils.js';
 import { buildLeadContext } from './Replies/buildLeadContext.js';
 
@@ -158,6 +159,26 @@ export default function Replies() {
     ).length;
     window.dispatchEvent(new CustomEvent('replies-unread-count', { detail: { count } }));
   }, [loading, leads, threads, meta, isUnread]);
+
+  const archivedUnreadCount = useMemo(() => {
+    return sortedLeads
+      .filter(l => archived.has(archKey(l)))
+      .filter(l => isUnread(l, threads[l.row_number] || [], meta[l.row_number]))
+      .length;
+  }, [sortedLeads, archived, threads, meta, isUnread]);
+
+  useEffect(() => {
+    if (loading) return;
+    const sixDaysAgoMs = Date.now() - 6 * 24 * 60 * 60 * 1000;
+    for (const lead of activeLeads) {
+      if (isUnread(lead, threads[lead.row_number] || [], meta[lead.row_number])) continue;
+      const latestInbound = getLatestInbound(threads[lead.row_number] || []);
+      if (!latestInbound?.receivedAt) continue;
+      const receivedMs = new Date(latestInbound.receivedAt).getTime();
+      if (Number.isNaN(receivedMs) || receivedMs > sixDaysAgoMs) continue;
+      archiveLeadBase(lead);
+    }
+  }, [loading, activeLeads, threads, meta, isUnread, archiveLeadBase]);
 
   const markReadWithMeta = useCallback(async (lead, messages) => {
     const result = await markRead(lead, messages);
@@ -303,6 +324,7 @@ export default function Replies() {
       <ReplyPageHeader
         loading={loading}
         archivedCount={archivedCount}
+        archivedUnreadCount={archivedUnreadCount}
         showArchived={showArchived}
         onToggleArchived={() => {
           setShowArchived(v => {

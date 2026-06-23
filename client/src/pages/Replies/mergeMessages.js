@@ -23,8 +23,9 @@ export function mergeMessageLists(existing = [], incoming = []) {
     byKey.set(messageKey(normalized), normalized);
   }
   return [...byKey.values()].sort((a, b) => {
-    const ta = a.ts ? new Date(a.ts).getTime() : NaN;
-    const tb = b.ts ? new Date(b.ts).getTime() : NaN;
+    const sortTs = m => m.receivedAt || m.ts;
+    const ta = sortTs(a) ? new Date(sortTs(a)).getTime() : NaN;
+    const tb = sortTs(b) ? new Date(sortTs(b)).getTime() : NaN;
     if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
     if (Number.isNaN(ta)) return 1;
     if (Number.isNaN(tb)) return -1;

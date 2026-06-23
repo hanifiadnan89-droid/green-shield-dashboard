@@ -2,7 +2,7 @@ import { formatThreadTime } from './threadUtils.js';
 
 export default function ChatMessage({ msg }) {
   const isOut = msg.dir === 'out';
-  const timeStr = formatThreadTime(msg.ts);
+  const timeStr = formatThreadTime(msg.receivedAt || msg.ts);
 
   if (msg.isTemplate) {
     return (

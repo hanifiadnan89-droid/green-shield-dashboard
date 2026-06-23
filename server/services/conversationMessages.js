@@ -73,6 +73,7 @@ function normalizeMessage(msg) {
     channel,
     body,
     ts,
+    receivedAt: msg.receivedAt || null,
     sender: msg.sender || null,
     status: msg.status || null,
     meta: msg.meta && typeof msg.meta === 'object' ? msg.meta : undefined,
@@ -145,8 +146,8 @@ function hydrateThreadReadFromLead(thread, lead) {
 
 function sortMessages(messages) {
   return [...messages].sort((a, b) => {
-    const ta = new Date(a.ts).getTime();
-    const tb = new Date(b.ts).getTime();
+    const ta = new Date(a.receivedAt || a.ts).getTime();
+    const tb = new Date(b.receivedAt || b.ts).getTime();
     if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
     if (Number.isNaN(ta)) return 1;
     if (Number.isNaN(tb)) return -1;
@@ -369,11 +370,13 @@ function appendInboundIfNew(messages, { channel, body, ts, sender, meta, rowNumb
   const existing = findInboundByContent(messages, channel, body);
   if (existing) return messages;
 
+  const resolvedTs = ts || (rowNumber ? stableInboundTs(rowNumber, channel, body) : new Date().toISOString());
   const normalized = normalizeMessage({
     direction: 'inbound',
     channel,
     body,
-    ts: ts || (rowNumber ? stableInboundTs(rowNumber, channel, body) : new Date().toISOString()),
+    ts: resolvedTs,
+    receivedAt: ts ? null : new Date().toISOString(),
     sender,
     meta,
   });
@@ -588,5 +591,5 @@ export function getConversationPreview(messages) {
   }
   const last = sorted[sorted.length - 1];
   const preview = last.body.length > 120 ? `${last.body.slice(0, 120)}…` : last.body;
-  return { preview, lastAt: last.ts, lastMessage: last };
+  return { preview, lastAt: last.receivedAt || last.ts, lastMessage: last };
 }

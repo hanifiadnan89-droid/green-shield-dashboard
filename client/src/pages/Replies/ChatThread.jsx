@@ -27,8 +27,8 @@ export default function ChatThread({
 
   const lastActivity = useMemo(() => {
     const display = filterDisplayThread(thread);
-    const last = [...display].reverse().find(m => m.ts);
-    return last ? formatThreadTime(last.ts) : null;
+    const last = [...display].reverse().find(m => m.receivedAt || m.ts);
+    return last ? formatThreadTime(last.receivedAt || last.ts) : null;
   }, [thread]);
 
   const timelineItems = useMemo(() => buildThreadWithDateDividers(thread), [thread]);

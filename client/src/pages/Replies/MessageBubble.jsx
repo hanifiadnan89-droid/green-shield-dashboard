@@ -6,7 +6,7 @@ export default function MessageBubble({ msg, index = 0 }) {
   if (isTemplateMessage(msg)) return null;
 
   const isOut = msg.dir === 'out' || msg.direction === 'outbound';
-  const timeStr = formatThreadTime(msg.ts);
+  const timeStr = formatThreadTime(msg.receivedAt || msg.ts);
   const ChannelIcon = msg.channel === 'email' ? Mail : MessageSquare;
   const body = msg.text ?? msg.body ?? '';
 
