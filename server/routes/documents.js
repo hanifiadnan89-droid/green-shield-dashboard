@@ -39,6 +39,7 @@ import {
   resolveQuoteTemplateFilename,
 } from '../services/quoteDocumentsList.js';
 import { applyCustomerFriendlyViewerPreferences } from '../services/pdf/customerViewerPreferences.js';
+import { generateIcs, buildIcsAttachment } from '../services/icsGenerator.js';
 
 const readdirAsync = promisify(readdir);
 const statAsync    = promisify(stat);
@@ -752,6 +753,9 @@ router.post('/email-quote', async (req, res) => {
       bedBugAgreement = {},
       cardLastFour = '',
       previewVerified = false,
+      calendarInvite = false,
+      appointmentDate = '',
+      appointmentWindow = '',
     } = req.body;
 
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
@@ -833,6 +837,23 @@ router.post('/email-quote', async (req, res) => {
     const agreementType = resolveAgreementType({ templateName, serviceType });
     const useSigningFlow = Boolean(lead.email);
 
+    let calendarAttachment = null;
+    if (calendarInvite && appointmentDate) {
+      try {
+        const location = [address.street, address.cityState].filter(Boolean).join(', ');
+        const ics = generateIcs({
+          appointmentDate,
+          appointmentWindow,
+          location: location || undefined,
+          uid: lead.row_number || 'treatment',
+        });
+        calendarAttachment = buildIcsAttachment(ics);
+        console.log(`[email-quote] Calendar invite generated: ${ics.filename} (isAllDay=${ics.isAllDay})`);
+      } catch (err) {
+        console.warn('[email-quote] Calendar invite generation failed:', err.message);
+      }
+    }
+
     if (useSigningFlow) {
       const quotePayload = {
         index,
@@ -876,6 +897,7 @@ router.post('/email-quote', async (req, res) => {
         hasPrepGuide: prepGuideAttached.length > 0,
         previewPngBuffer,
         prepGuideAttachments,
+        calendarAttachment,
       });
 
       appendLog({
@@ -917,6 +939,7 @@ router.post('/email-quote', async (req, res) => {
     for (const pgAttachment of prepGuideAttachments) {
       attachments.push(pgAttachment);
     }
+    if (calendarAttachment) attachments.push(calendarAttachment);
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',

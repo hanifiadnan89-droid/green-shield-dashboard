@@ -95,6 +95,7 @@ export async function sendSigningRequestEmail({
   hasPrepGuide,
   previewPngBuffer,
   prepGuideAttachments = [],
+  calendarAttachment = null,
 }) {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -110,6 +111,9 @@ export async function sendSigningRequestEmail({
       cid: 'quote-agreement-preview',
       contentType: 'image/png',
     });
+  }
+  if (calendarAttachment) {
+    attachments.push(calendarAttachment);
   }
 
   await transporter.sendMail({
