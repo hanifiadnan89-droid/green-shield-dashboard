@@ -62,7 +62,6 @@ router.post('/migrate-local', (req, res) => {
 router.post('/:rowNumber/read-all', async (req, res) => {
   try {
     const rowNumber = parseInt(req.params.rowNumber, 10);
-    console.log(`[READ-DIAG] route /read-all hit: rowNumber=${rowNumber}`);
     if (!rowNumber) return res.status(400).json({ error: 'Invalid row number' });
     const readState = await markAllInboundRead(rowNumber);
     const messages = getMessagesForLead(rowNumber);

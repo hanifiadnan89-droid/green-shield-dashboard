@@ -39,9 +39,6 @@ export async function getLeads() {
 }
 
 export async function updateLead(rowNumber, updates) {
-  if (updates?.replies_last_read_at !== undefined) {
-    console.log(`[READ-DIAG] updateLead entry: rowNumber=${rowNumber} replies_last_read_at=${updates.replies_last_read_at}`);
-  }
   if (process.env.TEST_MODE === 'true') {
     return { updated: true, testMode: true };
   }
@@ -66,13 +63,7 @@ export async function updateLead(rowNumber, updates) {
       valueInputOption: 'RAW',
       requestBody: { values: [newRow] }
     });
-    if (updates?.replies_last_read_at !== undefined) {
-      console.log(`[READ-DIAG] updateLead success: rowNumber=${rowNumber}`);
-    }
   } catch (err) {
-    if (updates?.replies_last_read_at !== undefined) {
-      console.warn(`[READ-DIAG] updateLead FAILED: rowNumber=${rowNumber} err=${err.message}`);
-    }
     throw err;
   }
   return { updated: true };
@@ -97,22 +88,15 @@ export async function appendLead(lead) {
 
 /** Write replies_last_read_at (column O) for a single row — one API call, no row read. */
 export async function writeRepliesLastReadAt(rowNumber, iso) {
-  console.log(`[READ-DIAG] writeRepliesLastReadAt entry: rowNumber=${rowNumber} iso=${iso}`);
   if (process.env.TEST_MODE === 'true') return { updated: true, testMode: true };
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
-  try {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!O${rowNumber}`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [[iso]] },
-    });
-    console.log(`[READ-DIAG] writeRepliesLastReadAt success: rowNumber=${rowNumber}`);
-  } catch (err) {
-    console.warn(`[READ-DIAG] writeRepliesLastReadAt FAILED: rowNumber=${rowNumber} err=${err.message}`);
-    throw err;
-  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAME}!O${rowNumber}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[iso]] },
+  });
   return { updated: true };
 }
 
