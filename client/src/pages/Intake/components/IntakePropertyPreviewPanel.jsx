@@ -1,7 +1,5 @@
-import { CloudSun, ExternalLink, MapPin, Sparkles, Target } from 'lucide-react';
-import IntakePropertyRecordsSection from './IntakePropertyRecordsSection.jsx';
+import { MapPin, Sparkles } from 'lucide-react';
 import ObjectionAssistant from './ObjectionAssistant.jsx';
-import { buildZillowSearchUrl } from '../../../utils/intake/buildZillowSearchUrl.js';
 
 function InfoCard({ label, value, pending = false }) {
   return (
@@ -10,36 +8,6 @@ function InfoCard({ label, value, pending = false }) {
       <p className="intake-info-card__value">{value}</p>
     </div>
   );
-}
-
-function PlaceholderBlock({ icon: Icon, title, detail }) {
-  return (
-    <div className="intake-preview-placeholder">
-      <Icon size={18} className="intake-preview-placeholder__icon" />
-      <div>
-        <p className="intake-preview-placeholder__title">{title}</p>
-        <p className="intake-preview-placeholder__detail">{detail}</p>
-      </div>
-    </div>
-  );
-}
-
-function boundaryLabel(status) {
-  if (status === 'detected') return 'Boundary Detected';
-  if (status === 'drawn') return 'Boundary Drawn';
-  if (status === 'manual') return 'Draw treatment area';
-  return 'Pending';
-}
-
-function formatOwnerOccupied(value) {
-  if (value === true) return 'Yes';
-  if (value === false) return 'No';
-  return '—';
-}
-
-function formatBuildingSqFt(value) {
-  if (value == null) return null;
-  return `${Number(value).toLocaleString('en-US')} sq ft`;
 }
 
 export default function IntakePropertyPreviewPanel({
@@ -71,39 +39,12 @@ export default function IntakePropertyPreviewPanel({
   const city = source.city || null;
   const state = source.state || null;
   const zip = source.zip || null;
-  const hasAddress = Boolean(address);
   const isPropertyPage = variant === 'property';
-  const hasPolygon = treatmentAcreage != null || boundaryStatus === 'detected' || boundaryStatus === 'drawn';
+
   const hasRecords = propertyRecordsStatus === 'loaded' && propertyRecords;
-
   const propertyType = hasRecords
-    ? (propertyRecords.propertyType || '—')
-    : (source.propertyUseEstimate || 'Residential');
-  const propertyTypePending = !hasRecords && !source.propertyUseEstimate;
-
-  const acreageValue = hasRecords
-    ? (propertyRecords.lotAcreage || '—')
-    : (treatmentAcreage != null ? `${treatmentAcreage} ac` : 'Pending');
-  const acreagePending = !hasRecords && treatmentAcreage == null;
-
-  const sqFtValue = hasRecords
-    ? (formatBuildingSqFt(propertyRecords.buildingSquareFeet) || '—')
-    : (treatmentSquareFeet != null ? treatmentSquareFeet.toLocaleString('en-US') : 'Pending');
-  const sqFtPending = !hasRecords && treatmentSquareFeet == null;
-
-  const ownerOccupiedValue = hasRecords
-    ? formatOwnerOccupied(propertyRecords.ownerOccupied === null || propertyRecords.ownerOccupied === undefined
-      ? null
-      : propertyRecords.ownerOccupied)
-    : 'Pending';
-  const ownerOccupiedPending = !hasRecords;
-
-  const yearBuiltValue = hasRecords
-    ? (propertyRecords.yearBuilt ?? '—')
-    : 'Pending';
-  const yearBuiltPending = !hasRecords;
-
-  const zillowUrl = hasAddress ? buildZillowSearchUrl(source) : null;
+    ? (propertyRecords.propertyType || null)
+    : (source.propertyUseEstimate || null);
 
   return (
     <aside className={`intake-preview-panel${isPropertyPage ? ' intake-preview-panel--property' : ''}`}>
@@ -129,101 +70,19 @@ export default function IntakePropertyPreviewPanel({
       </div>
 
       {isPropertyPage ? (
-        <>
-          <section className="intake-preview-panel__section intake-preview-panel__section--compact">
-            <div className="intake-preview-panel__section-heading">
-              <h3>Property Overview</h3>
-              {zillowUrl && (
-                <a
-                  href={zillowUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="intake-zillow-link"
-                >
-                  View on Zillow
-                  <ExternalLink size={13} aria-hidden />
-                </a>
-              )}
-            </div>
-            <div className="intake-info-grid intake-info-grid--single">
-              <InfoCard label="Property Type" value={propertyType} pending={propertyTypePending} />
-              <InfoCard label="Address" value={hasAddress ? address : 'Pending'} pending={!hasAddress} />
-            </div>
-          </section>
-
-          <section className="intake-preview-panel__section intake-preview-panel__section--compact">
-            <h3><Target size={14} /> Treatment Area</h3>
-            <div className="intake-info-grid">
-              <InfoCard
-                label="Boundary"
-                value={boundaryLabel(boundaryStatus)}
-                pending={!hasPolygon}
-              />
-              <InfoCard
-                label="Acreage"
-                value={acreageValue}
-                pending={acreagePending}
-              />
-              <InfoCard
-                label="Sq Ft"
-                value={sqFtValue}
-                pending={sqFtPending}
-              />
-              <InfoCard
-                label="Owner Occupied"
-                value={ownerOccupiedValue}
-                pending={ownerOccupiedPending}
-              />
-              <InfoCard
-                label="Year Built"
-                value={yearBuiltValue}
-                pending={yearBuiltPending}
-              />
-            </div>
-          </section>
-
-          <section className="intake-preview-panel__section intake-preview-panel__section--compact">
-            <h3><CloudSun size={14} /> Current Conditions</h3>
-            {weather ? (
-              <div className="intake-info-grid intake-info-grid--compact">
-                <InfoCard label="Date" value={weather.date || '—'} />
-                <InfoCard label="Rain" value={weather.rainProbabilityPercent != null ? `${weather.rainProbabilityPercent}%` : '—'} />
-                <InfoCard label="Wind" value={weather.windSpeedMph != null ? `${weather.windSpeedMph} mph` : '—'} />
-              </div>
-            ) : (
-              <PlaceholderBlock
-                icon={CloudSun}
-                title="Weather data pending"
-                detail="Conditions load on Property Intelligence step"
-              />
-            )}
-          </section>
-
-          <IntakePropertyRecordsSection
-            customer={customer}
-            onRecordsChange={onPropertyRecordsChange}
-            loading={propertyRecordsLoading}
-            onLoadingChange={onPropertyRecordsLoadingChange}
-            error={propertyRecordsError}
-            onErrorChange={onPropertyRecordsErrorChange}
-            status={propertyRecordsStatus}
-            onStatusChange={onPropertyRecordsStatusChange}
-          />
-
-          <ObjectionAssistant
-            context={{
-              customerName:        name || null,
-              serviceType:         source.serviceType || source.serviceTypeCode || null,
-              address:             address || null,
-              weather:             weather || null,
-              suitability:         suitability || null,
-              treatmentAcreage:    treatmentAcreage,
-              treatmentSquareFeet: treatmentSquareFeet,
-              propertyType:        hasRecords ? (propertyRecords.propertyType || null) : (source.propertyUseEstimate || null),
-              yearBuilt:           hasRecords ? (propertyRecords.yearBuilt || null) : null,
-            }}
-          />
-        </>
+        <ObjectionAssistant
+          context={{
+            customerName:        name || null,
+            serviceType:         source.serviceType || source.serviceTypeCode || null,
+            address:             address || null,
+            weather:             weather || null,
+            suitability:         suitability || null,
+            treatmentAcreage:    treatmentAcreage,
+            treatmentSquareFeet: treatmentSquareFeet,
+            propertyType:        propertyType,
+            yearBuilt:           hasRecords ? (propertyRecords.yearBuilt || null) : null,
+          }}
+        />
       ) : (
         <section className="intake-preview-panel__section intake-preview-panel__section--overview">
           <h3>Property Overview</h3>
