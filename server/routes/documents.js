@@ -887,14 +887,15 @@ router.post('/email-quote', async (req, res) => {
       }
 
       // Email uses the direct .ics URL — no redirect overhead, works in all email clients.
-      // SMS uses the /calendar-invite landing page so iMessage shows a rich OG preview card.
+      // SMS uses the short /cal/:token path (gshieldpest.com/cal/TOKEN) so iMessage shows
+      // a rich OG preview card and customers never see the long Render hostname.
       let calendarUrl = null;
       let smsCalendarUrl = null;
       if (calendarParams) {
         await updateSigningSession(session.token, { calendarParams });
         const base = publicSigningBaseUrl(req);
         calendarUrl = `${base}/api/signing/public/${session.token}/calendar.ics`;
-        smsCalendarUrl = `${base}/calendar-invite/${session.token}`;
+        smsCalendarUrl = `${base}/cal/${session.token}`;
       }
 
       const firstName = (lead.name || '').split(' ')[0] || 'there';

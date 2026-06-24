@@ -83,6 +83,8 @@ if (isProduction) {
 app.use(cors({
   origin: [
     'https://green-shield-dashboard.onrender.com',
+    'https://gshieldpest.com',
+    'https://www.gshieldpest.com',
     'http://localhost:5173',
     'http://127.0.0.1:5173'
   ]
@@ -200,8 +202,10 @@ app.get('/sign-view/:token', (req, res) => {
 });
 
 // Calendar invite landing page — gives iMessage a rich OG preview card for the calendar link.
+// /cal/:token is the short branded form used in SMS (gshieldpest.com/cal/TOKEN).
+// /calendar-invite/:token is kept as a backwards-compatible alias.
 // Auto-triggers the .ics download so the user is taken straight to their calendar app.
-app.get('/calendar-invite/:token', async (req, res) => {
+app.get(['/cal/:token', '/calendar-invite/:token'], async (req, res) => {
   const { token } = req.params;
   const icsUrl = `/api/signing/public/${encodeURIComponent(token)}/calendar.ics`;
   const appUrl = process.env.PUBLIC_APP_URL
