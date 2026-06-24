@@ -101,7 +101,62 @@ app.use('/api/signing/public', signingPublicRouter);
 
 // PDF.js-based agreement viewer — iOS-friendly full-screen, all pages, fit-to-width.
 // Must stay before requireDashboardLogin so customers can open it without credentials.
+//
+// CSP NOTE: script-src lacks 'unsafe-inline', so all JavaScript must be in external
+// files served from 'self'. /sign-view.js and /calendar-redirect.js handle this.
 const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
+
+// External JS for the PDF viewer — avoids CSP inline-script violation.
+// The PDF URL is passed via <meta name="pdf-src"> in the HTML.
+app.get('/sign-view.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(`
+document.getElementById('back').addEventListener('click', () => history.back());
+
+const pdfSrc = document.querySelector('meta[name="pdf-src"]').content;
+const workerSrc = document.querySelector('meta[name="pdfjs-worker"]').content;
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+
+(async () => {
+  const status = document.getElementById('status');
+  const container = document.getElementById('pages');
+  try {
+    const pdf = await pdfjsLib.getDocument(pdfSrc).promise;
+    status.remove();
+    const dpr = window.devicePixelRatio || 1;
+    const pageWidth = container.clientWidth - 12;
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const page = await pdf.getPage(n);
+      const vp0 = page.getViewport({ scale: 1 });
+      const scale = (pageWidth / vp0.width) * dpr;
+      const vp = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = vp.width;
+      canvas.height = vp.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      const wrap = document.createElement('div');
+      wrap.className = 'page-wrap';
+      wrap.appendChild(canvas);
+      container.appendChild(wrap);
+    }
+  } catch (e) {
+    status.textContent = 'Could not load the agreement. Please try again.';
+  }
+})();
+`);
+});
+
+// External JS for the calendar redirect page — avoids CSP inline-script violation.
+app.get('/calendar-redirect.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(`
+const icsUrl = document.querySelector('meta[name="ics-src"]').content;
+window.addEventListener('load', () => setTimeout(() => { window.location.href = icsUrl; }, 600));
+`);
+});
+
 app.get('/sign-view/:token', (req, res) => {
   const { token } = req.params;
   const pdfPath = `/api/signing/public/${encodeURIComponent(token)}/document.pdf`;
@@ -112,6 +167,8 @@ app.get('/sign-view/:token', (req, res) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
   <meta name="robots" content="noindex, nofollow">
+  <meta name="pdf-src" content="${pdfPath}">
+  <meta name="pdfjs-worker" content="${PDFJS_CDN}/pdf.worker.min.js">
   <title>Green Shield Agreement</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -132,49 +189,39 @@ app.get('/sign-view/:token', (req, res) => {
 <body>
   <div id="bar">
     <span id="bar-title">Green Shield Agreement</span>
-    <button id="back" onclick="history.back()">&#8592; Back</button>
+    <button id="back">&#8592; Back</button>
   </div>
   <div id="status">Loading agreement…</div>
   <div id="pages"></div>
   <script src="${PDFJS_CDN}/pdf.min.js"></script>
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '${PDFJS_CDN}/pdf.worker.min.js';
-    (async () => {
-      const status = document.getElementById('status');
-      const container = document.getElementById('pages');
-      try {
-        const pdf = await pdfjsLib.getDocument('${pdfPath}').promise;
-        status.remove();
-        const dpr = window.devicePixelRatio || 1;
-        const pageWidth = container.clientWidth - 12;
-        for (let n = 1; n <= pdf.numPages; n++) {
-          const page = await pdf.getPage(n);
-          const vp0 = page.getViewport({ scale: 1 });
-          const scale = (pageWidth / vp0.width) * dpr;
-          const vp = page.getViewport({ scale });
-          const canvas = document.createElement('canvas');
-          canvas.width = vp.width;
-          canvas.height = vp.height;
-          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-          const wrap = document.createElement('div');
-          wrap.className = 'page-wrap';
-          wrap.appendChild(canvas);
-          container.appendChild(wrap);
-        }
-      } catch (e) {
-        status.textContent = 'Could not load the agreement. Please try again.';
-      }
-    })();
-  </script>
+  <script src="/sign-view.js"></script>
 </body>
 </html>`);
 });
 
 // Calendar invite landing page — gives iMessage a rich OG preview card for the calendar link.
 // Auto-triggers the .ics download so the user is taken straight to their calendar app.
-app.get('/calendar-invite/:token', (req, res) => {
+app.get('/calendar-invite/:token', async (req, res) => {
   const { token } = req.params;
   const icsUrl = `/api/signing/public/${encodeURIComponent(token)}/calendar.ics`;
+  const appUrl = process.env.PUBLIC_APP_URL
+    || process.env.RENDER_EXTERNAL_URL
+    || `${req.protocol}://${req.get('host')}`;
+
+  let ogImageTag = '';
+  try {
+    const session = await loadSigningSession(token);
+    if (session?.hasOgCard) {
+      const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/og-card.png`;
+      ogImageTag = `<meta property="og:image" content="${imgUrl}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:image" content="${imgUrl}">`;
+    }
+  } catch {
+    // session unreadable — proceed without og:image
+  }
+
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -182,14 +229,16 @@ app.get('/calendar-invite/:token', (req, res) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
+  <meta name="ics-src" content="${icsUrl}">
   <title>Add Green Shield Appointment</title>
   <meta property="og:title" content="Add to Calendar — Green Shield Appointment">
   <meta property="og:description" content="Tap to add your Green Shield pest control appointment to your calendar.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Green Shield Pest Solutions">
-  <meta name="twitter:card" content="summary">
+  <meta name="twitter:card" content="${ogImageTag ? 'summary_large_image' : 'summary'}">
   <meta name="twitter:title" content="Add to Calendar — Green Shield Appointment">
   <meta name="twitter:description" content="Tap to add your Green Shield pest control appointment to your calendar.">
+  ${ogImageTag}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { min-height: 100vh; background: #f0faf4; display: flex; align-items: center; justify-content: center; font-family: -apple-system, sans-serif; padding: 24px; }
@@ -199,7 +248,7 @@ app.get('/calendar-invite/:token', (req, res) => {
     p { color: #4b5563; font-size: 0.95rem; margin-bottom: 24px; line-height: 1.5; }
     a.btn { display: block; background: #3b82f6; color: #fff; padding: 14px 24px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 1rem; }
   </style>
-  <script>window.addEventListener('load', () => setTimeout(() => { window.location.href = '${icsUrl}'; }, 600));</script>
+  <script src="/calendar-redirect.js"></script>
 </head>
 <body>
   <div class="card">
