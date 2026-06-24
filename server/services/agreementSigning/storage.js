@@ -11,6 +11,7 @@ export const SIGNING_DIRS = {
   unsigned: join(SIGNING_ROOT, 'unsigned'),
   signed: join(SIGNING_ROOT, 'signed'),
   previews: join(SIGNING_ROOT, 'previews'),
+  ogCards: join(SIGNING_ROOT, 'og-cards'),
   submissions: join(SIGNING_ROOT, 'submissions'),
   index: join(SIGNING_ROOT, 'index'),
 };
@@ -141,6 +142,15 @@ export async function readSignedPdf(token) {
 
 export async function readPreviewPng(token) {
   return fs.readFile(join(SIGNING_DIRS.previews, `${token}.png`));
+}
+
+export async function saveOgCardPng(token, bytes) {
+  await ensureSigningDirs();
+  await fs.writeFile(join(SIGNING_DIRS.ogCards, `${token}.png`), Buffer.from(bytes));
+}
+
+export async function readOgCardPng(token) {
+  return fs.readFile(join(SIGNING_DIRS.ogCards, `${token}.png`));
 }
 
 /**

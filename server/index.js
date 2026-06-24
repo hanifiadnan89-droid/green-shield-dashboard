@@ -99,6 +99,119 @@ app.use(express.json());
 // Customer e-sign routes (no dashboard login)
 app.use('/api/signing/public', signingPublicRouter);
 
+// PDF.js-based agreement viewer — iOS-friendly full-screen, all pages, fit-to-width.
+// Must stay before requireDashboardLogin so customers can open it without credentials.
+const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
+app.get('/sign-view/:token', (req, res) => {
+  const { token } = req.params;
+  const pdfPath = `/api/signing/public/${encodeURIComponent(token)}/document.pdf`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Green Shield Agreement</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a1a; font-family: -apple-system, sans-serif; }
+    #bar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; background: #148a43; color: #fff;
+    }
+    #bar-title { font-size: 0.95rem; font-weight: 700; }
+    #back { background: none; border: none; color: rgba(255,255,255,0.85); font-size: 0.9rem; cursor: pointer; padding: 4px 0; }
+    #pages { padding: 6px; }
+    .page-wrap { margin-bottom: 6px; }
+    .page-wrap canvas { display: block; width: 100% !important; height: auto !important; }
+    #status { color: rgba(255,255,255,0.6); text-align: center; padding: 40px 16px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <span id="bar-title">Green Shield Agreement</span>
+    <button id="back" onclick="history.back()">&#8592; Back</button>
+  </div>
+  <div id="status">Loading agreement…</div>
+  <div id="pages"></div>
+  <script src="${PDFJS_CDN}/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '${PDFJS_CDN}/pdf.worker.min.js';
+    (async () => {
+      const status = document.getElementById('status');
+      const container = document.getElementById('pages');
+      try {
+        const pdf = await pdfjsLib.getDocument('${pdfPath}').promise;
+        status.remove();
+        const dpr = window.devicePixelRatio || 1;
+        const pageWidth = container.clientWidth - 12;
+        for (let n = 1; n <= pdf.numPages; n++) {
+          const page = await pdf.getPage(n);
+          const vp0 = page.getViewport({ scale: 1 });
+          const scale = (pageWidth / vp0.width) * dpr;
+          const vp = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          canvas.width = vp.width;
+          canvas.height = vp.height;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+          const wrap = document.createElement('div');
+          wrap.className = 'page-wrap';
+          wrap.appendChild(canvas);
+          container.appendChild(wrap);
+        }
+      } catch (e) {
+        status.textContent = 'Could not load the agreement. Please try again.';
+      }
+    })();
+  </script>
+</body>
+</html>`);
+});
+
+// Calendar invite landing page — gives iMessage a rich OG preview card for the calendar link.
+// Auto-triggers the .ics download so the user is taken straight to their calendar app.
+app.get('/calendar-invite/:token', (req, res) => {
+  const { token } = req.params;
+  const icsUrl = `/api/signing/public/${encodeURIComponent(token)}/calendar.ics`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Add Green Shield Appointment</title>
+  <meta property="og:title" content="Add to Calendar — Green Shield Appointment">
+  <meta property="og:description" content="Tap to add your Green Shield pest control appointment to your calendar.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Green Shield Pest Solutions">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Add to Calendar — Green Shield Appointment">
+  <meta name="twitter:description" content="Tap to add your Green Shield pest control appointment to your calendar.">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { min-height: 100vh; background: #f0faf4; display: flex; align-items: center; justify-content: center; font-family: -apple-system, sans-serif; padding: 24px; }
+    .card { background: #fff; border-radius: 16px; padding: 36px 28px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .icon { font-size: 3rem; margin-bottom: 16px; }
+    h1 { font-size: 1.25rem; font-weight: 700; color: #102018; margin-bottom: 10px; }
+    p { color: #4b5563; font-size: 0.95rem; margin-bottom: 24px; line-height: 1.5; }
+    a.btn { display: block; background: #3b82f6; color: #fff; padding: 14px 24px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 1rem; }
+  </style>
+  <script>window.addEventListener('load', () => setTimeout(() => { window.location.href = '${icsUrl}'; }, 600));</script>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">&#128197;</div>
+    <h1>Add to Calendar</h1>
+    <p>Adding your Green Shield appointment to your calendar&hellip;</p>
+    <a href="${icsUrl}" class="btn">Tap here if it doesn&rsquo;t open</a>
+  </div>
+</body>
+</html>`);
+});
+
 // Serve static assets and the signing page BEFORE the dashboard auth wall.
 // Static bundles (JS/CSS) contain no sensitive data — API responses are what's protected.
 // /sign/:token must be reachable by customers who have no dashboard credentials.
@@ -131,13 +244,24 @@ if (fs.existsSync(clientDistPath)) {
       return res.status(500).send('Server error');
     }
 
-    const title = 'Green Shield — Sign Agreement';
-    const description = 'Review and sign your Green Shield Pest Solutions service agreement.';
+    let title = 'Green Shield — Sign Agreement';
+    const description = 'Review and electronically sign your Green Shield Pest Solutions service agreement.';
     let ogImageTag = '';
 
     try {
       const session = await loadSigningSession(token);
-      if (session?.hasPreview) {
+      const firstName = (session?.lead?.name || '').trim().split(/\s+/)[0];
+      if (firstName) title = `${firstName}, your agreement is ready to sign`;
+
+      if (session?.hasOgCard) {
+        const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/og-card.png`;
+        ogImageTag = [
+          `<meta property="og:image" content="${imgUrl}">`,
+          `<meta property="og:image:width" content="1200">`,
+          `<meta property="og:image:height" content="630">`,
+          `<meta name="twitter:image" content="${imgUrl}">`,
+        ].join('\n    ');
+      } else if (session?.hasPreview) {
         const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/preview.png`;
         ogImageTag = [
           `<meta property="og:image" content="${imgUrl}">`,

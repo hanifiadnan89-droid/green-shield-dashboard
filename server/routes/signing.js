@@ -14,6 +14,7 @@ import {
 import {
   isSigningSessionExpired,
   loadSigningSession,
+  readOgCardPng,
   readPreviewPng,
   readSignedPdf,
   readUnsignedPdf,
@@ -43,6 +44,7 @@ function publicSessionView(session) {
     signedAt: session.signedAt,
     customerName: session.lead?.name ?? '',
     hasPreview: Boolean(session.hasPreview),
+    hasOgCard: Boolean(session.hasOgCard),
     expired: isSigningSessionExpired(session),
   };
 }
@@ -54,6 +56,19 @@ publicRouter.get('/:token', async (req, res) => {
     res.json({ session: publicSessionView(session) });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+publicRouter.get('/:token/og-card.png', async (req, res) => {
+  try {
+    const session = await loadSigningSession(req.params.token);
+    if (!session) return res.status(404).json({ error: 'Signing link not found' });
+    const png = await readOgCardPng(session.token);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.send(png);
+  } catch {
+    res.status(404).json({ error: 'OG card not available' });
   }
 });
 
