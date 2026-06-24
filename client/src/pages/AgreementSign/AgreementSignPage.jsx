@@ -61,8 +61,9 @@ export default function AgreementSignPage() {
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
 
-  // Feature 1: tap-to-enlarge preview
+  // Feature 1: tap-to-enlarge preview + full PDF viewer
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
 
   // Feature 2: text-based initials (no drawing required)
   const [initialsText, setInitialsText] = useState('');
@@ -105,6 +106,18 @@ export default function AgreementSignPage() {
     () => (session?.hasPreview ? `/api/signing/public/${token}/preview.png` : null),
     [session?.hasPreview, token],
   );
+
+  const documentPdfUrl = `/api/signing/public/${token}/document.pdf`;
+
+  function handleOpenPdf() {
+    // iOS Safari cannot render PDFs inside iframes — open in new tab instead
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isIOS) {
+      window.open(documentPdfUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      setPdfViewerOpen(true);
+    }
+  }
 
   function applyInitialsText() {
     const text = initialsText.trim().toUpperCase();
@@ -226,14 +239,13 @@ export default function AgreementSignPage() {
                 </button>
                 <div className="agreement-sign-page__lightbox-body">
                   <img src={previewUrl} alt="Agreement preview" />
-                  <a
-                    href={`/api/signing/public/${token}/document.pdf`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
                     className="agreement-sign-page__lightbox-pdf"
+                    onClick={handleOpenPdf}
                   >
                     View full PDF
-                  </a>
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -345,6 +357,43 @@ export default function AgreementSignPage() {
           </div>
         ) : null}
       </div>
+
+      {/* Full PDF viewer modal — desktop/Android only; iOS opens in new tab */}
+      {pdfViewerOpen ? (
+        <div
+          className="agreement-sign-page__pdf-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Agreement PDF"
+        >
+          <div className="agreement-sign-page__pdf-modal-bar">
+            <span className="agreement-sign-page__pdf-modal-title">Agreement PDF</span>
+            <div className="agreement-sign-page__pdf-modal-actions">
+              <a
+                href={documentPdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="agreement-sign-page__pdf-modal-newtab"
+              >
+                Open in new tab
+              </a>
+              <button
+                type="button"
+                className="agreement-sign-page__pdf-modal-close"
+                onClick={() => setPdfViewerOpen(false)}
+                aria-label="Close PDF viewer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <iframe
+            src={documentPdfUrl}
+            title="Agreement PDF"
+            className="agreement-sign-page__pdf-modal-frame"
+          />
+        </div>
+      ) : null}
 
       {/* Signature pad modal — only for the drawn signature */}
       {showSignaturePad ? (

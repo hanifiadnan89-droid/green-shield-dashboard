@@ -21,6 +21,7 @@ import activityErrorsRouter from './routes/activityErrors.js';
 import driveRouter from './routes/drive.js';
 import documentsRouter from './routes/documents.js';
 import { signingPublicRouter, signingStaffRouter } from './routes/signing.js';
+import { loadSigningSession } from './services/agreementSigning/storage.js';
 import routesRouter from './routes/routes.js';
 import aiRouter from './routes/ai.js';
 import geocodeRouter from './routes/geocode.js';
@@ -103,13 +104,72 @@ app.use('/api/signing/public', signingPublicRouter);
 // /sign/:token must be reachable by customers who have no dashboard credentials.
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
-  app.get('/sign/:token', (req, res) => {
-    res.sendFile(path.join(clientDistPath, 'index.html'));
+
+  // Cached index.html read — the file is immutable between deployments.
+  let _indexHtml = null;
+  async function getIndexHtml() {
+    if (!_indexHtml) {
+      _indexHtml = await fs.promises.readFile(path.join(clientDistPath, 'index.html'), 'utf8');
+    }
+    return _indexHtml;
+  }
+
+  // Public signing page — injects Open Graph meta tags so SMS/iMessage link
+  // previews show "Green Shield Agreement" instead of the raw dashboard URL.
+  // noindex prevents search engines from crawling customer-specific pages.
+  app.get('/sign/:token', async (req, res) => {
+    const { token } = req.params;
+    const appUrl = process.env.PUBLIC_APP_URL
+      || process.env.RENDER_EXTERNAL_URL
+      || `${req.protocol}://${req.get('host')}`;
+
+    let html;
+    try {
+      html = await getIndexHtml();
+    } catch (err) {
+      console.error('[sign-route] Failed to read index.html:', err.message);
+      return res.status(500).send('Server error');
+    }
+
+    const title = 'Green Shield — Sign Agreement';
+    const description = 'Review and sign your Green Shield Pest Solutions service agreement.';
+    let ogImageTag = '';
+
+    try {
+      const session = await loadSigningSession(token);
+      if (session?.hasPreview) {
+        const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/preview.png`;
+        ogImageTag = [
+          `<meta property="og:image" content="${imgUrl}">`,
+          `<meta name="twitter:image" content="${imgUrl}">`,
+        ].join('\n    ');
+      }
+    } catch {
+      // Session not found or unreadable — proceed with default title/no image
+    }
+
+    const injected = `<title>${title}</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta property="og:title" content="${title}">
+    <meta property="og:description" content="${description}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Green Shield Pest Solutions">
+    ${ogImageTag}
+    <meta name="twitter:card" content="${ogImageTag ? 'summary_large_image' : 'summary'}">
+    <meta name="twitter:title" content="${title}">
+    <meta name="twitter:description" content="${description}">`;
+
+    html = html
+      .replace(/<title>[^<]*<\/title>/, '')         // remove generic dashboard title
+      .replace('</head>', `  ${injected}\n  </head>`); // inject signing-specific tags
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
   });
 }
 
-app.use(requireDashboardLogin);
-
+// /api/health is public — must be before requireDashboardLogin so iOS Safari
+// doesn't trigger a Basic Auth popup when App.jsx calls it on the signing page.
 app.get('/api/health', (req, res) => {
   const googleCreds = getGoogleCredentialsDiagnostics();
   const sheetsCheck = getSheetsStartupCheck();
@@ -128,6 +188,8 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use(requireDashboardLogin);
 
 app.use('/api/leads', leadsRouter);
 app.use('/api/send', sendRouter);
