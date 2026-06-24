@@ -483,6 +483,10 @@
   color: #1e40af;
 }
 
+.intake-preview-panel__zillow-row {
+  @apply flex justify-end px-3 pb-1;
+}
+
 /* Info cards in preview */
 .intake-info-grid {
   @apply grid grid-cols-2 gap-2;

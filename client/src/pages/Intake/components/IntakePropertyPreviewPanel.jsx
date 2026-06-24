@@ -1,5 +1,6 @@
-import { MapPin, Sparkles } from 'lucide-react';
+import { ExternalLink, MapPin, Sparkles } from 'lucide-react';
 import ObjectionAssistant from './ObjectionAssistant.jsx';
+import { buildZillowSearchUrl } from '../../../utils/intake/buildZillowSearchUrl.js';
 
 function InfoCard({ label, value, pending = false }) {
   return (
@@ -45,6 +46,7 @@ export default function IntakePropertyPreviewPanel({
   const propertyType = hasRecords
     ? (propertyRecords.propertyType || null)
     : (source.propertyUseEstimate || null);
+  const zillowUrl = address ? buildZillowSearchUrl(source) : null;
 
   return (
     <aside className={`intake-preview-panel${isPropertyPage ? ' intake-preview-panel--property' : ''}`}>
@@ -68,6 +70,20 @@ export default function IntakePropertyPreviewPanel({
           </div>
         )}
       </div>
+
+      {isPropertyPage && zillowUrl && (
+        <div className="intake-preview-panel__zillow-row">
+          <a
+            href={zillowUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="intake-zillow-link"
+          >
+            View on Zillow
+            <ExternalLink size={12} aria-hidden />
+          </a>
+        </div>
+      )}
 
       {isPropertyPage ? (
         <ObjectionAssistant
