@@ -168,8 +168,8 @@ if (fs.existsSync(clientDistPath)) {
   });
 }
 
-app.use(requireDashboardLogin);
-
+// /api/health is public — must be before requireDashboardLogin so iOS Safari
+// doesn't trigger a Basic Auth popup when App.jsx calls it on the signing page.
 app.get('/api/health', (req, res) => {
   const googleCreds = getGoogleCredentialsDiagnostics();
   const sheetsCheck = getSheetsStartupCheck();
@@ -188,6 +188,8 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use(requireDashboardLogin);
 
 app.use('/api/leads', leadsRouter);
 app.use('/api/send', sendRouter);
