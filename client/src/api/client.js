@@ -184,6 +184,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ lead_context }),
     }),
+    objectionAssist: (body) => request('/ai/objection-assist', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   },
 
   documents: {

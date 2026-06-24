@@ -307,4 +307,106 @@ router.post('/draft-reply', async (req, res) => {
   }
 });
 
+// ── Objection Assistant ────────────────────────────────────────────────────
+
+function buildObjectionSystemPrompt() {
+  return `You are a Green Shield Pest Solutions sales rep on a live phone call with a residential customer.
+
+The customer has raised an objection. Write a spoken response that follows this exact structure:
+1. Acknowledge — show you genuinely heard their concern, don't skip this
+2. Validate — make them feel understood, their hesitation makes sense
+3. Overcome — reframe or address the objection with real value, not platitudes
+4. Connect to their property — tie your response to their specific property, service need, or conditions
+5. Transition to close — move naturally back toward scheduling or signing
+
+Rules:
+- Sound like a real person talking on the phone — warm, confident, conversational
+- Not robotic, not scripted, not corporate
+- Don't use filler phrases like "I completely understand" or "That's a great question"
+- Don't mention competitors by name
+- Keep it to 4–6 sentences — tight but complete
+- Return ONLY the spoken response text, nothing else`;
+}
+
+function buildObjectionUserMessage(context = {}, objection) {
+  const parts = [];
+
+  if (context.customerName) parts.push(`Customer name: ${context.customerName}`);
+  if (context.serviceType)   parts.push(`Service type: ${context.serviceType}`);
+  if (context.address)       parts.push(`Property address: ${context.address}`);
+
+  if (context.treatmentAcreage != null) {
+    parts.push(`Treatment area: ~${context.treatmentAcreage} acres`);
+  } else if (context.treatmentSquareFeet != null) {
+    const acres = (context.treatmentSquareFeet / 43560).toFixed(2);
+    parts.push(`Treatment area: ~${acres} acres (${Number(context.treatmentSquareFeet).toLocaleString()} sq ft)`);
+  }
+
+  if (context.weather) {
+    const w = context.weather;
+    const parts2 = [];
+    if (w.temperatureF != null)          parts2.push(`${w.temperatureF}°F`);
+    if (w.rainProbabilityPercent != null) parts2.push(`${w.rainProbabilityPercent}% rain`);
+    if (w.windSpeedMph != null)           parts2.push(`${w.windSpeedMph} mph wind`);
+    if (parts2.length) parts.push(`Current conditions: ${parts2.join(', ')}`);
+  }
+
+  if (context.suitability?.label) {
+    parts.push(`Service suitability: ${context.suitability.label}`);
+  }
+
+  if (context.propertyType) parts.push(`Property type: ${context.propertyType}`);
+  if (context.yearBuilt)    parts.push(`Year built: ${context.yearBuilt}`);
+
+  parts.push('');
+  parts.push(`Customer objection: "${objection}"`);
+  parts.push('');
+  parts.push('Write the phone response. Acknowledge → validate → overcome → connect to their property → close toward booking.');
+
+  return parts.join('\n');
+}
+
+function buildTransformUserMessage(action, existing, objection, context = {}) {
+  const instructions = {
+    shorten:  'Shorten this response. Keep the key points. Cut filler. Aim for 2–3 tight sentences that still acknowledge and close.',
+    softer:   'Rewrite with a softer, more empathetic tone. Less sales pressure. More listening. Still move toward the next step.',
+    stronger: 'Rewrite with a stronger close — more urgency around their specific property or the service timing. Push clearly toward scheduling or signing today.',
+  };
+
+  const instruction = instructions[action] || 'Improve this response.';
+  const contextLine = context.customerName ? `Customer: ${context.customerName}. Objection: "${objection}".` : `Objection: "${objection}".`;
+
+  return `${contextLine}\n\nCurrent response:\n"${existing}"\n\nInstruction: ${instruction}\n\nReturn only the rewritten response text.`;
+}
+
+router.post('/objection-assist', async (req, res) => {
+  try {
+    const { context = {}, objection, action = null, existing_response = '' } = req.body;
+
+    if (!objection?.trim()) {
+      return res.status(400).json({ error: 'objection is required' });
+    }
+
+    let userMessage;
+    if (action && existing_response.trim()) {
+      userMessage = buildTransformUserMessage(action, existing_response, objection, context);
+    } else {
+      userMessage = buildObjectionUserMessage(context, objection);
+    }
+
+    const aiResponse = await getClient().messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 600,
+      system: buildObjectionSystemPrompt(),
+      messages: [{ role: 'user', content: userMessage }],
+    });
+
+    const text = (aiResponse.content[0]?.text || '').trim();
+    return res.json({ response: text });
+  } catch (err) {
+    console.error('[ai/objection-assist]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

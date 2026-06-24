@@ -1,5 +1,6 @@
 import { CloudSun, ExternalLink, MapPin, Sparkles, Target } from 'lucide-react';
 import IntakePropertyRecordsSection from './IntakePropertyRecordsSection.jsx';
+import ObjectionAssistant from './ObjectionAssistant.jsx';
 import { buildZillowSearchUrl } from '../../../utils/intake/buildZillowSearchUrl.js';
 
 function InfoCard({ label, value, pending = false }) {
@@ -207,6 +208,20 @@ export default function IntakePropertyPreviewPanel({
             onErrorChange={onPropertyRecordsErrorChange}
             status={propertyRecordsStatus}
             onStatusChange={onPropertyRecordsStatusChange}
+          />
+
+          <ObjectionAssistant
+            context={{
+              customerName:        name || null,
+              serviceType:         source.serviceType || source.serviceTypeCode || null,
+              address:             address || null,
+              weather:             weather || null,
+              suitability:         suitability || null,
+              treatmentAcreage:    treatmentAcreage,
+              treatmentSquareFeet: treatmentSquareFeet,
+              propertyType:        hasRecords ? (propertyRecords.propertyType || null) : (source.propertyUseEstimate || null),
+              yearBuilt:           hasRecords ? (propertyRecords.yearBuilt || null) : null,
+            }}
           />
         </>
       ) : (
