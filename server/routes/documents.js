@@ -886,11 +886,15 @@ router.post('/email-quote', async (req, res) => {
         previewPngBuffer = null;
       }
 
+      // Email uses the direct .ics URL — no redirect overhead, works in all email clients.
+      // SMS uses the /calendar-invite landing page so iMessage shows a rich OG preview card.
       let calendarUrl = null;
+      let smsCalendarUrl = null;
       if (calendarParams) {
         await updateSigningSession(session.token, { calendarParams });
-        // Use the landing page URL so iMessage shows a rich OG preview card for the calendar link.
-        calendarUrl = `${publicSigningBaseUrl(req)}/calendar-invite/${session.token}`;
+        const base = publicSigningBaseUrl(req);
+        calendarUrl = `${base}/api/signing/public/${session.token}/calendar.ics`;
+        smsCalendarUrl = `${base}/calendar-invite/${session.token}`;
       }
 
       const firstName = (lead.name || '').split(' ')[0] || 'there';
@@ -927,8 +931,8 @@ router.post('/email-quote', async (req, res) => {
         try {
           const cleanPhone = String(lead.phone).replace(/\D/g, '');
           const toNumber = cleanPhone.startsWith('1') ? `+${cleanPhone}` : `+1${cleanPhone}`;
-          const smsBody = calendarUrl
-            ? `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign.\n\nSign Agreement:\n${signUrl}\n\nAdd Appointment:\n${calendarUrl}\n\nQuestions? (207) 815-2234`
+          const smsBody = smsCalendarUrl
+            ? `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign.\n\nSign Agreement:\n${signUrl}\n\nAdd Appointment:\n${smsCalendarUrl}\n\nQuestions? (207) 815-2234`
             : `Hi ${firstName},\n\nYour Green Shield agreement is ready to review and sign.\n\nSign Agreement:\n${signUrl}\n\nQuestions? (207) 815-2234`;
           console.log(`[email-quote] Sending SMS to ${toNumber}`);
           const twilioSms = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
