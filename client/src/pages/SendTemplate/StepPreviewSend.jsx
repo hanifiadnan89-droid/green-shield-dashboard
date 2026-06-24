@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Check, FolderOpen, MessageSquare, Rocket, ChevronRight } from 'lucide-react';
-import PreviewLaunchTopBar from './PreviewLaunchTopBar.jsx';
 import PreviewDocumentsWorkspace from './PreviewDocumentsWorkspace.jsx';
 import PreviewCommunicationCenter from './PreviewCommunicationCenter.jsx';
 import PreviewSendSidebar from './PreviewSendSidebar.jsx';
@@ -57,12 +56,6 @@ export default function StepPreviewSend(props) {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35, ease: EASE }}
     >
-      <PreviewLaunchTopBar
-        selectedLead={props.selectedLead}
-        selectedTemplate={props.selectedTemplate}
-        selectedChannel={props.selectedChannel}
-      />
-
       {/* ── Step progress bar ── */}
       <div className="sps-header">
         {STEPS.map((s, i) => (

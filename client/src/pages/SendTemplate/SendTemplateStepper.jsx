@@ -1,5 +1,5 @@
 import { LayoutGroup, motion } from 'motion/react';
-import { Check, Radio } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { STEPS } from './constants.js';
 
 const EASE = [0.22, 1, 0.36, 1];
@@ -17,14 +17,6 @@ export default function SendTemplateStepper({ step }) {
         <h1 className="send-template-stepper__title type-display-lg font-display tracking-tight">
           Send Template
         </h1>
-        <p className="send-template-stepper__subtitle type-body-sm mt-1 max-w-2xl">
-          Launch SMS and email sequences for a lead — pick a contact, choose a workflow, then preview and send.
-        </p>
-        <p className="send-template-stepper__live">
-          <span className="send-template-stepper__live-dot" aria-hidden />
-          <Radio size={12} aria-hidden />
-          Outreach workflow active
-        </p>
       </motion.div>
 
       <LayoutGroup>
