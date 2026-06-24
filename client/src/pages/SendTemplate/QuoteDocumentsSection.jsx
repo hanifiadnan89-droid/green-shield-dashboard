@@ -16,7 +16,13 @@ import { buildIntakeQuotePrefill } from '../../utils/intake/buildIntakeLead.js';
 
 function localIsoDate() {
   const now = new Date();
-  // Adjust for local timezone so "today" is correct regardless of UTC offset
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+    .toISOString().slice(0, 10);
+}
+
+function localIsoDatePlusDays(n) {
+  const now = new Date();
+  now.setDate(now.getDate() + n);
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
     .toISOString().slice(0, 10);
 }
@@ -46,8 +52,8 @@ export default function QuoteDocumentsSection({
   const [signingSessions, setSigningSessions] = useState([]);
   const [genError, setGenError]       = useState(null);
   const [missing, setMissing]         = useState(false);
-  const [appointmentDate, setAppointmentDate]     = useState('');
-  const [appointmentWindow, setAppointmentWindow] = useState('');
+  const [appointmentDate, setAppointmentDate]     = useState(() => localIsoDatePlusDays(2));
+  const [appointmentWindow, setAppointmentWindow] = useState('8am-12pm');
 
   const isBedBug = selected?.templateKind === 'bed_bug' || selected?.name === 'Bed Bug.pdf';
   const useSigningFlow = Boolean(lead?.email || lead?.phone);
@@ -320,8 +326,14 @@ export default function QuoteDocumentsSection({
                 onClick={() => {
                   const deselecting = selected?.key === f.key;
                   setSelected(deselecting ? null : f);
-                  if (!deselecting && f.serviceType === 'tick_mosquito_monthly') {
-                    setPricing({ initial: '119', recurring: '119', discounted: '' });
+                  if (!deselecting) {
+                    if (f.serviceType === 'tick_mosquito_monthly') {
+                      setPricing({ initial: '119', recurring: '119', discounted: '' });
+                    } else if (f.serviceType === 'rodent_insect_triannual') {
+                      setPricing({ initial: '599', discounted: '150', recurring: '65' });
+                    } else if (f.serviceType === 'insect_quarterly') {
+                      setPricing({ initial: '549', discounted: '150', recurring: '59' });
+                    }
                   }
                 }}
                 className={`send-doc-card ${selected?.key === f.key ? 'send-doc-card--selected' : ''}`}

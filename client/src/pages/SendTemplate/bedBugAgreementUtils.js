@@ -10,12 +10,23 @@ export function parseCityStateZip(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return { city: '', state: '', zip: '' };
 
+  // "City, ST 12345" — space between state and ZIP
   const commaMatch = raw.match(/^(.+?),\s*([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
   if (commaMatch) {
     return {
       city: commaMatch[1].trim(),
       state: commaMatch[2].toUpperCase(),
       zip: commaMatch[3],
+    };
+  }
+
+  // "City, ST, 12345" — comma between state and ZIP
+  const commaCommaMatch = raw.match(/^(.+?),\s*([A-Za-z]{2}),\s*(\d{5}(?:-\d{4})?)$/);
+  if (commaCommaMatch) {
+    return {
+      city: commaCommaMatch[1].trim(),
+      state: commaCommaMatch[2].toUpperCase(),
+      zip: commaCommaMatch[3],
     };
   }
 
