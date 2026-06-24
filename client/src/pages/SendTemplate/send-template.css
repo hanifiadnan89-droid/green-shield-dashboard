@@ -9,11 +9,11 @@
 
 /* Stepper layout only — dark theme in send-template-command.css */
 .send-template-stepper {
-  @apply shrink-0 px-5 sm:px-8 py-5 sm:py-6;
+  @apply shrink-0 px-5 sm:px-8 py-3 sm:py-4;
 }
 
 .send-template-stepper__track {
-  @apply flex flex-wrap items-center gap-2 sm:gap-0 mt-5;
+  @apply flex flex-wrap items-center gap-2 sm:gap-0 mt-2;
 }
 
 .send-template-stepper__step {
@@ -38,7 +38,7 @@
 }
 
 .send-pick-lead {
-  @apply px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-[1440px] mx-auto w-full;
+  @apply px-4 sm:px-6 lg:px-8 py-3 sm:py-4 max-w-[1440px] mx-auto w-full;
 }
 
 .send-pick-lead__workspace {
@@ -267,7 +267,7 @@
 /* ── Step 2: Choose template ── */
 
 .send-choose-tmpl {
-  @apply px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-[1440px] mx-auto w-full space-y-5;
+  @apply px-4 sm:px-6 lg:px-8 py-3 sm:py-4 max-w-[1440px] mx-auto w-full space-y-4;
 }
 
 .send-choose-tmpl__alert {
@@ -566,7 +566,7 @@
 /* ── Step 3: Preview & Send launch console ── */
 
 .send-preview-launch {
-  @apply px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-[1600px] mx-auto w-full space-y-5;
+  @apply px-4 sm:px-6 lg:px-8 py-3 sm:py-4 max-w-[1600px] mx-auto w-full space-y-4;
 }
 
 .send-preview-top {
