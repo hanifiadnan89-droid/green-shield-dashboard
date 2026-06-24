@@ -153,6 +153,7 @@ export function normalizeTickMosquitoMonthlyAgreementData(input = {}) {
     serviceStartDate,
     initialServiceDate,
     selectedStartDate,
+    tmmOverrides = {},
   } = input;
 
   const initialQuote = parseMoney(pricing.initial);
@@ -186,6 +187,7 @@ export function normalizeTickMosquitoMonthlyAgreementData(input = {}) {
     serviceStartDate,
     initialServiceDate,
     selectedStartDate,
+    serviceDetailsText: tmmOverrides.serviceDetailsText || null,
   };
 }
 
@@ -350,7 +352,7 @@ function drawTopRow(page, data, fonts) {
         spacing: SPACING_FORM_GRID,
       });
     } else {
-      drawWrappedText(page, TMM_SERVICE_DETAILS_TEXT, {
+      drawWrappedText(page, data.serviceDetailsText ?? TMM_SERVICE_DETAILS_TEXT, {
         x: innerX,
         y: bodyStartY(y, h),
         w: innerW,
