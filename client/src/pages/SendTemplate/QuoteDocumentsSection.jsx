@@ -327,7 +327,9 @@ export default function QuoteDocumentsSection({
                   const deselecting = selected?.key === f.key;
                   setSelected(deselecting ? null : f);
                   if (!deselecting) {
-                    if (f.serviceType === 'tick_mosquito_monthly') {
+                    if (f.templateKind === 'bed_bug') {
+                      setPricing({ initial: '749', discounted: '150', recurring: '65' });
+                    } else if (f.serviceType === 'tick_mosquito_monthly') {
                       setPricing({ initial: '119', recurring: '119', discounted: '' });
                     } else if (f.serviceType === 'rodent_insect_triannual') {
                       setPricing({ initial: '599', discounted: '150', recurring: '65' });
