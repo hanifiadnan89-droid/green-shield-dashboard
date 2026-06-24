@@ -5,6 +5,7 @@ import { api } from '../../api/client.js';
 import Spinner from '../../components/Spinner.jsx';
 import { formatMoney, computeFinalQuote } from './previewSendUtils.js';
 import BedBugAgreementForm from './BedBugAgreementForm.jsx';
+import TmmAgreementForm from './TmmAgreementForm.jsx';
 import {
   bedBugFormFingerprint,
   buildBedBugAgreementState,
@@ -27,6 +28,23 @@ function localIsoDatePlusDays(n) {
     .toISOString().slice(0, 10);
 }
 
+function buildTmmFormState(lead, address, pricing, agreementStartDate) {
+  return {
+    name:               lead?.name    ?? '',
+    phone:              lead?.phone   ?? '',
+    email:              lead?.email   ?? '',
+    street:             address.street ?? '',
+    city:               address.city   ?? '',
+    state:              address.state  ?? '',
+    zip:                address.zip    ?? '',
+    initial:            pricing.initial    || '119',
+    discounted:         pricing.discounted || '',
+    recurring:          pricing.recurring  || '119',
+    agreementDate:      agreementStartDate || localIsoDate(),
+    serviceDetailsText: null,
+  };
+}
+
 /* ── Quote Documents Section ── */
 export default function QuoteDocumentsSection({
   lead,
@@ -43,6 +61,8 @@ export default function QuoteDocumentsSection({
   const [treatmentAcreage, setTreatmentAcreage] = useState(null);
   const [treatmentSquareFeet, setTreatmentSquareFeet] = useState(null);
   const [bedBugForm, setBedBugForm]   = useState(null);
+  const [tmmForm, setTmmForm]         = useState(null);
+  const [tmmPreviewStale, setTmmPreviewStale] = useState(false);
   const [previewFingerprint, setPreviewFingerprint] = useState(null);
   const [loading, setLoading]         = useState(true);
   const [generating, setGenerating]   = useState(false);
@@ -56,6 +76,19 @@ export default function QuoteDocumentsSection({
   const [appointmentWindow, setAppointmentWindow] = useState('8am-12pm');
 
   const isBedBug = selected?.templateKind === 'bed_bug' || selected?.name === 'Bed Bug.pdf';
+  const isTmm    = selected?.serviceType === 'tick_mosquito_monthly';
+
+  function updateTmmForm(next) {
+    setTmmForm(next);
+    setTmmPreviewStale(true);
+  }
+
+  function resetTmmForm() {
+    const defaultAddress = buildCustomerAddressFromLead(lead, { street: '', cityState: '' });
+    const defaultPricing = { initial: '119', discounted: '', recurring: '119' };
+    setTmmForm(buildTmmFormState(lead, defaultAddress, defaultPricing, localIsoDate()));
+    setTmmPreviewStale(false);
+  }
   const useSigningFlow = Boolean(lead?.email || lead?.phone);
   const currentFingerprint = useMemo(
     () => (isBedBug && bedBugForm ? bedBugFormFingerprint(bedBugForm, pricing, address, agreementStartDate) : null),
@@ -112,6 +145,32 @@ export default function QuoteDocumentsSection({
     }
   }, [isBedBug, bedBugForm?.initialQuote, bedBugForm?.initialDiscount, bedBugForm?.recurringCharge, bedBugForm?.serviceAddress, bedBugForm?.city, bedBugForm?.state, bedBugForm?.zip, bedBugForm?.agreementDate]);
 
+  // Initialize T/M form when T/M document is selected; clear when deselected
+  useEffect(() => {
+    if (isTmm && lead) {
+      setTmmForm((prev) => prev ?? buildTmmFormState(lead, address, pricing, agreementStartDate));
+      setTmmPreviewStale(false);
+    } else if (!isTmm) {
+      setTmmForm(null);
+      setTmmPreviewStale(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTmm, lead?.row_number]);
+
+  // Sync T/M form values back into pricing / address / agreementStartDate
+  useEffect(() => {
+    if (!isTmm || !tmmForm) return;
+    setPricing({ initial: tmmForm.initial, discounted: tmmForm.discounted, recurring: tmmForm.recurring });
+    setAddress({
+      street: tmmForm.street,
+      city:   tmmForm.city,
+      state:  tmmForm.state,
+      zip:    tmmForm.zip,
+      cityState: [tmmForm.city, tmmForm.state, tmmForm.zip].filter(Boolean).join(', '),
+    });
+    if (tmmForm.agreementDate) setAgreementStartDate(tmmForm.agreementDate);
+  }, [isTmm, tmmForm?.name, tmmForm?.phone, tmmForm?.email, tmmForm?.street, tmmForm?.city, tmmForm?.state, tmmForm?.zip, tmmForm?.initial, tmmForm?.discounted, tmmForm?.recurring, tmmForm?.agreementDate]);
+
   useEffect(() => {
     onStateChange?.({
       pricing,
@@ -145,9 +204,9 @@ export default function QuoteDocumentsSection({
       serviceType:      selected.serviceType || null,
       lead:             {
         row_number: lead?.row_number,
-        name: lead?.name,
-        email: lead?.email,
-        phone: lead?.phone,
+        name: isTmm && tmmForm ? tmmForm.name : lead?.name,
+        email: isTmm && tmmForm ? tmmForm.email : lead?.email,
+        phone: isTmm && tmmForm ? tmmForm.phone : lead?.phone,
       },
       pricing,
       notes,
@@ -165,6 +224,9 @@ export default function QuoteDocumentsSection({
     };
     if (isBedBug && bedBugForm) {
       return mergeBedBugPayload(base, bedBugForm);
+    }
+    if (isTmm && tmmForm && tmmForm.serviceDetailsText !== null) {
+      base.tmmOverrides = { serviceDetailsText: tmmForm.serviceDetailsText };
     }
     return base;
   }
@@ -208,6 +270,9 @@ export default function QuoteDocumentsSection({
 
     if (isBedBug) {
       setPreviewFingerprint(currentFingerprint);
+    }
+    if (isTmm) {
+      setTmmPreviewStale(false);
     }
     return filename;
   }
@@ -383,6 +448,13 @@ export default function QuoteDocumentsSection({
             onChange={setBedBugForm}
             previewStale={previewStale}
           />
+        ) : isTmm && tmmForm ? (
+          <TmmAgreementForm
+            form={tmmForm}
+            onChange={updateTmmForm}
+            onReset={resetTmmForm}
+            previewStale={tmmPreviewStale}
+          />
         ) : (
           <>
             {/* Customer info preview */}
@@ -517,7 +589,7 @@ export default function QuoteDocumentsSection({
           </>
         )}
 
-        {!isBedBug && (
+        {!isBedBug && !isTmm && (
           <div>
             <label className="text-xs font-semibold text-gs-muted uppercase tracking-widest mb-1.5 block">
               Notes (bottom-right of quote)

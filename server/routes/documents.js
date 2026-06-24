@@ -396,6 +396,7 @@ async function buildQuotePdf({
   selectedStartDate,
   bedBugAgreement = {},
   cardLastFour = '',
+  tmmOverrides = {},
 }) {
   const allFiles  = await readdirAsync(QUOTES_DIR);
   const supported = allFiles.filter(f => SUPPORTED_EXTS.has(ext(f)));
@@ -465,6 +466,7 @@ if (serviceType === 'insect_quarterly' && isInsectQuarterlyVectorPdfEnabled()) {
         serviceStartDate,
         initialServiceDate,
         selectedStartDate,
+        tmmOverrides,
       });
     }
     prefix    = serviceType;
@@ -696,6 +698,7 @@ router.post('/generate-quote', async (req, res) => {
       selectedStartDate,
       bedBugAgreement = {},
       cardLastFour = '',
+      tmmOverrides = {},
       preview = false,
     } = req.body;
     if (index === undefined || index === null) return res.status(400).json({ error: 'index required' });
@@ -723,6 +726,7 @@ router.post('/generate-quote', async (req, res) => {
       selectedStartDate,
       bedBugAgreement,
       cardLastFour,
+      tmmOverrides,
     });
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -754,6 +758,7 @@ router.post('/email-quote', async (req, res) => {
       selectedStartDate,
       bedBugAgreement = {},
       cardLastFour = '',
+      tmmOverrides = {},
       previewVerified = false,
       calendarInvite = false,
       appointmentDate = '',
@@ -800,6 +805,7 @@ router.post('/email-quote', async (req, res) => {
       selectedStartDate,
       bedBugAgreement,
       cardLastFour,
+      tmmOverrides,
     });
 
     const MIME_MAP = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
