@@ -6,13 +6,14 @@ import { buildTickMosquitoMonthlyAgreementPdf } from '../tickMosquitoMonthlyAgre
 import { isTickMosquitoMonthlyVectorPdfEnabled } from '../tickMosquitoMonthlyVectorPdfFlag.js';
 import { isRodentInsectTriannualVectorPdfEnabled } from '../rodentInsectTriannualVectorPdfFlag.js';
 import { BED_BUG_TEMPLATE_FILENAME } from '../quoteDocumentsList.js';
-import { tryRenderBedBugAgreementPreviewPng } from '../bedBugAgreementEmailPreview.js';
+import { tryRenderBedBugAgreementPreviewPng, tryGenerateSigningOgCard } from '../bedBugAgreementEmailPreview.js';
 import { stampSignaturesOnPdf } from './stampSignaturesOnPdf.js';
 import {
   buildSigningExpiryDate,
   buildSigningUrl,
   createSigningToken,
   readUnsignedPdf,
+  saveOgCardPng,
   savePreviewPng,
   saveSigningSession,
   saveUnsignedPdf,
@@ -204,6 +205,13 @@ export async function createAgreementSigningSession({
   if (preview.ok) {
     await savePreviewPng(token, preview.pngBuffer);
     session.hasPreview = true;
+    await saveSigningSession(session);
+  }
+
+  const ogCard = await tryGenerateSigningOgCard(session.lead?.name || '');
+  if (ogCard.ok) {
+    await saveOgCardPng(token, ogCard.pngBuffer);
+    session.hasOgCard = true;
     await saveSigningSession(session);
   }
 

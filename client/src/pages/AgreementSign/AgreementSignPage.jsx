@@ -110,10 +110,11 @@ export default function AgreementSignPage() {
   const documentPdfUrl = `/api/signing/public/${token}/document.pdf`;
 
   function handleOpenPdf() {
-    // iOS Safari cannot render PDFs inside iframes — open in new tab instead
+    // iOS Safari renders PDFs letterboxed in new tabs and doesn't support iframes.
+    // Send iOS to /sign-view/:token which uses PDF.js for full-width, all-pages viewing.
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (isIOS) {
-      window.open(documentPdfUrl, '_blank', 'noopener,noreferrer');
+      window.open(`/sign-view/${encodeURIComponent(token)}`, '_blank', 'noopener,noreferrer');
     } else {
       setPdfViewerOpen(true);
     }

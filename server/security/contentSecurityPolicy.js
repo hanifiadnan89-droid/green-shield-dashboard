@@ -33,6 +33,8 @@ export function buildContentSecurityPolicyDirectives() {
       "'unsafe-eval'",
       "'wasm-unsafe-eval'",
       'blob:',
+      // pdf.js loaded from CDN for the public /sign-view/:token agreement viewer.
+      'https://cdnjs.cloudflare.com',
     ],
     'connect-src': [
       "'self'",
@@ -75,8 +77,9 @@ export function buildContentSecurityPolicyDirectives() {
       'https://fonts.gstatic.com',
     ],
     // Maps vector renderer spawns blob: and gstatic workers (e.g. shared-label-worker.js).
-    'worker-src': ["'self'", ...googleMapsWorkers],
-    'child-src': ["'self'", ...googleMapsWorkers],
+    // cdnjs needed for pdf.js worker loaded in /sign-view/:token.
+    'worker-src': ["'self'", ...googleMapsWorkers, 'https://cdnjs.cloudflare.com'],
+    'child-src': ["'self'", ...googleMapsWorkers, 'https://cdnjs.cloudflare.com'],
   };
 }
 

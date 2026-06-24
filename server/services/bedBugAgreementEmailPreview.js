@@ -67,3 +67,60 @@ export async function tryRenderBedBugAgreementPreviewPng(pdfBytes, options = {})
 /** Generic alias — works for any single-page agreement PDF. */
 export const tryRenderAgreementPreviewPng = tryRenderBedBugAgreementPreviewPng;
 export const renderAgreementPreviewPng = renderBedBugAgreementPreviewPng;
+
+function buildOgCardHtml(customerName) {
+  const firstName = customerName ? customerName.trim().split(/\s+/)[0] : '';
+  const headline = firstName
+    ? `${firstName}, your agreement is ready to sign`
+    : 'Your agreement is ready to sign';
+  return `<!DOCTYPE html>
+<html><head><style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1200px; height: 630px; background: #f0faf4; display: flex; align-items: center; justify-content: center; font-family: -apple-system, 'Helvetica Neue', Helvetica, sans-serif; }
+  .card { background: #fff; border-radius: 28px; padding: 70px 80px; width: 1040px; box-shadow: 0 12px 60px rgba(0,0,0,0.08); }
+  .brand { display: flex; align-items: center; gap: 18px; margin-bottom: 44px; }
+  .logo { width: 64px; height: 64px; background: #148a43; border-radius: 16px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 26px; }
+  .brand-name { font-size: 22px; font-weight: 700; color: #102018; }
+  .brand-sub { font-size: 15px; color: #6b7280; margin-top: 4px; }
+  h1 { font-size: 50px; font-weight: 800; color: #102018; line-height: 1.15; margin-bottom: 18px; }
+  .desc { font-size: 21px; color: #4b5563; margin-bottom: 44px; line-height: 1.4; }
+  .btn { display: inline-block; background: #148a43; color: #fff; padding: 20px 48px; border-radius: 14px; font-size: 21px; font-weight: 700; }
+</style></head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="logo">GS</div>
+      <div>
+        <div class="brand-name">Green Shield Pest Solutions</div>
+        <div class="brand-sub">Service Agreement</div>
+      </div>
+    </div>
+    <h1>${headline}</h1>
+    <div class="desc">Review and electronically sign your pest control service agreement.</div>
+    <div class="btn">Review &amp; Sign Agreement &rarr;</div>
+  </div>
+</body></html>`;
+}
+
+export async function generateSigningOgCard(customerName) {
+  const html = buildOgCardHtml(customerName || '');
+  const browser = await launchFieldRoutesChromium();
+  try {
+    const page = await browser.newPage();
+    await page.setViewportSize({ width: 1200, height: 630 });
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    return await page.screenshot({ type: 'png' });
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function tryGenerateSigningOgCard(customerName) {
+  try {
+    const pngBuffer = await generateSigningOgCard(customerName);
+    return { ok: true, pngBuffer };
+  } catch (err) {
+    console.warn('[signing-og-card] OG card generation unavailable:', err.message);
+    return { ok: false, error: err.message };
+  }
+}
