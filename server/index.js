@@ -126,17 +126,37 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
   try {
     const pdf = await pdfjsLib.getDocument(pdfSrc).promise;
     status.remove();
+
     const dpr = window.devicePixelRatio || 1;
-    const pageWidth = container.clientWidth - 12;
+    const barH = document.getElementById('bar').offsetHeight;
+    // Available dimensions for a single page to fill.
+    const availW = document.documentElement.clientWidth - 12;
+    const availH = window.innerHeight - barH - 12;
+
     for (let n = 1; n <= pdf.numPages; n++) {
       const page = await pdf.getPage(n);
       const vp0 = page.getViewport({ scale: 1 });
-      const scale = (pageWidth / vp0.width) * dpr;
-      const vp = page.getViewport({ scale });
+      const isLandscape = vp0.width > vp0.height;
+
+      // Scale strategy:
+      //  Portrait page  → fit to available width (fills left-right, scrolls down)
+      //  Landscape page → fit to available height so text fills the screen
+      //                   (the page will be wider than the phone; horizontal scroll reveals full width)
+      const scaleW = availW / vp0.width;
+      const scaleH = availH / vp0.height;
+      const displayScale = isLandscape ? Math.max(scaleW, scaleH) : scaleW;
+
+      // Render at physical (HiDPI) resolution, but set CSS size to logical pixels.
+      const vp = page.getViewport({ scale: displayScale * dpr });
       const canvas = document.createElement('canvas');
       canvas.width = vp.width;
       canvas.height = vp.height;
+      canvas.style.width  = Math.round(vp0.width  * displayScale) + 'px';
+      canvas.style.height = Math.round(vp0.height * displayScale) + 'px';
+      canvas.style.display = 'block';
+
       await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+
       const wrap = document.createElement('div');
       wrap.className = 'page-wrap';
       wrap.appendChild(canvas);
@@ -174,17 +194,22 @@ app.get('/sign-view/:token', (req, res) => {
   <title>Green Shield Agreement</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1a1a1a; font-family: -apple-system, sans-serif; }
+    body {
+      background: #1a1a1a; font-family: -apple-system, sans-serif;
+      /* Allow horizontal scroll when a landscape page is wider than the screen */
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
     #bar {
-      position: sticky; top: 0; z-index: 10;
+      position: sticky; top: 0; left: 0; z-index: 10;
       display: flex; align-items: center; justify-content: space-between;
       padding: 12px 16px; background: #148a43; color: #fff;
+      min-width: 100vw; /* stays full-width even when body scrolls horizontally */
     }
     #bar-title { font-size: 0.95rem; font-weight: 700; }
     #back { background: none; border: none; color: rgba(255,255,255,0.85); font-size: 0.9rem; cursor: pointer; padding: 4px 0; }
     #pages { padding: 6px; }
     .page-wrap { margin-bottom: 6px; }
-    .page-wrap canvas { display: block; width: 100% !important; height: auto !important; }
+    /* Canvas size is set per-page by JS; do not override with CSS percentages */
     #status { color: rgba(255,255,255,0.6); text-align: center; padding: 40px 16px; font-size: 0.9rem; }
   </style>
 </head>
