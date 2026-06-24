@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { Check, FolderOpen, MessageSquare, Rocket, ChevronRight } from 'lucide-react';
 import PreviewLaunchTopBar from './PreviewLaunchTopBar.jsx';
 import PreviewDocumentsWorkspace from './PreviewDocumentsWorkspace.jsx';
@@ -90,6 +90,12 @@ export default function StepPreviewSend(props) {
       </div>
 
       {/* ── Stepped workspace ── */}
+      {/*
+        All three full-content panels are ALWAYS mounted so component-local state
+        (selected document, pricing, Bed Bug form) is preserved when the user
+        navigates back. CSS display:none hides inactive panels without unmounting.
+        Only the lightweight side-card buttons are conditionally rendered.
+      */}
       <div className="sps-workspace">
 
         {/* ── Step 1: Documents ── */}
@@ -98,55 +104,34 @@ export default function StepPreviewSend(props) {
           transition={{ duration: 0.45, ease: EASE }}
           className={activeStep === 1 ? 'sps-slot sps-slot--main' : 'sps-slot sps-slot--side'}
         >
-          <AnimatePresence mode="wait" initial={false}>
-            {activeStep === 1 ? (
-              <motion.div
-                key="docs-full"
-                className="sps-panel-wrap"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.22, ease: EASE }}
+          {/* Full content: always mounted */}
+          <div className={activeStep !== 1 ? 'sps-hidden' : 'sps-panel-wrap'}>
+            <PreviewDocumentsWorkspace
+              selectedLead={props.selectedLead}
+              selectedPrepGuides={props.selectedPrepGuides}
+              onTogglePrepGuide={props.onTogglePrepGuide}
+              onQuoteStateChange={setQuoteState}
+            />
+            <div className="sps-continue">
+              <button
+                type="button"
+                className="sps-continue-btn"
+                onClick={() => setActiveStep(2)}
               >
-                <PreviewDocumentsWorkspace
-                  selectedLead={props.selectedLead}
-                  selectedPrepGuides={props.selectedPrepGuides}
-                  onTogglePrepGuide={props.onTogglePrepGuide}
-                  onQuoteStateChange={setQuoteState}
-                />
-                <motion.div
-                  className="sps-continue"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.22, duration: 0.28, ease: EASE }}
-                >
-                  <button
-                    type="button"
-                    className="sps-continue-btn"
-                    onClick={() => setActiveStep(2)}
-                  >
-                    Continue to Preview
-                    <ChevronRight size={15} />
-                  </button>
-                </motion.div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="docs-mini"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18, ease: EASE }}
-              >
-                <StepSideCard
-                  step={STEPS[0]}
-                  completed={activeStep > 1}
-                  onClick={() => setActiveStep(1)}
-                  summary={quoteState?.selected?.name ?? null}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+                Continue to Preview
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+          {/* Side card: only when collapsed */}
+          {activeStep !== 1 && (
+            <StepSideCard
+              step={STEPS[0]}
+              completed={activeStep > 1}
+              onClick={() => setActiveStep(1)}
+              summary={quoteState?.selected?.name ?? null}
+            />
+          )}
         </motion.div>
 
         {/* ── Step 2: Communication Preview ── */}
@@ -155,53 +140,30 @@ export default function StepPreviewSend(props) {
           transition={{ duration: 0.45, ease: EASE }}
           className={activeStep === 2 ? 'sps-slot sps-slot--main' : 'sps-slot sps-slot--side'}
         >
-          <AnimatePresence mode="wait" initial={false}>
-            {activeStep === 2 ? (
-              <motion.div
-                key="comm-full"
-                className="sps-panel-wrap"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.22, ease: EASE }}
+          <div className={activeStep !== 2 ? 'sps-hidden' : 'sps-panel-wrap'}>
+            <PreviewCommunicationCenter
+              selectedLead={props.selectedLead}
+              selectedTemplate={props.selectedTemplate}
+            />
+            <div className="sps-continue">
+              <button
+                type="button"
+                className="sps-continue-btn"
+                onClick={() => setActiveStep(3)}
               >
-                <PreviewCommunicationCenter
-                  selectedLead={props.selectedLead}
-                  selectedTemplate={props.selectedTemplate}
-                />
-                <motion.div
-                  className="sps-continue"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.22, duration: 0.28, ease: EASE }}
-                >
-                  <button
-                    type="button"
-                    className="sps-continue-btn"
-                    onClick={() => setActiveStep(3)}
-                  >
-                    Continue to Launch
-                    <ChevronRight size={15} />
-                  </button>
-                </motion.div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="comm-mini"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18, ease: EASE }}
-              >
-                <StepSideCard
-                  step={STEPS[1]}
-                  completed={activeStep > 2}
-                  onClick={() => setActiveStep(2)}
-                  summary={tmplLabel || null}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+                Continue to Launch
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+          {activeStep !== 2 && (
+            <StepSideCard
+              step={STEPS[1]}
+              completed={activeStep > 2}
+              onClick={() => setActiveStep(2)}
+              summary={tmplLabel || null}
+            />
+          )}
         </motion.div>
 
         {/* ── Step 3: Launch ── */}
@@ -210,38 +172,20 @@ export default function StepPreviewSend(props) {
           transition={{ duration: 0.45, ease: EASE }}
           className={activeStep === 3 ? 'sps-slot sps-slot--main' : 'sps-slot sps-slot--side'}
         >
-          <AnimatePresence mode="wait" initial={false}>
-            {activeStep === 3 ? (
-              <motion.div
-                key="launch-full"
-                className="sps-launch-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.22, ease: EASE }}
-              >
-                <PreviewSendSidebar
-                  {...props}
-                  quoteState={quoteState}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="launch-mini"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18, ease: EASE }}
-              >
-                <StepSideCard
-                  step={STEPS[2]}
-                  completed={false}
-                  onClick={() => {}}
-                  summary={null}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className={activeStep !== 3 ? 'sps-hidden' : 'sps-launch-center'}>
+            <PreviewSendSidebar
+              {...props}
+              quoteState={quoteState}
+            />
+          </div>
+          {activeStep !== 3 && (
+            <StepSideCard
+              step={STEPS[2]}
+              completed={false}
+              onClick={() => {}}
+              summary={null}
+            />
+          )}
         </motion.div>
 
       </div>

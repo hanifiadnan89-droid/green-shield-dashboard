@@ -1065,6 +1065,11 @@
   gap: 12px;
 }
 
+/* Hides the full-content panel without unmounting it, preserving component state */
+.sps-hidden {
+  display: none;
+}
+
 /* ── Side card (collapsed step) ── */
 
 .sps-side-card {
@@ -1212,11 +1217,12 @@
 }
 
 .sps-launch-center > * {
-  max-width: 640px;
+  /* No max-width cap — fills available space comfortably at any viewport width.
+     Override sticky positioning so the sidebar behaves as a normal block here. */
   width: 100%;
   position: relative !important;
-  max-height: calc(100vh - 200px) !important;
   top: 0 !important;
+  max-height: calc(100vh - 200px) !important;
 }
 
 /* ── Responsive ── */
