@@ -307,4 +307,106 @@ router.post('/draft-reply', async (req, res) => {
   }
 });
 
+// ── Objection Assistant ────────────────────────────────────────────────────
+
+function buildObjectionSystemPrompt() {
+  return `You are a Green Shield Pest Solutions sales rep on a live phone call with a residential customer.
+
+The customer raised an objection. Write a spoken response using this 4-step structure:
+1. Acknowledge — one sentence showing you heard them (don't dismiss or over-validate)
+2. Reframe value — one or two sentences repositioning the service benefit or cost
+3. Tie to their property — one sentence connecting to their specific property, pest pressure, or service conditions
+4. Close — one direct closing line that moves toward booking or a yes (e.g. "Want me to go ahead and lock you in?" or similar — keep it natural)
+
+Rules:
+- Short enough to read aloud on a phone call — 4 sentences total, no more
+- No big paragraphs — each step is its own sentence or two
+- Sound like a real person, not a script. Warm, confident, not pushy
+- No filler phrases like "I completely understand" or "That's a great question"
+- Don't name competitors
+- End with a clear, direct closing line — not vague, not soft
+- Return ONLY the spoken response text, nothing else`;
+}
+
+function buildObjectionUserMessage(context = {}, objection) {
+  const parts = [];
+
+  if (context.customerName) parts.push(`Customer name: ${context.customerName}`);
+  if (context.serviceType)   parts.push(`Service type: ${context.serviceType}`);
+  if (context.address)       parts.push(`Property address: ${context.address}`);
+
+  if (context.treatmentAcreage != null) {
+    parts.push(`Treatment area: ~${context.treatmentAcreage} acres`);
+  } else if (context.treatmentSquareFeet != null) {
+    const acres = (context.treatmentSquareFeet / 43560).toFixed(2);
+    parts.push(`Treatment area: ~${acres} acres (${Number(context.treatmentSquareFeet).toLocaleString()} sq ft)`);
+  }
+
+  if (context.weather) {
+    const w = context.weather;
+    const parts2 = [];
+    if (w.temperatureF != null)          parts2.push(`${w.temperatureF}°F`);
+    if (w.rainProbabilityPercent != null) parts2.push(`${w.rainProbabilityPercent}% rain`);
+    if (w.windSpeedMph != null)           parts2.push(`${w.windSpeedMph} mph wind`);
+    if (parts2.length) parts.push(`Current conditions: ${parts2.join(', ')}`);
+  }
+
+  if (context.suitability?.label) {
+    parts.push(`Service suitability: ${context.suitability.label}`);
+  }
+
+  if (context.propertyType) parts.push(`Property type: ${context.propertyType}`);
+  if (context.yearBuilt)    parts.push(`Year built: ${context.yearBuilt}`);
+
+  parts.push('');
+  parts.push(`Customer objection: "${objection}"`);
+  parts.push('');
+  parts.push('Write the phone response. 4 sentences: acknowledge → reframe value → tie to their property → direct close.');
+
+  return parts.join('\n');
+}
+
+function buildTransformUserMessage(action, existing, objection, context = {}) {
+  const instructions = {
+    shorten:  'Cut this down to 2–3 sentences. Keep the acknowledge and the closing line. Drop anything that is not essential.',
+    softer:   'Rewrite with a softer, more empathetic tone. More listening, less pressure. Still end with a natural closing line.',
+    stronger: 'Rewrite with a stronger, more direct close. Add urgency tied to their property or the time of year. The last line should clearly push for a yes or a scheduled appointment.',
+  };
+
+  const instruction = instructions[action] || 'Improve this response.';
+  const contextLine = context.customerName ? `Customer: ${context.customerName}. Objection: "${objection}".` : `Objection: "${objection}".`;
+
+  return `${contextLine}\n\nCurrent response:\n"${existing}"\n\nInstruction: ${instruction}\n\nReturn only the rewritten response text.`;
+}
+
+router.post('/objection-assist', async (req, res) => {
+  try {
+    const { context = {}, objection, action = null, existing_response = '' } = req.body;
+
+    if (!objection?.trim()) {
+      return res.status(400).json({ error: 'objection is required' });
+    }
+
+    let userMessage;
+    if (action && existing_response.trim()) {
+      userMessage = buildTransformUserMessage(action, existing_response, objection, context);
+    } else {
+      userMessage = buildObjectionUserMessage(context, objection);
+    }
+
+    const aiResponse = await getClient().messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 350,
+      system: buildObjectionSystemPrompt(),
+      messages: [{ role: 'user', content: userMessage }],
+    });
+
+    const text = (aiResponse.content[0]?.text || '').trim();
+    return res.json({ response: text });
+  } catch (err) {
+    console.error('[ai/objection-assist]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

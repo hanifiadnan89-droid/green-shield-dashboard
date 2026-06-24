@@ -1517,3 +1517,118 @@
 .intake-rentcast-usage__footnote {
   @apply pt-2 text-xs text-slate-500;
 }
+
+/* ── Objection Assistant ────────────────────────────────────────────────── */
+
+.objection-assist {
+  @apply flex flex-col gap-2.5;
+}
+
+.objection-assist__header {
+  @apply flex items-center gap-1.5 mb-0.5;
+}
+
+.objection-assist__header-icon {
+  color: #16a34a;
+}
+
+.objection-assist__header-title {
+  @apply text-xs font-bold tracking-tight;
+  color: #15803d;
+}
+
+.objection-assist__header-sparkle {
+  @apply ml-auto;
+  color: #86efac;
+}
+
+.objection-assist__chips {
+  @apply flex flex-wrap gap-1.5;
+}
+
+.objection-assist__chip {
+  @apply inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all cursor-pointer;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.objection-assist__chip:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.objection-assist__chip--active {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #fff;
+}
+
+.objection-assist__input {
+  @apply mt-0.5 text-xs !important;
+}
+
+.objection-assist__generate-btn {
+  @apply w-full text-xs py-2 !important;
+}
+
+.objection-assist__error {
+  @apply text-[11px] font-medium rounded-lg px-3 py-2;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.objection-assist__response-wrap {
+  @apply rounded-xl border overflow-hidden;
+  border-color: #bbf7d0;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+}
+
+.objection-assist__response {
+  @apply w-full px-3 py-2.5 text-xs leading-relaxed resize-none bg-transparent outline-none;
+  color: #14532d;
+  min-height: 120px;
+}
+
+.objection-assist__action-row {
+  @apply flex items-center gap-2;
+}
+
+.objection-assist__actions {
+  @apply flex items-center gap-1.5 flex-1 flex-wrap;
+}
+
+.objection-assist__action-btn {
+  @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all;
+  background: #fff;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.objection-assist__action-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.objection-assist__action-btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.objection-assist__copy-btn {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all shrink-0;
+  background: #fff;
+  border-color: #bbf7d0;
+  color: #16a34a;
+}
+
+.objection-assist__copy-btn:hover {
+  background: #f0fdf4;
+}
+
+.objection-assist__copy-btn--done {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #fff;
+}
