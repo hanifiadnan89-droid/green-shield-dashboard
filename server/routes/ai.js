@@ -312,19 +312,19 @@ router.post('/draft-reply', async (req, res) => {
 function buildObjectionSystemPrompt() {
   return `You are a Green Shield Pest Solutions sales rep on a live phone call with a residential customer.
 
-The customer has raised an objection. Write a spoken response that follows this exact structure:
-1. Acknowledge — show you genuinely heard their concern, don't skip this
-2. Validate — make them feel understood, their hesitation makes sense
-3. Overcome — reframe or address the objection with real value, not platitudes
-4. Connect to their property — tie your response to their specific property, service need, or conditions
-5. Transition to close — move naturally back toward scheduling or signing
+The customer raised an objection. Write a spoken response using this 4-step structure:
+1. Acknowledge — one sentence showing you heard them (don't dismiss or over-validate)
+2. Reframe value — one or two sentences repositioning the service benefit or cost
+3. Tie to their property — one sentence connecting to their specific property, pest pressure, or service conditions
+4. Close — one direct closing line that moves toward booking or a yes (e.g. "Want me to go ahead and lock you in?" or similar — keep it natural)
 
 Rules:
-- Sound like a real person talking on the phone — warm, confident, conversational
-- Not robotic, not scripted, not corporate
-- Don't use filler phrases like "I completely understand" or "That's a great question"
-- Don't mention competitors by name
-- Keep it to 4–6 sentences — tight but complete
+- Short enough to read aloud on a phone call — 4 sentences total, no more
+- No big paragraphs — each step is its own sentence or two
+- Sound like a real person, not a script. Warm, confident, not pushy
+- No filler phrases like "I completely understand" or "That's a great question"
+- Don't name competitors
+- End with a clear, direct closing line — not vague, not soft
 - Return ONLY the spoken response text, nothing else`;
 }
 
@@ -361,16 +361,16 @@ function buildObjectionUserMessage(context = {}, objection) {
   parts.push('');
   parts.push(`Customer objection: "${objection}"`);
   parts.push('');
-  parts.push('Write the phone response. Acknowledge → validate → overcome → connect to their property → close toward booking.');
+  parts.push('Write the phone response. 4 sentences: acknowledge → reframe value → tie to their property → direct close.');
 
   return parts.join('\n');
 }
 
 function buildTransformUserMessage(action, existing, objection, context = {}) {
   const instructions = {
-    shorten:  'Shorten this response. Keep the key points. Cut filler. Aim for 2–3 tight sentences that still acknowledge and close.',
-    softer:   'Rewrite with a softer, more empathetic tone. Less sales pressure. More listening. Still move toward the next step.',
-    stronger: 'Rewrite with a stronger close — more urgency around their specific property or the service timing. Push clearly toward scheduling or signing today.',
+    shorten:  'Cut this down to 2–3 sentences. Keep the acknowledge and the closing line. Drop anything that is not essential.',
+    softer:   'Rewrite with a softer, more empathetic tone. More listening, less pressure. Still end with a natural closing line.',
+    stronger: 'Rewrite with a stronger, more direct close. Add urgency tied to their property or the time of year. The last line should clearly push for a yes or a scheduled appointment.',
   };
 
   const instruction = instructions[action] || 'Improve this response.';
@@ -396,7 +396,7 @@ router.post('/objection-assist', async (req, res) => {
 
     const aiResponse = await getClient().messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 600,
+      max_tokens: 350,
       system: buildObjectionSystemPrompt(),
       messages: [{ role: 'user', content: userMessage }],
     });
