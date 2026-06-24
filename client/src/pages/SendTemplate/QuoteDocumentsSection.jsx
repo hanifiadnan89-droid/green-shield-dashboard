@@ -14,6 +14,13 @@ import {
 import { buildCustomerAddressFromLead, prefillEmptyFields } from './customerPrefill.js';
 import { buildIntakeQuotePrefill } from '../../utils/intake/buildIntakeLead.js';
 
+function localIsoDate() {
+  const now = new Date();
+  // Adjust for local timezone so "today" is correct regardless of UTC offset
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+    .toISOString().slice(0, 10);
+}
+
 /* ── Quote Documents Section ── */
 export default function QuoteDocumentsSection({
   lead,
@@ -25,7 +32,7 @@ export default function QuoteDocumentsSection({
   const [selected, setSelected]       = useState(null);
   const [pricing, setPricing]         = useState({ initial: '', recurring: '', discounted: '' });
   const [address, setAddress]         = useState({ street: '', cityState: '' });
-  const [agreementStartDate, setAgreementStartDate] = useState('');
+  const [agreementStartDate, setAgreementStartDate] = useState(localIsoDate);
   const [notes, setNotes]             = useState('');
   const [treatmentAcreage, setTreatmentAcreage] = useState(null);
   const [treatmentSquareFeet, setTreatmentSquareFeet] = useState(null);
@@ -310,7 +317,13 @@ export default function QuoteDocumentsSection({
               <motion.button
                 key={f.key}
                 type="button"
-                onClick={() => setSelected(s => s?.key === f.key ? null : f)}
+                onClick={() => {
+                  const deselecting = selected?.key === f.key;
+                  setSelected(deselecting ? null : f);
+                  if (!deselecting && f.serviceType === 'tick_mosquito_monthly') {
+                    setPricing({ initial: '119', recurring: '119', discounted: '' });
+                  }
+                }}
                 className={`send-doc-card ${selected?.key === f.key ? 'send-doc-card--selected' : ''}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -452,7 +465,7 @@ export default function QuoteDocumentsSection({
                 onChange={e => setAgreementStartDate(e.target.value)}
               />
               <p className="text-[10px] text-gs-muted mt-1 mb-0">
-                Drives the 12-month calendar on the agreement. Leave blank to use today.
+                Drives the 12-month calendar on the agreement.
               </p>
             </div>
 

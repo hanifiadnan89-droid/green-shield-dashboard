@@ -135,6 +135,74 @@
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.9rem;
   text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* Full-screen PDF viewer modal (desktop / Android) */
+.agreement-sign-page__pdf-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+}
+
+.agreement-sign-page__pdf-modal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #148a43;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.agreement-sign-page__pdf-modal-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.agreement-sign-page__pdf-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agreement-sign-page__pdf-modal-newtab {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.82rem;
+  text-decoration: underline;
+}
+
+.agreement-sign-page__pdf-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.agreement-sign-page__pdf-modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.agreement-sign-page__pdf-modal-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #fff;
 }
 
 .agreement-sign-page__panel {
