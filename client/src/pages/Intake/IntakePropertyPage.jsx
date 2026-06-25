@@ -23,6 +23,18 @@ import { formatDisplayAddress } from '../../utils/intake/formatDisplayAddress.js
 import { buildZillowSearchUrl } from '../../utils/intake/buildZillowSearchUrl.js';
 import './intake.css';
 
+function getPricingHint(serviceType) {
+  if (!serviceType) return null;
+  const st = serviceType.toLowerCase();
+  if (st.includes('tick') || st.includes('mosquito') || st === 't/m' || st === 'tm') {
+    return '$119/month — Tick & Mosquito Monthly, May–October';
+  }
+  if (st.includes('quarterly') || st === 'iq') {
+    return '$119/quarter — Integrated Quarterly, year-round';
+  }
+  return null;
+}
+
 export default function IntakePropertyPage() {
   const navigate = useNavigate();
   const session = useMemo(() => loadIntakeSession(), []);
@@ -237,7 +249,10 @@ export default function IntakePropertyPage() {
                       treatmentAcreage,
                       treatmentSquareFeet,
                       propertyType:        customer.propertyUseEstimate || null,
-                      yearBuilt:           null,
+                      pricing:             getPricingHint(customer.serviceType || customer.serviceTypeCode),
+                      leadNotes:           session.property?.salesNotes || session.property?.propertyNotes || null,
+                      previousMessage:     null,
+                      recommendations:     session.property?.intelligenceNotes || null,
                     }}
                   />
                 </div>

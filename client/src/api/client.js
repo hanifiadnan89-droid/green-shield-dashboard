@@ -174,6 +174,13 @@ export const api = {
     }),
   },
 
+  salesCoach: {
+    runModule: (body) => request('/ai/sales-coach/module', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  },
+
   ai: {
     assistReply: (lead_context, user_prompt, current_draft = '') => request('/ai/assist-reply', {
       method: 'POST',
@@ -185,6 +192,22 @@ export const api = {
       body: JSON.stringify({ lead_context }),
     }),
     objectionAssist: (body) => request('/ai/objection-assist', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    salesCoach: (body) => request('/ai/sales-coach', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    objectionFeedback: (body) => request('/ai/objection-feedback', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    objectionOutcome: (body) => request('/ai/objection-outcome', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    coachObjection: (body) => request('/ai/coach-objection', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
