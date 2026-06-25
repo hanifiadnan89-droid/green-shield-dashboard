@@ -200,6 +200,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+    coachObjection: (body) => request('/ai/coach-objection', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   },
 
   documents: {

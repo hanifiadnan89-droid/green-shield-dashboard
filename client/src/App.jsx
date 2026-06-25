@@ -17,6 +17,7 @@ const RouteFinderPage  = lazy(() => import('./pages/RouteFinder/RouteFinderPage.
 const IntakeGate         = lazy(() => import('./pages/Intake/IntakeGate.jsx'));
 const IntakePropertyGate = lazy(() => import('./pages/Intake/IntakePropertyGate.jsx'));
 const AgreementSignPage = lazy(() => import('./pages/AgreementSign/AgreementSignPage.jsx'));
+const SalesCoachPage    = lazy(() => import('./pages/SalesCoach/SalesCoachPage.jsx'));
 
 function googleCredsBannerMessage(googleCreds) {
   if (googleCreds?.message) return googleCreds.message;
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/followups" element={<Followups />} />
         <Route path="/activity" element={<ActivityLog />} />
         <Route path="/tools/route-finder" element={<RouteFinderPage />} />
+        <Route path="/sales-coach" element={<SalesCoachPage />} />
         <Route path="/intake" element={<IntakeGate />} />
         <Route path="/intake/property" element={<IntakePropertyGate />} />
         <Route path="/component-preview" element={<ComponentPreview />} />
