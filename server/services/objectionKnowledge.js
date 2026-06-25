@@ -116,15 +116,23 @@ function buildRichSearchDocument(entry) {
 // Returns a normalised [0, 1] priority weight for re-ranking.
 // Returns -1 for entries that should be excluded from retrieval entirely.
 
+// Normalise outcome to lowercase canonical ID (handles old uppercase values).
+function normalizeOutcome(outcome) {
+  if (!outcome) return null;
+  const MAP = {
+    'Sold': 'sold', 'Scheduled': 'scheduled', 'Follow Up': 'follow_up',
+    'Unknown': 'unknown', 'Lost': 'lost', 'Declined': 'declined',
+  };
+  return MAP[outcome] ?? outcome.toLowerCase().replace(/\s+/g, '_');
+}
+
 const OUTCOME_SCORE = {
-  'Sold':       1.00,
-  'Scheduled':  0.90,
-  'Follow Up':  0.60,
-  'Unknown':    0.45,
-  null:         0.45,
-  undefined:    0.45,
-  'Lost':       0.20, // only included if correction/whyItWorked present
-  'Declined':   0.20, // same
+  'sold':      1.00,
+  'scheduled': 0.90,
+  'follow_up': 0.60,
+  'unknown':   0.45,
+  'lost':      0.20, // only included if correction/whyItWorked present
+  'declined':  0.20, // same
 };
 
 const FEEDBACK_SCORE = {
@@ -136,20 +144,20 @@ const FEEDBACK_SCORE = {
 };
 
 function getPriorityScore(entry) {
-  const outcome = entry.outcome ?? null;
+  const outNorm = normalizeOutcome(entry.outcome);
 
-  // Exclude Lost/Declined without any corrective signal — they teach nothing
-  if ((outcome === 'Lost' || outcome === 'Declined') &&
+  // Exclude lost/declined without any corrective signal — they teach nothing
+  if ((outNorm === 'lost' || outNorm === 'declined') &&
       !entry.correction?.trim() && !entry.whyItWorked?.trim()) {
     return -1;
   }
 
   let score = 0;
-  score += (OUTCOME_SCORE[outcome] ?? 0.45) * 0.50;
+  score += (OUTCOME_SCORE[outNorm] ?? 0.45) * 0.50;
   score += (FEEDBACK_SCORE[entry.feedbackType] ?? 0.40) * 0.30;
-  if (entry.whyItWorked?.trim())          score += 0.10;
-  if (entry.correction?.trim())           score += 0.08;
-  if (entry.repEditedResponse?.trim())    score += 0.02;
+  if (entry.whyItWorked?.trim())        score += 0.10;
+  if (entry.correction?.trim())         score += 0.08;
+  if (entry.repEditedResponse?.trim())  score += 0.02;
 
   return Math.min(score, 1.0);
 }
@@ -352,7 +360,8 @@ export function formatExamplesForPrompt(examples) {
     const resp = e.repEditedResponse || e.recommendedResponse;
     if (resp)                  lines.push(`  Response used: "${resp}"`);
     if (e.correction)          lines.push(`  Correction/note: "${e.correction}"`);
-    const isProven = e.outcome === 'Sold' || e.outcome === 'Scheduled' || e.feedbackType === 'save_approved';
+    const outNorm  = normalizeOutcome(e.outcome);
+    const isProven = outNorm === 'sold' || outNorm === 'scheduled' || e.feedbackType === 'save_approved';
     if (isProven)              lines.push('  [Proven successful]');
   });
 

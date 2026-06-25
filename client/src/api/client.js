@@ -174,6 +174,13 @@ export const api = {
     }),
   },
 
+  salesCoach: {
+    runModule: (body) => request('/ai/sales-coach/module', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  },
+
   ai: {
     assistReply: (lead_context, user_prompt, current_draft = '') => request('/ai/assist-reply', {
       method: 'POST',

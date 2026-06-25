@@ -1,9 +1,14 @@
 import { useState, lazy, Suspense } from 'react';
-import { Brain, MessageSquare, Target, PhoneCall, BarChart2, Clock3, BookOpen, TrendingUp } from 'lucide-react';
+import { MessageSquare, Target, PhoneCall, BarChart2, Clock3, BookOpen, TrendingUp } from 'lucide-react';
+import { SalesCoachHeader }         from './components/SalesCoachHeader.jsx';
+import { SalesCoachModuleCard }     from './components/SalesCoachModuleCard.jsx';
+import { SalesCoachRecentSessions } from './components/SalesCoachRecentSessions.jsx';
 import './SalesCoach.css';
 
-const ObjectionCoach = lazy(() => import('./modules/ObjectionCoach.jsx'));
+const ObjectionCoach = lazy(() => import('./modules/ObjectionCoach/ObjectionCoach.jsx'));
 
+// Module registry — add new modules here when they're built.
+// Only modules with active: true are clickable; the rest render as "Coming Soon".
 const MODULES = [
   {
     id: 'objection-coach',
@@ -70,35 +75,29 @@ const MODULES = [
   },
 ];
 
-export default function SalesCoachPage() {
-  const [activeModule, setActiveModule] = useState(null);
+// Map from module id → component and display name
+const MODULE_VIEWS = {
+  'objection-coach': { Component: ObjectionCoach, label: 'Handle an Objection' },
+};
 
-  if (activeModule === 'objection-coach') {
+export default function SalesCoachPage() {
+  const [activeModule,    setActiveModule]    = useState(null);
+  const [recentSessions,  setRecentSessions]  = useState([]);
+
+  const handleSessionComplete = (session) => {
+    setRecentSessions(prev => [session, ...prev].slice(0, 10));
+  };
+
+  const view = activeModule ? MODULE_VIEWS[activeModule] : null;
+
+  if (view) {
+    const { Component, label } = view;
     return (
       <div className="sc-root">
-        <header className="sc-header">
-          <div className="sc-header__identity">
-            <div className="sc-header__icon">
-              <Brain size={18} />
-            </div>
-            <div>
-              <div className="sc-header__title">Sales Coach</div>
-              <div className="sc-header__subtitle">Green Shield AI Sales Brain</div>
-            </div>
-          </div>
-          <div className="sc-header__module-name">
-            <button
-              className="sc-header__back"
-              onClick={() => setActiveModule(null)}
-            >
-              ← All Modules
-            </button>
-            <h1>Handle an Objection</h1>
-          </div>
-        </header>
+        <SalesCoachHeader moduleName={label} onBack={() => setActiveModule(null)} />
         <div className="sc-body">
           <Suspense fallback={<div className="text-sm text-gs-muted p-4">Loading…</div>}>
-            <ObjectionCoach />
+            <Component onSessionComplete={handleSessionComplete} />
           </Suspense>
         </div>
       </div>
@@ -107,44 +106,22 @@ export default function SalesCoachPage() {
 
   return (
     <div className="sc-root">
-      <header className="sc-header">
-        <div className="sc-header__identity">
-          <div className="sc-header__icon">
-            <Brain size={18} />
-          </div>
-          <div>
-            <div className="sc-header__title">Sales Coach</div>
-            <div className="sc-header__subtitle">Green Shield AI Sales Brain</div>
-          </div>
-        </div>
-      </header>
-
+      <SalesCoachHeader />
       <div className="sc-body">
         <div className="sc-home-kicker">Training Modules</div>
         <div className="sc-module-grid">
-          {MODULES.map((mod) => {
-            const Icon = mod.icon;
-            return (
-              <div
-                key={mod.id}
-                className={`sc-module-card ${mod.active ? 'sc-module-card--active' : 'sc-module-card--soon'}`}
-                onClick={mod.active ? () => setActiveModule(mod.id) : undefined}
-              >
-                <div
-                  className="sc-module-card__icon-wrap"
-                  style={{ background: mod.iconBg }}
-                >
-                  <Icon size={20} color={mod.iconColor} />
-                </div>
-                <div className="sc-module-card__title">{mod.title}</div>
-                <div className="sc-module-card__desc">{mod.desc}</div>
-                <span className={`sc-module-card__badge ${mod.active ? 'sc-module-card__badge--active' : 'sc-module-card__badge--soon'}`}>
-                  {mod.active ? 'Available' : 'Coming Soon'}
-                </span>
-              </div>
-            );
-          })}
+          {MODULES.map(mod => (
+            <SalesCoachModuleCard
+              key={mod.id}
+              mod={mod}
+              onClick={mod.active ? () => setActiveModule(mod.id) : undefined}
+            />
+          ))}
         </div>
+        <SalesCoachRecentSessions
+          sessions={recentSessions}
+          onNewSession={() => setActiveModule('objection-coach')}
+        />
       </div>
     </div>
   );

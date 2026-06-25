@@ -443,3 +443,73 @@
   @apply text-[11px] font-medium;
   color: #15803d;
 }
+
+/* ── Recent Sessions ─────────────────────────────────────────────────────── */
+
+.sc-sessions {
+  @apply mt-8;
+}
+
+.sc-sessions__header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.sc-sessions__new-btn {
+  @apply text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+}
+
+.sc-sessions__new-btn:hover {
+  background: #dcfce7;
+}
+
+.sc-sessions__empty {
+  @apply text-center py-10 rounded-2xl border-2 border-dashed;
+  border-color: #e2e8f0;
+}
+
+.sc-sessions__empty-title {
+  @apply text-sm font-semibold mb-1;
+  color: #64748b;
+}
+
+.sc-sessions__empty-hint {
+  @apply text-xs;
+  color: #94a3b8;
+}
+
+.sc-sessions__list {
+  @apply grid gap-3;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* Session card */
+.sc-session-card {
+  @apply card flex flex-col gap-1.5 p-4;
+}
+
+.sc-session-card__module {
+  @apply text-[10px] font-bold uppercase tracking-widest;
+  color: #94a3b8;
+}
+
+.sc-session-card__situation {
+  @apply text-xs leading-relaxed;
+  color: #374151;
+}
+
+.sc-session-card__meta {
+  @apply flex items-center justify-between mt-1;
+}
+
+.sc-session-card__outcome {
+  @apply text-[11px] font-semibold;
+  color: #15803d;
+}
+
+.sc-session-card__time {
+  @apply text-[10px];
+  color: #94a3b8;
+}
