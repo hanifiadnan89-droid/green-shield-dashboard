@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, MapPin } from 'lucide-react';
+import { ArrowRight, ExternalLink, MapPin } from 'lucide-react';
 import PropertyMap from './components/PropertyMap.jsx';
 import IntakePageHeader from './components/IntakePageHeader.jsx';
 import IntakeKpiBar from './components/IntakeKpiBar.jsx';
@@ -10,6 +10,7 @@ import IntakeStatusCards from './components/IntakeStatusCards.jsx';
 import IntakePropertyPreviewPanel from './components/IntakePropertyPreviewPanel.jsx';
 import IntakeWeatherWidget from './components/IntakeWeatherWidget.jsx';
 import IntakePageShell from './components/IntakePageShell.jsx';
+import ObjectionAssistant from './components/ObjectionAssistant.jsx';
 import { api } from '../../api/client.js';
 import {
   loadIntakeSession,
@@ -19,6 +20,7 @@ import { buildLeadFromIntakeSession } from '../../utils/intake/buildIntakeLead.j
 import { evaluateWeatherSuitability } from '../../utils/intake/weatherSuitability.js';
 import { formatAcreage, formatSquareFeet } from '../../utils/intake/polygonArea.js';
 import { formatDisplayAddress } from '../../utils/intake/formatDisplayAddress.js';
+import { buildZillowSearchUrl } from '../../utils/intake/buildZillowSearchUrl.js';
 import './intake.css';
 
 export default function IntakePropertyPage() {
@@ -129,6 +131,8 @@ export default function IntakePropertyPage() {
     });
   }
 
+  const zillowUrl = customer ? buildZillowSearchUrl(customer) : null;
+
   const mapSlot = (
     <div className="intake-property-map-slot">
       <PropertyMap
@@ -151,6 +155,36 @@ export default function IntakePropertyPage() {
           <p className="intake-stat__label">Estimated Treatment Square Footage</p>
           <p className="intake-stat__value">{treatmentSquareFeet != null ? formatSquareFeet(treatmentSquareFeet) : '—'} sq ft</p>
         </div>
+      </div>
+
+      {/* Action row: Zillow + Back + Continue */}
+      <div className="intake-property-action-row">
+        {zillowUrl && (
+          <a
+            href={zillowUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="intake-zillow-link"
+          >
+            View on Zillow
+            <ExternalLink size={12} aria-hidden />
+          </a>
+        )}
+        <button
+          type="button"
+          className="intake-property-action-row__back"
+          onClick={() => navigate('/intake')}
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          className="intake-property-action-row__continue"
+          onClick={handleContinue}
+        >
+          Continue to Send Template
+          <ArrowRight size={12} />
+        </button>
       </div>
     </div>
   );
@@ -192,13 +226,20 @@ export default function IntakePropertyPage() {
                   propertyRecordsStatus={propertyRecordsStatus}
                 />
 
-                <div className="intake-actions">
-                  <button type="button" className="intake-secondary-btn" onClick={() => navigate('/intake')}>
-                    Back
-                  </button>
-                  <button type="button" className="intake-primary-btn lg:hidden" onClick={handleContinue}>
-                    Continue to Send Template <ArrowRight size={14} className="inline ml-1" />
-                  </button>
+                <div className="intake-property-objection-slot">
+                  <ObjectionAssistant
+                    context={{
+                      customerName:        [customer.firstName, customer.lastName].filter(Boolean).join(' ') || null,
+                      serviceType:         customer.serviceType || customer.serviceTypeCode || null,
+                      address:             customer.verifiedAddress || null,
+                      weather:             weather || null,
+                      suitability:         suitability || null,
+                      treatmentAcreage,
+                      treatmentSquareFeet,
+                      propertyType:        customer.propertyUseEstimate || null,
+                      yearBuilt:           null,
+                    }}
+                  />
                 </div>
               </div>
 
