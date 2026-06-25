@@ -487,6 +487,43 @@
   @apply flex justify-end px-3 pb-1;
 }
 
+/* Left column — Objection Assistant below status cards divider */
+.intake-property-objection-slot {
+  @apply mt-4 pt-3 border-t;
+  border-color: #e5e7eb;
+}
+
+/* Right panel — Zillow + Back + Continue row */
+.intake-property-action-row {
+  @apply flex items-center gap-2 mt-3 flex-wrap;
+}
+
+.intake-property-action-row__back {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors;
+  background: #fff;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.intake-property-action-row__back:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.intake-property-action-row__continue {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ml-auto;
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  border: 1px solid #15803d;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+}
+
+.intake-property-action-row__continue:hover {
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
+  transform: translateY(-1px);
+}
+
 /* Info cards in preview */
 .intake-info-grid {
   @apply grid grid-cols-2 gap-2;

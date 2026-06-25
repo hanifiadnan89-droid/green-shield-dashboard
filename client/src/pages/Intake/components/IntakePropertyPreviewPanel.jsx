@@ -1,6 +1,4 @@
-import { ExternalLink, MapPin, Sparkles } from 'lucide-react';
-import ObjectionAssistant from './ObjectionAssistant.jsx';
-import { buildZillowSearchUrl } from '../../../utils/intake/buildZillowSearchUrl.js';
+import { MapPin, Sparkles } from 'lucide-react';
 
 function InfoCard({ label, value, pending = false }) {
   return (
@@ -14,21 +12,22 @@ function InfoCard({ label, value, pending = false }) {
 export default function IntakePropertyPreviewPanel({
   form = {},
   customer = null,
-  weather = null,
-  suitability = null,
   mapSlot = null,
-  treatmentAcreage = null,
-  treatmentSquareFeet = null,
-  boundaryStatus = 'none',
-  propertyRecords = null,
-  onPropertyRecordsChange,
-  propertyRecordsStatus = 'idle',
-  onPropertyRecordsStatusChange,
-  propertyRecordsLoading = false,
-  onPropertyRecordsLoadingChange,
-  propertyRecordsError = null,
-  onPropertyRecordsErrorChange,
   variant = 'default',
+  // kept in signature for backward-compat; no longer rendered in property view
+  weather,
+  suitability,
+  treatmentAcreage,
+  treatmentSquareFeet,
+  boundaryStatus,
+  propertyRecords,
+  onPropertyRecordsChange,
+  propertyRecordsStatus,
+  onPropertyRecordsStatusChange,
+  propertyRecordsLoading,
+  onPropertyRecordsLoadingChange,
+  propertyRecordsError,
+  onPropertyRecordsErrorChange,
 }) {
   const source = customer || form;
   const name = [source.firstName, source.lastName].filter(Boolean).join(' ') || 'New customer';
@@ -41,12 +40,6 @@ export default function IntakePropertyPreviewPanel({
   const state = source.state || null;
   const zip = source.zip || null;
   const isPropertyPage = variant === 'property';
-
-  const hasRecords = propertyRecordsStatus === 'loaded' && propertyRecords;
-  const propertyType = hasRecords
-    ? (propertyRecords.propertyType || null)
-    : (source.propertyUseEstimate || null);
-  const zillowUrl = address ? buildZillowSearchUrl(source) : null;
 
   return (
     <aside className={`intake-preview-panel${isPropertyPage ? ' intake-preview-panel--property' : ''}`}>
@@ -71,35 +64,7 @@ export default function IntakePropertyPreviewPanel({
         )}
       </div>
 
-      {isPropertyPage && zillowUrl && (
-        <div className="intake-preview-panel__zillow-row">
-          <a
-            href={zillowUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="intake-zillow-link"
-          >
-            View on Zillow
-            <ExternalLink size={12} aria-hidden />
-          </a>
-        </div>
-      )}
-
-      {isPropertyPage ? (
-        <ObjectionAssistant
-          context={{
-            customerName:        name || null,
-            serviceType:         source.serviceType || source.serviceTypeCode || null,
-            address:             address || null,
-            weather:             weather || null,
-            suitability:         suitability || null,
-            treatmentAcreage:    treatmentAcreage,
-            treatmentSquareFeet: treatmentSquareFeet,
-            propertyType:        propertyType,
-            yearBuilt:           hasRecords ? (propertyRecords.yearBuilt || null) : null,
-          }}
-        />
-      ) : (
+      {!isPropertyPage && (
         <section className="intake-preview-panel__section intake-preview-panel__section--overview">
           <h3>Property Overview</h3>
           <div className="intake-info-grid intake-info-grid--address">
