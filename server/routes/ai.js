@@ -4,7 +4,7 @@ import { loadKnowledge } from '../services/knowledge.js';
 import {
   loadOAKnowledge,
   appendFeedback,
-  getRelevantExamples,
+  getRelevantExamplesWithFallback,
   formatExamplesForPrompt,
 } from '../services/objectionKnowledge.js';
 
@@ -443,7 +443,7 @@ router.post('/sales-coach', async (req, res) => {
     }
 
     const oaKnowledge = loadOAKnowledge();
-    const examples    = getRelevantExamples(repQuestion.trim());
+    const examples    = await getRelevantExamplesWithFallback(repQuestion.trim());
     const userMessage = buildSalesCoachUserMessage(propertyContext, leadContext, repQuestion.trim(), oaKnowledge, examples);
 
     const aiResponse = await getClient().messages.create({
@@ -559,7 +559,7 @@ router.post('/objection-assist', async (req, res) => {
 
 const VALID_FEEDBACK_TYPES = ['thumbs_up', 'thumbs_down', 'save_approved'];
 
-router.post('/objection-feedback', (req, res) => {
+router.post('/objection-feedback', async (req, res) => {
   try {
     const {
       repQuestion,
@@ -578,7 +578,7 @@ router.post('/objection-feedback', (req, res) => {
       return res.status(400).json({ error: `feedbackType must be one of: ${VALID_FEEDBACK_TYPES.join(', ')}` });
     }
 
-    const id = appendFeedback({
+    const id = await appendFeedback({
       repQuestion:         repQuestion.trim(),
       recommendedResponse: recommendedResponse.trim(),
       salesAngle:          salesAngle.trim(),
