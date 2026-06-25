@@ -192,6 +192,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+    objectionFeedback: (body) => request('/ai/objection-feedback', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   },
 
   documents: {

@@ -1,6 +1,12 @@
 import express from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import { loadKnowledge } from '../services/knowledge.js';
+import {
+  loadOAKnowledge,
+  appendFeedback,
+  getRelevantExamples,
+  formatExamplesForPrompt,
+} from '../services/objectionKnowledge.js';
 
 const router = express.Router();
 
@@ -363,8 +369,22 @@ RULES:
 - Always end both response versions with a direct closing question — not "just let me know" or "feel free to reach out"`;
 }
 
-function buildSalesCoachUserMessage(propertyContext = {}, leadContext = {}, repQuestion) {
-  const lines = ['PROPERTY CONTEXT:'];
+function buildSalesCoachUserMessage(propertyContext = {}, leadContext = {}, repQuestion, knowledge = '', examples = []) {
+  const lines = [];
+
+  if (knowledge) {
+    lines.push('SALES COACH KNOWLEDGE BASE (ground all responses in these rules):');
+    lines.push(knowledge);
+    lines.push('');
+  }
+
+  const examplesText = formatExamplesForPrompt(examples);
+  if (examplesText) {
+    lines.push(examplesText);
+    lines.push('');
+  }
+
+  lines.push('PROPERTY CONTEXT:');
 
   if (propertyContext.customerName) lines.push(`- Customer: ${propertyContext.customerName}`);
   if (propertyContext.address)      lines.push(`- Address: ${propertyContext.address}`);
@@ -406,7 +426,7 @@ function buildSalesCoachUserMessage(propertyContext = {}, leadContext = {}, repQ
   lines.push('CUSTOMER OBJECTION / SITUATION:');
   lines.push(`"${repQuestion}"`);
   lines.push('');
-  lines.push('Return valid JSON with recommendedResponse, salesAngle, and softerVersion.');
+  lines.push('Return valid JSON with recommendedResponse, salesAngle, and softerVersion. All responses must follow the knowledge base rules above.');
 
   return lines.join('\n');
 }
@@ -422,11 +442,13 @@ router.post('/sales-coach', async (req, res) => {
       return res.status(400).json({ error: 'repQuestion is required' });
     }
 
-    const userMessage = buildSalesCoachUserMessage(propertyContext, leadContext, repQuestion.trim());
+    const oaKnowledge = loadOAKnowledge();
+    const examples    = getRelevantExamples(repQuestion.trim());
+    const userMessage = buildSalesCoachUserMessage(propertyContext, leadContext, repQuestion.trim(), oaKnowledge, examples);
 
     const aiResponse = await getClient().messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 700,
+      max_tokens: 800,
       system: buildSalesCoachSystemPrompt(),
       messages: [{ role: 'user', content: userMessage }],
     });
@@ -529,6 +551,47 @@ router.post('/objection-assist', async (req, res) => {
     return res.json({ response: text });
   } catch (err) {
     console.error('[ai/objection-assist]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Objection feedback ─────────────────────────────────────────────────────
+
+const VALID_FEEDBACK_TYPES = ['thumbs_up', 'thumbs_down', 'save_approved'];
+
+router.post('/objection-feedback', (req, res) => {
+  try {
+    const {
+      repQuestion,
+      recommendedResponse = '',
+      salesAngle          = '',
+      softerVersion       = '',
+      feedbackType,
+      correction          = null,
+      propertyContext     = null,
+    } = req.body;
+
+    if (!repQuestion?.trim()) {
+      return res.status(400).json({ error: 'repQuestion is required' });
+    }
+    if (!VALID_FEEDBACK_TYPES.includes(feedbackType)) {
+      return res.status(400).json({ error: `feedbackType must be one of: ${VALID_FEEDBACK_TYPES.join(', ')}` });
+    }
+
+    const id = appendFeedback({
+      repQuestion:         repQuestion.trim(),
+      recommendedResponse: recommendedResponse.trim(),
+      salesAngle:          salesAngle.trim(),
+      softerVersion:       softerVersion.trim(),
+      feedbackType,
+      correction:          correction?.trim() || null,
+      propertyContext:     propertyContext || null,
+    });
+
+    console.log(`[ai/objection-feedback] ${feedbackType} saved — id: ${id}`);
+    return res.json({ success: true, id });
+  } catch (err) {
+    console.error('[ai/objection-feedback]', err.message);
     return res.status(500).json({ error: err.message });
   }
 });

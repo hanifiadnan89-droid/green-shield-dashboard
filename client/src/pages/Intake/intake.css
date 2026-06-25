@@ -1735,3 +1735,89 @@
   @apply text-[11px] leading-relaxed;
   color: #1e3a8a;
 }
+
+/* ── Objection feedback controls ───────────────────────────────────────── */
+
+.objection-feedback {
+  @apply flex flex-col gap-2 pt-2.5 border-t;
+  border-color: #e5e7eb;
+}
+
+.objection-feedback__label {
+  @apply text-[10px] font-medium;
+  color: #94a3b8;
+}
+
+.objection-feedback__btns {
+  @apply flex items-center gap-1.5 flex-wrap;
+}
+
+.objection-feedback__btn {
+  @apply inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-all;
+  background: #fff;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+.objection-feedback__btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.objection-feedback__btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.objection-feedback__btn--up:hover:not(:disabled) {
+  color: #16a34a;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.objection-feedback__btn--down:hover:not(:disabled) {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.objection-feedback__btn--star:hover:not(:disabled) {
+  color: #92400e;
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.objection-feedback__correction-wrap {
+  @apply flex flex-col gap-1.5 mt-1;
+}
+
+.objection-feedback__correction {
+  @apply w-full px-2.5 py-2 text-[11px] rounded-lg border resize-none outline-none leading-relaxed;
+  border-color: #e2e8f0;
+  color: #374151;
+  background: #f8fafc;
+}
+
+.objection-feedback__correction:focus {
+  border-color: #94a3b8;
+  background: #fff;
+}
+
+.objection-feedback__submit-btn {
+  @apply inline-flex items-center gap-1.5 self-end px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all;
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.objection-feedback__submit-btn:hover:not(:disabled) {
+  background: #1e293b;
+}
+
+.objection-feedback__submit-btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.objection-feedback__saved {
+  @apply text-[11px] font-medium;
+  color: #15803d;
+}

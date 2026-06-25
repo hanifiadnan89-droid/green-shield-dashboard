@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clipboard, ClipboardCheck, Loader2, MessageSquare, Sparkles } from 'lucide-react';
+import { Clipboard, ClipboardCheck, Loader2, MessageSquare, Sparkles, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { api } from '../../../api/client.js';
 
 const QUICK_OBJECTIONS = [
@@ -26,6 +26,13 @@ export default function ObjectionAssistant({ context = {} }) {
   const [copiedSoft, setCopiedSoft]   = useState(false);
   const [error, setError]             = useState(null);
 
+  // Feedback
+  const [feedbackType, setFeedbackType]     = useState(null); // 'thumbs_up' | 'thumbs_down' | 'save_approved'
+  const [showCorrection, setShowCorrection] = useState(false);
+  const [correction, setCorrection]         = useState('');
+  const [feedbackSaved, setFeedbackSaved]   = useState(false);
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+
   async function generate() {
     const q = repQuestion.trim();
     if (!q) return;
@@ -34,6 +41,7 @@ export default function ObjectionAssistant({ context = {} }) {
     setResult(null);
     setCopiedRec(false);
     setCopiedSoft(false);
+    resetFeedback();
     try {
       const data = await api.ai.salesCoach({
         mode: 'objectionAssistant',
@@ -99,6 +107,36 @@ export default function ObjectionAssistant({ context = {} }) {
       setCopiedSoft(true);
       setTimeout(() => setCopiedSoft(false), 2000);
     } catch { /* no-op */ }
+  }
+
+  function resetFeedback() {
+    setFeedbackType(null);
+    setShowCorrection(false);
+    setCorrection('');
+    setFeedbackSaved(false);
+  }
+
+  async function submitFeedback(type, correctionText = '') {
+    if (!result || feedbackSaving) return;
+    setFeedbackSaving(true);
+    try {
+      await api.ai.objectionFeedback({
+        repQuestion:         repQuestion.trim(),
+        recommendedResponse: result.recommendedResponse,
+        salesAngle:          result.salesAngle,
+        softerVersion:       result.softerVersion,
+        feedbackType:        type,
+        correction:          correctionText || null,
+        propertyContext:     context,
+      });
+      setFeedbackType(type);
+      setFeedbackSaved(true);
+      setShowCorrection(false);
+    } catch {
+      // Non-critical — don't surface feedback errors to the rep
+    } finally {
+      setFeedbackSaving(false);
+    }
   }
 
   function selectChip(text) {
@@ -234,6 +272,71 @@ export default function ObjectionAssistant({ context = {} }) {
                 <p className="objection-result__softer">{result.softerVersion}</p>
               </div>
             )}
+
+            {/* Feedback controls */}
+            <div className="objection-feedback">
+              {feedbackSaved ? (
+                <p className="objection-feedback__saved">
+                  {feedbackType === 'thumbs_up' && '👍 Marked as helpful'}
+                  {feedbackType === 'thumbs_down' && '👎 Feedback saved'}
+                  {feedbackType === 'save_approved' && '⭐ Saved as approved example'}
+                </p>
+              ) : (
+                <>
+                  <span className="objection-feedback__label">Was this helpful?</span>
+                  <div className="objection-feedback__btns">
+                    <button
+                      type="button"
+                      className="objection-feedback__btn objection-feedback__btn--up"
+                      onClick={() => submitFeedback('thumbs_up')}
+                      disabled={feedbackSaving}
+                      title="Good response"
+                    >
+                      <ThumbsUp size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      className="objection-feedback__btn objection-feedback__btn--down"
+                      onClick={() => { setShowCorrection((v) => !v); }}
+                      disabled={feedbackSaving}
+                      title="Needs work"
+                    >
+                      <ThumbsDown size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      className="objection-feedback__btn objection-feedback__btn--star"
+                      onClick={() => submitFeedback('save_approved')}
+                      disabled={feedbackSaving}
+                      title="Save as approved example"
+                    >
+                      <Star size={11} />
+                      <span>Save as approved</span>
+                    </button>
+                  </div>
+                  {showCorrection && (
+                    <div className="objection-feedback__correction-wrap">
+                      <textarea
+                        className="objection-feedback__correction"
+                        placeholder="What would a better response look like? (optional)"
+                        value={correction}
+                        onChange={(e) => setCorrection(e.target.value)}
+                        rows={3}
+                      />
+                      <button
+                        type="button"
+                        className="objection-feedback__submit-btn"
+                        onClick={() => submitFeedback('thumbs_down', correction)}
+                        disabled={feedbackSaving}
+                      >
+                        {feedbackSaving ? <Loader2 size={10} className="animate-spin" /> : null}
+                        Submit Feedback
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
