@@ -1821,3 +1821,101 @@
   @apply text-[11px] font-medium;
   color: #15803d;
 }
+
+/* ── Outcome tracking ───────────────────────────────────────────────────── */
+
+.objection-outcome {
+  @apply flex flex-col gap-2.5 pt-3 border-t;
+  border-color: #e5e7eb;
+}
+
+.objection-outcome__title {
+  @apply text-[10px] font-bold uppercase tracking-wider;
+  color: #64748b;
+}
+
+.objection-outcome__selects {
+  @apply grid gap-2;
+  grid-template-columns: 1fr 1fr;
+}
+
+.objection-outcome__field {
+  @apply flex flex-col gap-1;
+}
+
+.objection-outcome__label {
+  @apply text-[10px] font-medium;
+  color: #94a3b8;
+}
+
+.objection-outcome__select {
+  @apply w-full px-2 py-1.5 rounded-lg border text-[11px] outline-none appearance-none cursor-pointer;
+  border-color: #e2e8f0;
+  color: #374151;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 8px center;
+}
+
+.objection-outcome__select:focus {
+  border-color: #94a3b8;
+}
+
+.objection-outcome__select:disabled {
+  @apply opacity-60 cursor-not-allowed;
+  background-color: #f8fafc;
+}
+
+.objection-outcome__toggle {
+  @apply inline-flex items-center gap-1 self-start text-[10px] font-medium transition-colors;
+  color: #64748b;
+}
+
+.objection-outcome__toggle:hover {
+  color: #0f172a;
+}
+
+.objection-outcome__details {
+  @apply flex flex-col gap-2.5;
+}
+
+.objection-outcome__input {
+  @apply w-full px-2.5 py-1.5 rounded-lg border text-[11px] outline-none;
+  border-color: #e2e8f0;
+  color: #374151;
+  background: #fff;
+}
+
+.objection-outcome__input:focus {
+  border-color: #94a3b8;
+}
+
+.objection-outcome__textarea {
+  @apply w-full px-2.5 py-2 rounded-lg border text-[11px] resize-none outline-none leading-relaxed;
+  border-color: #e2e8f0;
+  color: #374151;
+  background: #f8fafc;
+}
+
+.objection-outcome__textarea:focus {
+  border-color: #94a3b8;
+  background: #fff;
+}
+
+.objection-outcome__save-btn {
+  @apply inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all;
+  background: #15803d;
+  border-color: #15803d;
+  color: #fff;
+}
+
+.objection-outcome__save-btn:hover:not(:disabled) {
+  background: #166534;
+}
+
+.objection-outcome__save-btn:disabled {
+  @apply opacity-40 cursor-not-allowed;
+}
+
+.objection-outcome__saved {
+  @apply text-[11px] font-medium;
+  color: #15803d;
+}

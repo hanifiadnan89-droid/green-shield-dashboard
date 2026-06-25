@@ -8,11 +8,11 @@ import {
 } from './embeddingService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const KNOWLEDGE_FILE   = path.resolve(__dirname, '../knowledge/objection_assistant_coach.md');
-const FEEDBACK_FILE    = path.resolve(__dirname, '../data/objection-feedback.json');
-const EMBEDDINGS_FILE  = path.resolve(__dirname, '../data/objection-feedback-embeddings.json');
+const KNOWLEDGE_FILE  = path.resolve(__dirname, '../knowledge/objection_assistant_coach.md');
+const FEEDBACK_FILE   = path.resolve(__dirname, '../data/objection-feedback.json');
+const EMBEDDINGS_FILE = path.resolve(__dirname, '../data/objection-feedback-embeddings.json');
 
-const MAX_ENTRIES = 500;
+const MAX_ENTRIES = 1000;
 
 // ── OA Knowledge ─────────────────────────────────────────────────────────────
 
@@ -32,9 +32,9 @@ export function clearOAKnowledgeCache() {
   cachedKnowledge = null;
 }
 
-// ── Feedback storage ──────────────────────────────────────────────────────────
+// ── Case / feedback storage ───────────────────────────────────────────────────
 
-function readFeedback() {
+function readCases() {
   try {
     if (!existsSync(FEEDBACK_FILE)) return [];
     const raw = readFileSync(FEEDBACK_FILE, 'utf-8').trim();
@@ -44,26 +44,23 @@ function readFeedback() {
   }
 }
 
-function writeFeedback(entries) {
+function writeCases(entries) {
   try {
     writeFileSync(FEEDBACK_FILE, JSON.stringify(entries, null, 2), 'utf-8');
   } catch (err) {
-    console.error('[objectionKnowledge] Failed to write feedback file:', err.message);
+    console.error('[objectionKnowledge] Failed to write cases file:', err.message);
   }
 }
 
 // ── Embedding storage ─────────────────────────────────────────────────────────
-// Format: { [feedbackId]: number[] }
+// Format: { [caseId]: number[] }  — 1536-dim text-embedding-3-small vectors
 
 let embeddingsCache = null;
 
 function readEmbeddings() {
   if (embeddingsCache) return embeddingsCache;
   try {
-    if (!existsSync(EMBEDDINGS_FILE)) {
-      embeddingsCache = {};
-      return embeddingsCache;
-    }
+    if (!existsSync(EMBEDDINGS_FILE)) { embeddingsCache = {}; return embeddingsCache; }
     embeddingsCache = JSON.parse(readFileSync(EMBEDDINGS_FILE, 'utf-8')) || {};
     return embeddingsCache;
   } catch {
@@ -87,38 +84,126 @@ function saveEmbedding(id, vector) {
   writeEmbeddings(embs);
 }
 
-// ── Feedback append (async — generates embedding at save time) ────────────────
+// ── Rich search document ──────────────────────────────────────────────────────
+// This is what we embed for each case so semantic retrieval uses full context,
+// not just the repQuestion text.
+
+function buildRichSearchDocument(entry) {
+  const parts = [];
+  if (entry.repQuestion)    parts.push(`OBJECTION: ${entry.repQuestion}`);
+  if (entry.customerObjection && entry.customerObjection !== entry.repQuestion) {
+    parts.push(`CUSTOMER SAID: ${entry.customerObjection}`);
+  }
+  const svcType = entry.serviceType
+    || entry.propertyContext?.serviceType
+    || entry.leadContext?.serviceType
+    || null;
+  if (svcType)                     parts.push(`SERVICE: ${svcType}`);
+  if (entry.outcome)               parts.push(`OUTCOME: ${entry.outcome}`);
+  if (entry.outcomeReason)         parts.push(`REASON: ${entry.outcomeReason}`);
+  if (entry.whyItWorked)           parts.push(`WHY IT WORKED: ${entry.whyItWorked}`);
+  if (entry.correction)            parts.push(`CORRECTION: ${entry.correction}`);
+  const resp = entry.repEditedResponse || entry.recommendedResponse;
+  if (resp)                        parts.push(`RESPONSE USED: ${resp}`);
+  const propType = entry.propertyContext?.propertyType || null;
+  if (propType)                    parts.push(`PROPERTY TYPE: ${propType}`);
+  const pricing = entry.leadContext?.pricing || entry.propertyContext?.pricing || null;
+  if (pricing)                     parts.push(`PRICING: ${pricing}`);
+  return parts.join('\n') || (entry.repQuestion || '');
+}
+
+// ── Priority scoring ──────────────────────────────────────────────────────────
+// Returns a normalised [0, 1] priority weight for re-ranking.
+// Returns -1 for entries that should be excluded from retrieval entirely.
+
+const OUTCOME_SCORE = {
+  'Sold':       1.00,
+  'Scheduled':  0.90,
+  'Follow Up':  0.60,
+  'Unknown':    0.45,
+  null:         0.45,
+  undefined:    0.45,
+  'Lost':       0.20, // only included if correction/whyItWorked present
+  'Declined':   0.20, // same
+};
+
+const FEEDBACK_SCORE = {
+  'save_approved': 1.00,
+  'thumbs_up':     0.70,
+  'thumbs_down':   0.20,
+  null:            0.40,
+  undefined:       0.40,
+};
+
+function getPriorityScore(entry) {
+  const outcome = entry.outcome ?? null;
+
+  // Exclude Lost/Declined without any corrective signal — they teach nothing
+  if ((outcome === 'Lost' || outcome === 'Declined') &&
+      !entry.correction?.trim() && !entry.whyItWorked?.trim()) {
+    return -1;
+  }
+
+  let score = 0;
+  score += (OUTCOME_SCORE[outcome] ?? 0.45) * 0.50;
+  score += (FEEDBACK_SCORE[entry.feedbackType] ?? 0.40) * 0.30;
+  if (entry.whyItWorked?.trim())          score += 0.10;
+  if (entry.correction?.trim())           score += 0.08;
+  if (entry.repEditedResponse?.trim())    score += 0.02;
+
+  return Math.min(score, 1.0);
+}
+
+// ── Entry filter ──────────────────────────────────────────────────────────────
+
+function isUsefulEntry(entry) {
+  return getPriorityScore(entry) >= 0; // -1 means excluded
+}
+
+// ── Append: quick feedback (👍/👎/⭐) ─────────────────────────────────────────
 
 export async function appendFeedback(entry) {
-  const entries = readFeedback();
+  const cases = readCases();
   const id = `oa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const newEntry = { id, timestamp: new Date().toISOString(), ...entry };
-  entries.push(newEntry);
-  writeFeedback(entries.slice(-MAX_ENTRIES));
+  const record = { id, timestamp: new Date().toISOString(), recordType: 'feedback', ...entry };
+  cases.push(record);
+  writeCases(cases.slice(-MAX_ENTRIES));
 
-  // Generate and persist the embedding immediately so it's ready for retrieval
   if (process.env.OPENAI_API_KEY && entry.repQuestion?.trim()) {
     try {
-      const vector = await generateEmbedding(entry.repQuestion);
+      const doc    = buildRichSearchDocument(record);
+      const vector = await generateEmbedding(doc);
       saveEmbedding(id, vector);
-      console.log(`[objectionKnowledge] Embedding stored for ${id}`);
+      console.log(`[objectionKnowledge] Embedding stored for feedback ${id}`);
     } catch (err) {
-      console.warn(`[objectionKnowledge] Could not generate embedding for ${id}:`, err.message);
+      console.warn(`[objectionKnowledge] Could not embed feedback ${id}:`, err.message);
     }
   }
 
   return id;
 }
 
-// ── Filter: entries with a positive training signal ───────────────────────────
+// ── Append: full sales case (with outcome tracking) ───────────────────────────
 
-function usefulEntries(all) {
-  return all.filter(
-    (e) =>
-      e.feedbackType === 'save_approved' ||
-      e.feedbackType === 'thumbs_up' ||
-      (e.correction && e.correction.trim()),
-  );
+export async function appendCase(entry) {
+  const cases = readCases();
+  const id = `oa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const record = { id, timestamp: new Date().toISOString(), recordType: 'case', ...entry };
+  cases.push(record);
+  writeCases(cases.slice(-MAX_ENTRIES));
+
+  if (process.env.OPENAI_API_KEY && entry.repQuestion?.trim()) {
+    try {
+      const doc    = buildRichSearchDocument(record);
+      const vector = await generateEmbedding(doc);
+      saveEmbedding(id, vector);
+      console.log(`[objectionKnowledge] Rich embedding stored for case ${id} (outcome: ${entry.outcome || 'none'})`);
+    } catch (err) {
+      console.warn(`[objectionKnowledge] Could not embed case ${id}:`, err.message);
+    }
+  }
+
+  return id;
 }
 
 // ── Keyword fallback ──────────────────────────────────────────────────────────
@@ -140,13 +225,13 @@ function tokenize(text) {
 }
 
 function keywordScore(queryTokens, entry) {
-  const entryWords = new Set(tokenize(`${entry.repQuestion} ${entry.correction || ''}`));
+  const entryWords = new Set(tokenize(`${entry.repQuestion} ${entry.correction || ''} ${entry.whyItWorked || ''}`));
   return queryTokens.filter((t) => entryWords.has(t)).length;
 }
 
 export function getRelevantExamples(repQuestion, limit = 4) {
-  const all = readFeedback();
-  const useful = usefulEntries(all);
+  const all    = readCases();
+  const useful = all.filter(isUsefulEntry);
   if (!useful.length) return [];
 
   const queryTokens = tokenize(repQuestion);
@@ -162,27 +247,25 @@ export function getRelevantExamples(repQuestion, limit = 4) {
 
 // ── Semantic retrieval ────────────────────────────────────────────────────────
 
-export async function getRelevantExamplesSemantic(repQuestion, limit = 4) {
-  const all    = readFeedback();
-  const useful = usefulEntries(all);
+export async function getRelevantExamplesSemantic(repQuestion, queryContext = {}, limit = 4) {
+  const all    = readCases();
+  const useful = all.filter(isUsefulEntry);
 
   if (!useful.length) {
-    console.log('[objectionKnowledge] Semantic search: no useful examples in store');
+    console.log('[objectionKnowledge] Semantic search: case store is empty');
     return [];
   }
 
   const embs = readEmbeddings();
 
-  // Lazy backfill: generate embeddings for any useful entries that are missing one
+  // Lazy backfill — embed any useful entries missing a vector using rich doc format
   const needsEmbedding = useful.filter((e) => !embs[e.id] && e.repQuestion?.trim());
   if (needsEmbedding.length > 0) {
-    console.log(`[objectionKnowledge] Backfilling embeddings for ${needsEmbedding.length} entr${needsEmbedding.length === 1 ? 'y' : 'ies'}...`);
+    console.log(`[objectionKnowledge] Backfilling ${needsEmbedding.length} entries with rich embeddings...`);
     try {
-      const texts   = needsEmbedding.map((e) => e.repQuestion);
-      const vectors = await generateEmbeddingsBatch(texts);
-      needsEmbedding.forEach((e, i) => {
-        embs[e.id] = vectors[i];
-      });
+      const docs    = needsEmbedding.map(buildRichSearchDocument);
+      const vectors = await generateEmbeddingsBatch(docs);
+      needsEmbedding.forEach((e, i) => { embs[e.id] = vectors[i]; });
       writeEmbeddings(embs);
       console.log(`[objectionKnowledge] Backfill complete`);
     } catch (err) {
@@ -190,50 +273,58 @@ export async function getRelevantExamplesSemantic(repQuestion, limit = 4) {
     }
   }
 
-  // Only score entries that now have embeddings
   const embeddable = useful.filter((e) => embs[e.id]);
   if (!embeddable.length) {
-    console.log('[objectionKnowledge] Semantic search: no embeddings available, falling back to keyword');
+    console.log('[objectionKnowledge] No embeddings available — keyword fallback');
     return getRelevantExamples(repQuestion, limit);
   }
 
-  // Generate query embedding
-  const queryVec = await generateEmbedding(repQuestion);
+  // Build a rich query document so the query embedding is as contextual as the stored ones
+  const queryDoc = buildRichSearchDocument({
+    repQuestion,
+    serviceType:     queryContext.serviceType     || null,
+    propertyContext: queryContext,
+    leadContext:     { pricing: queryContext.pricing || null },
+  });
 
-  // Score and rank
-  const scored = embeddable
-    .map((entry) => ({
-      entry,
-      score: cosineSimilarity(queryVec, embs[entry.id]),
-    }))
-    .sort((a, b) => b.score - a.score);
+  const queryVec = await generateEmbedding(queryDoc);
+
+  // Composite score: 65% semantic similarity + 35% outcome/feedback priority
+  const scored = embeddable.map((entry) => {
+    const cosine   = cosineSimilarity(queryVec, embs[entry.id]);
+    const priority = getPriorityScore(entry); // already [0, 1]
+    const final    = cosine * 0.65 + priority * 0.35;
+    return { entry, cosine, priority, final };
+  }).sort((a, b) => b.final - a.final);
 
   const selected = scored.slice(0, limit);
 
-  // Logging
-  console.log(`[objectionKnowledge] Semantic search: ${scored.length} examples searched, ${selected.length} selected`);
+  console.log(
+    `[objectionKnowledge] Semantic search: ${scored.length} entries searched, ${selected.length} selected`,
+  );
   selected.forEach((s, i) => {
     console.log(
-      `  [${i + 1}] score=${s.score.toFixed(4)} type=${s.entry.feedbackType}` +
-      ` — "${(s.entry.repQuestion || '').slice(0, 60)}"`,
+      `  [${i + 1}] final=${s.final.toFixed(4)} cosine=${s.cosine.toFixed(4)} priority=${s.priority.toFixed(2)}` +
+      ` | outcome=${s.entry.outcome || 'N/A'} reason=${s.entry.outcomeReason || 'N/A'}` +
+      ` type=${s.entry.feedbackType || 'N/A'} svc=${s.entry.serviceType || s.entry.propertyContext?.serviceType || 'N/A'}` +
+      ` | "${(s.entry.repQuestion || '').slice(0, 50)}"`,
     );
   });
 
   return selected.map((s) => s.entry);
 }
 
-// ── Public entry point: semantic with keyword fallback ────────────────────────
+// ── Public entry point ────────────────────────────────────────────────────────
 
-export async function getRelevantExamplesWithFallback(repQuestion, limit = 4) {
+export async function getRelevantExamplesWithFallback(repQuestion, queryContext = {}, limit = 4) {
   if (!process.env.OPENAI_API_KEY) {
-    console.log('[objectionKnowledge] OPENAI_API_KEY not set — using keyword retrieval');
+    console.log('[objectionKnowledge] OPENAI_API_KEY not set — keyword retrieval');
     return getRelevantExamples(repQuestion, limit);
   }
-
   try {
-    return await getRelevantExamplesSemantic(repQuestion, limit);
+    return await getRelevantExamplesSemantic(repQuestion, queryContext, limit);
   } catch (err) {
-    console.warn('[objectionKnowledge] Semantic retrieval failed, falling back to keyword:', err.message);
+    console.warn('[objectionKnowledge] Semantic retrieval failed, keyword fallback:', err.message);
     return getRelevantExamples(repQuestion, limit);
   }
 }
@@ -244,16 +335,25 @@ export function formatExamplesForPrompt(examples) {
   if (!examples.length) return null;
 
   const lines = [
-    'RELEVANT APPROVED EXAMPLES FROM PAST CALLS (use as style and tone guide — do not copy verbatim):',
+    'RELEVANT PROVEN EXAMPLES FROM PAST CALLS (use as style and strategy guide — do not copy verbatim):',
   ];
 
   examples.forEach((e, i) => {
     lines.push('');
     lines.push(`Example ${i + 1}:`);
     lines.push(`  Objection/Situation: "${e.repQuestion}"`);
-    if (e.recommendedResponse) lines.push(`  Response: "${e.recommendedResponse}"`);
-    if (e.correction)           lines.push(`  Rep correction/note: "${e.correction}"`);
-    if (e.feedbackType === 'save_approved') lines.push('  [Marked as approved by rep]');
+    if (e.serviceType || e.propertyContext?.serviceType) {
+      lines.push(`  Service type: ${e.serviceType || e.propertyContext.serviceType}`);
+    }
+    if (e.outcome) {
+      lines.push(`  Outcome: ${e.outcome}${e.outcomeReason ? ` — ${e.outcomeReason}` : ''}`);
+    }
+    if (e.whyItWorked)         lines.push(`  Why it worked: ${e.whyItWorked}`);
+    const resp = e.repEditedResponse || e.recommendedResponse;
+    if (resp)                  lines.push(`  Response used: "${resp}"`);
+    if (e.correction)          lines.push(`  Correction/note: "${e.correction}"`);
+    const isProven = e.outcome === 'Sold' || e.outcome === 'Scheduled' || e.feedbackType === 'save_approved';
+    if (isProven)              lines.push('  [Proven successful]');
   });
 
   return lines.join('\n');

@@ -4,6 +4,7 @@ import { loadKnowledge } from '../services/knowledge.js';
 import {
   loadOAKnowledge,
   appendFeedback,
+  appendCase,
   getRelevantExamplesWithFallback,
   formatExamplesForPrompt,
 } from '../services/objectionKnowledge.js';
@@ -443,7 +444,7 @@ router.post('/sales-coach', async (req, res) => {
     }
 
     const oaKnowledge = loadOAKnowledge();
-    const examples    = await getRelevantExamplesWithFallback(repQuestion.trim());
+    const examples    = await getRelevantExamplesWithFallback(repQuestion.trim(), propertyContext);
     const userMessage = buildSalesCoachUserMessage(propertyContext, leadContext, repQuestion.trim(), oaKnowledge, examples);
 
     const aiResponse = await getClient().messages.create({
@@ -551,6 +552,72 @@ router.post('/objection-assist', async (req, res) => {
     return res.json({ response: text });
   } catch (err) {
     console.error('[ai/objection-assist]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Objection outcome (full sales case) ────────────────────────────────────
+
+const VALID_OUTCOMES = ['Sold', 'Lost', 'Follow Up', 'Scheduled', 'Declined', 'Unknown'];
+const VALID_REASONS  = [
+  'Price', 'Timing', 'Spouse/decision maker', 'Trust', 'Already has provider',
+  'Safety concern', 'Needs inspection', 'Scheduling issue', 'Other',
+];
+
+router.post('/objection-outcome', async (req, res) => {
+  try {
+    const {
+      repQuestion,
+      customerObjection    = null,
+      serviceType          = null,
+      propertyContext      = null,
+      leadContext          = null,
+      recommendedResponse  = '',
+      softerVersion        = '',
+      salesAngle           = '',
+      repEditedResponse    = null,
+      feedbackType         = null,
+      correction           = null,
+      outcome,
+      outcomeReason        = null,
+      saleValue            = null,
+      whyItWorked          = null,
+      user                 = null,
+    } = req.body;
+
+    if (!repQuestion?.trim()) {
+      return res.status(400).json({ error: 'repQuestion is required' });
+    }
+    if (!VALID_OUTCOMES.includes(outcome)) {
+      return res.status(400).json({ error: `outcome must be one of: ${VALID_OUTCOMES.join(', ')}` });
+    }
+    if (outcomeReason && !VALID_REASONS.includes(outcomeReason)) {
+      return res.status(400).json({ error: `outcomeReason must be one of: ${VALID_REASONS.join(', ')}` });
+    }
+
+    const id = await appendCase({
+      repQuestion:         repQuestion.trim(),
+      customerObjection:   customerObjection?.trim() || repQuestion.trim(),
+      serviceType:         serviceType || propertyContext?.serviceType || null,
+      propertyContext:     propertyContext || null,
+      leadContext:         leadContext || null,
+      recommendedResponse: recommendedResponse.trim(),
+      softerVersion:       softerVersion.trim(),
+      salesAngle:          salesAngle.trim(),
+      repEditedResponse:   repEditedResponse?.trim() || null,
+      feedbackType:        feedbackType || null,
+      correction:          correction?.trim() || null,
+      outcome,
+      outcomeReason:       outcomeReason || null,
+      saleValue:           saleValue != null ? Number(saleValue) : null,
+      whyItWorked:         whyItWorked?.trim() || null,
+      user:                user || null,
+    });
+
+    console.log(`[ai/objection-outcome] Case saved — id: ${id} outcome: ${outcome}${outcomeReason ? ` (${outcomeReason})` : ''}`);
+    return res.json({ success: true, id });
+  } catch (err) {
+    console.error('[ai/objection-outcome]', err.message);
     return res.status(500).json({ error: err.message });
   }
 });

@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { Clipboard, ClipboardCheck, Loader2, MessageSquare, Sparkles, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
+import {
+  ChevronDown, ChevronUp,
+  Clipboard, ClipboardCheck,
+  Loader2, MessageSquare, Sparkles,
+  Star, ThumbsDown, ThumbsUp,
+} from 'lucide-react';
 import { api } from '../../../api/client.js';
 
 const QUICK_OBJECTIONS = [
@@ -17,21 +22,67 @@ const ACTIONS = [
   { key: 'stronger', label: 'Stronger close' },
 ];
 
+const OUTCOMES = ['Sold', 'Scheduled', 'Follow Up', 'Lost', 'Declined'];
+
+const OUTCOME_REASONS = [
+  'Price',
+  'Timing',
+  'Spouse/decision maker',
+  'Trust',
+  'Already has provider',
+  'Safety concern',
+  'Needs inspection',
+  'Scheduling issue',
+  'Other',
+];
+
 export default function ObjectionAssistant({ context = {} }) {
+  // ── Generation state ────────────────────────────────────────────────────
   const [repQuestion, setRepQuestion] = useState('');
-  const [result, setResult]           = useState(null); // { recommendedResponse, salesAngle, softerVersion }
+  const [result, setResult]           = useState(null);
   const [loading, setLoading]         = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [copiedRec, setCopiedRec]     = useState(false);
   const [copiedSoft, setCopiedSoft]   = useState(false);
   const [error, setError]             = useState(null);
 
-  // Feedback
-  const [feedbackType, setFeedbackType]     = useState(null); // 'thumbs_up' | 'thumbs_down' | 'save_approved'
+  // ── Quick feedback state ────────────────────────────────────────────────
+  const [feedbackType, setFeedbackType]     = useState(null);
   const [showCorrection, setShowCorrection] = useState(false);
   const [correction, setCorrection]         = useState('');
   const [feedbackSaved, setFeedbackSaved]   = useState(false);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
+
+  // ── Outcome tracking state ──────────────────────────────────────────────
+  const [outcome, setOutcome]               = useState('');
+  const [outcomeReason, setOutcomeReason]   = useState('');
+  const [saleValue, setSaleValue]           = useState('');
+  const [whyItWorked, setWhyItWorked]       = useState('');
+  const [repEdited, setRepEdited]           = useState('');
+  const [showDetails, setShowDetails]       = useState(false);
+  const [outcomeSaved, setOutcomeSaved]     = useState(false);
+  const [outcomeSaving, setOutcomeSaving]   = useState(false);
+
+  // ── Reset helpers ───────────────────────────────────────────────────────
+
+  function resetFeedback() {
+    setFeedbackType(null);
+    setShowCorrection(false);
+    setCorrection('');
+    setFeedbackSaved(false);
+  }
+
+  function resetOutcome() {
+    setOutcome('');
+    setOutcomeReason('');
+    setSaleValue('');
+    setWhyItWorked('');
+    setRepEdited('');
+    setShowDetails(false);
+    setOutcomeSaved(false);
+  }
+
+  // ── Generation ──────────────────────────────────────────────────────────
 
   async function generate() {
     const q = repQuestion.trim();
@@ -42,18 +93,19 @@ export default function ObjectionAssistant({ context = {} }) {
     setCopiedRec(false);
     setCopiedSoft(false);
     resetFeedback();
+    resetOutcome();
     try {
       const data = await api.ai.salesCoach({
         mode: 'objectionAssistant',
         propertyContext: {
-          customerName:       context.customerName   || null,
-          address:            context.address         || null,
-          propertyType:       context.propertyType    || null,
-          serviceType:        context.serviceType     || null,
-          treatmentAcreage:   context.treatmentAcreage  ?? null,
+          customerName:        context.customerName        || null,
+          address:             context.address             || null,
+          propertyType:        context.propertyType        || null,
+          serviceType:         context.serviceType         || null,
+          treatmentAcreage:    context.treatmentAcreage    ?? null,
           treatmentSquareFeet: context.treatmentSquareFeet ?? null,
-          weather:            context.weather         || null,
-          suitability:        context.suitability     || null,
+          weather:             context.weather             || null,
+          suitability:         context.suitability         || null,
         },
         leadContext: {
           pricing:         context.pricing         || null,
@@ -79,7 +131,7 @@ export default function ObjectionAssistant({ context = {} }) {
     try {
       const data = await api.ai.objectionAssist({
         context,
-        objection: repQuestion.trim(),
+        objection:         repQuestion.trim(),
         action,
         existing_response: result.recommendedResponse,
       });
@@ -90,6 +142,8 @@ export default function ObjectionAssistant({ context = {} }) {
       setActionLoading(null);
     }
   }
+
+  // ── Copy ────────────────────────────────────────────────────────────────
 
   async function copyRec() {
     if (!result?.recommendedResponse) return;
@@ -109,12 +163,7 @@ export default function ObjectionAssistant({ context = {} }) {
     } catch { /* no-op */ }
   }
 
-  function resetFeedback() {
-    setFeedbackType(null);
-    setShowCorrection(false);
-    setCorrection('');
-    setFeedbackSaved(false);
-  }
+  // ── Quick feedback ──────────────────────────────────────────────────────
 
   async function submitFeedback(type, correctionText = '') {
     if (!result || feedbackSaving) return;
@@ -132,10 +181,40 @@ export default function ObjectionAssistant({ context = {} }) {
       setFeedbackType(type);
       setFeedbackSaved(true);
       setShowCorrection(false);
-    } catch {
-      // Non-critical — don't surface feedback errors to the rep
-    } finally {
+    } catch { /* non-critical */ } finally {
       setFeedbackSaving(false);
+    }
+  }
+
+  // ── Outcome save ────────────────────────────────────────────────────────
+
+  async function saveOutcome() {
+    if (!outcome || !result || outcomeSaving) return;
+    setOutcomeSaving(true);
+    try {
+      await api.ai.objectionOutcome({
+        repQuestion:         repQuestion.trim(),
+        customerObjection:   repQuestion.trim(),
+        serviceType:         context.serviceType || null,
+        propertyContext:     context,
+        leadContext: {
+          pricing:   context.pricing   || null,
+          leadNotes: context.leadNotes || null,
+        },
+        recommendedResponse: result.recommendedResponse,
+        softerVersion:       result.softerVersion,
+        salesAngle:          result.salesAngle,
+        repEditedResponse:   repEdited.trim() || null,
+        feedbackType:        feedbackType || null,
+        correction:          correction.trim() || null,
+        outcome,
+        outcomeReason:       outcomeReason || null,
+        saleValue:           saleValue ? parseFloat(saleValue) : null,
+        whyItWorked:         whyItWorked.trim() || null,
+      });
+      setOutcomeSaved(true);
+    } catch { /* non-critical */ } finally {
+      setOutcomeSaving(false);
     }
   }
 
@@ -149,12 +228,15 @@ export default function ObjectionAssistant({ context = {} }) {
   return (
     <section className="intake-preview-panel__section intake-preview-panel__section--compact">
       <div className="objection-assist">
+
+        {/* Header */}
         <div className="objection-assist__header">
           <MessageSquare size={14} className="objection-assist__header-icon" />
           <span className="objection-assist__header-title">Objection Assistant</span>
           <Sparkles size={11} className="objection-assist__header-sparkle" />
         </div>
 
+        {/* Quick chips */}
         <div className="objection-assist__chips">
           {QUICK_OBJECTIONS.map((q) => (
             <button
@@ -168,6 +250,7 @@ export default function ObjectionAssistant({ context = {} }) {
           ))}
         </div>
 
+        {/* Input */}
         <input
           className="intake-input objection-assist__input"
           placeholder="What did the customer say?"
@@ -177,6 +260,7 @@ export default function ObjectionAssistant({ context = {} }) {
           disabled={busy}
         />
 
+        {/* Generate */}
         <button
           type="button"
           className="intake-primary-btn objection-assist__generate-btn"
@@ -189,13 +273,12 @@ export default function ObjectionAssistant({ context = {} }) {
           }
         </button>
 
-        {error && (
-          <p className="objection-assist__error">{error}</p>
-        )}
+        {error && <p className="objection-assist__error">{error}</p>}
 
         {result && (
           <div className="objection-result">
-            {/* Recommended Response */}
+
+            {/* ── Recommended Response ─────────────────────────────── */}
             <div className="objection-result__section objection-result__section--primary">
               <div className="objection-result__header">
                 <span className="objection-result__label">Recommended Response</span>
@@ -205,19 +288,13 @@ export default function ObjectionAssistant({ context = {} }) {
                   onClick={copyRec}
                   title="Copy recommended response"
                 >
-                  {copiedRec
-                    ? <><ClipboardCheck size={11} /> Copied</>
-                    : <><Clipboard size={11} /> Copy</>
-                  }
+                  {copiedRec ? <><ClipboardCheck size={11} /> Copied</> : <><Clipboard size={11} /> Copy</>}
                 </button>
               </div>
               <textarea
                 className="objection-assist__response"
                 value={result.recommendedResponse}
-                onChange={(e) => {
-                  setResult((prev) => ({ ...prev, recommendedResponse: e.target.value }));
-                  setCopiedRec(false);
-                }}
+                onChange={(e) => { setResult((p) => ({ ...p, recommendedResponse: e.target.value })); setCopiedRec(false); }}
                 rows={5}
               />
               <div className="objection-assist__action-row">
@@ -230,10 +307,7 @@ export default function ObjectionAssistant({ context = {} }) {
                       onClick={() => runAction(a.key)}
                       disabled={busy}
                     >
-                      {actionLoading === a.key
-                        ? <Loader2 size={10} className="animate-spin" />
-                        : null
-                      }
+                      {actionLoading === a.key ? <Loader2 size={10} className="animate-spin" /> : null}
                       {a.label}
                     </button>
                   ))}
@@ -241,7 +315,7 @@ export default function ObjectionAssistant({ context = {} }) {
               </div>
             </div>
 
-            {/* Sales Angle */}
+            {/* ── Sales Angle ───────────────────────────────────────── */}
             {result.salesAngle && (
               <div className="objection-result__section objection-result__section--angle">
                 <div className="objection-result__header">
@@ -252,7 +326,7 @@ export default function ObjectionAssistant({ context = {} }) {
               </div>
             )}
 
-            {/* Softer Version */}
+            {/* ── Softer Version ────────────────────────────────────── */}
             {result.softerVersion && (
               <div className="objection-result__section objection-result__section--softer">
                 <div className="objection-result__header">
@@ -263,22 +337,19 @@ export default function ObjectionAssistant({ context = {} }) {
                     onClick={copySoft}
                     title="Copy softer version"
                   >
-                    {copiedSoft
-                      ? <><ClipboardCheck size={11} /> Copied</>
-                      : <><Clipboard size={11} /> Copy</>
-                    }
+                    {copiedSoft ? <><ClipboardCheck size={11} /> Copied</> : <><Clipboard size={11} /> Copy</>}
                   </button>
                 </div>
                 <p className="objection-result__softer">{result.softerVersion}</p>
               </div>
             )}
 
-            {/* Feedback controls */}
+            {/* ── Quick feedback ────────────────────────────────────── */}
             <div className="objection-feedback">
               {feedbackSaved ? (
                 <p className="objection-feedback__saved">
-                  {feedbackType === 'thumbs_up' && '👍 Marked as helpful'}
-                  {feedbackType === 'thumbs_down' && '👎 Feedback saved'}
+                  {feedbackType === 'thumbs_up'    && '👍 Marked as helpful'}
+                  {feedbackType === 'thumbs_down'  && '👎 Feedback saved'}
                   {feedbackType === 'save_approved' && '⭐ Saved as approved example'}
                 </p>
               ) : (
@@ -297,7 +368,7 @@ export default function ObjectionAssistant({ context = {} }) {
                     <button
                       type="button"
                       className="objection-feedback__btn objection-feedback__btn--down"
-                      onClick={() => { setShowCorrection((v) => !v); }}
+                      onClick={() => setShowCorrection((v) => !v)}
                       disabled={feedbackSaving}
                       title="Needs work"
                     >
@@ -337,6 +408,110 @@ export default function ObjectionAssistant({ context = {} }) {
                 </>
               )}
             </div>
+
+            {/* ── Outcome tracking ──────────────────────────────────── */}
+            <div className="objection-outcome">
+              <p className="objection-outcome__title">Log Call Outcome</p>
+
+              <div className="objection-outcome__selects">
+                <div className="objection-outcome__field">
+                  <label className="objection-outcome__label">Outcome</label>
+                  <select
+                    className="objection-outcome__select"
+                    value={outcome}
+                    onChange={(e) => { setOutcome(e.target.value); setOutcomeSaved(false); }}
+                    disabled={outcomeSaved}
+                  >
+                    <option value="">Select...</option>
+                    {OUTCOMES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="objection-outcome__field">
+                  <label className="objection-outcome__label">Reason</label>
+                  <select
+                    className="objection-outcome__select"
+                    value={outcomeReason}
+                    onChange={(e) => { setOutcomeReason(e.target.value); setOutcomeSaved(false); }}
+                    disabled={outcomeSaved}
+                  >
+                    <option value="">Select...</option>
+                    {OUTCOME_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Optional details toggle */}
+              {!outcomeSaved && outcome && (
+                <button
+                  type="button"
+                  className="objection-outcome__toggle"
+                  onClick={() => setShowDetails((v) => !v)}
+                >
+                  {showDetails ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                  {showDetails ? 'Hide details' : 'Add details'}
+                </button>
+              )}
+
+              {showDetails && !outcomeSaved && (
+                <div className="objection-outcome__details">
+                  <div className="objection-outcome__field">
+                    <label className="objection-outcome__label">Sale value ($)</label>
+                    <input
+                      type="number"
+                      className="objection-outcome__input"
+                      placeholder="e.g. 119"
+                      value={saleValue}
+                      onChange={(e) => setSaleValue(e.target.value)}
+                      min="0"
+                    />
+                  </div>
+                  <div className="objection-outcome__field">
+                    <label className="objection-outcome__label">Why did this work / what to remember?</label>
+                    <textarea
+                      className="objection-outcome__textarea"
+                      placeholder="e.g. Breaking down the monthly cost worked — they responded to the $4/day framing"
+                      value={whyItWorked}
+                      onChange={(e) => setWhyItWorked(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="objection-outcome__field">
+                    <label className="objection-outcome__label">What you actually said (edited response)</label>
+                    <textarea
+                      className="objection-outcome__textarea"
+                      placeholder="Paste the final response you used on the call (optional)"
+                      value={repEdited}
+                      onChange={(e) => setRepEdited(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Save / saved state */}
+              {!outcomeSaved ? (
+                <button
+                  type="button"
+                  className="objection-outcome__save-btn"
+                  onClick={saveOutcome}
+                  disabled={!outcome || outcomeSaving}
+                >
+                  {outcomeSaving
+                    ? <><Loader2 size={10} className="animate-spin" /> Saving...</>
+                    : 'Save Outcome'
+                  }
+                </button>
+              ) : (
+                <p className="objection-outcome__saved">
+                  {outcome === 'Sold'      && '✅ Outcome logged — Sold'}
+                  {outcome === 'Scheduled' && '📅 Outcome logged — Scheduled'}
+                  {outcome === 'Follow Up' && '🔁 Outcome logged — Follow Up'}
+                  {outcome === 'Lost'      && '❌ Outcome logged — Lost'}
+                  {outcome === 'Declined'  && '🚫 Outcome logged — Declined'}
+                </p>
+              )}
+            </div>
+
           </div>
         )}
       </div>
