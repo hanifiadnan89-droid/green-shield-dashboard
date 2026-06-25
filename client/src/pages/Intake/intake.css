@@ -1673,3 +1673,65 @@
   border-color: #15803d;
   color: #fff;
 }
+
+/* ── Sales Coach 3-section result ──────────────────────────────────────── */
+
+.objection-result {
+  @apply flex flex-col gap-2.5 mt-1;
+}
+
+.objection-result__section {
+  @apply rounded-xl border p-3 flex flex-col gap-2;
+}
+
+.objection-result__section--primary {
+  background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+  border-color: #bbf7d0;
+}
+
+.objection-result__section--angle {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.objection-result__section--softer {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.objection-result__header {
+  @apply flex items-center justify-between;
+}
+
+.objection-result__label {
+  @apply text-[10px] font-bold uppercase tracking-wider;
+}
+
+.objection-result__section--primary .objection-result__label {
+  color: #15803d;
+}
+
+.objection-result__section--angle .objection-result__label {
+  color: #92400e;
+}
+
+.objection-result__section--softer .objection-result__label {
+  color: #1e40af;
+}
+
+.objection-result__badge {
+  @apply text-[10px] font-medium rounded px-1.5 py-0.5;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.objection-result__coaching {
+  @apply text-[11px] leading-relaxed;
+  color: #78350f;
+}
+
+.objection-result__softer {
+  @apply text-[11px] leading-relaxed;
+  color: #1e3a8a;
+}

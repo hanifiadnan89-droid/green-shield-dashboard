@@ -188,6 +188,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+    salesCoach: (body) => request('/ai/sales-coach', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   },
 
   documents: {

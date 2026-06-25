@@ -18,23 +18,44 @@ const ACTIONS = [
 ];
 
 export default function ObjectionAssistant({ context = {} }) {
-  const [objection, setObjection]       = useState('');
-  const [response, setResponse]         = useState('');
-  const [loading, setLoading]           = useState(false);
+  const [repQuestion, setRepQuestion] = useState('');
+  const [result, setResult]           = useState(null); // { recommendedResponse, salesAngle, softerVersion }
+  const [loading, setLoading]         = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
-  const [copied, setCopied]             = useState(false);
-  const [error, setError]               = useState(null);
+  const [copiedRec, setCopiedRec]     = useState(false);
+  const [copiedSoft, setCopiedSoft]   = useState(false);
+  const [error, setError]             = useState(null);
 
   async function generate() {
-    const text = objection.trim();
-    if (!text) return;
+    const q = repQuestion.trim();
+    if (!q) return;
     setLoading(true);
     setError(null);
-    setResponse('');
-    setCopied(false);
+    setResult(null);
+    setCopiedRec(false);
+    setCopiedSoft(false);
     try {
-      const data = await api.ai.objectionAssist({ context, objection: text });
-      setResponse(data.response || '');
+      const data = await api.ai.salesCoach({
+        mode: 'objectionAssistant',
+        propertyContext: {
+          customerName:       context.customerName   || null,
+          address:            context.address         || null,
+          propertyType:       context.propertyType    || null,
+          serviceType:        context.serviceType     || null,
+          treatmentAcreage:   context.treatmentAcreage  ?? null,
+          treatmentSquareFeet: context.treatmentSquareFeet ?? null,
+          weather:            context.weather         || null,
+          suitability:        context.suitability     || null,
+        },
+        leadContext: {
+          pricing:         context.pricing         || null,
+          leadNotes:       context.leadNotes       || null,
+          previousMessage: context.previousMessage || null,
+          recommendations: context.recommendations || null,
+        },
+        repQuestion: q,
+      });
+      setResult(data);
     } catch (err) {
       setError(err.message || 'Failed to generate response.');
     } finally {
@@ -43,18 +64,18 @@ export default function ObjectionAssistant({ context = {} }) {
   }
 
   async function runAction(action) {
-    if (!response.trim()) return;
+    if (!result?.recommendedResponse?.trim()) return;
     setActionLoading(action);
     setError(null);
-    setCopied(false);
+    setCopiedRec(false);
     try {
       const data = await api.ai.objectionAssist({
         context,
-        objection: objection.trim(),
+        objection: repQuestion.trim(),
         action,
-        existing_response: response,
+        existing_response: result.recommendedResponse,
       });
-      setResponse(data.response || response);
+      setResult((prev) => ({ ...prev, recommendedResponse: data.response || prev.recommendedResponse }));
     } catch (err) {
       setError(err.message || 'Failed to transform response.');
     } finally {
@@ -62,19 +83,26 @@ export default function ObjectionAssistant({ context = {} }) {
     }
   }
 
-  async function copy() {
-    if (!response) return;
+  async function copyRec() {
+    if (!result?.recommendedResponse) return;
     try {
-      await navigator.clipboard.writeText(response);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback: select text in textarea
-    }
+      await navigator.clipboard.writeText(result.recommendedResponse);
+      setCopiedRec(true);
+      setTimeout(() => setCopiedRec(false), 2000);
+    } catch { /* no-op */ }
+  }
+
+  async function copySoft() {
+    if (!result?.softerVersion) return;
+    try {
+      await navigator.clipboard.writeText(result.softerVersion);
+      setCopiedSoft(true);
+      setTimeout(() => setCopiedSoft(false), 2000);
+    } catch { /* no-op */ }
   }
 
   function selectChip(text) {
-    setObjection(text);
+    setRepQuestion(text);
     setError(null);
   }
 
@@ -89,92 +117,124 @@ export default function ObjectionAssistant({ context = {} }) {
           <Sparkles size={11} className="objection-assist__header-sparkle" />
         </div>
 
-        {/* Quick chips */}
         <div className="objection-assist__chips">
           {QUICK_OBJECTIONS.map((q) => (
             <button
               key={q.key}
               type="button"
               onClick={() => selectChip(q.text)}
-              className={`objection-assist__chip${objection === q.text ? ' objection-assist__chip--active' : ''}`}
+              className={`objection-assist__chip${repQuestion === q.text ? ' objection-assist__chip--active' : ''}`}
             >
               {q.label}
             </button>
           ))}
         </div>
 
-        {/* Input */}
         <input
           className="intake-input objection-assist__input"
-          placeholder="Type objection..."
-          value={objection}
-          onChange={e => { setObjection(e.target.value); setError(null); }}
-          onKeyDown={e => { if (e.key === 'Enter' && !busy) generate(); }}
+          placeholder="What did the customer say?"
+          value={repQuestion}
+          onChange={(e) => { setRepQuestion(e.target.value); setError(null); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !busy) generate(); }}
           disabled={busy}
         />
 
-        {/* Generate button */}
         <button
           type="button"
           className="intake-primary-btn objection-assist__generate-btn"
           onClick={generate}
-          disabled={!objection.trim() || busy}
+          disabled={!repQuestion.trim() || busy}
         >
           {loading
             ? <><Loader2 size={13} className="animate-spin" /> Generating...</>
-            : <><Sparkles size={13} /> Generate Response</>
+            : <><Sparkles size={13} /> Get Sales Response</>
           }
         </button>
 
-        {/* Error */}
         {error && (
           <p className="objection-assist__error">{error}</p>
         )}
 
-        {/* Response */}
-        {response && (
-          <>
-            <div className="objection-assist__response-wrap">
+        {result && (
+          <div className="objection-result">
+            {/* Recommended Response */}
+            <div className="objection-result__section objection-result__section--primary">
+              <div className="objection-result__header">
+                <span className="objection-result__label">Recommended Response</span>
+                <button
+                  type="button"
+                  className={`objection-assist__copy-btn${copiedRec ? ' objection-assist__copy-btn--done' : ''}`}
+                  onClick={copyRec}
+                  title="Copy recommended response"
+                >
+                  {copiedRec
+                    ? <><ClipboardCheck size={11} /> Copied</>
+                    : <><Clipboard size={11} /> Copy</>
+                  }
+                </button>
+              </div>
               <textarea
                 className="objection-assist__response"
-                value={response}
-                onChange={e => { setResponse(e.target.value); setCopied(false); }}
-                rows={6}
+                value={result.recommendedResponse}
+                onChange={(e) => {
+                  setResult((prev) => ({ ...prev, recommendedResponse: e.target.value }));
+                  setCopiedRec(false);
+                }}
+                rows={5}
               />
+              <div className="objection-assist__action-row">
+                <div className="objection-assist__actions">
+                  {ACTIONS.map((a) => (
+                    <button
+                      key={a.key}
+                      type="button"
+                      className="objection-assist__action-btn"
+                      onClick={() => runAction(a.key)}
+                      disabled={busy}
+                    >
+                      {actionLoading === a.key
+                        ? <Loader2 size={10} className="animate-spin" />
+                        : null
+                      }
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Action + Copy row */}
-            <div className="objection-assist__action-row">
-              <div className="objection-assist__actions">
-                {ACTIONS.map((a) => (
-                  <button
-                    key={a.key}
-                    type="button"
-                    className="objection-assist__action-btn"
-                    onClick={() => runAction(a.key)}
-                    disabled={busy}
-                  >
-                    {actionLoading === a.key
-                      ? <Loader2 size={10} className="animate-spin" />
-                      : null
-                    }
-                    {a.label}
-                  </button>
-                ))}
+            {/* Sales Angle */}
+            {result.salesAngle && (
+              <div className="objection-result__section objection-result__section--angle">
+                <div className="objection-result__header">
+                  <span className="objection-result__label">Sales Angle</span>
+                  <span className="objection-result__badge">Rep coaching</span>
+                </div>
+                <p className="objection-result__coaching">{result.salesAngle}</p>
               </div>
-              <button
-                type="button"
-                className={`objection-assist__copy-btn${copied ? ' objection-assist__copy-btn--done' : ''}`}
-                onClick={copy}
-                title="Copy response"
-              >
-                {copied
-                  ? <><ClipboardCheck size={12} /> Copied</>
-                  : <><Clipboard size={12} /> Copy</>
-                }
-              </button>
-            </div>
-          </>
+            )}
+
+            {/* Softer Version */}
+            {result.softerVersion && (
+              <div className="objection-result__section objection-result__section--softer">
+                <div className="objection-result__header">
+                  <span className="objection-result__label">Softer Version</span>
+                  <button
+                    type="button"
+                    className={`objection-assist__copy-btn${copiedSoft ? ' objection-assist__copy-btn--done' : ''}`}
+                    onClick={copySoft}
+                    title="Copy softer version"
+                  >
+                    {copiedSoft
+                      ? <><ClipboardCheck size={11} /> Copied</>
+                      : <><Clipboard size={11} /> Copy</>
+                    }
+                  </button>
+                </div>
+                <p className="objection-result__softer">{result.softerVersion}</p>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </section>

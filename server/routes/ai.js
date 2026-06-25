@@ -328,6 +328,130 @@ Rules:
 - Return ONLY the spoken response text, nothing else`;
 }
 
+// ── Sales Coach (structured 3-section objection response) ──────────────────
+
+function buildSalesCoachSystemPrompt() {
+  return `You are a high-conviction sales coach embedded inside the Green Shield Pest Solutions field rep CRM. Your job: give the rep the exact words and strategy to handle a customer objection or hesitation on a live sales call — right now, in real time.
+
+GREEN SHIELD SERVICES AND PRICING:
+- Tick & Mosquito Monthly (T/M): $119/month, May–October (6-month seasonal program). Monthly outdoor tick and mosquito treatments. Ideal for families and properties with yard activity.
+- Integrated Quarterly (IQ): $119/quarter, year-round exterior pest control. 4 annual treatments covering ants, wasps, spiders, stink bugs, millipedes, and general pests.
+- Re-service Guarantee: If pests return between scheduled visits, Green Shield returns at no charge.
+- Licensed technicians. EPA-registered products. No surprise charges.
+
+OBJECTION HANDLING PRINCIPLES — apply whichever fit the situation:
+• VALUE STACKING: $119/month isn't just a spray — it's monthly property protection, professional-grade products unavailable retail, a licensed tech who knows their yard, and a guarantee. That's peace of mind per month.
+• COST OF INACTION: Ticks carry Lyme disease. One infected bite can mean months of treatment and thousands in medical bills. Mosquitoes carry illness. An untreated season creates conditions that are harder to control the following year.
+• RISK REDUCTION: Green Shield guarantees results. If it doesn't work, they come back — free. There is no financial risk.
+• URGENCY: Tick and mosquito season runs May–October. Every week they wait is a week of unprotected exposure. Booking slots fill up during peak season.
+• CLOSING LANGUAGE: Always end with a direct, warm close. Not "think about it" — "Want me to lock you in for Saturday?" or "Can I put you down for next week?"
+
+OUTPUT FORMAT — return ONLY valid JSON, exactly these 3 keys, no extra text, no markdown fences:
+{
+  "recommendedResponse": "3–5 sentences the rep says aloud. Phone-ready. Confident, warm, not pushy. Acknowledges the objection, reframes value or addresses the concern, ties to their specific property or situation, ends with a direct close question.",
+  "salesAngle": "2–3 sentence internal coaching note for the rep — NOT spoken to the customer. What is the real concern behind this objection? What is the leverage point? Why does the recommended approach work here?",
+  "softerVersion": "3–4 sentence alternative response for a more hesitant or cautious customer. More empathetic, less direct pressure. Still ends with a gentle close question."
+}
+
+RULES:
+- recommendedResponse and softerVersion: spoken aloud on a phone call — short, human, natural
+- salesAngle: internal rep coaching — strategic, concise, honest
+- No filler phrases: "I completely understand", "That's a great question", "Absolutely", "Of course"
+- Never name competitors or make claims not grounded in the knowledge base
+- Use property, weather, or service context when available — specific responses outperform generic ones
+- Never discount pricing below listed rates
+- Always end both response versions with a direct closing question — not "just let me know" or "feel free to reach out"`;
+}
+
+function buildSalesCoachUserMessage(propertyContext = {}, leadContext = {}, repQuestion) {
+  const lines = ['PROPERTY CONTEXT:'];
+
+  if (propertyContext.customerName) lines.push(`- Customer: ${propertyContext.customerName}`);
+  if (propertyContext.address)      lines.push(`- Address: ${propertyContext.address}`);
+  if (propertyContext.propertyType) lines.push(`- Property type: ${propertyContext.propertyType}`);
+  if (propertyContext.serviceType)  lines.push(`- Service type: ${propertyContext.serviceType}`);
+
+  if (propertyContext.treatmentAcreage != null) {
+    lines.push(`- Treatment area: ~${propertyContext.treatmentAcreage} acres`);
+  } else if (propertyContext.treatmentSquareFeet != null) {
+    const acres = (propertyContext.treatmentSquareFeet / 43560).toFixed(2);
+    lines.push(`- Treatment area: ~${acres} acres (${Number(propertyContext.treatmentSquareFeet).toLocaleString()} sq ft)`);
+  }
+
+  if (propertyContext.weather) {
+    const w = propertyContext.weather;
+    const conds = [];
+    if (w.temperatureF != null)          conds.push(`${w.temperatureF}°F`);
+    if (w.rainProbabilityPercent != null) conds.push(`${w.rainProbabilityPercent}% rain`);
+    if (w.windSpeedMph != null)           conds.push(`${w.windSpeedMph} mph wind`);
+    if (conds.length) lines.push(`- Weather: ${conds.join(', ')}`);
+  }
+
+  if (propertyContext.suitability?.label) {
+    lines.push(`- Service suitability: ${propertyContext.suitability.label}`);
+  }
+
+  lines.push('');
+  lines.push('LEAD CONTEXT:');
+
+  if (leadContext.pricing)          lines.push(`- Pricing offered: ${leadContext.pricing}`);
+  if (leadContext.leadNotes)        lines.push(`- Sales notes: ${leadContext.leadNotes}`);
+  if (leadContext.previousMessage)  lines.push(`- Previous customer message: ${leadContext.previousMessage}`);
+  if (leadContext.recommendations)  lines.push(`- Service recommendations: ${leadContext.recommendations}`);
+
+  const hasLeadContext = leadContext.pricing || leadContext.leadNotes || leadContext.previousMessage || leadContext.recommendations;
+  if (!hasLeadContext) lines.push('- (no additional lead context)');
+
+  lines.push('');
+  lines.push('CUSTOMER OBJECTION / SITUATION:');
+  lines.push(`"${repQuestion}"`);
+  lines.push('');
+  lines.push('Return valid JSON with recommendedResponse, salesAngle, and softerVersion.');
+
+  return lines.join('\n');
+}
+
+router.post('/sales-coach', async (req, res) => {
+  try {
+    const { mode, propertyContext = {}, leadContext = {}, repQuestion } = req.body;
+
+    if (mode !== 'objectionAssistant') {
+      return res.status(400).json({ error: 'mode must be "objectionAssistant"' });
+    }
+    if (!repQuestion?.trim()) {
+      return res.status(400).json({ error: 'repQuestion is required' });
+    }
+
+    const userMessage = buildSalesCoachUserMessage(propertyContext, leadContext, repQuestion.trim());
+
+    const aiResponse = await getClient().messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 700,
+      system: buildSalesCoachSystemPrompt(),
+      messages: [{ role: 'user', content: userMessage }],
+    });
+
+    const raw = (aiResponse.content[0]?.text || '').trim();
+
+    let parsed;
+    try {
+      const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      parsed = JSON.parse(clean);
+    } catch {
+      return res.status(500).json({ error: 'AI returned an unexpected format. Please try again.' });
+    }
+
+    return res.json({
+      recommendedResponse: (parsed.recommendedResponse || '').trim(),
+      salesAngle: (parsed.salesAngle || '').trim(),
+      softerVersion: (parsed.softerVersion || '').trim(),
+    });
+  } catch (err) {
+    console.error('[ai/sales-coach]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 function buildObjectionUserMessage(context = {}, objection) {
   const parts = [];
 
