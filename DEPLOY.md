@@ -8,7 +8,7 @@ This project is ready to deploy as one Render Web Service.
 - Starts the Express server from `server/`
 - Serves the built dashboard UI from `client/dist`
 - Keeps the API available under `/api`
-- Adds browser username/password protection when `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD` are set
+- Requires browser username/password protection with `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD`
 
 ## Render setup
 
@@ -32,7 +32,7 @@ After changing the build command, use **Clear build cache & deploy** once so Chr
 
 Add these in Render under the service Environment tab.
 
-Required for login:
+Required for login. The server refuses to start unless both values are set to non-empty strings:
 
 ```txt
 DASHBOARD_USERNAME=adnan
@@ -82,6 +82,8 @@ https://green-shield-dashboard.onrender.com
 
 Open that URL. The browser should ask for the username and password you set in Render.
 
+Expired public agreement signing links return HTTP `410 Gone`. Missing or invalid signing links return HTTP `404 Not Found`.
+
 ## Local development still works
 
 For local development, continue using:
@@ -91,4 +93,4 @@ npm run install:all
 npm run dev
 ```
 
-The login is only enabled when `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD` exist in the environment.
+Local development also requires `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD` in `server/.env` or the shell environment. The server fails closed when either value is missing or blank.

@@ -22,6 +22,7 @@ import {
   saveSignedPdf,
   saveSubmissionArtifacts,
   updateSigningSession,
+  validateSigningSession,
 } from '../services/agreementSigning/storage.js';
 
 const publicRouter = Router();
@@ -49,46 +50,52 @@ function publicSessionView(session) {
   };
 }
 
+function sendSigningAccessError(res, err, fallbackMessage = 'Signing asset not found') {
+  if (err?.status === 410) {
+    return res.status(410).json({ error: 'Signing link expired' });
+  }
+  if (err?.status === 404) {
+    return res.status(404).json({ error: fallbackMessage });
+  }
+  return res.status(500).json({ error: 'Signing request failed' });
+}
+
 publicRouter.get('/:token', async (req, res) => {
   try {
-    const session = await loadSigningSession(req.params.token);
-    if (!session) return res.status(404).json({ error: 'Signing link not found' });
+    const session = await validateSigningSession(req.params.token);
     res.json({ session: publicSessionView(session) });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendSigningAccessError(res, err, 'Signing link not found');
   }
 });
 
 publicRouter.get('/:token/og-card.png', async (req, res) => {
   try {
-    const session = await loadSigningSession(req.params.token);
-    if (!session) return res.status(404).json({ error: 'Signing link not found' });
+    const session = await validateSigningSession(req.params.token, { requireFile: 'ogCardPng' });
     const png = await readOgCardPng(session.token);
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'private, max-age=86400');
     res.send(png);
-  } catch {
-    res.status(404).json({ error: 'OG card not available' });
+  } catch (err) {
+    sendSigningAccessError(res, err, 'OG card not available');
   }
 });
 
 publicRouter.get('/:token/preview.png', async (req, res) => {
   try {
-    const session = await loadSigningSession(req.params.token);
-    if (!session) return res.status(404).json({ error: 'Signing link not found' });
+    const session = await validateSigningSession(req.params.token, { requireFile: 'previewPng' });
     const png = await readPreviewPng(session.token);
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.send(png);
-  } catch {
-    res.status(404).json({ error: 'Preview not available' });
+  } catch (err) {
+    sendSigningAccessError(res, err, 'Preview not available');
   }
 });
 
 publicRouter.get('/:token/document.pdf', async (req, res) => {
   try {
-    const session = await loadSigningSession(req.params.token);
-    if (!session) return res.status(404).json({ error: 'Signing link not found' });
+    const session = await validateSigningSession(req.params.token, { requireFile: 'documentPdf' });
 
     const bytes = session.status === 'signed'
       ? await readSignedPdf(session.token)
@@ -97,36 +104,29 @@ publicRouter.get('/:token/document.pdf', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="agreement.pdf"');
     res.send(bytes);
-  } catch {
-    res.status(404).json({ error: 'Document not available' });
+  } catch (err) {
+    sendSigningAccessError(res, err, 'Document not available');
   }
 });
 
 publicRouter.get('/:token/calendar.ics', async (req, res) => {
   try {
-    const session = await loadSigningSession(req.params.token);
-    if (!session || !session.calendarParams) return res.status(404).json({ error: 'Calendar not found' });
-    if (isSigningSessionExpired(session)) return res.status(410).json({ error: 'Link expired' });
+    const session = await validateSigningSession(req.params.token, { requireCalendar: true });
     const ics = generateIcs(session.calendarParams);
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="green-shield-appointment.ics"`);
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.send(ics.content);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendSigningAccessError(res, err, 'Calendar not found');
   }
 });
 
 publicRouter.post('/:token/submit', submitLimiter, async (req, res) => {
   try {
-    const session = await loadSigningSession(req.params.token);
-    if (!session) return res.status(404).json({ error: 'Signing link not found' });
+    const session = await validateSigningSession(req.params.token);
     if (session.status === 'signed') {
       return res.status(409).json({ error: 'This agreement has already been signed' });
-    }
-    if (isSigningSessionExpired(session)) {
-      await updateSigningSession(session.token, { status: 'expired' });
-      return res.status(410).json({ error: 'This signing link has expired' });
     }
 
     const submission = parseSigningSubmissionBody(req.body);
@@ -221,6 +221,12 @@ publicRouter.post('/:token/submit', submitLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error('[signing] submit error:', err);
+    if (err?.status === 410) {
+      return res.status(410).json({ error: 'This signing link has expired' });
+    }
+    if (err?.status === 404) {
+      return res.status(404).json({ error: 'Signing link not found' });
+    }
     res.status(err.status || 500).json({ error: err.message });
   }
 });
