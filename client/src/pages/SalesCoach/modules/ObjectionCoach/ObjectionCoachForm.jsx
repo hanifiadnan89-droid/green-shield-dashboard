@@ -1,20 +1,68 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import {
+  Brain, MessageSquare, ShieldCheck, Bug, Smile,
+  ChevronDown, ChevronUp, AlertCircle,
+  DollarSign, Clock, XCircle, Users, User, MoreHorizontal,
+  Leaf, Package, HelpCircle,
+  BarChart2, MessageCircle, Timer, Tag, Home,
+} from 'lucide-react';
 import { CATEGORIES, SERVICES, PERSONALITIES } from './constants.js';
 
-function ChipGroup({ options, value, onChange }) {
+const CATEGORY_ICONS = {
+  price:      DollarSign,
+  timing:     Clock,
+  need:       XCircle,
+  trust:      ShieldCheck,
+  competitor: Users,
+  think:      User,
+  other:      MoreHorizontal,
+};
+
+const SERVICE_ICONS = {
+  mosquito:     Leaf,
+  flea_tick:    Bug,
+  general_pest: Bug,
+  bundle:       Package,
+  not_sure:     HelpCircle,
+};
+
+const PERSONALITY_ICONS = {
+  analytical:    BarChart2,
+  friendly:      MessageCircle,
+  skeptical:     Brain,
+  rushed:        Timer,
+  price_focused: Tag,
+};
+
+function SectionHeader({ icon: Icon, title }) {
   return (
-    <div className="oc-chips">
-      {options.map(opt => (
-        <button
-          key={opt.id}
-          type="button"
-          className={`oc-chip${value === opt.id ? ' oc-chip--active' : ''}`}
-          onClick={() => onChange(value === opt.id ? '' : opt.id)}
-        >
-          {opt.label}
-        </button>
-      ))}
+    <div className="oc-section-header">
+      <div className="oc-section-icon-wrap">
+        <Icon size={18} />
+      </div>
+      <span className="oc-section-title">{title}</span>
+    </div>
+  );
+}
+
+function OptionGrid({ options, value, onChange, icons }) {
+  return (
+    <div className="oc-option-grid">
+      {options.map(opt => {
+        const Icon = icons[opt.id];
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            className={`oc-option-card${active ? ' oc-option-card--active' : ''}`}
+            onClick={() => onChange(active ? '' : opt.id)}
+          >
+            {Icon && <Icon size={14} />}
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -29,7 +77,8 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
   const [propType,     setPropType]     = useState('');
   const [propNotes,    setPropNotes]    = useState('');
 
-  const canSubmit = situation.trim().length >= 10;
+  const MAX_CHARS  = 400;
+  const canSubmit  = situation.trim().length >= 10;
 
   const handleSubmit = () => {
     if (!canSubmit || loading) return;
@@ -37,42 +86,67 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
   };
 
   return (
-    <>
-      <div className="oc-field">
-        <label className="oc-field__label">What did the customer say?</label>
+    <div className="oc-form-card">
+
+      {/* ── What did the customer say? ── */}
+      <div className="oc-form-section">
+        <SectionHeader icon={MessageSquare} title="What did the customer say?" />
         <textarea
-          className="oc-field__textarea"
+          className="oc-form-textarea"
           rows={4}
+          maxLength={MAX_CHARS}
           placeholder="e.g. We already have a pest control company — or — It costs too much right now"
           value={situation}
           onChange={e => setSituation(e.target.value)}
         />
+        <div className="oc-char-counter">{situation.length} / {MAX_CHARS}</div>
       </div>
 
-      <div className="oc-field">
-        <label className="oc-field__label">Objection Type</label>
-        <ChipGroup options={CATEGORIES} value={category} onChange={setCategory} />
+      <div className="oc-form-divider" />
+
+      {/* ── Objection Type ── */}
+      <div className="oc-form-section">
+        <SectionHeader icon={ShieldCheck} title="Objection Type" />
+        <OptionGrid options={CATEGORIES} value={category} onChange={setCategory} icons={CATEGORY_ICONS} />
       </div>
 
-      <div className="oc-field">
-        <label className="oc-field__label">Service Being Discussed</label>
-        <ChipGroup options={SERVICES} value={service} onChange={setService} />
+      <div className="oc-form-divider" />
+
+      {/* ── Service Being Discussed ── */}
+      <div className="oc-form-section">
+        <SectionHeader icon={Leaf} title="Service Being Discussed" />
+        <OptionGrid options={SERVICES} value={service} onChange={setService} icons={SERVICE_ICONS} />
       </div>
 
-      <div className="oc-field">
-        <label className="oc-field__label">Customer Vibe</label>
-        <ChipGroup options={PERSONALITIES} value={personality} onChange={setPersonality} />
+      <div className="oc-form-divider" />
+
+      {/* ── Customer Vibe ── */}
+      <div className="oc-form-section">
+        <SectionHeader icon={Smile} title="Customer Vibe" />
+        <OptionGrid options={PERSONALITIES} value={personality} onChange={setPersonality} icons={PERSONALITY_ICONS} />
       </div>
 
-      <div>
+      <div className="oc-form-divider" />
+
+      {/* ── Property Context ── */}
+      <div className="oc-form-section">
         <button
           type="button"
-          className="oc-optional-toggle"
+          className="oc-property-toggle"
           onClick={() => setShowOptional(v => !v)}
         >
-          {showOptional ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          Property Context (Optional)
+          <div className="oc-section-icon-wrap oc-section-icon-wrap--sm">
+            {showOptional ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </div>
+          <div className="oc-property-toggle__text">
+            <span className="oc-section-title">Property Context</span>
+            <span className="oc-property-badge">Optional</span>
+            {!showOptional && (
+              <p className="oc-property-hint">Add details about the property or situation</p>
+            )}
+          </div>
         </button>
+
         {showOptional && (
           <div className="oc-optional-fields">
             <input
@@ -100,28 +174,35 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
         )}
       </div>
 
-      <button
-        type="button"
-        className="oc-submit"
-        disabled={!canSubmit || loading}
-        onClick={handleSubmit}
-      >
-        {loading ? (
-          <>
-            <span className="animate-spin inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full" />
-            Coaching…
-          </>
-        ) : (
-          <>&#x1F9E0; Coach Me</>
-        )}
-      </button>
+      {/* ── Submit ── */}
+      <div className="oc-form-section oc-form-section--submit">
+        <button
+          type="button"
+          className="oc-submit"
+          disabled={!canSubmit || loading}
+          onClick={handleSubmit}
+        >
+          {loading ? (
+            <>
+              <span className="animate-spin inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full" />
+              Coaching…
+            </>
+          ) : (
+            <>
+              <Brain size={18} />
+              Coach Me
+            </>
+          )}
+        </button>
 
-      {error && (
-        <div className="oc-error">
-          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          {error}
-        </div>
-      )}
-    </>
+        {error && (
+          <div className="oc-error">
+            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+            {error}
+          </div>
+        )}
+      </div>
+
+    </div>
   );
 }
