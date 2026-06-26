@@ -124,6 +124,12 @@ app.use(rateLimit({
   legacyHeaders: false
 }));
 app.use(express.json());
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err && req.path.startsWith('/api/ai')) {
+    return res.status(400).json({ error: 'Malformed JSON request body.' });
+  }
+  return next(err);
+});
 
 // Customer e-sign routes (no dashboard login)
 app.use('/api/signing/public', signingPublicRouter);

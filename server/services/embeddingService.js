@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { runAiOperation } from '../security/aiRequestGuards.js';
 
 const MODEL = 'text-embedding-3-small'; // 1536 dims, $0.02/1M tokens
 
@@ -9,7 +10,7 @@ function getClient() {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not set. Add it to server/.env to enable semantic retrieval.');
     }
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 });
   }
   return openai;
 }
@@ -19,9 +20,17 @@ function getClient() {
  * @param {string} text
  * @returns {Promise<number[]>}
  */
-export async function generateEmbedding(text) {
+export async function generateEmbedding(text, aiRuntime = {}) {
   const input = text.trim().slice(0, 8000);
-  const response = await getClient().embeddings.create({ model: MODEL, input });
+  const response = await runAiOperation({
+    req: aiRuntime.req || null,
+    endpoint: aiRuntime.endpoint || 'semantic-retrieval',
+    module: aiRuntime.module || 'objection-knowledge',
+    provider: 'openai',
+    model: MODEL,
+    promptLength: input.length,
+    operation: ({ signal }) => getClient().embeddings.create({ model: MODEL, input }, { signal }),
+  });
   return response.data[0].embedding;
 }
 
@@ -30,9 +39,17 @@ export async function generateEmbedding(text) {
  * @param {string[]} texts
  * @returns {Promise<number[][]>}
  */
-export async function generateEmbeddingsBatch(texts) {
+export async function generateEmbeddingsBatch(texts, aiRuntime = {}) {
   const inputs = texts.map((t) => t.trim().slice(0, 8000));
-  const response = await getClient().embeddings.create({ model: MODEL, input: inputs });
+  const response = await runAiOperation({
+    req: aiRuntime.req || null,
+    endpoint: aiRuntime.endpoint || 'semantic-retrieval-backfill',
+    module: aiRuntime.module || 'objection-knowledge',
+    provider: 'openai',
+    model: MODEL,
+    promptLength: inputs.reduce((sum, input) => sum + input.length, 0),
+    operation: ({ signal }) => getClient().embeddings.create({ model: MODEL, input: inputs }, { signal }),
+  });
   // OpenAI returns embeddings in the same order as input
   return response.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);
 }
