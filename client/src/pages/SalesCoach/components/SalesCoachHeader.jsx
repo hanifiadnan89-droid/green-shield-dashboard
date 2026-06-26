@@ -1,4 +1,4 @@
-import { Brain, ChevronLeft } from 'lucide-react';
+import { Brain, ChevronLeft, ShieldCheck } from 'lucide-react';
 
 export function SalesCoachHeader({ moduleName, onBack, confidence }) {
   return (
@@ -27,7 +27,8 @@ export function SalesCoachHeader({ moduleName, onBack, confidence }) {
       <div className="sc-header__right">
         {confidence != null && (
           <span className="sc-confidence-badge">
-            ✓ {confidence}% Confidence
+            <ShieldCheck size={13} />
+            {confidence}% Confidence
           </span>
         )}
       </div>
