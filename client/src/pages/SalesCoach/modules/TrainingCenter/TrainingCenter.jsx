@@ -1,21 +1,30 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Check, X, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Check, X, ToggleLeft, ToggleRight, Database, Upload, BookOpen, Clock } from 'lucide-react';
 import { salesCoachApi } from '../../api/salesCoachApi.js';
 import { TRAINING_TABS, TYPE_CONFIG, OUTCOME_LABELS, OUTCOME_EMOJI } from './constants.js';
+import KnowledgeUploader from './KnowledgeUploader.jsx';
+import KnowledgeBase from './KnowledgeBase.jsx';
+import { useEffect } from 'react';
 
-// ── Session History Tab ───────────────────────────────────────────────────────
+// ── Main tabs ─────────────────────────────────────────────────────────────────
+
+const MAIN_TABS = [
+  { id: 'kb',       label: 'Knowledge Base',   icon: Database,  desc: 'AI-processed documents, videos, audio, images, and URLs' },
+  { id: 'upload',   label: 'Add Content',       icon: Upload,    desc: 'Upload files, paste a URL, or type knowledge directly' },
+  { id: 'training', label: 'Training Items',    icon: BookOpen,  desc: 'Manually curated principles, scripts, and corrections' },
+  { id: 'sessions', label: 'Session History',   icon: Clock,     desc: 'Past Objection Coach sessions' },
+];
+
+// ── Session History ───────────────────────────────────────────────────────────
 
 function SessionRow({ session }) {
   const outcome = session.outcome?.outcome;
   const emoji   = outcome ? (OUTCOME_EMOJI[outcome] ?? '') : '';
   const label   = outcome ? (OUTCOME_LABELS[outcome] ?? outcome) : null;
-
-  const ts = session.updatedAt || session.createdAt;
+  const ts      = session.updatedAt || session.createdAt;
   const timeStr = ts ? new Date(ts).toLocaleString('en-US', {
-    month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit', hour12: true,
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
   }) : '';
-
   return (
     <div className="tc-session-row">
       <div className="tc-session-row__module">{session.module ?? '—'}</div>
@@ -47,7 +56,7 @@ function SessionsTab() {
 
   if (loading) return <div className="tc-loading">Loading sessions…</div>;
   if (error)   return <div className="tc-error">{error}</div>;
-  if (sessions.length === 0) {
+  if (!sessions.length) {
     return (
       <div className="tc-empty">
         <div className="tc-empty__title">No sessions yet</div>
@@ -55,15 +64,10 @@ function SessionsTab() {
       </div>
     );
   }
-
-  return (
-    <div className="tc-sessions-list">
-      {sessions.map(s => <SessionRow key={s.id} session={s} />)}
-    </div>
-  );
+  return <div className="tc-sessions-list">{sessions.map(s => <SessionRow key={s.id} session={s} />)}</div>;
 }
 
-// ── Add / Edit Form ───────────────────────────────────────────────────────────
+// ── Training Items ────────────────────────────────────────────────────────────
 
 function ItemForm({ type, item, onSave, onCancel, saving }) {
   const config = TYPE_CONFIG[type] || {};
@@ -81,74 +85,39 @@ function ItemForm({ type, item, onSave, onCancel, saving }) {
     <form className="tc-form" onSubmit={handleSubmit}>
       <div className="tc-form__field">
         <label className="tc-form__label">{config.titleLabel || 'Title'}</label>
-        <input
-          className="tc-form__input"
-          type="text"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder={config.titlePlaceholder}
-          required
-        />
+        <input className="tc-form__input" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder={config.titlePlaceholder} required />
       </div>
       <div className="tc-form__field">
         <label className="tc-form__label">{config.contentLabel || 'Content'}</label>
-        <textarea
-          className="tc-form__textarea"
-          rows={4}
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          placeholder={config.contentPlaceholder}
-          required
-        />
+        <textarea className="tc-form__textarea" rows={4} value={content} onChange={e => setContent(e.target.value)} placeholder={config.contentPlaceholder} required />
       </div>
       <div className="tc-form__field">
         <label className="tc-form__label">{config.contextLabel || 'Context (optional)'}</label>
-        <input
-          className="tc-form__input"
-          type="text"
-          value={context}
-          onChange={e => setContext(e.target.value)}
-          placeholder={config.contextPlaceholder}
-        />
+        <input className="tc-form__input" type="text" value={context} onChange={e => setContext(e.target.value)} placeholder={config.contextPlaceholder} />
       </div>
       <div className="tc-form__actions">
-        <button type="button" className="tc-btn tc-btn--ghost" onClick={onCancel} disabled={saving}>
-          <X size={13} /> Cancel
-        </button>
-        <button type="submit" className="tc-btn tc-btn--primary" disabled={saving || !title.trim() || !content.trim()}>
-          <Check size={13} /> {saving ? 'Saving…' : item ? 'Update' : 'Add'}
-        </button>
+        <button type="button" className="tc-btn tc-btn--ghost" onClick={onCancel} disabled={saving}><X size={13} /> Cancel</button>
+        <button type="submit" className="tc-btn tc-btn--primary" disabled={saving || !title.trim() || !content.trim()}><Check size={13} /> {saving ? 'Saving…' : item ? 'Update' : 'Add'}</button>
       </div>
     </form>
   );
 }
 
-// ── Individual Item Card ──────────────────────────────────────────────────────
-
 function ItemCard({ item, onEdit, onDelete, onToggle, deleting }) {
   const [expanded, setExpanded] = useState(false);
-
   return (
-    <div className={`tc-item ${item.active ? '' : 'tc-item--inactive'}`}>
+    <div className={`tc-item${item.active ? '' : ' tc-item--inactive'}`}>
       <div className="tc-item__header">
         <div className="tc-item__title" onClick={() => setExpanded(v => !v)}>
           {item.title}
           {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </div>
         <div className="tc-item__actions">
-          <button
-            className="tc-icon-btn"
-            title={item.active ? 'Deactivate' : 'Activate'}
-            onClick={() => onToggle(item)}
-          >
+          <button className="tc-icon-btn" title={item.active ? 'Deactivate' : 'Activate'} onClick={() => onToggle(item)}>
             {item.active ? <ToggleRight size={15} className="tc-toggle--on" /> : <ToggleLeft size={15} className="tc-toggle--off" />}
           </button>
-          <button className="tc-icon-btn" title="Edit" onClick={() => onEdit(item)}>
-            <Edit2 size={13} />
-          </button>
-          <button className="tc-icon-btn tc-icon-btn--danger" title="Delete" onClick={() => onDelete(item.id)} disabled={deleting === item.id}>
-            <Trash2 size={13} />
-          </button>
+          <button className="tc-icon-btn" title="Edit" onClick={() => onEdit(item)}><Edit2 size={13} /></button>
+          <button className="tc-icon-btn tc-icon-btn--danger" title="Delete" onClick={() => onDelete(item.id)} disabled={deleting === item.id}><Trash2 size={13} /></button>
         </div>
       </div>
       {expanded && (
@@ -161,17 +130,15 @@ function ItemCard({ item, onEdit, onDelete, onToggle, deleting }) {
   );
 }
 
-// ── Training Items Tab ────────────────────────────────────────────────────────
-
-function TrainingTab({ type }) {
+function TrainingSubTab({ type }) {
   const config = TYPE_CONFIG[type] || {};
-  const [items,     setItems]     = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState(null);
-  const [showForm,  setShowForm]  = useState(false);
-  const [editItem,  setEditItem]  = useState(null);
-  const [saving,    setSaving]    = useState(false);
-  const [deleting,  setDeleting]  = useState(null);
+  const [items,    setItems]    = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [saving,   setSaving]   = useState(false);
+  const [deleting, setDeleting] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -183,10 +150,6 @@ function TrainingTab({ type }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleAdd = () => { setEditItem(null); setShowForm(true); };
-  const handleEdit = (item) => { setEditItem(item); setShowForm(true); };
-  const handleCancel = () => { setShowForm(false); setEditItem(null); };
-
   const handleSave = async (body) => {
     setSaving(true);
     try {
@@ -197,115 +160,108 @@ function TrainingTab({ type }) {
         const created = await salesCoachApi.training.create(body);
         setItems(prev => [created, ...prev]);
       }
-      setShowForm(false);
-      setEditItem(null);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
-    }
+      setShowForm(false); setEditItem(null);
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
     setDeleting(id);
-    try {
-      await salesCoachApi.training.delete(id);
-      setItems(prev => prev.filter(i => i.id !== id));
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setDeleting(null);
-    }
+    try { await salesCoachApi.training.delete(id); setItems(prev => prev.filter(i => i.id !== id)); }
+    catch (e) { setError(e.message); }
+    finally { setDeleting(null); }
   };
 
   const handleToggle = async (item) => {
     try {
       const updated = await salesCoachApi.training.update(item.id, { active: !item.active });
       setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch (e) { setError(e.message); }
   };
 
   return (
     <div className="tc-tab-content">
       <div className="tc-tab-header">
         <p className="tc-tab-desc">{config.description}</p>
-        {!showForm && (
-          <button className="tc-btn tc-btn--primary tc-btn--sm" onClick={handleAdd}>
-            <Plus size={13} /> Add
-          </button>
-        )}
+        {!showForm && <button className="tc-btn tc-btn--primary tc-btn--sm" onClick={() => { setEditItem(null); setShowForm(true); }}><Plus size={13} /> Add</button>}
       </div>
-
       {error && <div className="tc-error">{error}</div>}
-
-      {showForm && (
-        <ItemForm
-          type={type}
-          item={editItem}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          saving={saving}
-        />
-      )}
-
-      {loading ? (
-        <div className="tc-loading">Loading…</div>
-      ) : items.length === 0 && !showForm ? (
-        <div className="tc-empty">
-          <div className="tc-empty__title">No {config.titleLabel?.toLowerCase() || 'items'} yet</div>
-          <div className="tc-empty__hint">Add your first entry to start influencing AI coaching responses.</div>
-        </div>
-      ) : (
-        <div className="tc-items-list">
-          {items.map(item => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onToggle={handleToggle}
-              deleting={deleting}
-            />
-          ))}
-        </div>
-      )}
+      {showForm && <ItemForm type={type} item={editItem} onSave={handleSave} onCancel={() => { setShowForm(false); setEditItem(null); }} saving={saving} />}
+      {loading ? <div className="tc-loading">Loading…</div>
+        : items.length === 0 && !showForm ? (
+          <div className="tc-empty">
+            <div className="tc-empty__title">No {config.titleLabel?.toLowerCase() || 'items'} yet</div>
+            <div className="tc-empty__hint">Add your first entry to start influencing AI coaching responses.</div>
+          </div>
+        ) : (
+          <div className="tc-items-list">
+            {items.map(item => <ItemCard key={item.id} item={item} onEdit={(i) => { setEditItem(i); setShowForm(true); }} onDelete={handleDelete} onToggle={handleToggle} deleting={deleting} />)}
+          </div>
+        )}
     </div>
   );
 }
 
-// ── Root Component ────────────────────────────────────────────────────────────
+function TrainingTab() {
+  const [subTab, setSubTab] = useState('principle');
+  const trainingTabs = TRAINING_TABS.filter(t => t.id !== 'sessions');
+
+  return (
+    <div className="tc-training-wrap">
+      <div className="tc-sub-nav">
+        {trainingTabs.map(t => (
+          <button key={t.id} className={`tc-sub-nav__item${subTab === t.id ? ' tc-sub-nav__item--active' : ''}`} onClick={() => setSubTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <TrainingSubTab key={subTab} type={subTab} />
+    </div>
+  );
+}
+
+// ── Root ──────────────────────────────────────────────────────────────────────
 
 export default function TrainingCenter() {
-  const [activeTab, setActiveTab] = useState('principle');
+  const [activeTab,      setActiveTab]      = useState('kb');
+  const [kbRefreshKey,   setKbRefreshKey]   = useState(0);
+
+  const handleItemCreated = useCallback(() => {
+    setKbRefreshKey(k => k + 1);
+  }, []);
 
   return (
     <div className="tc-root">
       <div className="tc-sidebar">
-        <div className="tc-sidebar__title">Training Center</div>
+        <div className="tc-sidebar__title">AI Brain</div>
         <div className="tc-sidebar__desc">
-          Curate the knowledge that shapes every AI coaching response. Changes take effect on the next Coach Me request.
+          The knowledge foundation that trains your Sales Coach. Every upload becomes permanent, searchable intelligence.
         </div>
         <nav className="tc-nav">
-          {TRAINING_TABS.map(tab => (
-            <button
-              key={tab.id}
-              className={`tc-nav__item ${activeTab === tab.id ? 'tc-nav__item--active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {MAIN_TABS.map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                className={`tc-nav__item${activeTab === tab.id ? ' tc-nav__item--active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon size={13} style={{ flexShrink: 0 }} />
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
+        <div className="tc-sidebar__footer">
+          Every item in the Knowledge Base is automatically retrieved during coaching sessions via semantic search.
+        </div>
       </div>
 
       <div className="tc-main">
-        {activeTab === 'sessions' ? (
-          <SessionsTab />
-        ) : (
-          <TrainingTab key={activeTab} type={activeTab} />
-        )}
+        {activeTab === 'kb'       && <KnowledgeBase refreshTrigger={kbRefreshKey} />}
+        {activeTab === 'upload'   && <KnowledgeUploader onItemCreated={handleItemCreated} />}
+        {activeTab === 'training' && <TrainingTab />}
+        {activeTab === 'sessions' && <SessionsTab />}
       </div>
     </div>
   );
