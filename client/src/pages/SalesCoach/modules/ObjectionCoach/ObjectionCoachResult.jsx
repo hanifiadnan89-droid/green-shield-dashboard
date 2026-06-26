@@ -61,14 +61,14 @@ export default function ObjectionCoachResult({ result, repEdited, onRepEditedCha
 
       {/* 2. Why This Works */}
       {result.whyThisWorks && (
-        <CoachCard variant="why" icon={Lightbulb} iconColor="#2563eb" label="Why This Works">
+        <CoachCard variant="why" icon={Lightbulb} iconColor="#2563eb" label="Why This Works" action={<CopyBtn text={result.whyThisWorks} />}>
           <p className="oc-card__body">{result.whyThisWorks}</p>
         </CoachCard>
       )}
 
       {/* 3. Sales Strategy */}
       {result.salesStrategy && (
-        <CoachCard variant="strategy" icon={Target} iconColor="#ea580c" label="Sales Strategy">
+        <CoachCard variant="strategy" icon={Target} iconColor="#ea580c" label="Sales Strategy" action={<CopyBtn text={result.salesStrategy} />}>
           <p className="oc-card__body">{result.salesStrategy}</p>
         </CoachCard>
       )}
@@ -102,7 +102,7 @@ export default function ObjectionCoachResult({ result, repEdited, onRepEditedCha
           )}
 
           {result.thingsToAvoid?.length > 0 && (
-            <CoachCard variant="avoid" icon={XCircle} iconColor="#dc2626" label="Things To Avoid">
+            <CoachCard variant="avoid" icon={XCircle} iconColor="#dc2626" label="Things To Avoid" action={<CopyBtn text={result.thingsToAvoid.join('\n')} />}>
               <ul className="oc-avoid-list">
                 {result.thingsToAvoid.map((item, i) => (
                   <li key={i} className="oc-avoid-item">

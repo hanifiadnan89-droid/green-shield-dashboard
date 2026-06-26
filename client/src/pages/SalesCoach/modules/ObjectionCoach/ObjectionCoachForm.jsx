@@ -71,7 +71,7 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
           onClick={() => setShowOptional(v => !v)}
         >
           {showOptional ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          {showOptional ? 'Hide' : 'Add'} property context
+          Property Context (Optional)
         </button>
         {showOptional && (
           <div className="oc-optional-fields">
