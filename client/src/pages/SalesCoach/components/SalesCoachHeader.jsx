@@ -1,20 +1,20 @@
 import { Brain, ChevronLeft, ShieldCheck } from 'lucide-react';
 
-export function SalesCoachHeader({ moduleName, onBack, confidence }) {
+export function SalesCoachHeader({ moduleName, onBack, backLabel = 'Sales Coach', confidence, action }) {
   return (
     <header className="sc-header">
       <div className="sc-header__left">
         {moduleName && onBack ? (
           <button className="sc-header__back" onClick={onBack}>
             <ChevronLeft size={15} />
-            All Modules
+            {backLabel}
           </button>
         ) : (
           <div className="sc-header__brand">
             <div className="sc-header__icon"><Brain size={18} /></div>
             <div>
               <div className="sc-header__title">Sales Coach</div>
-              <div className="sc-header__subtitle">Green Shield AI Sales Brain</div>
+              <div className="sc-header__subtitle">Fast objection handling powered by Green Shield knowledge</div>
             </div>
           </div>
         )}
@@ -31,6 +31,7 @@ export function SalesCoachHeader({ moduleName, onBack, confidence }) {
             {confidence}% Confidence
           </span>
         )}
+        {action}
       </div>
     </header>
   );

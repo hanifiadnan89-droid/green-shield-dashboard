@@ -142,6 +142,27 @@ function buildObjectionCoachUserMessage(situation, category, service, personalit
   return lines.join('\n');
 }
 
+function formatKnowledgeSources(results = []) {
+  const seen = new Set();
+  return results
+    .map((result) => {
+      const item = result.item || {};
+      const id = item.id || result.itemId;
+      if (!id || seen.has(id)) return null;
+      seen.add(id);
+      return {
+        id,
+        title: item.title || item.fileName || item.sourceUrl || 'Knowledge source',
+        fileName: item.fileName || null,
+        sourceType: item.sourceType || null,
+        sourceUrl: item.sourceUrl || null,
+        tags: [...(item.tags || []), ...(item.autoTags || [])].slice(0, 6),
+        similarity: typeof result.similarity === 'number' ? Number(result.similarity.toFixed(3)) : null,
+      };
+    })
+    .filter(Boolean);
+}
+
 /**
  * Module 1: Objection Coach
  *
@@ -199,6 +220,7 @@ export async function runObjectionCoach(
     thingsToAvoid:       Array.isArray(parsed.thingsToAvoid)
       ? parsed.thingsToAvoid.map(s => truncateAiText(String(s).trim())).filter(Boolean)
       : [],
+    knowledgeSources: formatKnowledgeSources(kbResults),
     confidence: typeof parsed.confidence === 'number'
       ? Math.min(100, Math.max(0, Math.round(parsed.confidence)))
       : 70,

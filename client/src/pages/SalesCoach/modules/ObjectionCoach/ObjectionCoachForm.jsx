@@ -4,7 +4,7 @@ import {
   ChevronDown, ChevronUp, AlertCircle,
   DollarSign, Clock, XCircle, Users, User, MoreHorizontal,
   Leaf, Package, HelpCircle,
-  BarChart2, MessageCircle, Timer, Tag, Home,
+  BarChart2, MessageCircle, Timer, Tag,
 } from 'lucide-react';
 import { CATEGORIES, SERVICES, PERSONALITIES } from './constants.js';
 
@@ -88,26 +88,17 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
   return (
     <div className="oc-form-card">
 
-      {/* ── What did the customer say? ── */}
       <div className="oc-form-section">
-        <SectionHeader icon={MessageSquare} title="What did the customer say?" />
+        <SectionHeader icon={MessageSquare} title="Customer Objection" />
         <textarea
           className="oc-form-textarea"
-          rows={4}
+          rows={5}
           maxLength={MAX_CHARS}
-          placeholder="e.g. We already have a pest control company — or — It costs too much right now"
+          placeholder="Type exactly what the customer said..."
           value={situation}
           onChange={e => setSituation(e.target.value)}
         />
         <div className="oc-char-counter">{situation.length} / {MAX_CHARS}</div>
-      </div>
-
-      <div className="oc-form-divider" />
-
-      {/* ── Objection Type ── */}
-      <div className="oc-form-section">
-        <SectionHeader icon={ShieldCheck} title="Objection Type" />
-        <OptionGrid options={CATEGORIES} value={category} onChange={setCategory} icons={CATEGORY_ICONS} />
       </div>
 
       <div className="oc-form-divider" />
@@ -120,9 +111,17 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
 
       <div className="oc-form-divider" />
 
+      {/* ── Objection Type ── */}
+      <div className="oc-form-section">
+        <SectionHeader icon={ShieldCheck} title="Objection Type" />
+        <OptionGrid options={CATEGORIES} value={category} onChange={setCategory} icons={CATEGORY_ICONS} />
+      </div>
+
+      <div className="oc-form-divider" />
+
       {/* ── Customer Vibe ── */}
       <div className="oc-form-section">
-        <SectionHeader icon={Smile} title="Customer Vibe" />
+        <SectionHeader icon={Smile} title="Customer Personality/Vibe" />
         <OptionGrid options={PERSONALITIES} value={personality} onChange={setPersonality} icons={PERSONALITY_ICONS} />
       </div>
 
