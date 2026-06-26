@@ -32,6 +32,21 @@ After changing the build command, use **Clear build cache & deploy** once so Chr
 
 Add these in Render under the service Environment tab.
 
+Required for Training Center Knowledge Base persistence:
+
+1. Add a Render persistent disk to the Web Service.
+2. Set the disk mount path to `/var/data`.
+3. Set these environment variables exactly:
+
+```txt
+KNOWLEDGE_STORAGE_BACKEND=persistent_disk
+KNOWLEDGE_DATA_DIR=/var/data/knowledge-base
+```
+
+The server refuses production Knowledge Base writes on Render unless those values
+are configured exactly. Knowledge Base items, chunks, embeddings, and uploaded
+original files are stored under `/var/data/knowledge-base`.
+
 Required for login. The server refuses to start unless both values are set to non-empty strings:
 
 ```txt

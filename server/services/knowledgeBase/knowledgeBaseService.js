@@ -2,40 +2,19 @@
  * Knowledge Base Service — CRUD, chunk storage, and semantic search
  * for the AI-processed knowledge base.
  *
- * Data files:
- *   server/data/knowledge-base-items.json     — item metadata
- *   server/data/knowledge-base-chunks.json    — chunk text { [chunkId]: { itemId, index, text } }
- *   server/data/knowledge-base-embeddings.json — vectors  { [chunkId]: number[] }
+ * Data files are resolved by knowledgeStorage.js so production can use a
+ * persistent Render disk instead of the ephemeral deploy filesystem.
  */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { generateEmbedding, cosineSimilarity } from '../embeddingService.js';
 import { buildChunkId } from './chunkingService.js';
-
-const __dirname  = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR   = path.resolve(__dirname, '../../data');
-const ITEMS_FILE = path.join(DATA_DIR, 'knowledge-base-items.json');
-const CHUNKS_FILE     = path.join(DATA_DIR, 'knowledge-base-chunks.json');
-const EMBEDDINGS_FILE = path.join(DATA_DIR, 'knowledge-base-embeddings.json');
-
-// ── File I/O ──────────────────────────────────────────────────────────────────
-
-function readJson(filePath, fallback = []) {
-  try { return JSON.parse(fs.readFileSync(filePath, 'utf-8')); }
-  catch { return fallback; }
-}
-
-function writeJson(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
-}
+import { readKnowledgeJson, writeKnowledgeJson } from './knowledgeStorage.js';
 
 // ── Items ─────────────────────────────────────────────────────────────────────
 
 export function listItems({ query = '', tags = [], sourceType = null, status = null, limit = 50, offset = 0 } = {}) {
-  let items = readJson(ITEMS_FILE, []);
+  let items = readKnowledgeJson('items', []);
 
   if (status)     items = items.filter(i => i.status === status);
   if (sourceType) items = items.filter(i => i.sourceType === sourceType);
@@ -59,13 +38,13 @@ export function listItems({ query = '', tags = [], sourceType = null, status = n
 }
 
 export function getItem(id) {
-  const items = readJson(ITEMS_FILE, []);
+  const items = readKnowledgeJson('items', []);
   return items.find(i => i.id === id) || null;
 }
 
 export function createItem({
   title = '', sourceType, fileName = null, mimeType = null, fileSize = null,
-  sourceUrl = null, status = 'pending',
+  sourceUrl = null, uploadedFilePath = null, status = 'pending',
 }) {
   const id  = `kb-${crypto.randomUUID().slice(0, 8)}`;
   const now = new Date().toISOString();
@@ -77,6 +56,7 @@ export function createItem({
     mimeType,
     fileSize,
     sourceUrl,
+    uploadedFilePath,
     status,
     processingSteps: {
       extraction: 'pending',
@@ -92,30 +72,31 @@ export function createItem({
     wordCount:     0,
     errorMessage:  null,
     uploadedAt:    now,
+    updatedAt:     now,
     processedAt:   null,
     active:        true,
   };
-  const items = readJson(ITEMS_FILE, []);
+  const items = readKnowledgeJson('items', []);
   items.unshift(item);
-  writeJson(ITEMS_FILE, items);
+  writeKnowledgeJson('items', items);
   return item;
 }
 
 export function updateItem(id, updates) {
-  const items = readJson(ITEMS_FILE, []);
+  const items = readKnowledgeJson('items', []);
   const idx   = items.findIndex(i => i.id === id);
   if (idx === -1) return null;
-  items[idx] = { ...items[idx], ...updates };
-  writeJson(ITEMS_FILE, items);
+  items[idx] = { ...items[idx], ...updates, updatedAt: new Date().toISOString() };
+  writeKnowledgeJson('items', items);
   return items[idx];
 }
 
 export function deleteItem(id) {
-  const items = readJson(ITEMS_FILE, []);
+  const items = readKnowledgeJson('items', []);
   const idx   = items.findIndex(i => i.id === id);
   if (idx === -1) return false;
   items.splice(idx, 1);
-  writeJson(ITEMS_FILE, items);
+  writeKnowledgeJson('items', items);
   deleteChunksForItem(id);
   deleteEmbeddingsForItem(id);
   return true;
@@ -124,7 +105,7 @@ export function deleteItem(id) {
 // ── Chunks ────────────────────────────────────────────────────────────────────
 
 export function getChunksForItem(itemId) {
-  const chunks = readJson(CHUNKS_FILE, {});
+  const chunks = readKnowledgeJson('chunks', {});
   return Object.entries(chunks)
     .filter(([, c]) => c.itemId === itemId)
     .sort(([, a], [, b]) => a.index - b.index)
@@ -132,7 +113,7 @@ export function getChunksForItem(itemId) {
 }
 
 export function saveChunks(itemId, textChunks) {
-  const chunks = readJson(CHUNKS_FILE, {});
+  const chunks = readKnowledgeJson('chunks', {});
   // Clear existing chunks for this item
   for (const key of Object.keys(chunks)) {
     if (chunks[key].itemId === itemId) delete chunks[key];
@@ -141,21 +122,21 @@ export function saveChunks(itemId, textChunks) {
     const chunkId = buildChunkId(itemId, i);
     chunks[chunkId] = { itemId, index: i, text: textChunks[i] };
   }
-  writeJson(CHUNKS_FILE, chunks);
+  writeKnowledgeJson('chunks', chunks);
 }
 
 export function deleteChunksForItem(itemId) {
-  const chunks = readJson(CHUNKS_FILE, {});
+  const chunks = readKnowledgeJson('chunks', {});
   for (const key of Object.keys(chunks)) {
     if (chunks[key].itemId === itemId) delete chunks[key];
   }
-  writeJson(CHUNKS_FILE, chunks);
+  writeKnowledgeJson('chunks', chunks);
 }
 
 // ── Embeddings ────────────────────────────────────────────────────────────────
 
 export function getEmbeddingsForItem(itemId) {
-  const allEmbs = readJson(EMBEDDINGS_FILE, {});
+  const allEmbs = readKnowledgeJson('embeddings', {});
   const result = {};
   for (const [chunkId, vec] of Object.entries(allEmbs)) {
     if (chunkId.startsWith(itemId + '_chunk_')) result[chunkId] = vec;
@@ -164,17 +145,17 @@ export function getEmbeddingsForItem(itemId) {
 }
 
 export function saveEmbedding(chunkId, vector) {
-  const embs = readJson(EMBEDDINGS_FILE, {});
+  const embs = readKnowledgeJson('embeddings', {});
   embs[chunkId] = vector;
-  writeJson(EMBEDDINGS_FILE, embs);
+  writeKnowledgeJson('embeddings', embs);
 }
 
 export function deleteEmbeddingsForItem(itemId) {
-  const embs = readJson(EMBEDDINGS_FILE, {});
+  const embs = readKnowledgeJson('embeddings', {});
   for (const key of Object.keys(embs)) {
     if (key.startsWith(itemId + '_chunk_')) delete embs[key];
   }
-  writeJson(EMBEDDINGS_FILE, embs);
+  writeKnowledgeJson('embeddings', embs);
 }
 
 // ── Semantic search ───────────────────────────────────────────────────────────
@@ -189,7 +170,7 @@ export function deleteEmbeddingsForItem(itemId) {
 export async function searchKnowledgeBase(query, { limit = 5, tags = [], sourceType = null } = {}) {
   if (!process.env.OPENAI_API_KEY) return [];
 
-  const allItems = readJson(ITEMS_FILE, []).filter(i => i.active && i.status === 'ready');
+  const allItems = readKnowledgeJson('items', []).filter(i => i.active && i.status === 'ready');
   if (!allItems.length) return [];
 
   // Apply item-level filters
@@ -204,8 +185,8 @@ export async function searchKnowledgeBase(query, { limit = 5, tags = [], sourceT
   const itemIds = new Set(filteredItems.map(i => i.id));
   if (!itemIds.size) return [];
 
-  const allEmbs   = readJson(EMBEDDINGS_FILE, {});
-  const allChunks = readJson(CHUNKS_FILE, {});
+  const allEmbs   = readKnowledgeJson('embeddings', {});
+  const allChunks = readKnowledgeJson('chunks', {});
 
   // Only consider chunks whose items passed the filter
   const candidates = Object.entries(allEmbs).filter(([chunkId]) => {

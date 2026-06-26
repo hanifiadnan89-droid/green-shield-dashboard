@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Upload, Link2, FileText, X, Loader2, CheckCircle2, AlertCircle,
   Youtube, Globe, FileAudio, FileVideo, Image, File,
@@ -82,7 +82,14 @@ export default function KnowledgeUploader({ onItemCreated }) {
   const [error,        setError]        = useState(null);
   const [queued,       setQueued]       = useState([]);  // { item, polling }
   const [dragging,     setDragging]     = useState(false);
+  const [storageStatus, setStorageStatus] = useState(null);
   const inputRef = useRef();
+
+  useEffect(() => {
+    api.kb.storageStatus()
+      .then(setStorageStatus)
+      .catch((err) => setStorageStatus({ writeSafe: false, warning: err.message || 'Knowledge Base storage is unavailable.' }));
+  }, []);
 
   // Poll a newly created item until it's done
   const pollItem = useCallback((item) => {
@@ -191,6 +198,13 @@ export default function KnowledgeUploader({ onItemCreated }) {
       </div>
 
       {/* Title field (common) */}
+      {storageStatus?.warning && (
+        <div className="kb-storage-warning">
+          <AlertCircle size={14} />
+          <span>{storageStatus.warning}</span>
+        </div>
+      )}
+
       <input
         className="kb-title-input"
         type="text"

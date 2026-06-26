@@ -52,18 +52,21 @@ export async function extractPlainText(filePath) {
 // ── PDF ───────────────────────────────────────────────────────────────────────
 
 export async function extractPdf(filePath) {
+  let parser = null;
   try {
-    const pdfParse = require('pdf-parse');
+    const { PDFParse } = require('pdf-parse');
     const buffer = fs.readFileSync(filePath);
-    const result = await pdfParse(buffer);
+    parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
     const text   = cleanText(result.text);
     if (text.length < 50) {
-      // Likely a scanned PDF — fall back to Claude OCR
-      return extractImageOcr(filePath, 'application/pdf', 'PDF (scanned — OCR)');
+      return extractPdfOcr(buffer, result.total || 1);
     }
-    return { text, wordCount: countWords(text), metadata: { pages: result.numpages } };
+    return { text, wordCount: countWords(text), metadata: { pages: result.total } };
   } catch (err) {
     return { text: `[PDF extraction failed: ${err.message}]`, wordCount: 0, metadata: { error: err.message } };
+  } finally {
+    try { await parser?.destroy?.(); } catch {}
   }
 }
 
@@ -119,11 +122,24 @@ export async function extractOffice(filePath) {
 
 // ── Image OCR via Claude ──────────────────────────────────────────────────────
 
-export async function extractImageOcr(filePath, mimeType = 'image/jpeg', label = 'Image') {
+async function extractImageBuffersOcr(images, label = 'Image', extraMetadata = {}) {
   try {
-    const buffer   = fs.readFileSync(filePath);
-    const base64   = buffer.toString('base64');
-    const safeMime = mimeType.startsWith('image/') ? mimeType : 'image/jpeg';
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return {
+        text: `[${label} OCR requires ANTHROPIC_API_KEY]`,
+        wordCount: 0,
+        metadata: { error: 'No Anthropic key', ocr: true, ...extraMetadata },
+      };
+    }
+
+    const imageBlocks = images.map(({ buffer, mimeType }) => ({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: mimeType.startsWith('image/') ? mimeType : 'image/jpeg',
+        data: Buffer.from(buffer).toString('base64'),
+      },
+    }));
 
     const response = await getAnthropic().messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -131,10 +147,7 @@ export async function extractImageOcr(filePath, mimeType = 'image/jpeg', label =
       messages: [{
         role: 'user',
         content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: safeMime, data: base64 },
-          },
+          ...imageBlocks,
           {
             type: 'text',
             text: `You are an OCR and content extraction assistant for a pest control sales company.
@@ -154,10 +167,49 @@ TYPE: [content type]
 
     const rawText  = response.content[0]?.text || '';
     const text     = cleanText(rawText);
-    return { text, wordCount: countWords(text), metadata: { ocr: true, model: 'claude-haiku-4-5-20251001' } };
+    return {
+      text,
+      wordCount: countWords(text),
+      metadata: { ocr: true, model: 'claude-haiku-4-5-20251001', ...extraMetadata },
+    };
   } catch (err) {
-    return { text: `[Image OCR failed: ${err.message}]`, wordCount: 0, metadata: { error: err.message } };
+    return { text: `[${label} OCR failed: ${err.message}]`, wordCount: 0, metadata: { error: err.message, ocr: true, ...extraMetadata } };
   }
+}
+
+async function extractPdfOcr(buffer, pageCount) {
+  let parser = null;
+  try {
+    const { PDFParse } = require('pdf-parse');
+    parser = new PDFParse({ data: buffer });
+    const pagesToRender = Math.max(1, Math.min(Number(pageCount) || 1, 3));
+    const screenshots = await parser.getScreenshot({
+      first: pagesToRender,
+      imageBuffer: true,
+      imageDataUrl: false,
+    });
+    const images = (screenshots.pages || [])
+      .filter((page) => page.data)
+      .map((page) => ({ buffer: page.data, mimeType: 'image/png' }));
+    if (!images.length) {
+      return { text: '[PDF OCR failed: no rendered pages available]', wordCount: 0, metadata: { error: 'No rendered pages', ocr: true } };
+    }
+    return extractImageBuffersOcr(images, 'PDF pages (scanned — OCR)', {
+      pdfOcr: true,
+      pages: pageCount,
+      pagesOcrAttempted: images.length,
+    });
+  } catch (err) {
+    return { text: `[PDF OCR failed: ${err.message}]`, wordCount: 0, metadata: { error: err.message, ocr: true, pdfOcr: true } };
+  } finally {
+    try { await parser?.destroy?.(); } catch {}
+  }
+}
+
+export async function extractImageOcr(filePath, mimeType = 'image/jpeg', label = 'Image') {
+  const buffer = fs.readFileSync(filePath);
+  const safeMime = mimeType.startsWith('image/') ? mimeType : 'image/jpeg';
+  return extractImageBuffersOcr([{ buffer, mimeType: safeMime }], label);
 }
 
 // ── Audio transcription via Whisper ──────────────────────────────────────────

@@ -202,17 +202,25 @@ export default function KnowledgeBase({ refreshTrigger }) {
   const [sourceType, setSourceType] = useState('');
   const [status,     setStatus]     = useState('');
   const [showFilter, setShowFilter] = useState(false);
+  const [loadError,  setLoadError]  = useState(null);
+  const [storageStatus, setStorageStatus] = useState(null);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
+      const storage = await api.kb.storageStatus();
+      setStorageStatus(storage);
       const params = {};
       if (query)      params.query = query;
       if (sourceType) params.sourceType = sourceType;
       if (status)     params.status = status;
       const { items: data } = await api.kb.items({ ...params, limit: 100 });
       setItems(data || []);
-    } catch {}
+    } catch (err) {
+      setItems([]);
+      setLoadError(err.message || 'Knowledge Base storage is unavailable.');
+    }
     setLoading(false);
   }, [query, sourceType, status]);
 
@@ -267,6 +275,20 @@ export default function KnowledgeBase({ refreshTrigger }) {
           <RefreshCw size={12} />
         </button>
       </div>
+
+      {storageStatus?.warning && (
+        <div className="kb-storage-warning">
+          <AlertCircle size={14} />
+          <span>{storageStatus.warning}</span>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="kb-error">
+          <AlertCircle size={13} />
+          {loadError}
+        </div>
+      )}
 
       {/* Search + filter bar */}
       <div className="kb-search-bar">

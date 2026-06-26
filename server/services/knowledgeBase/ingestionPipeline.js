@@ -21,6 +21,10 @@ import {
   createItem, updateItem, saveChunks, saveEmbedding, getItem,
   deleteChunksForItem, deleteEmbeddingsForItem,
 } from './knowledgeBaseService.js';
+import {
+  fromKnowledgeStorageRelativePath,
+  toKnowledgeStorageRelativePath,
+} from './knowledgeStorage.js';
 
 let _anthropic = null;
 function getAnthropic() {
@@ -95,7 +99,7 @@ async function runPipeline(itemId, extractFn) {
     const hasContent = text && wordCount > 0 && !text.startsWith('[');
     updateItem(itemId, {
       processingSteps: { ...getItem(itemId)?.processingSteps, extraction: hasContent ? 'done' : 'error' },
-      extractedText: text.slice(0, 3000),  // preview
+      extractedText: text,
       wordCount,
       ...(metadata.error ? { errorMessage: metadata.error } : {}),
     });
@@ -133,7 +137,10 @@ async function runPipeline(itemId, extractFn) {
         console.warn('[ingestion] Embedding failed:', embErr.message);
         updateItem(itemId, {
           processingSteps: { ...getItem(itemId)?.processingSteps, embedding: 'error' },
+          status: 'error',
+          errorMessage: 'Embedding generation failed. Knowledge was saved but is not searchable until reprocessed.',
         });
+        return;
       }
     } else {
       updateItem(itemId, {
@@ -182,14 +189,13 @@ export function ingestFile(filePath, mimeType, originalName, { title = '' } = {}
     fileName:   originalName,
     mimeType,
     fileSize:   fs.existsSync(filePath) ? fs.statSync(filePath).size : null,
+    uploadedFilePath: toKnowledgeStorageRelativePath(filePath),
     status:     'processing',
   });
 
   // Fire-and-forget
   setImmediate(async () => {
     await runPipeline(item.id, () => extractContent(filePath, mimeType, originalName));
-    // Clean up temp file after processing
-    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
   });
 
   return item;
@@ -265,9 +271,10 @@ export async function reprocessItem(itemId, tempFilePath = null) {
     setImmediate(() => runPipeline(itemId, async () => ({
       text: item.extractedText, wordCount: item.wordCount || 0, metadata: {},
     })));
-  } else if (tempFilePath) {
+  } else if (tempFilePath || item.uploadedFilePath) {
     const { mimeType, fileName } = item;
-    setImmediate(() => runPipeline(itemId, () => extractContent(tempFilePath, mimeType, fileName)));
+    const filePath = tempFilePath || fromKnowledgeStorageRelativePath(item.uploadedFilePath);
+    setImmediate(() => runPipeline(itemId, () => extractContent(filePath, mimeType, fileName)));
   } else {
     updateItem(itemId, { status: 'error', errorMessage: 'Original file no longer available. Re-upload to reprocess.' });
   }

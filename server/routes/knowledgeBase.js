@@ -14,18 +14,37 @@
 
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import {
   listItems, getItem, updateItem, deleteItem,
   searchKnowledgeBase, getChunksForItem,
 } from '../services/knowledgeBase/knowledgeBaseService.js';
 import { ingestFile, ingestUrl, ingestText, reprocessItem } from '../services/knowledgeBase/ingestionPipeline.js';
-
-const __dirname  = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.resolve(__dirname, '../data/knowledge-uploads');
+import {
+  assertKnowledgeStorageWritable,
+  getKnowledgeStorageStatus,
+  getKnowledgeUploadDir,
+  initializeKnowledgeStorage,
+} from '../services/knowledgeBase/knowledgeStorage.js';
 
 const router = express.Router();
+initializeKnowledgeStorage();
+
+function storageUnavailableResponse(res, err) {
+  return res.status(err.status || 503).json({
+    error: 'Knowledge Base storage is not configured for durable production writes.',
+    code: err.code || 'KNOWLEDGE_STORAGE_UNAVAILABLE',
+    hint: err.message,
+  });
+}
+
+function requireWritableKnowledgeStorage(req, res, next) {
+  try {
+    assertKnowledgeStorageWritable();
+    next();
+  } catch (err) {
+    storageUnavailableResponse(res, err);
+  }
+}
 
 // ── Multer config ─────────────────────────────────────────────────────────────
 
@@ -59,7 +78,13 @@ const ALLOWED_EXTENSIONS = new Set([
 ]);
 
 const storage = multer.diskStorage({
-  destination: UPLOAD_DIR,
+  destination: (req, file, cb) => {
+    try {
+      cb(null, getKnowledgeUploadDir());
+    } catch (err) {
+      cb(err);
+    }
+  },
   filename: (req, file, cb) => {
     const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     cb(null, `${Date.now()}-${safe}`);
@@ -81,20 +106,21 @@ const upload = multer({
 
 // ── Upload ────────────────────────────────────────────────────────────────────
 
-router.post('/upload', upload.single('file'), (req, res) => {
+router.post('/upload', requireWritableKnowledgeStorage, upload.single('file'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file received' });
     const { title = '' } = req.body;
     const item = ingestFile(req.file.path, req.file.mimetype, req.file.originalname, { title });
     res.json({ item });
   } catch (err) {
+    if (err.code === 'KNOWLEDGE_STORAGE_UNSAFE') return storageUnavailableResponse(res, err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ── URL ingestion ─────────────────────────────────────────────────────────────
 
-router.post('/url', express.json(), (req, res) => {
+router.post('/url', requireWritableKnowledgeStorage, express.json(), (req, res) => {
   const { url, title = '' } = req.body || {};
   if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url is required' });
 
@@ -114,7 +140,7 @@ router.post('/url', express.json(), (req, res) => {
 
 // ── Text ingestion ────────────────────────────────────────────────────────────
 
-router.post('/text', express.json(), (req, res) => {
+router.post('/text', requireWritableKnowledgeStorage, express.json(), (req, res) => {
   const { text, title = '' } = req.body || {};
   if (!text || text.trim().length < 20) {
     return res.status(400).json({ error: 'text must be at least 20 characters' });
@@ -144,6 +170,22 @@ router.get('/items', (req, res) => {
   res.json({ items });
 });
 
+router.get('/storage-status', (req, res) => {
+  const status = getKnowledgeStorageStatus();
+  res.json({
+    backend: status.backend,
+    dataDir: status.dataDir,
+    uploadsDir: status.uploadsDir,
+    writeSafe: status.writeSafe,
+    warning: status.warning,
+    requiredRenderBackend: status.requiredRenderBackend,
+    requiredRenderDataDir: status.requiredRenderDataDir,
+    renderConfigValid: status.renderConfigValid,
+    render: status.render,
+    production: status.production,
+  });
+});
+
 // ── Get single item ───────────────────────────────────────────────────────────
 
 router.get('/items/:id', (req, res) => {
@@ -158,7 +200,7 @@ router.get('/items/:id', (req, res) => {
 
 const UPDATABLE = ['title', 'tags', 'active'];
 
-router.put('/items/:id', express.json(), (req, res) => {
+router.put('/items/:id', requireWritableKnowledgeStorage, express.json(), (req, res) => {
   const item = getItem(req.params.id);
   if (!item) return res.status(404).json({ error: 'Not found' });
 
@@ -173,7 +215,7 @@ router.put('/items/:id', express.json(), (req, res) => {
 
 // ── Delete item ───────────────────────────────────────────────────────────────
 
-router.delete('/items/:id', (req, res) => {
+router.delete('/items/:id', requireWritableKnowledgeStorage, (req, res) => {
   const deleted = deleteItem(req.params.id);
   if (!deleted) return res.status(404).json({ error: 'Not found' });
   res.json({ success: true, id: req.params.id });
@@ -181,7 +223,7 @@ router.delete('/items/:id', (req, res) => {
 
 // ── Reprocess ─────────────────────────────────────────────────────────────────
 
-router.post('/items/:id/reprocess', (req, res) => {
+router.post('/items/:id/reprocess', requireWritableKnowledgeStorage, (req, res) => {
   const item = getItem(req.params.id);
   if (!item) return res.status(404).json({ error: 'Not found' });
 

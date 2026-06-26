@@ -225,6 +225,7 @@ export const api = {
     updateItem: (id, body) => request(`/kb/items/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
     deleteItem: (id) => request(`/kb/items/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     reprocess:  (id) => request(`/kb/items/${encodeURIComponent(id)}/reprocess`, { method: 'POST' }),
+    storageStatus: () => request('/kb/storage-status'),
     search:     (query, params = {}) => {
       const qs = new URLSearchParams({ query, ...params });
       return request(`/kb/search?${qs.toString()}`);
