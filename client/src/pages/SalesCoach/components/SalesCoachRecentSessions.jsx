@@ -33,21 +33,11 @@ function SessionCard({ session }) {
   );
 }
 
-/**
- * Recent Sessions panel shown on the Sales Coach home dashboard.
- *
- * Sessions are in-memory only for now; the component is structured so that
- * persisted sessions can be passed in via the same `sessions` prop.
- *
- * Props:
- *   sessions      — array of session objects (may be empty)
- *   onNewSession  — callback to navigate to the Objection Coach module
- */
 export function SalesCoachRecentSessions({ sessions = [], onNewSession }) {
   return (
     <div className="sc-sessions">
       <div className="sc-sessions__header">
-        <div className="sc-home-kicker" style={{ marginBottom: 0 }}>Recent Sessions</div>
+        <div className="sc-home-kicker">Recent Sessions</div>
         {sessions.length > 0 && (
           <button className="sc-sessions__new-btn" onClick={onNewSession}>
             + New Session

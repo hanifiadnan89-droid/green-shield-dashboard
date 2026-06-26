@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
-import { confidenceLevel } from '../../utils/salesCoachFormatters.js';
+import { MessageSquare, Lightbulb, Target, Heart, Zap, XCircle, Copy, Check } from 'lucide-react';
 
 function CopyBtn({ text }) {
   const [done, setDone] = useState(false);
@@ -13,7 +12,7 @@ function CopyBtn({ text }) {
   return (
     <button
       type="button"
-      className={`oc-copy-btn ${done ? 'oc-copy-btn--done' : ''}`}
+      className={`oc-copy${done ? ' oc-copy--done' : ''}`}
       onClick={copy}
     >
       {done ? <Check size={11} /> : <Copy size={11} />}
@@ -22,99 +21,100 @@ function CopyBtn({ text }) {
   );
 }
 
-function ResultSection({ variant, label, children }) {
+function CoachCard({ variant, icon: Icon, iconColor, label, action, children }) {
   return (
-    <div className={`oc-result-section oc-result-section--${variant}`}>
-      <div className="oc-result-label">{label}</div>
+    <div className={`oc-card oc-card--${variant}`}>
+      <div className="oc-card__head">
+        <div className="oc-card__head-left">
+          <div className="oc-card__icon">
+            <Icon size={15} color={iconColor} />
+          </div>
+          <span className="oc-card__label">{label}</span>
+        </div>
+        {action}
+      </div>
       {children}
     </div>
   );
 }
 
-/**
- * Displays the 7-section AI coaching result.
- *
- * Props:
- *   result       — full coaching object from the API
- *   repEdited    — editable copy of recommendedResponse
- *   onRepEditedChange — setter for repEdited
- */
 export default function ObjectionCoachResult({ result, repEdited, onRepEditedChange }) {
-  const level = confidenceLevel(result.confidence ?? 70);
+  const hasBothBottom = result.bestClosingQuestion && result.thingsToAvoid?.length > 0;
 
   return (
-    <div className="oc-results">
-      {/* Confidence badge row */}
-      <div className="oc-result-header">
-        <span className="text-xs font-semibold text-gs-muted">Coaching Result</span>
-        {result.confidence != null && (
-          <span className={`oc-confidence-badge oc-confidence-badge--${level}`}>
-            {level === 'high' ? '✓' : level === 'medium' ? '~' : '?'}
-            {' '}{result.confidence}% Confidence
-          </span>
-        )}
-      </div>
-
+    <>
       {/* 1. Recommended Response (editable) */}
-      <ResultSection variant="response" label="Recommended Response">
-        <div className="oc-result-header">
-          <span />
-          <CopyBtn text={repEdited || result.recommendedResponse} />
-        </div>
+      <CoachCard
+        variant="response"
+        icon={MessageSquare}
+        iconColor="#16a34a"
+        label="Recommended Response"
+        action={<CopyBtn text={repEdited || result.recommendedResponse} />}
+      >
         <textarea
-          className="oc-result-response"
+          className="oc-response-edit"
           rows={5}
           value={repEdited}
           onChange={e => onRepEditedChange(e.target.value)}
         />
-      </ResultSection>
+      </CoachCard>
 
       {/* 2. Why This Works */}
       {result.whyThisWorks && (
-        <ResultSection variant="why" label="Why This Works">
-          <p className="oc-result-text">{result.whyThisWorks}</p>
-        </ResultSection>
+        <CoachCard variant="why" icon={Lightbulb} iconColor="#2563eb" label="Why This Works">
+          <p className="oc-card__body">{result.whyThisWorks}</p>
+        </CoachCard>
       )}
 
       {/* 3. Sales Strategy */}
       {result.salesStrategy && (
-        <ResultSection variant="strategy" label="Sales Strategy">
-          <p className="oc-result-text">{result.salesStrategy}</p>
-        </ResultSection>
+        <CoachCard variant="strategy" icon={Target} iconColor="#ea580c" label="Sales Strategy">
+          <p className="oc-card__body">{result.salesStrategy}</p>
+        </CoachCard>
       )}
 
       {/* 4. Softer Version */}
       {result.softerVersion && (
-        <ResultSection variant="softer" label="Alternative — Softer Version">
-          <div className="oc-result-header">
-            <span />
-            <CopyBtn text={result.softerVersion} />
-          </div>
-          <p className="oc-result-text">{result.softerVersion}</p>
-        </ResultSection>
+        <CoachCard
+          variant="softer"
+          icon={Heart}
+          iconColor="#7c3aed"
+          label="Alternative — Softer Version"
+          action={<CopyBtn text={result.softerVersion} />}
+        >
+          <p className="oc-card__body">{result.softerVersion}</p>
+        </CoachCard>
       )}
 
-      {/* 5. Best Closing Question */}
-      {result.bestClosingQuestion && (
-        <ResultSection variant="closing" label="Best Closing Question">
-          <div className="oc-result-header">
-            <span />
-            <CopyBtn text={result.bestClosingQuestion} />
-          </div>
-          <p className="oc-result-text">{result.bestClosingQuestion}</p>
-        </ResultSection>
-      )}
+      {/* 5+6: Best Closing Question + Things To Avoid in 2-col grid */}
+      {(result.bestClosingQuestion || result.thingsToAvoid?.length > 0) && (
+        <div className={hasBothBottom ? 'oc-cards-grid' : undefined}>
+          {result.bestClosingQuestion && (
+            <CoachCard
+              variant="closing"
+              icon={Zap}
+              iconColor="#16a34a"
+              label="Best Closing Question"
+              action={<CopyBtn text={result.bestClosingQuestion} />}
+            >
+              <p className="oc-card__body">{result.bestClosingQuestion}</p>
+            </CoachCard>
+          )}
 
-      {/* 6. Things To Avoid */}
-      {result.thingsToAvoid?.length > 0 && (
-        <ResultSection variant="avoid" label="Things To Avoid">
-          <ul className="oc-avoid-list">
-            {result.thingsToAvoid.map((item, i) => (
-              <li key={i} className="oc-avoid-item">{item}</li>
-            ))}
-          </ul>
-        </ResultSection>
+          {result.thingsToAvoid?.length > 0 && (
+            <CoachCard variant="avoid" icon={XCircle} iconColor="#dc2626" label="Things To Avoid">
+              <ul className="oc-avoid-list">
+                {result.thingsToAvoid.map((item, i) => (
+                  <li key={i} className="oc-avoid-item">
+                    <span className="oc-avoid-item__x">✗</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </CoachCard>
+          )}
+        </div>
       )}
-    </div>
+    </>
   );
 }

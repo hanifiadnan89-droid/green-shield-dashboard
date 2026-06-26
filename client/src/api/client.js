@@ -179,6 +179,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+    sessions: (params = {}) => {
+      const qs = new URLSearchParams();
+      if (params.limit)  qs.set('limit',  String(params.limit));
+      if (params.module) qs.set('module', params.module);
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return request(`/ai/sales-coach/sessions${suffix}`);
+    },
+    training: {
+      list:   (type) => {
+        const qs = type ? `?type=${encodeURIComponent(type)}` : '';
+        return request(`/ai/sales-coach/training${qs}`);
+      },
+      create: (body) => request('/ai/sales-coach/training', { method: 'POST', body: JSON.stringify(body) }),
+      update: (id, body) => request(`/ai/sales-coach/training/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+      delete: (id) => request(`/ai/sales-coach/training/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    },
   },
 
   ai: {

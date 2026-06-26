@@ -9,10 +9,10 @@ import ObjectionCoachOutcome  from './ObjectionCoachOutcome.jsx';
 
 function EmptyState() {
   return (
-    <div className="oc-empty">
-      <div className="oc-empty__icon"><MessageSquare size={40} /></div>
-      <div className="oc-empty__title">Ready when you are</div>
-      <div className="oc-empty__hint">
+    <div className="oc-empty-state">
+      <div className="oc-empty-state__icon"><MessageSquare size={40} /></div>
+      <div className="oc-empty-state__title">Ready when you are</div>
+      <div className="oc-empty-state__hint">
         Describe what the customer said, pick a category, and hit Coach Me to get a live sales response.
       </div>
     </div>
@@ -21,44 +21,26 @@ function EmptyState() {
 
 function LoadingState() {
   return (
-    <div className="oc-empty">
-      <div className="animate-spin w-8 h-8 border-2 border-green-200 border-t-green-600 rounded-full mb-4" />
-      <div className="oc-empty__title">Building your response…</div>
-      <div className="oc-empty__hint">Pulling from strategy, examples, and outcomes</div>
+    <div className="oc-empty-state">
+      <div className="oc-spinner" />
+      <div className="oc-empty-state__title">Building your response…</div>
+      <div className="oc-empty-state__hint">Pulling from strategy, examples, and outcomes</div>
     </div>
   );
 }
 
-/**
- * Objection Coach — Module 1 of Sales Coach.
- *
- * Orchestrates: form → AI call → result display → feedback → outcome.
- * Child components own their own UI state; this component owns API state.
- *
- * Props:
- *   onSessionComplete(session) — optional callback fired when an outcome is saved
- */
-export default function ObjectionCoach({ onSessionComplete }) {
+export default function ObjectionCoach({ onSessionComplete, onConfidenceUpdate }) {
   const { session, startSession, updateSession, completeSession } = useSalesCoachSession('objectionCoach');
 
-  // Values from the last submitted form — needed when saving feedback/outcome
-  const [lastForm, setLastForm] = useState(null);
-
-  // Result state
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(null);
-  const [result,     setResult]     = useState(null);
-  const [repEdited,  setRepEdited]  = useState('');
-
-  // Feedback save state (passed down as props)
+  const [lastForm,       setLastForm]       = useState(null);
+  const [loading,        setLoading]        = useState(false);
+  const [error,          setError]          = useState(null);
+  const [result,         setResult]         = useState(null);
+  const [repEdited,      setRepEdited]      = useState('');
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedbackSaved,  setFeedbackSaved]  = useState(false);
-
-  // Outcome save state (passed down as props)
-  const [outcomeSaving, setOutcomeSaving] = useState(false);
-  const [outcomeSaved,  setOutcomeSaved]  = useState(false);
-
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  const [outcomeSaving,  setOutcomeSaving]  = useState(false);
+  const [outcomeSaved,   setOutcomeSaved]   = useState(false);
 
   const handleFormSubmit = async (formValues) => {
     const s = startSession({ situation: formValues.situation, serviceType: formValues.service });
@@ -69,6 +51,7 @@ export default function ObjectionCoach({ onSessionComplete }) {
     setRepEdited('');
     setFeedbackSaved(false);
     setOutcomeSaved(false);
+    if (onConfidenceUpdate) onConfidenceUpdate(null);
 
     try {
       const data = await salesCoachApi.runModule(
@@ -90,6 +73,7 @@ export default function ObjectionCoach({ onSessionComplete }) {
       setResult(data);
       setRepEdited(data.recommendedResponse ?? '');
       updateSession({ lastResultSummary: (data.recommendedResponse || '').slice(0, 100) });
+      if (onConfidenceUpdate) onConfidenceUpdate(data.confidence ?? null);
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.');
     } finally {
@@ -111,7 +95,7 @@ export default function ObjectionCoach({ onSessionComplete }) {
       });
       setFeedbackSaved(true);
     } catch (_) {
-      // Feedback failure is silent — don't interrupt the rep's workflow
+      // Feedback failure is silent
     } finally {
       setFeedbackSaving(false);
     }
@@ -153,44 +137,45 @@ export default function ObjectionCoach({ onSessionComplete }) {
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-
   return (
-    <div className="oc-workspace">
-      {/* Left: form panel */}
-      <div className="oc-form-panel">
-        <ObjectionCoachForm
-          onSubmit={handleFormSubmit}
-          loading={loading}
-          error={error}
-        />
-      </div>
-
-      {/* Right: result panel */}
-      <div className="oc-result-panel">
-        {!result && !loading && <EmptyState />}
-        {loading && <LoadingState />}
-
-        {result && (
-          <>
+    <div className="oc-layout">
+      <div className="oc-body">
+        <div className="oc-sidebar">
+          <ObjectionCoachForm onSubmit={handleFormSubmit} loading={loading} error={error} />
+        </div>
+        <div className="oc-results-area">
+          {!result && !loading && <EmptyState />}
+          {loading && <LoadingState />}
+          {result && (
             <ObjectionCoachResult
               result={result}
               repEdited={repEdited}
               onRepEditedChange={setRepEdited}
             />
+          )}
+        </div>
+      </div>
+
+      {result && (
+        <div className="oc-footer">
+          <div className="oc-footer__panel">
+            <div className="oc-footer__label">Was this helpful?</div>
             <ObjectionCoachFeedback
               onFeedback={handleFeedback}
               saved={feedbackSaved}
               saving={feedbackSaving}
             />
+          </div>
+          <div className="oc-footer__panel">
+            <div className="oc-footer__label">Track the Outcome</div>
             <ObjectionCoachOutcome
               onSave={handleOutcome}
               saved={outcomeSaved}
               saving={outcomeSaving}
             />
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
