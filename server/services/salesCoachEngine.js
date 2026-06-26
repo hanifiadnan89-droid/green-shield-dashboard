@@ -16,6 +16,7 @@ import {
   formatExamplesForPrompt,
 } from './objectionKnowledge.js';
 import { getTrainingContext } from './trainingService.js';
+import { searchKnowledgeBase, formatKnowledgeBaseContext } from './knowledgeBase/knowledgeBaseService.js';
 import {
   assertPromptWithinLimit,
   getConfiguredMaxTokens,
@@ -87,12 +88,17 @@ OUTPUT — return ONLY valid JSON with exactly these 7 keys. No markdown, no ext
 }`;
 }
 
-function buildObjectionCoachUserMessage(situation, category, service, personality, propertyContext, leadContext, knowledge, examples, trainingContext = null) {
+function buildObjectionCoachUserMessage(situation, category, service, personality, propertyContext, leadContext, knowledge, examples, trainingContext = null, kbContext = null) {
   const lines = [];
 
   if (knowledge) {
     lines.push('SALES COACH KNOWLEDGE BASE:');
     lines.push(knowledge);
+    lines.push('');
+  }
+
+  if (kbContext) {
+    lines.push(kbContext);
     lines.push('');
   }
 
@@ -147,11 +153,15 @@ export async function runObjectionCoach(
   aiRuntime = {},
 ) {
   const oaKnowledge     = loadOAKnowledge();
-  const examples        = await getRelevantExamplesWithFallback(situation, { serviceType: service, ...propertyContext });
+  const [examples, kbResults] = await Promise.all([
+    getRelevantExamplesWithFallback(situation, { serviceType: service, ...propertyContext }),
+    searchKnowledgeBase(`${situation} ${service || ''} ${personality || ''}`.trim(), { limit: 4 }).catch(() => []),
+  ]);
   const trainingContext = getTrainingContext(situation, { service });
+  const kbContext       = formatKnowledgeBaseContext(kbResults);
   const userMessage     = buildObjectionCoachUserMessage(
     situation, category, service, personality,
-    propertyContext, leadContext, oaKnowledge, examples, trainingContext,
+    propertyContext, leadContext, oaKnowledge, examples, trainingContext, kbContext,
   );
   const promptLength = assertPromptWithinLimit(userMessage, 'sales coach prompt');
 

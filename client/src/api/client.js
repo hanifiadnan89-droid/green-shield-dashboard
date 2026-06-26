@@ -197,6 +197,40 @@ export const api = {
     },
   },
 
+  kb: {
+    upload: (formData) => {
+      return fetch('/api/kb/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData, // Do NOT set Content-Type — browser sets multipart boundary
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { httpStatus: res.status });
+        return data;
+      });
+    },
+    ingestUrl:  (url, title = '') => request('/kb/url', { method: 'POST', body: JSON.stringify({ url, title }) }),
+    ingestText: (text, title = '') => request('/kb/text', { method: 'POST', body: JSON.stringify({ text, title }) }),
+    items: (params = {}) => {
+      const qs = new URLSearchParams();
+      if (params.query)      qs.set('query', params.query);
+      if (params.sourceType) qs.set('sourceType', params.sourceType);
+      if (params.status)     qs.set('status', params.status);
+      if (params.limit)      qs.set('limit', String(params.limit));
+      if (params.offset)     qs.set('offset', String(params.offset));
+      if (params.tags?.length) qs.set('tags', params.tags.join(','));
+      return request(`/kb/items?${qs.toString()}`);
+    },
+    getItem:    (id) => request(`/kb/items/${encodeURIComponent(id)}`),
+    updateItem: (id, body) => request(`/kb/items/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteItem: (id) => request(`/kb/items/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    reprocess:  (id) => request(`/kb/items/${encodeURIComponent(id)}/reprocess`, { method: 'POST' }),
+    search:     (query, params = {}) => {
+      const qs = new URLSearchParams({ query, ...params });
+      return request(`/kb/search?${qs.toString()}`);
+    },
+  },
+
   ai: {
     assistReply: (lead_context, user_prompt, current_draft = '') => request('/ai/assist-reply', {
       method: 'POST',

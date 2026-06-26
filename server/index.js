@@ -24,6 +24,7 @@ import { signingPublicRouter, signingStaffRouter } from './routes/signing.js';
 import { validateSigningSession } from './services/agreementSigning/storage.js';
 import routesRouter from './routes/routes.js';
 import aiRouter from './routes/ai.js';
+import kbRouter from './routes/knowledgeBase.js';
 import geocodeRouter from './routes/geocode.js';
 import intakeRouter from './routes/intake.js';
 import messagesRouter from './routes/messages.js';
@@ -40,6 +41,7 @@ import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.j
 import { getGoogleCredentialsDiagnostics } from './services/googleCredentials.js';
 import { getSheetsStartupCheck, runSheetsStartupCheck } from './services/sheetsStartupCheck.js';
 import { isInsectQuarterlyVectorPdfEnabled } from './services/insectQuarterlyVectorPdfFlag.js';
+import { escapeHtml } from './security/htmlEscape.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -231,6 +233,9 @@ app.get('/sign-view/:token', async (req, res) => {
   }
 
   const pdfPath = `/api/signing/public/${encodeURIComponent(token)}/document.pdf`;
+  const escapedPdfPath = escapeHtml(pdfPath);
+  const escapedPdfWorker = escapeHtml(`${PDFJS_CDN}/pdf.worker.min.js`);
+  const escapedPdfScript = escapeHtml(`${PDFJS_CDN}/pdf.min.js`);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -238,8 +243,8 @@ app.get('/sign-view/:token', async (req, res) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="pdf-src" content="${pdfPath}">
-  <meta name="pdfjs-worker" content="${PDFJS_CDN}/pdf.worker.min.js">
+  <meta name="pdf-src" content="${escapedPdfPath}">
+  <meta name="pdfjs-worker" content="${escapedPdfWorker}">
   <title>Green Shield Agreement</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -269,7 +274,7 @@ app.get('/sign-view/:token', async (req, res) => {
   </div>
   <div id="status">Loading agreement…</div>
   <div id="pages"></div>
-  <script src="${PDFJS_CDN}/pdf.min.js"></script>
+  <script src="${escapedPdfScript}"></script>
   <script src="/sign-view.js"></script>
 </body>
 </html>`);
@@ -296,11 +301,13 @@ app.get(['/cal/:token', '/calendar-invite/:token'], async (req, res) => {
   let ogImageTag = '';
   if (session.hasOgCard) {
     const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/og-card.png`;
-    ogImageTag = `<meta property="og:image" content="${imgUrl}">
+    const escapedImgUrl = escapeHtml(imgUrl);
+    ogImageTag = `<meta property="og:image" content="${escapedImgUrl}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta name="twitter:image" content="${imgUrl}">`;
+  <meta name="twitter:image" content="${escapedImgUrl}">`;
   }
+  const escapedIcsUrl = escapeHtml(icsUrl);
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
@@ -309,7 +316,7 @@ app.get(['/cal/:token', '/calendar-invite/:token'], async (req, res) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="ics-src" content="${icsUrl}">
+  <meta name="ics-src" content="${escapedIcsUrl}">
   <title>Add Green Shield Appointment</title>
   <meta property="og:title" content="Add to Calendar — Green Shield Appointment">
   <meta property="og:description" content="Tap to add your Green Shield pest control appointment to your calendar.">
@@ -335,7 +342,7 @@ app.get(['/cal/:token', '/calendar-invite/:token'], async (req, res) => {
     <div class="icon">&#128197;</div>
     <h1>Add to Calendar</h1>
     <p>Adding your Green Shield appointment to your calendar&hellip;</p>
-    <a href="${icsUrl}" class="btn">Tap here if it doesn&rsquo;t open</a>
+    <a href="${escapedIcsUrl}" class="btn">Tap here if it doesn&rsquo;t open</a>
   </div>
 </body>
 </html>`);
@@ -384,33 +391,38 @@ if (fs.existsSync(clientDistPath)) {
 
       if (session?.hasOgCard) {
         const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/og-card.png`;
+        const escapedImgUrl = escapeHtml(imgUrl);
         ogImageTag = [
-          `<meta property="og:image" content="${imgUrl}">`,
+          `<meta property="og:image" content="${escapedImgUrl}">`,
           `<meta property="og:image:width" content="1200">`,
           `<meta property="og:image:height" content="630">`,
-          `<meta name="twitter:image" content="${imgUrl}">`,
+          `<meta name="twitter:image" content="${escapedImgUrl}">`,
         ].join('\n    ');
       } else if (session?.hasPreview) {
         const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/preview.png`;
+        const escapedImgUrl = escapeHtml(imgUrl);
         ogImageTag = [
-          `<meta property="og:image" content="${imgUrl}">`,
-          `<meta name="twitter:image" content="${imgUrl}">`,
+          `<meta property="og:image" content="${escapedImgUrl}">`,
+          `<meta name="twitter:image" content="${escapedImgUrl}">`,
         ].join('\n    ');
       }
     } catch (err) {
       return sendPublicSigningPageError(res, err);
     }
 
-    const injected = `<title>${title}</title>
+    const escapedTitle = escapeHtml(title);
+    const escapedDescription = escapeHtml(description);
+
+    const injected = `<title>${escapedTitle}</title>
     <meta name="robots" content="noindex, nofollow">
-    <meta property="og:title" content="${title}">
-    <meta property="og:description" content="${description}">
+    <meta property="og:title" content="${escapedTitle}">
+    <meta property="og:description" content="${escapedDescription}">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Green Shield Pest Solutions">
     ${ogImageTag}
     <meta name="twitter:card" content="${ogImageTag ? 'summary_large_image' : 'summary'}">
-    <meta name="twitter:title" content="${title}">
-    <meta name="twitter:description" content="${description}">`;
+    <meta name="twitter:title" content="${escapedTitle}">
+    <meta name="twitter:description" content="${escapedDescription}">`;
 
     html = html
       .replace(/<title>[^<]*<\/title>/, '')         // remove generic dashboard title
@@ -454,6 +466,7 @@ app.use('/api/documents', documentsRouter);
 app.use('/api/signing', signingStaffRouter);
 app.use('/api/routes', routesRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/kb', kbRouter);
 app.use('/api/geocode', geocodeRouter);
 app.use('/api/intake', intakeRouter);
 app.use('/api/messages', messagesRouter);
