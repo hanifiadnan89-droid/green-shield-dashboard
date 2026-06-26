@@ -7,8 +7,6 @@ import './SalesCoach.css';
 
 const ObjectionCoach = lazy(() => import('./modules/ObjectionCoach/ObjectionCoach.jsx'));
 
-// Module registry — add new modules here when they're built.
-// Only modules with active: true are clickable; the rest render as "Coming Soon".
 const MODULES = [
   {
     id: 'objection-coach',
@@ -75,17 +73,22 @@ const MODULES = [
   },
 ];
 
-// Map from module id → component and display name
 const MODULE_VIEWS = {
   'objection-coach': { Component: ObjectionCoach, label: 'Handle an Objection' },
 };
 
 export default function SalesCoachPage() {
   const [activeModule,    setActiveModule]    = useState(null);
+  const [moduleConfidence, setModuleConfidence] = useState(null);
   const [recentSessions,  setRecentSessions]  = useState([]);
 
   const handleSessionComplete = (session) => {
     setRecentSessions(prev => [session, ...prev].slice(0, 10));
+  };
+
+  const handleBack = () => {
+    setActiveModule(null);
+    setModuleConfidence(null);
   };
 
   const view = activeModule ? MODULE_VIEWS[activeModule] : null;
@@ -94,10 +97,13 @@ export default function SalesCoachPage() {
     const { Component, label } = view;
     return (
       <div className="sc-root">
-        <SalesCoachHeader moduleName={label} onBack={() => setActiveModule(null)} />
-        <div className="sc-body">
+        <SalesCoachHeader moduleName={label} onBack={handleBack} confidence={moduleConfidence} />
+        <div className="sc-module-fill">
           <Suspense fallback={<div className="text-sm text-gs-muted p-4">Loading…</div>}>
-            <Component onSessionComplete={handleSessionComplete} />
+            <Component
+              onSessionComplete={handleSessionComplete}
+              onConfidenceUpdate={setModuleConfidence}
+            />
           </Suspense>
         </div>
       </div>
