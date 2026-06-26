@@ -82,9 +82,16 @@ AI_MAX_RESPONSE_CHARS=6000
 AI_TIMEOUT_MS=60000
 AI_MAX_OUTPUT_TOKENS=
 AI_METRICS_MAX_EVENTS=500
+MEDIA_TRANSCRIPTION_MAX_BYTES=24000000
 ```
 
 AI-powered dashboard endpoints are authenticated and rate limited per authenticated user. The `AI_*` defaults above can be lowered or raised per environment; oversized prompts return HTTP `413`, rate-limited requests return HTTP `429`, and timed-out provider requests return HTTP `504`.
+
+Knowledge Base audio/video uploads larger than `MEDIA_TRANSCRIPTION_MAX_BYTES`
+are automatically compressed and split into ordered transcription chunks before
+being sent to the transcription provider. The server uses the bundled
+`ffmpeg-static` binary for splitting; if ffmpeg is unavailable, oversized media
+keeps its original upload and returns a clear extraction error.
 
 For Route Finder on Render:
 

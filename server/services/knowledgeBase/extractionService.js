@@ -6,6 +6,7 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
@@ -40,6 +41,105 @@ function cleanText(text) {
     .replace(/\n{4,}/g, '\n\n\n')
     .replace(/[ \t]{3,}/g, '  ')
     .trim();
+}
+
+const DEFAULT_MEDIA_TRANSCRIPTION_MAX_BYTES = 24000000;
+const TRANSCRIPTION_AUDIO_BITRATE_BYTES_PER_SECOND = 8000; // 64k output.
+const TRANSCRIPTION_SEGMENT_SECONDS_CAP = 15 * 60;
+
+function getMediaTranscriptionMaxBytes() {
+  const configured = Number.parseInt(process.env.MEDIA_TRANSCRIPTION_MAX_BYTES || '', 10);
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_MEDIA_TRANSCRIPTION_MAX_BYTES;
+}
+
+function getTranscriptionSegmentSeconds(maxBytes) {
+  const estimatedSafeSeconds = Math.floor((maxBytes * 0.8) / TRANSCRIPTION_AUDIO_BITRATE_BYTES_PER_SECOND);
+  return Math.max(1, Math.min(TRANSCRIPTION_SEGMENT_SECONDS_CAP, estimatedSafeSeconds));
+}
+
+function formatTimestamp(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(totalSeconds || 0));
+  const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+  const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function loadFfmpeg() {
+  try {
+    const ffmpegStatic = require('ffmpeg-static');
+    const ffmpeg = require('fluent-ffmpeg');
+    if (!ffmpegStatic) throw new Error('ffmpeg-static did not provide a binary path');
+    ffmpeg.setFfmpegPath(ffmpegStatic);
+    return ffmpeg;
+  } catch (err) {
+    const unavailable = new Error('Audio file is too large and ffmpeg is not available to split it.');
+    unavailable.code = 'FFMPEG_UNAVAILABLE';
+    unavailable.cause = err;
+    throw unavailable;
+  }
+}
+
+async function transcribeAudioFile(filePath) {
+  const fileStream = fs.createReadStream(filePath);
+  fileStream.on('error', () => {});
+  try {
+    return await getOpenAI().audio.transcriptions.create({
+      file: fileStream,
+      model: 'whisper-1',
+      response_format: 'verbose_json',
+      timestamp_granularities: ['segment'],
+    });
+  } finally {
+    fileStream.destroy();
+  }
+}
+
+async function splitMediaForTranscription(filePath, maxBytes) {
+  const ffmpeg = loadFfmpeg();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gs-kb-media-chunks-'));
+  const segmentSeconds = getTranscriptionSegmentSeconds(maxBytes);
+  const outputPattern = path.join(tempDir, 'chunk-%03d.mp3');
+
+  try {
+    await new Promise((resolve, reject) => {
+      ffmpeg(filePath)
+        .noVideo()
+        .audioCodec('libmp3lame')
+        .audioBitrate('64k')
+        .audioChannels(1)
+        .audioFrequency(16000)
+        .outputOptions([
+          '-f segment',
+          `-segment_time ${segmentSeconds}`,
+          '-reset_timestamps 1',
+        ])
+        .output(outputPattern)
+        .on('end', resolve)
+        .on('error', reject)
+        .run();
+    });
+
+    const chunks = fs.readdirSync(tempDir)
+      .filter((name) => /^chunk-\d+\.mp3$/.test(name))
+      .sort()
+      .map((name, index) => ({
+        path: path.join(tempDir, name),
+        offsetSeconds: index * segmentSeconds,
+        size: fs.statSync(path.join(tempDir, name)).size,
+      }));
+
+    if (!chunks.length) {
+      throw new Error('ffmpeg did not create any transcription chunks');
+    }
+
+    return { tempDir, chunks, segmentSeconds };
+  } catch (err) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    throw err;
+  }
 }
 
 // ── Plain text ────────────────────────────────────────────────────────────────
@@ -219,23 +319,77 @@ export async function extractAudio(filePath, originalName) {
     if (!process.env.OPENAI_API_KEY) {
       return { text: '[Audio transcription requires OPENAI_API_KEY]', wordCount: 0, metadata: { error: 'No OpenAI key' } };
     }
-    const fileStream  = fs.createReadStream(filePath);
-    const transcription = await getOpenAI().audio.transcriptions.create({
-      file: fileStream,
-      model: 'whisper-1',
-      response_format: 'verbose_json',
-      timestamp_granularities: ['segment'],
-    });
+    const maxBytes = getMediaTranscriptionMaxBytes();
+    const fileSize = fs.statSync(filePath).size;
 
-    const text = cleanText(transcription.text || '');
-    const segments = (transcription.segments || []).length;
-    return {
-      text,
-      wordCount: countWords(text),
-      metadata: { segments, language: transcription.language, duration: transcription.duration },
-    };
+    if (fileSize <= maxBytes) {
+      const transcription = await transcribeAudioFile(filePath);
+      const text = cleanText(transcription.text || '');
+      const segments = (transcription.segments || []).length;
+      return {
+        text,
+        wordCount: countWords(text),
+        metadata: {
+          segments,
+          language: transcription.language,
+          duration: transcription.duration,
+          fileSize,
+          transcriptionMaxBytes: maxBytes,
+          split: false,
+        },
+      };
+    }
+
+    const split = await splitMediaForTranscription(filePath, maxBytes);
+    try {
+      const transcriptParts = [];
+      let segments = 0;
+      let duration = 0;
+      let language;
+
+      for (const chunk of split.chunks) {
+        if (chunk.size > maxBytes) {
+          throw new Error(`Transcription chunk exceeds configured size limit (${chunk.size} bytes > ${maxBytes} bytes)`);
+        }
+
+        const transcription = await transcribeAudioFile(chunk.path);
+        const text = cleanText(transcription.text || '');
+        if (text) {
+          transcriptParts.push(`[${formatTimestamp(chunk.offsetSeconds)}] ${text}`);
+        }
+        segments += (transcription.segments || []).length;
+        duration += Number(transcription.duration) || 0;
+        if (!language && transcription.language) language = transcription.language;
+      }
+
+      const text = cleanText(transcriptParts.join('\n\n'));
+      return {
+        text,
+        wordCount: countWords(text),
+        metadata: {
+          segments,
+          language,
+          duration,
+          fileSize,
+          transcriptionMaxBytes: maxBytes,
+          split: true,
+          chunkCount: split.chunks.length,
+          chunkSeconds: split.segmentSeconds,
+          originalName,
+        },
+      };
+    } finally {
+      fs.rmSync(split.tempDir, { recursive: true, force: true });
+    }
   } catch (err) {
-    return { text: `[Audio transcription failed: ${err.message}]`, wordCount: 0, metadata: { error: err.message } };
+    const message = err.code === 'FFMPEG_UNAVAILABLE'
+      ? err.message
+      : `Audio transcription failed: ${err.message}`;
+    return {
+      text: `[${message}]`,
+      wordCount: 0,
+      metadata: { error: err.message, code: err.code },
+    };
   }
 }
 
