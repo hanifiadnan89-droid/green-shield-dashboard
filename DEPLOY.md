@@ -58,7 +58,18 @@ FIELDROUTES_USERNAME=
 FIELDROUTES_PASSWORD=
 FIELDROUTES_BASE_URL=
 FIELDROUTES_AUTH_STATE_JSON=
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+AI_RATE_LIMIT_MAX=20
+AI_RATE_LIMIT_WINDOW_MS=60000
+AI_MAX_PROMPT_CHARS=60000
+AI_MAX_RESPONSE_CHARS=6000
+AI_TIMEOUT_MS=60000
+AI_MAX_OUTPUT_TOKENS=
+AI_METRICS_MAX_EVENTS=500
 ```
+
+AI-powered dashboard endpoints are authenticated and rate limited per authenticated user. The `AI_*` defaults above can be lowered or raised per environment; oversized prompts return HTTP `413`, rate-limited requests return HTTP `429`, and timed-out provider requests return HTTP `504`.
 
 For Route Finder on Render:
 
