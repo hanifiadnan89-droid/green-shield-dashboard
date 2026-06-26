@@ -1,10 +1,3 @@
-/**
- * A single module card on the Sales Coach home dashboard.
- *
- * Props:
- *   mod     — module definition object (id, icon, iconBg, iconColor, title, desc, active)
- *   onClick — called when an active card is clicked; undefined for coming-soon cards
- */
 export function SalesCoachModuleCard({ mod, onClick }) {
   const Icon = mod.icon;
   return (
