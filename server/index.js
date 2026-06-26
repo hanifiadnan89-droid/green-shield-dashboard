@@ -21,7 +21,7 @@ import activityErrorsRouter from './routes/activityErrors.js';
 import driveRouter from './routes/drive.js';
 import documentsRouter from './routes/documents.js';
 import { signingPublicRouter, signingStaffRouter } from './routes/signing.js';
-import { loadSigningSession } from './services/agreementSigning/storage.js';
+import { validateSigningSession } from './services/agreementSigning/storage.js';
 import routesRouter from './routes/routes.js';
 import aiRouter from './routes/ai.js';
 import geocodeRouter from './routes/geocode.js';
@@ -42,16 +42,43 @@ import { getSheetsStartupCheck, runSheetsStartupCheck } from './services/sheetsS
 import { isInsectQuarterlyVectorPdfEnabled } from './services/insectQuarterlyVectorPdfFlag.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 const clientDistPath = path.resolve(__dirname, '../client/dist');
+
+function isInvalidDashboardCredential(value) {
+  if (value == null) return true;
+  const trimmed = String(value).trim();
+  return trimmed === '' || trimmed.toLowerCase() === 'null';
+}
+
+function validateDashboardAuthConfig() {
+  const missing = [];
+  if (isInvalidDashboardCredential(process.env.DASHBOARD_USERNAME)) {
+    missing.push('DASHBOARD_USERNAME');
+  }
+  if (isInvalidDashboardCredential(process.env.DASHBOARD_PASSWORD)) {
+    missing.push('DASHBOARD_PASSWORD');
+  }
+
+  if (missing.length > 0) {
+    console.error(
+      `[startup] Dashboard authentication is required. Missing or invalid environment variable(s): ${missing.join(', ')}. ` +
+      'Set both DASHBOARD_USERNAME and DASHBOARD_PASSWORD to non-empty values before starting the server.',
+    );
+    process.exit(1);
+  }
+}
+
+validateDashboardAuthConfig();
+
+const app = express();
 
 function requireDashboardLogin(req, res, next) {
   const expectedUsername = process.env.DASHBOARD_USERNAME;
   const expectedPassword = process.env.DASHBOARD_PASSWORD;
 
-  // Login is optional — only enforce when both env vars are set (see DEPLOY.md).
+  // Startup validation guarantees both credentials are present before Express starts.
   if (!expectedUsername || !expectedPassword) {
     return next();
   }
@@ -107,6 +134,16 @@ app.use('/api/signing/public', signingPublicRouter);
 // CSP NOTE: script-src lacks 'unsafe-inline', so all JavaScript must be in external
 // files served from 'self'. /sign-view.js and /calendar-redirect.js handle this.
 const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
+
+function sendPublicSigningPageError(res, err) {
+  if (err?.status === 410) {
+    return res.status(410).send('Signing link expired');
+  }
+  if (err?.status === 404) {
+    return res.status(404).send('Signing link not found');
+  }
+  return res.status(500).send('Server error');
+}
 
 // External JS for the PDF viewer — avoids CSP inline-script violation.
 // The PDF URL is passed via <meta name="pdf-src"> in the HTML.
@@ -179,8 +216,14 @@ window.addEventListener('load', () => setTimeout(() => { window.location.href = 
 `);
 });
 
-app.get('/sign-view/:token', (req, res) => {
+app.get('/sign-view/:token', async (req, res) => {
   const { token } = req.params;
+  try {
+    await validateSigningSession(token, { requireFile: 'documentPdf' });
+  } catch (err) {
+    return sendPublicSigningPageError(res, err);
+  }
+
   const pdfPath = `/api/signing/public/${encodeURIComponent(token)}/document.pdf`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
@@ -237,18 +280,20 @@ app.get(['/cal/:token', '/calendar-invite/:token'], async (req, res) => {
     || process.env.RENDER_EXTERNAL_URL
     || `${req.protocol}://${req.get('host')}`;
 
-  let ogImageTag = '';
+  let session;
   try {
-    const session = await loadSigningSession(token);
-    if (session?.hasOgCard) {
-      const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/og-card.png`;
-      ogImageTag = `<meta property="og:image" content="${imgUrl}">
+    session = await validateSigningSession(token, { requireCalendar: true });
+  } catch (err) {
+    return sendPublicSigningPageError(res, err);
+  }
+
+  let ogImageTag = '';
+  if (session.hasOgCard) {
+    const imgUrl = `${appUrl}/api/signing/public/${encodeURIComponent(token)}/og-card.png`;
+    ogImageTag = `<meta property="og:image" content="${imgUrl}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:image" content="${imgUrl}">`;
-    }
-  } catch {
-    // session unreadable — proceed without og:image
   }
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -327,7 +372,7 @@ if (fs.existsSync(clientDistPath)) {
     let ogImageTag = '';
 
     try {
-      const session = await loadSigningSession(token);
+      const session = await validateSigningSession(token);
       const firstName = (session?.lead?.name || '').trim().split(/\s+/)[0];
       if (firstName) title = `${firstName}, your agreement is ready to sign`;
 
@@ -346,8 +391,8 @@ if (fs.existsSync(clientDistPath)) {
           `<meta name="twitter:image" content="${imgUrl}">`,
         ].join('\n    ');
       }
-    } catch {
-      // Session not found or unreadable — proceed with default title/no image
+    } catch (err) {
+      return sendPublicSigningPageError(res, err);
     }
 
     const injected = `<title>${title}</title>
@@ -514,7 +559,7 @@ app.listen(PORT, () => {
   console.log(`\n✅ Green Shield API running on port ${PORT}`);
   console.log(`   Mode: ${mode}`);
   console.log(`   Dashboard UI: ${fs.existsSync(clientDistPath) ? 'served from client/dist' : 'not built yet'}`);
-  console.log(`   Login: ${process.env.DASHBOARD_USERNAME && process.env.DASHBOARD_PASSWORD ? 'enabled' : 'disabled'}`);
+  console.log('   Login: enabled');
   console.log('Google creds loaded:', !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
   console.log('Sheet ID:', process.env.SHEET_ID || '(not set — using default in sheets.js)');
   console.log(`   Google Sheets SHEET_ID env: ${process.env.SHEET_ID ? 'configured' : '⚠️  SHEET_ID missing (default ID used)'}`);

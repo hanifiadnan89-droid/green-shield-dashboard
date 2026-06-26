@@ -17,6 +17,11 @@ export const SIGNING_DIRS = {
 };
 
 const DEFAULT_TTL_DAYS = parseInt(process.env.AGREEMENT_SIGNING_TTL_DAYS || '30', 10);
+const SIGNING_TOKEN_PATTERN = /^[a-f0-9]{48}$/i;
+
+function signingAccessError(status, message) {
+  return Object.assign(new Error(message), { status, publicMessage: message });
+}
 
 export function createSigningToken() {
   return randomBytes(24).toString('hex');
@@ -43,6 +48,59 @@ export function buildSigningExpiryDate(createdAt = new Date(), ttlDays = DEFAULT
 export function isSigningSessionExpired(session) {
   if (!session?.expiresAt) return false;
   return Date.now() > new Date(session.expiresAt).getTime();
+}
+
+function requiredFilePath(requireFile, session) {
+  const requirement = typeof requireFile === 'function' ? requireFile(session) : requireFile;
+  switch (requirement) {
+    case undefined:
+    case null:
+      return null;
+    case 'unsignedPdf':
+      return join(SIGNING_DIRS.unsigned, `${session.token}.pdf`);
+    case 'signedPdf':
+      return join(SIGNING_DIRS.signed, `${session.token}.pdf`);
+    case 'documentPdf':
+      return session.status === 'signed'
+        ? join(SIGNING_DIRS.signed, `${session.token}.pdf`)
+        : join(SIGNING_DIRS.unsigned, `${session.token}.pdf`);
+    case 'previewPng':
+      return join(SIGNING_DIRS.previews, `${session.token}.png`);
+    case 'ogCardPng':
+      return join(SIGNING_DIRS.ogCards, `${session.token}.png`);
+    default:
+      throw new Error(`Unknown signing artifact requirement: ${requirement}`);
+  }
+}
+
+export async function validateSigningSession(token, { requireFile, requireCalendar = false } = {}) {
+  if (!SIGNING_TOKEN_PATTERN.test(String(token || ''))) {
+    throw signingAccessError(404, 'Signing link not found');
+  }
+
+  const session = await loadSigningSession(token);
+  if (!session) {
+    throw signingAccessError(404, 'Signing link not found');
+  }
+
+  if (isSigningSessionExpired(session)) {
+    throw signingAccessError(410, 'Signing link expired');
+  }
+
+  if (requireCalendar && !session.calendarParams) {
+    throw signingAccessError(404, 'Calendar not found');
+  }
+
+  const filePath = requiredFilePath(requireFile, session);
+  if (filePath) {
+    try {
+      await fs.access(filePath);
+    } catch {
+      throw signingAccessError(404, 'Signing asset not found');
+    }
+  }
+
+  return session;
 }
 
 /**
