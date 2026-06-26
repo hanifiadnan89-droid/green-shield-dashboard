@@ -1,3 +1,5 @@
+import { reportFrontendError } from '../utils/errorReporter.js';
+
 const BASE = '/api';
 
 async function request(path, options = {}) {
@@ -12,6 +14,15 @@ async function request(path, options = {}) {
     const err = new Error(networkErr.message || 'Failed to fetch');
     err.cause = networkErr;
     err.isNetworkError = true;
+    if (!path.startsWith('/errors')) {
+      reportFrontendError(err, {
+        source: 'frontend',
+        module: 'api-client',
+        endpoint: path,
+        severity: 'high',
+        suggestedFix: 'Check network connectivity and backend service availability.',
+      });
+    }
     throw err;
   }
 
@@ -28,6 +39,14 @@ async function request(path, options = {}) {
     if (data.code) err.code = data.code;
     if (data.hint) err.hint = data.hint;
     err.httpStatus = res.status;
+    if (!path.startsWith('/errors')) {
+      reportFrontendError(err, {
+        module: 'api-client',
+        endpoint: path,
+        severity: res.status >= 500 ? 'high' : 'medium',
+        rawMetadata: { response: data },
+      });
+    }
     throw err;
   }
   return data;
@@ -100,6 +119,35 @@ export const api = {
   activityErrors: {
     list: () => request('/activity-errors'),
     complete: (rowNumber) => request(`/activity-errors/${rowNumber}/complete`, { method: 'POST' }),
+  },
+
+  errors: {
+    list: (params = {}) => {
+      const qs = new URLSearchParams();
+      for (const key of ['severity', 'status', 'source', 'module', 'date', 'query', 'limit', 'offset']) {
+        if (params[key]) qs.set(key, String(params[key]));
+      }
+      if (params.includeArchived) qs.set('includeArchived', 'true');
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return request(`/errors${suffix}`);
+    },
+    get: (id) => request(`/errors/${encodeURIComponent(id)}`),
+    updateStatus: (id, status, note = '') => request(`/errors/${encodeURIComponent(id)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, note }),
+    }),
+    resolve: (id, note = '') => request(`/errors/${encodeURIComponent(id)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+    archive: (id, note = '') => request(`/errors/${encodeURIComponent(id)}/archive`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+    analyze: (id, force = false) => request(`/errors/${encodeURIComponent(id)}/analyze`, {
+      method: 'POST',
+      body: JSON.stringify({ force }),
+    }),
   },
 
   drive: {
@@ -205,7 +253,16 @@ export const api = {
         body: formData, // Do NOT set Content-Type — browser sets multipart boundary
       }).then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { httpStatus: res.status });
+        if (!res.ok) {
+          const err = Object.assign(new Error(data.error || `HTTP ${res.status}`), { httpStatus: res.status });
+          reportFrontendError(err, {
+            module: 'Knowledge Base upload',
+            endpoint: '/kb/upload',
+            severity: res.status >= 500 ? 'high' : 'medium',
+            rawMetadata: { response: data },
+          });
+          throw err;
+        }
         return data;
       });
     },

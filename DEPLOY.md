@@ -41,11 +41,18 @@ Required for Training Center Knowledge Base persistence:
 ```txt
 KNOWLEDGE_STORAGE_BACKEND=persistent_disk
 KNOWLEDGE_DATA_DIR=/var/data/knowledge-base
+ERROR_LOG_STORAGE_BACKEND=persistent_disk
+ERROR_LOG_DATA_DIR=/var/data/error-center
 ```
 
 The server refuses production Knowledge Base writes on Render unless those values
 are configured exactly. Knowledge Base items, chunks, embeddings, and uploaded
 original files are stored under `/var/data/knowledge-base`.
+
+The Error Center uses durable JSON storage for CRM error history. Configure
+`ERROR_LOG_DATA_DIR` on a Render persistent disk, or omit it to store errors
+under the durable Knowledge Base directory when `KNOWLEDGE_DATA_DIR` is already
+configured.
 
 Required for login. The server refuses to start unless both values are set to non-empty strings:
 

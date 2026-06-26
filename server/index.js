@@ -28,6 +28,7 @@ import kbRouter from './routes/knowledgeBase.js';
 import geocodeRouter from './routes/geocode.js';
 import intakeRouter from './routes/intake.js';
 import messagesRouter from './routes/messages.js';
+import errorsRouter from './routes/errors.js';
 import { appendMessage } from './services/conversationMessages.js';
 import { startCron } from './services/fieldRoutesCron.js';
 import {
@@ -42,6 +43,7 @@ import { getGoogleCredentialsDiagnostics } from './services/googleCredentials.js
 import { getSheetsStartupCheck, runSheetsStartupCheck } from './services/sheetsStartupCheck.js';
 import { isInsectQuarterlyVectorPdfEnabled } from './services/insectQuarterlyVectorPdfFlag.js';
 import { escapeHtml } from './security/htmlEscape.js';
+import { errorFromExpress } from './services/errorLogService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -125,10 +127,28 @@ app.use(rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 }));
+app.use((req, res, next) => {
+  req.id = req.headers['x-request-id'] || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
 app.use(express.json());
 app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && 'body' in err && req.path.startsWith('/api/ai')) {
-    return res.status(400).json({ error: 'Malformed JSON request body.' });
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    try {
+      errorFromExpress(err, req, {
+        source: req.path.startsWith('/api/ai') ? 'ai' : 'api',
+        severity: 'medium',
+        module: 'json-parser',
+        suggestedFix: 'Validate the request body is well-formed JSON before sending it.',
+      });
+    } catch (logErr) {
+      console.error('[errorLog] Failed to log malformed JSON request:', logErr.message);
+    }
+    if (req.path.startsWith('/api/')) {
+      return res.status(400).json({ error: 'Malformed JSON request body.', requestId: req.id });
+    }
+    return res.status(400).send('Malformed JSON request body.');
   }
   return next(err);
 });
@@ -470,6 +490,37 @@ app.use('/api/kb', kbRouter);
 app.use('/api/geocode', geocodeRouter);
 app.use('/api/intake', intakeRouter);
 app.use('/api/messages', messagesRouter);
+app.use('/api/errors', errorsRouter);
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
+  const status = Number(err.status || err.statusCode) || 500;
+  try {
+    errorFromExpress(err, req, {
+      source: req.path.startsWith('/api/ai')
+        ? 'ai'
+        : req.path.startsWith('/api/kb')
+          ? 'kb'
+          : req.path.startsWith('/api/routes')
+            ? 'route-finder'
+            : req.path.startsWith('/api/signing')
+              ? 'signing'
+              : 'api',
+    });
+  } catch (logErr) {
+    console.error('[errorLog] Failed to log Express error:', logErr.message);
+  }
+
+  if (req.path.startsWith('/api/')) {
+    return res.status(status).json({
+      error: status >= 500 ? 'A server error occurred.' : (err.message || 'Request failed.'),
+      requestId: req.id,
+    });
+  }
+
+  return res.status(status).send(status >= 500 ? 'Server error' : (err.message || 'Request failed'));
+});
 
 // Dashboard SPA catch-all — after auth, so direct navigation to /leads etc. requires login.
 if (fs.existsSync(clientDistPath)) {

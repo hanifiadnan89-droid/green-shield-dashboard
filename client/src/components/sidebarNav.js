@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Send, Clock, Activity,
-  MessageSquare, Navigation, ClipboardList, Brain,
+  MessageSquare, Navigation, ClipboardList, Brain, ShieldAlert,
 } from 'lucide-react';
 
 /** Shared sidebar structure — OPERATIONS / WORKSPACE */
@@ -22,6 +22,7 @@ export const SIDEBAR_NAV = [
       { type: 'link', to: '/leads', icon: Users, label: 'All Leads' },
       { type: 'link', to: '/followups', icon: Clock, label: 'Follow-ups' },
       { type: 'link', to: '/activity', icon: Activity, label: 'Activity Log' },
+      { type: 'link', to: '/errors', icon: ShieldAlert, label: 'Error Center' },
     ],
   },
 ];

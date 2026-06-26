@@ -12,6 +12,7 @@ const Replies          = lazy(() => import('./pages/Replies.jsx'));
 const Workflows        = lazy(() => import('./pages/Workflows.jsx'));
 const Followups        = lazy(() => import('./pages/Followups.jsx'));
 const ActivityLog      = lazy(() => import('./pages/ActivityLog.jsx'));
+const ErrorCenter      = lazy(() => import('./pages/ErrorCenter.jsx'));
 const ComponentPreview = lazy(() => import('./pages/ComponentPreview.jsx'));
 const RouteFinderPage  = lazy(() => import('./pages/RouteFinder/RouteFinderPage.jsx'));
 const IntakeGate         = lazy(() => import('./pages/Intake/IntakeGate.jsx'));
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/workflows" element={<Workflows />} />
         <Route path="/followups" element={<Followups />} />
         <Route path="/activity" element={<ActivityLog />} />
+        <Route path="/errors" element={<ErrorCenter />} />
         <Route path="/tools/route-finder" element={<RouteFinderPage />} />
         <Route path="/sales-coach" element={<SalesCoachPage />} />
         <Route path="/intake" element={<IntakeGate />} />
