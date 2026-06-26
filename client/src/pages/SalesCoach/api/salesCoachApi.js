@@ -1,25 +1,20 @@
 import { api } from '../../../api/client.js';
 
-/**
- * Sales Coach API layer — thin wrapper that keeps Sales Coach components
- * decoupled from the raw api client.
- *
- * All functions return Promises and throw on error (same as api.* conventions).
- */
 export const salesCoachApi = {
-  /**
-   * Invoke a Sales Coach module on the backend.
-   *
-   * @param {'objectionCoach'|string} module
-   * @param {object} params  — module-specific payload
-   * @param {string} [sessionId]
-   */
   runModule: (module, params, sessionId) =>
     api.salesCoach.runModule({ module, sessionId, ...params }),
 
-  /** Quick feedback: thumbs_up | thumbs_down | save_approved */
   saveFeedback: (body) => api.ai.objectionFeedback(body),
+  saveOutcome:  (body) => api.ai.objectionOutcome(body),
 
-  /** Full sales case outcome save */
-  saveOutcome: (body) => api.ai.objectionOutcome(body),
+  sessions: {
+    list: (params) => api.salesCoach.sessions(params),
+  },
+
+  training: {
+    list:   (type)      => api.salesCoach.training.list(type),
+    create: (body)      => api.salesCoach.training.create(body),
+    update: (id, body)  => api.salesCoach.training.update(id, body),
+    delete: (id)        => api.salesCoach.training.delete(id),
+  },
 };

@@ -1,11 +1,12 @@
 import { useState, lazy, Suspense } from 'react';
-import { MessageSquare, Target, PhoneCall, BarChart2, Clock3, BookOpen, TrendingUp } from 'lucide-react';
+import { MessageSquare, Target, PhoneCall, BarChart2, Clock3, BookOpen, TrendingUp, GraduationCap } from 'lucide-react';
 import { SalesCoachHeader }         from './components/SalesCoachHeader.jsx';
 import { SalesCoachModuleCard }     from './components/SalesCoachModuleCard.jsx';
 import { SalesCoachRecentSessions } from './components/SalesCoachRecentSessions.jsx';
 import './SalesCoach.css';
 
-const ObjectionCoach = lazy(() => import('./modules/ObjectionCoach/ObjectionCoach.jsx'));
+const ObjectionCoach  = lazy(() => import('./modules/ObjectionCoach/ObjectionCoach.jsx'));
+const TrainingCenter  = lazy(() => import('./modules/TrainingCenter/TrainingCenter.jsx'));
 
 const MODULES = [
   {
@@ -71,10 +72,20 @@ const MODULES = [
     desc: 'Track your coaching usage, win rates by objection type, and improvement over time.',
     active: false,
   },
+  {
+    id: 'training-center',
+    icon: GraduationCap,
+    iconBg: 'linear-gradient(135deg, #0f4c3a, #166534)',
+    iconColor: '#fff',
+    title: 'Training Center',
+    desc: 'Curate approved responses, sales principles, and objection strategies that shape every AI coaching response.',
+    active: true,
+  },
 ];
 
 const MODULE_VIEWS = {
-  'objection-coach': { Component: ObjectionCoach, label: 'Handle an Objection' },
+  'objection-coach':  { Component: ObjectionCoach, label: 'Handle an Objection' },
+  'training-center':  { Component: TrainingCenter, label: 'Training Center' },
 };
 
 export default function SalesCoachPage() {

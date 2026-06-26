@@ -10,6 +10,14 @@ import {
 } from '../services/objectionKnowledge.js';
 import { runSalesCoachModule, getSupportedModules } from '../services/salesCoachEngine.js';
 import {
+  listTrainingItems,
+  createTrainingItem,
+  updateTrainingItem,
+  deleteTrainingItem,
+  upsertSession,
+  listSessions,
+} from '../services/trainingService.js';
+import {
   assertNonEmptyString,
   assertObject,
   assertPlainObjectBody,
@@ -391,6 +399,24 @@ router.post('/sales-coach/module', aiRateLimit, async (req, res) => {
       { ...params, sessionId: sessionId || null },
       { req, endpoint: '/api/ai/sales-coach/module' },
     );
+
+    if (sessionId) {
+      try {
+        upsertSession(sessionId, {
+          module: module.trim(),
+          situation: params.situation,
+          serviceType: params.service || null,
+          result: {
+            recommendedResponse: result.recommendedResponse,
+            confidence: result.confidence ?? null,
+          },
+          status: 'active',
+        });
+      } catch (e) {
+        console.error('[ai/sales-coach/module] session upsert failed:', e.message);
+      }
+    }
+
     return res.json(result);
   } catch (err) {
     if (err.code === 'UNKNOWN_MODULE') {
@@ -742,6 +768,7 @@ router.post('/objection-outcome', async (req, res) => {
       saleValue            = null,
       whyItWorked          = null,
       user                 = null,
+      sessionId            = null,
     } = req.body;
 
     if (!repQuestion?.trim()) {
@@ -774,6 +801,18 @@ router.post('/objection-outcome', async (req, res) => {
     });
 
     console.log(`[ai/objection-outcome] Case saved — id: ${id} outcome: ${outcome}${outcomeReason ? ` (${outcomeReason})` : ''}`);
+
+    if (sessionId) {
+      try {
+        upsertSession(sessionId, {
+          outcome: { outcome, outcomeReason: outcomeReason || null, saleValue: saleValue != null ? Number(saleValue) : null, whyItWorked: whyItWorked?.trim() || null },
+          status: 'completed',
+        });
+      } catch (e) {
+        console.error('[ai/objection-outcome] session upsert failed:', e.message);
+      }
+    }
+
     return res.json({ success: true, id });
   } catch (err) {
     console.error('[ai/objection-outcome]', err.message);
@@ -795,6 +834,7 @@ router.post('/objection-feedback', async (req, res) => {
       feedbackType,
       correction          = null,
       propertyContext     = null,
+      sessionId           = null,
     } = req.body;
 
     if (!repQuestion?.trim()) {
@@ -815,9 +855,81 @@ router.post('/objection-feedback', async (req, res) => {
     });
 
     console.log(`[ai/objection-feedback] ${feedbackType} saved — id: ${id}`);
+
+    if (sessionId) {
+      try {
+        upsertSession(sessionId, {
+          feedback: { type: feedbackType, correction: correction?.trim() || null },
+        });
+      } catch (e) {
+        console.error('[ai/objection-feedback] session upsert failed:', e.message);
+      }
+    }
+
     return res.json({ success: true, id });
   } catch (err) {
     console.error('[ai/objection-feedback]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Sales Coach Sessions ──────────────────────────────────────────────────────
+
+router.get('/sales-coach/sessions', (req, res) => {
+  try {
+    const limit  = Math.min(Number(req.query.limit) || 20, 100);
+    const module = req.query.module || null;
+    return res.json(listSessions({ limit, module }));
+  } catch (err) {
+    console.error('[ai/sales-coach/sessions]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Training Items CRUD ───────────────────────────────────────────────────────
+
+router.get('/sales-coach/training', (req, res) => {
+  try {
+    const { type } = req.query;
+    return res.json(listTrainingItems(type ? { type } : {}));
+  } catch (err) {
+    console.error('[ai/sales-coach/training GET]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/sales-coach/training', (req, res) => {
+  try {
+    const item = createTrainingItem(req.body);
+    console.log(`[ai/sales-coach/training] created ${item.type} — id: ${item.id}`);
+    return res.status(201).json(item);
+  } catch (err) {
+    if (err.code === 'INVALID_TYPE') return res.status(400).json({ error: err.message });
+    if (err.message.includes('required')) return res.status(400).json({ error: err.message });
+    console.error('[ai/sales-coach/training POST]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/sales-coach/training/:id', (req, res) => {
+  try {
+    const item = updateTrainingItem(req.params.id, req.body);
+    return res.json(item);
+  } catch (err) {
+    if (err.code === 'NOT_FOUND') return res.status(404).json({ error: err.message });
+    console.error('[ai/sales-coach/training PUT]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/sales-coach/training/:id', (req, res) => {
+  try {
+    const result = deleteTrainingItem(req.params.id);
+    console.log(`[ai/sales-coach/training] deleted id: ${req.params.id}`);
+    return res.json(result);
+  } catch (err) {
+    if (err.code === 'NOT_FOUND') return res.status(404).json({ error: err.message });
+    console.error('[ai/sales-coach/training DELETE]', err.message);
     return res.status(500).json({ error: err.message });
   }
 });
