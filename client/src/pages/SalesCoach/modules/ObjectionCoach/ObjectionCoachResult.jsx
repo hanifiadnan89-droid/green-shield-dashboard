@@ -121,7 +121,7 @@ export default function ObjectionCoachResult({
           <Sparkles size={14} className="oc-answer__icon" aria-hidden="true" />
           <span>Recommended Response</span>
         </div>
-        <div className="oc-answer__actions">
+        <div className="oc-answer__actions" role="toolbar" aria-label="Response actions">
           <ActionButton
             icon={copyDone ? Check : Copy}
             label={copyDone ? 'Copied' : 'Copy'}

@@ -85,7 +85,9 @@ const ObjectionCoachForm = forwardRef(function ObjectionCoachForm(
       <div className="oc-composer__field">
         <label className="oc-composer__label" htmlFor="oc-situation">
           Customer Objection
-          <span className="oc-composer__hint">⌘↵ to coach</span>
+          <span className="oc-composer__hint" aria-hidden="true">
+            <kbd>⌘</kbd><kbd>↵</kbd> to coach
+          </span>
         </label>
         <textarea
           id="oc-situation"
@@ -98,7 +100,13 @@ const ObjectionCoachForm = forwardRef(function ObjectionCoachForm(
           onChange={e => setSituation(e.target.value)}
           onKeyDown={handleKey}
         />
-        <div className="oc-composer__counter" aria-live="polite">
+        <div
+          className={
+            'oc-composer__counter' +
+            (situation.length / MAX_CHARS >= 0.80 ? ' oc-composer__counter--visible' : '')
+          }
+          aria-live="polite"
+        >
           {remaining < 60
             ? <span className={remaining < 0 ? 'is-over' : 'is-low'}>{remaining} left</span>
             : <span>{situation.length} / {MAX_CHARS}</span>}
