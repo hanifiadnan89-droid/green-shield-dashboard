@@ -23,7 +23,7 @@ const MAX_CHARS = 400;
 const MIN_CHARS = 10;
 
 const ObjectionCoachForm = forwardRef(function ObjectionCoachForm(
-  { onSubmit, loading, error },
+  { onSubmit, onCategoryChange, loading, error },
   ref,
 ) {
   const [situation,    setSituation]    = useState('');
@@ -34,6 +34,11 @@ const ObjectionCoachForm = forwardRef(function ObjectionCoachForm(
   const [propAddress,  setPropAddress]  = useState('');
   const [propType,     setPropType]     = useState('');
   const [propNotes,    setPropNotes]    = useState('');
+
+  const handleCategoryChange = (next) => {
+    setCategory(next);
+    onCategoryChange?.(next);
+  };
 
   const textareaRef = useRef(null);
 
@@ -49,17 +54,19 @@ const ObjectionCoachForm = forwardRef(function ObjectionCoachForm(
   useImperativeHandle(ref, () => ({
     prefill: (next = {}) => {
       if (typeof next.situation === 'string')   setSituation(next.situation);
-      if (typeof next.category === 'string')    setCategory(next.category || '');
+      if (typeof next.category === 'string')    handleCategoryChange(next.category || '');
       if (typeof next.service === 'string')     setService(next.service || '');
       if (typeof next.personality === 'string') setPersonality(next.personality || '');
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
     focusTextarea: () => textareaRef.current?.focus(),
     reset: () => {
-      setSituation(''); setCategory(''); setService(''); setPersonality('');
+      setSituation('');
+      handleCategoryChange('');
+      setService(''); setPersonality('');
       setPropAddress(''); setPropType(''); setPropNotes(''); setShowCtx(false);
     },
-  }), []);
+  }), []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSubmit = situation.trim().length >= MIN_CHARS && !loading;
 
@@ -115,7 +122,7 @@ const ObjectionCoachForm = forwardRef(function ObjectionCoachForm(
         />
         <PremiumSelect
           value={category}
-          onChange={setCategory}
+          onChange={handleCategoryChange}
           options={CATEGORIES}
           icons={CATEGORY_ICONS}
           icon={ShieldCheck}
