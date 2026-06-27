@@ -1,37 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { Brain, History, Sparkles } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Brain, Sparkles } from 'lucide-react';
 import { useSalesCoachSession } from '../../hooks/useSalesCoachSession.js';
 import { salesCoachApi }         from '../../api/salesCoachApi.js';
 import ObjectionCoachForm        from './ObjectionCoachForm.jsx';
 import ObjectionCoachResult      from './ObjectionCoachResult.jsx';
-
-const RECENT_KEY = 'oc.recentObjections';
-const RECENT_MAX = 6;
-
-const SEED_RECENTS = [
-  { situation: 'Too expensive',      category: 'price' },
-  { situation: 'Only want one time', category: 'need' },
-  { situation: 'I need to think about it', category: 'think' },
-  { situation: 'Already have someone', category: 'competitor' },
-  { situation: 'Not interested',     category: 'need' },
-];
-
-function loadRecents() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
-    return Array.isArray(raw) && raw.length ? raw : SEED_RECENTS;
-  } catch { return SEED_RECENTS; }
-}
-
-function saveRecents(list) {
-  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX))); }
-  catch { /* localStorage may be unavailable */ }
-}
-
-function chipLabel(text) {
-  const t = (text || '').trim();
-  return t.length > 36 ? `${t.slice(0, 33).trim()}…` : t;
-}
 
 function EmptyState() {
   return (
@@ -83,12 +55,8 @@ export default function ObjectionCoach({ onConfidenceUpdate }) {
   const [result,    setResult]    = useState(null);
   const [repEdited, setRepEdited] = useState('');
   const [repQuestion, setRepQuestion] = useState('');
-  const [recents,   setRecents]   = useState(loadRecents);
 
   const formRef = useRef(null);
-
-  // Persist recents whenever they change
-  useEffect(() => { saveRecents(recents); }, [recents]);
 
   async function runCoach(formValues) {
     const situation = (formValues.situation || '').trim();
@@ -125,44 +93,12 @@ export default function ObjectionCoach({ onConfidenceUpdate }) {
       setRepEdited(data.recommendedResponse ?? '');
       updateSession({ lastResultSummary: (data.recommendedResponse || '').slice(0, 100) });
       if (onConfidenceUpdate) onConfidenceUpdate(data.confidence ?? null);
-
-      // Update recents — newest first, dedupe by trimmed text
-      setRecents(prev => {
-        const without = prev.filter(r =>
-          (r.situation || '').trim().toLowerCase() !== situation.toLowerCase());
-        return [{
-          situation,
-          category:    formValues.category    || '',
-          service:     formValues.service     || '',
-          personality: formValues.personality || '',
-        }, ...without].slice(0, RECENT_MAX);
-      });
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   }
-
-  const handleRecentPick = (item) => {
-    if (loading) return;
-    formRef.current?.prefill({
-      situation:   item.situation || '',
-      category:    item.category  || '',
-      service:     item.service   || '',
-      personality: item.personality || '',
-    });
-    // Smooth re-run after the prefill commits
-    requestAnimationFrame(() => {
-      runCoach({
-        situation:   item.situation || '',
-        category:    item.category  || '',
-        service:     item.service   || '',
-        personality: item.personality || '',
-        showOptional: false,
-      });
-    });
-  };
 
   return (
     <div className="oc-shell">
@@ -187,29 +123,6 @@ export default function ObjectionCoach({ onConfidenceUpdate }) {
             />
           )}
         </div>
-
-        {recents.length > 0 && (
-          <div className="oc-recent">
-            <div className="oc-recent__head">
-              <History size={12} aria-hidden="true" />
-              Recent objections
-            </div>
-            <div className="oc-recent__list">
-              {recents.map((r, i) => (
-                <button
-                  key={`${r.situation}-${i}`}
-                  type="button"
-                  className="oc-recent__chip"
-                  onClick={() => handleRecentPick(r)}
-                  disabled={loading}
-                  title={r.situation}
-                >
-                  {chipLabel(r.situation)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
