@@ -38,7 +38,7 @@ export default function SalesCoachPage() {
             className="sc-training-link"
             onClick={() => setActiveView('training')}
           >
-            <GraduationCap size={15} />
+            <GraduationCap size={15} aria-hidden="true" />
             Training Center
           </button>
         )}
