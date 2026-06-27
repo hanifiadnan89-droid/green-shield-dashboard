@@ -1,28 +1,10 @@
 import { useRef, useState } from 'react';
-import { Brain, Sparkles } from 'lucide-react';
+import { Brain } from 'lucide-react';
 import { useSalesCoachSession } from '../../hooks/useSalesCoachSession.js';
 import { salesCoachApi }         from '../../api/salesCoachApi.js';
 import ObjectionCoachForm        from './ObjectionCoachForm.jsx';
 import ObjectionCoachResult      from './ObjectionCoachResult.jsx';
-
-function EmptyState() {
-  return (
-    <div className="oc-empty">
-      <div className="oc-empty__orb" aria-hidden="true">
-        <Sparkles size={20} aria-hidden="true" />
-      </div>
-      <h2 className="oc-empty__title">Coach a live objection</h2>
-      <p className="oc-empty__hint">
-        Drop the exact words your customer said, pick the service and situation, and get a complete coaching package built from Green Shield knowledge.
-      </p>
-      <ul className="oc-empty__tips">
-        <li><span>1</span> Type or paste the objection — direct quotes work best.</li>
-        <li><span>2</span> Add the service and personality if you know them.</li>
-        <li><span>3</span> Press <kbd>⌘</kbd><kbd>↵</kbd> or hit <em>Coach Me</em>.</li>
-      </ul>
-    </div>
-  );
-}
+import SalesIntelligence         from '../../components/SalesIntelligence.jsx';
 
 function LoadingState() {
   return (
@@ -55,6 +37,7 @@ export default function ObjectionCoach({ onConfidenceUpdate }) {
   const [result,    setResult]    = useState(null);
   const [repEdited, setRepEdited] = useState('');
   const [repQuestion, setRepQuestion] = useState('');
+  const [activeCategory, setActiveCategory] = useState('');
 
   const formRef = useRef(null);
 
@@ -106,12 +89,15 @@ export default function ObjectionCoach({ onConfidenceUpdate }) {
         <ObjectionCoachForm
           ref={formRef}
           onSubmit={runCoach}
+          onCategoryChange={setActiveCategory}
           loading={loading}
           error={error}
         />
 
         <div className="oc-canvas">
-          {!result && !loading && <EmptyState />}
+          {!result && !loading && (
+            <SalesIntelligence objectionCategory={activeCategory} />
+          )}
           {loading && <LoadingState />}
           {result && (
             <ObjectionCoachResult
