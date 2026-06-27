@@ -120,12 +120,10 @@ const CURATED_BOOST         = 1.45;
 // ──────────────────────────────────────────────────────────────────────────
 
 export const OBJECTION_TAG_MAP = {
-  price:      ['price', 'value', 'frame', 'anchor', 'closing'],
-  timing:     ['urgency', 'scarcity', 'commitment', 'decision', 'closing'],
-  need:       ['discovery', 'value', 'risk', 'prevention'],
-  trust:      ['trust', 'authority', 'transparency', 'guarantee', 'social', 'empathy'],
-  competitor: ['competitor', 'differentiation', 'switching', 'value', 'relationship'],
-  think:      ['decision', 'risk', 'urgency', 'closing', 'frame', 'commitment'],
+  price:    ['price', 'value', 'frame', 'anchor', 'closing'],
+  trust:    ['trust', 'authority', 'transparency', 'guarantee', 'social', 'empathy'],
+  think:    ['decision', 'risk', 'urgency', 'closing', 'frame', 'commitment'],
+  shopping: ['competitor', 'differentiation', 'switching', 'value', 'relationship', 'closing'],
 };
 
 // ──────────────────────────────────────────────────────────────────────────

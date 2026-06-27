@@ -2,21 +2,23 @@
 // id values are the backend-accepted identifiers (sent as-is to the API).
 
 export const CATEGORIES = [
-  { id: 'price',      label: 'Price / Cost' },
-  { id: 'timing',     label: 'Timing / Not Now' },
-  { id: 'need',       label: "Don't Need It" },
-  { id: 'trust',      label: 'Trust / Skepticism' },
-  { id: 'competitor', label: 'Already Have Service' },
-  { id: 'think',      label: 'Need to Think / Spouse' },
-  { id: 'other',      label: 'Other' },
+  { id: 'price',    label: 'Price / Cost' },
+  { id: 'trust',    label: 'Trust / Skepticism' },
+  { id: 'think',    label: 'Need to Think / Spouse' },
+  { id: 'shopping', label: 'Still Shopping' },
 ];
 
 export const SERVICES = [
-  { id: 'mosquito',      label: 'Mosquito' },
-  { id: 'flea_tick',     label: 'Flea & Tick' },
-  { id: 'general_pest',  label: 'General Pest' },
-  { id: 'bundle',        label: 'Bundle' },
-  { id: 'not_sure',      label: 'Not Sure Yet' },
+  { id: 'tick_mosquito',          label: 'Tick & Mosquito' },
+  { id: 'insect_quarterly',       label: 'Insect Quarterly' },
+  { id: 'rodent_insect_triannual', label: 'Rodent & Insect Triannual' },
+  { id: 'bed_bug',                label: 'Bed Bug' },
+  { id: 'commercial_monthly',     label: 'Commercial Monthly' },
+  { id: 'commercial_bimonthly',   label: 'Commercial Bi-Monthly' },
+  { id: 'commercial_quarterly',   label: 'Commercial Quarterly' },
+  { id: 'commercial_triannual',   label: 'Commercial Triannual' },
+  { id: 'commercial_custom',      label: 'Commercial Custom' },
+  { id: 'residential_custom',     label: 'Residential Custom' },
 ];
 
 export const PERSONALITIES = [
