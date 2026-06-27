@@ -1,44 +1,131 @@
 /**
- * Sales Intelligence Library
+ * Sales Intelligence — Knowledge Engine
+ * =====================================
  *
- * Original coaching insights for Green Shield Pest Solutions field reps.
- * Each insight is paraphrased from established sales psychology and
- * negotiation principles, then adapted for pest-control conversations.
+ * Original coaching insights for Green Shield Pest Solutions field reps,
+ * paraphrased from established sales psychology principles and adapted for
+ * pest-control conversations. This is the source of truth for everything
+ * the rep sees in the Sales Intelligence panel.
  *
- * Insight shape:
+ * ── Insight shape ────────────────────────────────────────────────────────
+ *
  *   {
- *     id,              // unique stable string
- *     category,        // human label for the category badge
- *     title,           // short title for the card
- *     line,            // the words the rep actually says (1–3 sentences)
- *     whyItWorks,      // 1–2 sentences explaining the psychology
- *     psychology,      // single short label (often same as category)
- *     tags,            // lowercase array of strings used for smart filtering
+ *     id,            // string  — permanent stable identifier (never reuse)
+ *     category,      // string  — human label for the badge ('Price Reframing')
+ *     title,         // string  — short headline for the card
+ *     line,          // string  — the words the rep actually says (1–3 sentences)
+ *     whyItWorks,    // string  — 1–2 sentences on the underlying psychology
+ *     psychology,    // string  — single short label ('Loss Aversion')
+ *     tags,          // string[] — lowercase tags from the normalized taxonomy
+ *
+ *     // Optional ranking fields (defaults below if omitted)
+ *     priority,      // 1–5 — how important this insight is generally  (def 3)
+ *     confidence,    // 1–5 — how confident we are in the advice       (def 4)
+ *     difficulty,    // 1–5 — how hard for a new rep to execute        (def 3)
+ *     effectiveness, // 1–5 — how often it works in real conversations (def 4)
+ *     curated,       // bool — admin-featured / always-on-rotation     (def false)
  *   }
  *
- * Public API:
- *   pickInsight({ objectionCategory, excludeId })
- *   getInsightById(id)
- *   getCategories()
- *   bookmarkInsight(id)        // stub for future
- *   rateInsight(id, rating)    // stub for future
+ * Telemetry fields (usageCount, feedbackScore, etc.) intentionally live
+ * outside the static data — they belong in user profile / DB later.
  *
- * The library is intentionally structured so it can grow to thousands of
- * entries without reshaping the API. Future work can split it into one
- * file per category and concatenate from here.
+ * ── Tag taxonomy (37 tags) ───────────────────────────────────────────────
+ *
+ * Use only tags that already exist in INSIGHTS. To add a new tag, document
+ * it here and use it in at least three insights so it carries weight.
+ *
+ *   Strategy / psychology:
+ *     trust, authority, social, empathy, conviction, transparency,
+ *     reciprocity, commitment, frame, anchor, scarcity, urgency
+ *
+ *   Sales motion:
+ *     opening, discovery, value, price, closing, follow-up, appointment,
+ *     decision, switching, relationship, consultative, differentiation,
+ *     competitor
+ *
+ *   Outcome / risk:
+ *     loss, risk, guarantee, prevention
+ *
+ *   Domain:
+ *     residential, commercial, mosquito, rodents, bedbugs, generalpest,
+ *     seasonal, annual
+ *
+ * ── Smart filtering by objection type ────────────────────────────────────
+ *
+ * When the rep selects an Objection Type in the form, the engine biases
+ * the next insight toward a relevant tag pool. If filtering returns an
+ * empty pool, the engine falls through to the full library.
+ *
+ * ── Rotation model (variety) ─────────────────────────────────────────────
+ *
+ *   1. Hard-exclude the last N IDs (no repeats inside the recency window).
+ *   2. Soft-penalize the last few categories so 3 in a row from the same
+ *      category is unlikely.
+ *   3. Soft-penalize the last few psychology labels so the same technique
+ *      doesn't appear back-to-back.
+ *   4. Score each candidate (priority × confidence × curated boost ÷
+ *      recency penalties) and pick weighted-random from the top slice —
+ *      so the experience feels intelligent, not random.
+ *
+ * Recent IDs / categories / psychologies are persisted to localStorage so
+ * variety carries across reloads.
+ *
+ * ── Future migration ─────────────────────────────────────────────────────
+ *
+ * The public API hides where data lives. Today INSIGHTS is an inline
+ * array. Tomorrow it could be:
+ *   - hydrated from a JSON CDN (replace the array with a fetch + cache)
+ *   - hydrated from Supabase / Postgres (replace with a remote loader)
+ *   - hydrated partially from an AI generator (concat generated entries
+ *     onto the static list before building indexes)
+ * Callers using pickInsight / searchInsights / getRelatedInsights / etc.
+ * don't need to change.
+ *
+ * ── Personalization (future) ─────────────────────────────────────────────
+ *
+ * Every pick / list / search method accepts an optional `profile`:
+ *   {
+ *     skillLevel?,         // 'new' | 'intermediate' | 'experienced'
+ *     preferredCategories?, // string[]
+ *     hiddenCategories?,    // string[]
+ *     hiddenIds?,           // string[]
+ *     bookmarks?,           // string[]
+ *     ratings?,             // { [id]: 'up' | 'down' }
+ *   }
+ * The engine uses what's provided and ignores the rest, so callers can
+ * adopt fields incrementally.
+ *
+ * ── Adding insights ──────────────────────────────────────────────────────
+ *
+ *   1. Append inside INSIGHTS with a fresh stable id (see prefixes in use).
+ *   2. Reuse an existing tag whenever it fits. Only invent a new tag if it
+ *      will appear in three or more entries.
+ *   3. Keep `line` to 1–3 sentences. Keep `whyItWorks` to 1–2.
+ *   4. Don't reuse an id — even for replacements. Bump the suffix.
+ *   5. Run `getStats()` after to confirm category counts feel balanced.
  */
+
+// ──────────────────────────────────────────────────────────────────────────
+//   Defaults applied to optional ranking fields
+// ──────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_PRIORITY      = 3;
+const DEFAULT_CONFIDENCE    = 4;
+const DEFAULT_DIFFICULTY    = 3;
+const DEFAULT_EFFECTIVENESS = 4;
+const CURATED_BOOST         = 1.45;
 
 // ──────────────────────────────────────────────────────────────────────────
 //   Tag-routing for smart filtering by the rep's selected objection type
 // ──────────────────────────────────────────────────────────────────────────
 
 export const OBJECTION_TAG_MAP = {
-  price:      ['price', 'value', 'cost', 'reframing', 'anchor', 'closing'],
+  price:      ['price', 'value', 'frame', 'anchor', 'closing'],
   timing:     ['urgency', 'scarcity', 'commitment', 'decision', 'closing'],
-  need:       ['discovery', 'value', 'risk', 'prevention', 'questioning'],
+  need:       ['discovery', 'value', 'risk', 'prevention'],
   trust:      ['trust', 'authority', 'transparency', 'guarantee', 'social', 'empathy'],
   competitor: ['competitor', 'differentiation', 'switching', 'value', 'relationship'],
-  think:      ['decision', 'risk', 'urgency', 'closing', 'reframing', 'commitment'],
+  think:      ['decision', 'risk', 'urgency', 'closing', 'frame', 'commitment'],
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -50,11 +137,11 @@ export const INSIGHTS = [
   { id: 'price_001', category: 'Price Reframing', title: 'Break monthly cost into daily cost',
     line: "When you break it down, that's about two dollars a day to keep your home protected year-round.",
     whyItWorks: "Customers naturally compare small daily purchases instead of larger monthly commitments. The price stops being a decision and becomes a coffee.",
-    psychology: 'Price Reframing', tags: ['price', 'value', 'reframing', 'cost', 'residential'] },
+    psychology: 'Price Reframing', tags: ['price', 'value', 'frame', 'residential'], curated: true  },
   { id: 'price_002', category: 'Price Reframing', title: 'Cost per visit, not cost per month',
     line: "You're paying for four full property treatments a year — that works out to about a hundred and fifty per visit, which is less than most one-off calls.",
     whyItWorks: "Anchoring to a single-visit comparison surfaces the bundled value that the monthly number hides.",
-    psychology: 'Anchoring', tags: ['price', 'value', 'anchor', 'reframing'] },
+    psychology: 'Anchoring', tags: ['price', 'value', 'anchor', 'frame'] },
   { id: 'price_003', category: 'Price Reframing', title: 'Reframe price against the alternative',
     line: "One carpenter ant treatment usually costs far more than preventing the problem in the first place.",
     whyItWorks: "Reframing price against the cost of inaction makes prevention feel like the cheaper option.",
@@ -66,19 +153,19 @@ export const INSIGHTS = [
   { id: 'price_005', category: 'Price Reframing', title: 'Compare to a streaming subscription',
     line: "Most families spend more on streaming services every month than they would on year-round pest protection.",
     whyItWorks: "A familiar reference point makes a new expense feel small and reasonable.",
-    psychology: 'Reframing', tags: ['price', 'reframing', 'residential', 'value'] },
+    psychology: 'Reframing', tags: ['price', 'frame', 'residential', 'value'] },
   { id: 'price_006', category: 'Price Reframing', title: 'Cost per square foot',
     line: "On a property your size, that works out to pennies per square foot of protected area each month.",
     whyItWorks: "Granular per-unit pricing shrinks perceived cost while reinforcing the scope of coverage.",
-    psychology: 'Anchoring', tags: ['price', 'anchor', 'reframing', 'commercial', 'residential'] },
+    psychology: 'Anchoring', tags: ['price', 'anchor', 'frame', 'commercial', 'residential'] },
   { id: 'price_007', category: 'Price Reframing', title: 'Annual frame, not monthly',
     line: "Across a full year, you're investing less than most homeowners spend on a single landscaping visit.",
     whyItWorks: "An annual comparison feels manageable and lines up with how customers think about home upkeep.",
-    psychology: 'Reframing', tags: ['price', 'annual', 'reframing', 'residential'] },
+    psychology: 'Reframing', tags: ['price', 'annual', 'frame', 'residential'] },
   { id: 'price_008', category: 'Price Reframing', title: 'Price vs. cost',
     line: "I hear you on the price. Let me show you what the actual cost looks like if we don't address this.",
     whyItWorks: "Separating price (what you pay) from cost (what it costs you not to act) opens up a value conversation.",
-    psychology: 'Loss Aversion', tags: ['price', 'value', 'cost', 'reframing', 'discovery'] },
+    psychology: 'Loss Aversion', tags: ['price', 'value', 'frame', 'discovery'] },
   { id: 'price_009', category: 'Price Reframing', title: 'Reframe a per-visit charge',
     line: "Most people compare us to single-visit pricing — but you're getting recurring visits, monitoring, and free re-services included.",
     whyItWorks: "Highlights that the bundled service replaces multiple discrete purchases the customer already expects to make.",
@@ -94,11 +181,11 @@ export const INSIGHTS = [
   { id: 'price_012', category: 'Price Reframing', title: 'Reframe a yearly bill',
     line: "If we put the annual cost on a single line item next to your other home expenses, it's almost always the smallest one.",
     whyItWorks: "Comparing to bigger, accepted line items shrinks the number in the customer's mental ledger.",
-    psychology: 'Anchoring', tags: ['price', 'anchor', 'reframing', 'annual'] },
+    psychology: 'Anchoring', tags: ['price', 'anchor', 'frame', 'annual'] },
   { id: 'price_013', category: 'Price Reframing', title: 'Per-day under a dollar comparison',
     line: "We're looking at well under a dollar a day for prevention — that's less than a vending machine snack.",
     whyItWorks: "Pairing a familiar low-stakes comparison makes the commitment feel almost trivial.",
-    psychology: 'Reframing', tags: ['price', 'reframing', 'value', 'residential'] },
+    psychology: 'Reframing', tags: ['price', 'frame', 'value', 'residential'] },
   { id: 'price_014', category: 'Price Reframing', title: 'Cost of inaction is the real number',
     line: "The number you should actually compare this to is the cost of cleaning up an infestation after it happens.",
     whyItWorks: "Anchors the conversation to a worse, larger number so the actual plan feels reasonable.",
@@ -106,13 +193,13 @@ export const INSIGHTS = [
   { id: 'price_015', category: 'Price Reframing', title: 'Bundle math',
     line: "If you priced each visit, the warranty, and the monitoring separately, you'd be at almost double what the plan costs.",
     whyItWorks: "Breaks the bundled price into components, then shows the customer they're getting a discount.",
-    psychology: 'Value Stacking', tags: ['price', 'value', 'reframing', 'guarantee'] },
+    psychology: 'Value Stacking', tags: ['price', 'value', 'frame', 'guarantee'] },
 
   // ── LOSS AVERSION ───────────────────────────────────────────────────────
   { id: 'loss_001', category: 'Loss Aversion', title: 'Frame around what they could lose',
     line: "The question isn't whether pests will come back. It's whether you'll already be protected when they do.",
     whyItWorks: "People are roughly twice as motivated to avoid a loss as they are to pursue an equivalent gain.",
-    psychology: 'Loss Aversion', tags: ['loss', 'risk', 'prevention', 'closing'] },
+    psychology: 'Loss Aversion', tags: ['loss', 'risk', 'prevention', 'closing'], curated: true  },
   { id: 'loss_002', category: 'Loss Aversion', title: 'Cost of one missed visit',
     line: "Most infestations we treat started as a small issue someone decided to wait on.",
     whyItWorks: "Tells the rep's story of regret without preaching. Customers fill in their own outcome.",
@@ -124,7 +211,7 @@ export const INSIGHTS = [
   { id: 'loss_004', category: 'Loss Aversion', title: 'Health risk frame',
     line: "Mice and rats don't just cause damage — they carry diseases that can spread quickly through a home.",
     whyItWorks: "Adds a non-financial loss (family health) that's hard to put a price on.",
-    psychology: 'Loss Aversion', tags: ['loss', 'risk', 'rodents', 'health', 'residential'] },
+    psychology: 'Loss Aversion', tags: ['loss', 'risk', 'rodents', 'residential'] },
   { id: 'loss_005', category: 'Loss Aversion', title: 'Property value frame',
     line: "If you ever sell this home, an active pest issue is one of the fastest ways to lose a buyer at inspection.",
     whyItWorks: "Reframes prevention as protecting a major future transaction.",
@@ -144,7 +231,7 @@ export const INSIGHTS = [
   { id: 'loss_009', category: 'Loss Aversion', title: 'Sunk cost of past treatments',
     line: "If you've already paid for one-off treatments before, you've spent more reacting than you would have on prevention.",
     whyItWorks: "Reframes past spend as evidence that the current approach is more expensive, not less.",
-    psychology: 'Sunk Cost Framing', tags: ['loss', 'price', 'reframing', 'prevention'] },
+    psychology: 'Sunk Cost Framing', tags: ['loss', 'price', 'frame', 'prevention'] },
   { id: 'loss_010', category: 'Loss Aversion', title: 'Risk to pets',
     line: "Some of the products homeowners buy at the hardware store actually pose more risk to pets than the issue they're trying to solve.",
     whyItWorks: "Surfaces an unconsidered risk (pets) that increases motivation to use professionals.",
@@ -152,11 +239,11 @@ export const INSIGHTS = [
   { id: 'loss_011', category: 'Loss Aversion', title: 'Tick / Lyme risk',
     line: "One untreated tick season is all it takes for someone in the family to deal with Lyme — and that's a problem you can't put back in the box.",
     whyItWorks: "Concrete health risk reframes monthly cost as cheap insurance.",
-    psychology: 'Loss Aversion', tags: ['loss', 'risk', 'mosquito', 'health', 'residential'] },
+    psychology: 'Loss Aversion', tags: ['loss', 'risk', 'mosquito', 'residential'] },
   { id: 'loss_012', category: 'Loss Aversion', title: 'Default state framing',
     line: "Untreated, the property is sitting in the default condition pests prefer. Treatment just shifts the default.",
     whyItWorks: "Frames inaction as actively choosing a worse outcome, not as neutral.",
-    psychology: 'Framing', tags: ['loss', 'frame', 'reframing', 'prevention'] },
+    psychology: 'Framing', tags: ['loss', 'frame', 'prevention'] },
 
   // ── VALUE SELLING ───────────────────────────────────────────────────────
   { id: 'value_001', category: 'Value Selling', title: 'Stack the included services',
@@ -174,7 +261,7 @@ export const INSIGHTS = [
   { id: 'value_004', category: 'Value Selling', title: 'Peace-of-mind frame',
     line: "What you're really buying is the ability to stop checking corners and listening for sounds in the wall.",
     whyItWorks: "Names the emotional outcome the customer already wants. It's hard to argue against.",
-    psychology: 'Outcome Selling', tags: ['value', 'empathy', 'residential'] },
+    psychology: 'Outcome Selling', tags: ['value', 'empathy', 'residential'], curated: true  },
   { id: 'value_005', category: 'Value Selling', title: 'Quality vs. cheapest',
     line: "There's always going to be someone cheaper. The question is whether you want it done once or done right.",
     whyItWorks: "Reframes the choice from price to quality. Most homeowners don't actually want the cheapest.",
@@ -198,7 +285,7 @@ export const INSIGHTS = [
   { id: 'value_010', category: 'Value Selling', title: 'Total cost of ownership',
     line: "Compare the plan against everything you'd spend on one-off treatments, hardware-store products, and your own time. The plan usually wins.",
     whyItWorks: "Total cost of ownership shows the alternative is more expensive than it looks.",
-    psychology: 'Value Stacking', tags: ['value', 'price', 'reframing'] },
+    psychology: 'Value Stacking', tags: ['value', 'price', 'frame'] },
   { id: 'value_011', category: 'Value Selling', title: 'Same product, different stakes',
     line: "Anybody can spray. What you're paying for is somebody who knows where to spray, what to use, and what to watch for.",
     whyItWorks: "Reframes the service as expertise, not labor — which justifies the price.",
@@ -224,7 +311,7 @@ export const INSIGHTS = [
   { id: 'risk_001', category: 'Risk Reversal', title: 'Re-service guarantee front and center',
     line: "If pests come back between visits, we come back at no charge. The financial risk of being wrong is on us, not you.",
     whyItWorks: "Risk reversal removes the customer's downside, which is usually the actual blocker.",
-    psychology: 'Risk Reversal', tags: ['risk', 'guarantee', 'trust', 'closing'] },
+    psychology: 'Risk Reversal', tags: ['risk', 'guarantee', 'trust', 'closing'], curated: true  },
   { id: 'risk_002', category: 'Risk Reversal', title: 'No long-term contract',
     line: "There's no long-term lock-in. If we're not delivering, you can stop at any time.",
     whyItWorks: "Removing the worst-case scenario makes saying yes feel low-stakes.",
@@ -266,7 +353,7 @@ export const INSIGHTS = [
   { id: 'trust_001', category: 'Trust', title: 'Lead with what you won\'t do',
     line: "My goal isn't to sell you something you don't need. It's to make sure you never have to deal with this problem again.",
     whyItWorks: "Stating what you won't do reduces perceived sales pressure and increases credibility.",
-    psychology: 'Reverse Psychology', tags: ['trust', 'empathy', 'opening'] },
+    psychology: 'Reverse Psychology', tags: ['trust', 'empathy', 'opening'], curated: true  },
   { id: 'trust_002', category: 'Trust', title: 'Disqualify openly',
     line: "If a one-time visit is genuinely what you need, I'll be the first to tell you — no point sliding into a plan.",
     whyItWorks: "Disqualification builds trust faster than enthusiasm. It signals you're not desperate.",
@@ -280,7 +367,7 @@ export const INSIGHTS = [
     whyItWorks: "Validating past skepticism beats arguing against it.",
     psychology: 'Empathy', tags: ['trust', 'empathy', 'differentiation'] },
   { id: 'trust_005', category: 'Trust', title: 'Use specifics, not slogans',
-    line: "We've been treating properties in this neighborhood since [year]. I can show you addresses if it helps.",
+    line: "We've been treating properties in this neighborhood for years. I can show you addresses if it helps.",
     whyItWorks: "Specific local details signal real presence — generic claims don't.",
     psychology: 'Social Proof', tags: ['trust', 'social', 'authority', 'differentiation'] },
   { id: 'trust_006', category: 'Trust', title: 'Name the worst case',
@@ -312,7 +399,7 @@ export const INSIGHTS = [
     whyItWorks: "Local accountability is a trust signal national chains can't replicate.",
     psychology: 'Relationship Selling', tags: ['trust', 'relationship', 'differentiation', 'authority'] },
   { id: 'trust_013', category: 'Trust', title: 'Quote a real number',
-    line: "On a property your size, expect somewhere between [X] and [Y]. I'd rather give you the honest range now than guess high to hedge.",
+    line: "On a property your size, expect somewhere in our typical mid-range. I'd rather give you the honest range now than guess high to hedge.",
     whyItWorks: "Specific ranges signal honesty. Vague answers signal you're hiding something.",
     psychology: 'Transparency', tags: ['trust', 'transparency', 'price'] },
   { id: 'trust_014', category: 'Trust', title: 'Trade short-term for long-term',
@@ -370,9 +457,9 @@ export const INSIGHTS = [
   { id: 'social_001', category: 'Social Proof', title: 'Reference neighbors',
     line: "Most homeowners on this street choose year-round protection because preventing infestations is almost always less expensive than treating them.",
     whyItWorks: "People trust decisions that others similar to them have already made.",
-    psychology: 'Social Proof', tags: ['social', 'closing', 'residential'] },
+    psychology: 'Social Proof', tags: ['social', 'closing', 'residential'], curated: true  },
   { id: 'social_002', category: 'Social Proof', title: 'Local case naming',
-    line: "We treat about [X] homes in this zip code. The same patterns we see at your place, we've solved next door.",
+    line: "We treat a lot of homes in this zip code. The same patterns we see at your place, we've solved next door.",
     whyItWorks: "Geographic specificity makes social proof concrete and harder to dismiss.",
     psychology: 'Social Proof', tags: ['social', 'authority', 'residential'] },
   { id: 'social_003', category: 'Social Proof', title: 'Most-chosen plan',
@@ -420,7 +507,7 @@ export const INSIGHTS = [
   { id: 'empathy_001', category: 'Empathy', title: 'Name what they\'re feeling',
     line: "I get it — the last thing you want is somebody at the door pitching you on something that costs money you weren't planning to spend.",
     whyItWorks: "Naming the customer's actual mental state defuses defensiveness instantly.",
-    psychology: 'Empathy', tags: ['empathy', 'opening', 'trust'] },
+    psychology: 'Empathy', tags: ['empathy', 'opening', 'trust'], curated: true  },
   { id: 'empathy_002', category: 'Empathy', title: 'Acknowledge the unwelcome timing',
     line: "I know nobody plans for a pest issue — they always show up at the worst time.",
     whyItWorks: "Acknowledging the inconvenience builds rapport before pitching a fix.",
@@ -462,7 +549,7 @@ export const INSIGHTS = [
   { id: 'close_001', category: 'Closing Questions', title: 'The alternative-choice close',
     line: "Would next Tuesday or Thursday work better?",
     whyItWorks: "The customer starts choosing a date instead of deciding whether to move forward.",
-    psychology: 'Alternative Choice Close', tags: ['closing', 'commitment', 'appointment'] },
+    psychology: 'Alternative Choice Close', tags: ['closing', 'commitment', 'appointment'], curated: true  },
   { id: 'close_002', category: 'Closing Questions', title: 'The assumptive close',
     line: "I'll plan to be back out next week — does the morning or the afternoon work better for you?",
     whyItWorks: "Assumes the yes and moves immediately to logistics. Hard to push back on.",
@@ -478,7 +565,7 @@ export const INSIGHTS = [
   { id: 'close_005', category: 'Closing Questions', title: 'The direct close',
     line: "If the plan solves the actual problem and fits the property, would you be comfortable moving forward today?",
     whyItWorks: "Direct, respectful, and gives the customer a clear yes/no path.",
-    psychology: 'Direct Close', tags: ['closing', 'commitment'] },
+    psychology: 'Direct Close', tags: ['closing', 'commitment'], curated: true  },
   { id: 'close_006', category: 'Closing Questions', title: 'The conditional close',
     line: "If I could include the initial inspection at no charge, would you be comfortable starting today?",
     whyItWorks: "Trades a small concession for a definite commitment.",
@@ -528,7 +615,7 @@ export const INSIGHTS = [
     whyItWorks: "Lowers the decision to a single action with no downstream commitment.",
     psychology: 'Foot in the Door', tags: ['closing', 'risk', 'commitment'] },
   { id: 'close_018', category: 'Closing Questions', title: 'The closing question for spouses',
-    line: "If we set this up tonight, would your [spouse/partner] want to be on the call when the tech first arrives, or just hear about it after?",
+    line: "If we set this up tonight, would your spouse want to be on the call when the tech first arrives, or just hear about it after?",
     whyItWorks: "Smuggles the absent decision-maker into the scheduling discussion without losing momentum.",
     psychology: 'Assumptive Close', tags: ['closing', 'decision', 'commitment'] },
 
@@ -536,73 +623,73 @@ export const INSIGHTS = [
   { id: 'disc_001', category: 'Discovery Questions', title: 'What\'s been happening?',
     line: "Tell me what you've been noticing on the property — when it started, where you see it, anything that's gotten worse.",
     whyItWorks: "Open-ended discovery questions surface the real problem and put the customer in storytelling mode.",
-    psychology: 'Consultative Selling', tags: ['discovery', 'consultative', 'questioning', 'opening'] },
+    psychology: 'Consultative Selling', tags: ['discovery', 'consultative', 'opening'], curated: true  },
   { id: 'disc_002', category: 'Discovery Questions', title: 'What have you tried?',
     line: "What have you tried so far, and what's worked or not worked?",
     whyItWorks: "Past failures justify the need for professional intervention without the rep saying it.",
-    psychology: 'Discovery', tags: ['discovery', 'questioning', 'consultative'] },
+    psychology: 'Discovery', tags: ['discovery', 'consultative'] },
   { id: 'disc_003', category: 'Discovery Questions', title: 'What\'s the actual outcome you want?',
     line: "If we fast-forward a year — what does the property look like for you to feel like this was solved?",
     whyItWorks: "Outcome-based questions move past symptoms and surface the real success criteria.",
-    psychology: 'SPIN — Need-Payoff', tags: ['discovery', 'questioning', 'value', 'closing'] },
+    psychology: 'SPIN — Need-Payoff', tags: ['discovery', 'value', 'closing'] },
   { id: 'disc_004', category: 'Discovery Questions', title: 'Severity question',
     line: "On a scale of one to ten, how much is this bothering you right now?",
     whyItWorks: "Quantifies the problem and gives the customer a concrete reason to act.",
-    psychology: 'SPIN — Implication', tags: ['discovery', 'questioning', 'urgency'] },
+    psychology: 'SPIN — Implication', tags: ['discovery', 'urgency'] },
   { id: 'disc_005', category: 'Discovery Questions', title: 'Frequency question',
     line: "How often are you seeing this — daily, weekly, just every once in a while?",
     whyItWorks: "Frequency questions reveal whether the customer has a one-time or recurring issue, which steers the recommendation.",
-    psychology: 'Discovery', tags: ['discovery', 'questioning', 'consultative'] },
+    psychology: 'Discovery', tags: ['discovery', 'consultative'] },
   { id: 'disc_006', category: 'Discovery Questions', title: 'Impact question',
     line: "How is this affecting how you use the property? Are there rooms or parts of the yard you've stopped using?",
     whyItWorks: "Surfaces the lifestyle cost of inaction, which often matters more than the dollar cost.",
-    psychology: 'SPIN — Implication', tags: ['discovery', 'questioning', 'value'] },
+    psychology: 'SPIN — Implication', tags: ['discovery', 'value'] },
   { id: 'disc_007', category: 'Discovery Questions', title: 'Past spend question',
     line: "Have you spent money on this before? Roughly how much, and what did you get out of it?",
     whyItWorks: "Surfaces past spend that often exceeds the cost of a plan — and gives the rep a comparison anchor.",
-    psychology: 'Anchoring', tags: ['discovery', 'questioning', 'price'] },
+    psychology: 'Anchoring', tags: ['discovery', 'price'] },
   { id: 'disc_008', category: 'Discovery Questions', title: 'Decision-maker question',
     line: "When it comes to decisions like this, is it just you, or is somebody else involved?",
     whyItWorks: "Surfaces hidden decision-makers early, preventing 'I need to talk to my spouse' from killing the close.",
-    psychology: 'Discovery', tags: ['discovery', 'questioning', 'decision'] },
+    psychology: 'Discovery', tags: ['discovery', 'decision'] },
   { id: 'disc_009', category: 'Discovery Questions', title: 'Timeline question',
     line: "Is this something you'd want addressed before the season changes, or are you okay waiting?",
     whyItWorks: "Surfaces urgency the customer already has — instead of the rep trying to manufacture it.",
-    psychology: 'Discovery', tags: ['discovery', 'questioning', 'urgency'] },
+    psychology: 'Discovery', tags: ['discovery', 'urgency'] },
   { id: 'disc_010', category: 'Discovery Questions', title: 'Worst-case question',
     line: "If this gets worse before you do something about it, what does that look like for you?",
     whyItWorks: "The customer paints their own worst-case scenario, which is far more persuasive than the rep doing it.",
-    psychology: 'SPIN — Implication', tags: ['discovery', 'questioning', 'loss'] },
+    psychology: 'SPIN — Implication', tags: ['discovery', 'loss'] },
   { id: 'disc_011', category: 'Discovery Questions', title: 'Best-case question',
     line: "What would the ideal outcome look like for you here?",
     whyItWorks: "Anchors the conversation to what the customer wants, not what the rep is selling.",
-    psychology: 'Discovery', tags: ['discovery', 'questioning', 'value'] },
+    psychology: 'Discovery', tags: ['discovery', 'value'] },
   { id: 'disc_012', category: 'Discovery Questions', title: 'Constraint question',
     line: "Is there anything I should know about — budget, schedule, anybody at home with allergies — that would shape what we do?",
     whyItWorks: "Surfaces constraints upfront so the proposal can be tailored to actually fit.",
-    psychology: 'Consultative Selling', tags: ['discovery', 'questioning', 'consultative'] },
+    psychology: 'Consultative Selling', tags: ['discovery', 'consultative'] },
   { id: 'disc_013', category: 'Discovery Questions', title: 'Property-history question',
     line: "How long have you owned the home, and have there been pest issues before?",
     whyItWorks: "Property history surfaces patterns and indicates whether prevention or treatment is the priority.",
-    psychology: 'Discovery', tags: ['discovery', 'questioning', 'residential'] },
+    psychology: 'Discovery', tags: ['discovery', 'residential'] },
   { id: 'disc_014', category: 'Discovery Questions', title: 'Neighbor question',
     line: "Have you noticed if your neighbors are dealing with the same thing? Pest issues rarely stop at the property line.",
     whyItWorks: "Frames the issue as systemic rather than personal, which lowers customer embarrassment.",
-    psychology: 'Discovery', tags: ['discovery', 'questioning', 'social', 'residential'] },
+    psychology: 'Discovery', tags: ['discovery', 'social', 'residential'] },
   { id: 'disc_015', category: 'Discovery Questions', title: 'Trigger question',
     line: "What made today the day you decided to actually do something about this?",
     whyItWorks: "Surfaces the emotional trigger that motivated the call — which the rep can echo at close.",
-    psychology: 'Discovery', tags: ['discovery', 'questioning', 'closing'] },
+    psychology: 'Discovery', tags: ['discovery', 'closing'] },
 
   // ── OBJECTION: TOO EXPENSIVE ────────────────────────────────────────────
   { id: 'obj_price_001', category: 'Objection: Too Expensive', title: 'Acknowledge then reframe',
     line: "Totally fair. Let me show you what's actually inside that number — I think it'll change the conversation.",
     whyItWorks: "Acknowledging without flinching, then offering to unpack value, beats arguing against the price.",
-    psychology: 'Objection Handling', tags: ['price', 'value', 'reframing'] },
+    psychology: 'Objection Handling', tags: ['price', 'value', 'frame'] },
   { id: 'obj_price_002', category: 'Objection: Too Expensive', title: 'Compared to what?',
     line: "Help me understand — expensive compared to what? Another quote, hardware-store products, doing nothing?",
     whyItWorks: "Forces the customer to define their reference point, which often reveals a weak comparison.",
-    psychology: 'Reframing', tags: ['price', 'discovery', 'reframing'] },
+    psychology: 'Reframing', tags: ['price', 'discovery', 'frame'] },
   { id: 'obj_price_003', category: 'Objection: Too Expensive', title: 'Validate the concern, not the conclusion',
     line: "I hear you. Price is a real consideration. But before you decide it's too much, let me ask — what number were you expecting?",
     whyItWorks: "Validating the concern while asking for the expected number reveals the real budget gap.",
@@ -618,19 +705,19 @@ export const INSIGHTS = [
   { id: 'obj_price_006', category: 'Objection: Too Expensive', title: 'Per-day reframe',
     line: "When you actually break that down, it's about two dollars a day. Is that the part that doesn't work, or is it the upfront feel?",
     whyItWorks: "Combines daily-cost reframing with a discovery question to surface the real concern.",
-    psychology: 'Price Reframing', tags: ['price', 'reframing', 'discovery'] },
+    psychology: 'Price Reframing', tags: ['price', 'frame', 'discovery'] },
   { id: 'obj_price_007', category: 'Objection: Too Expensive', title: 'Quality reframe',
     line: "If price is the only thing, there's always somebody cheaper. The question is what they're cutting to get there.",
     whyItWorks: "Frames a cheap competitor as a quality risk — without naming names.",
     psychology: 'Quality Anchoring', tags: ['price', 'differentiation', 'authority'] },
   { id: 'obj_price_008', category: 'Objection: Too Expensive', title: 'Set the budget expectation',
-    line: "Most homeowners in this situation invest somewhere between [X] and [Y] over the course of a year. Where does that sit for you?",
+    line: "Most homeowners in this situation invest somewhere in the few-hundred to low-thousands range over the course of a year. Where does that sit for you?",
     whyItWorks: "Anchors a range and asks for placement — usually surfaces the real budget faster than asking directly.",
     psychology: 'Anchoring', tags: ['price', 'anchor', 'discovery'] },
   { id: 'obj_price_009', category: 'Objection: Too Expensive', title: 'Total cost of doing nothing',
     line: "Let's say you skip it. What's the cost of dealing with one infestation? That number is usually higher than the plan.",
     whyItWorks: "Anchors against the cost of inaction, which often dwarfs the cost of the plan.",
-    psychology: 'Loss Aversion', tags: ['price', 'loss', 'reframing'] },
+    psychology: 'Loss Aversion', tags: ['price', 'loss', 'frame'] },
   { id: 'obj_price_010', category: 'Objection: Too Expensive', title: 'Strip the bundle',
     line: "If we strip out the parts you don't think you need, we can land somewhere different. Want me to show you what's negotiable?",
     whyItWorks: "Negotiating components forces the customer to value each piece, which usually surfaces willingness to pay.",
@@ -654,7 +741,7 @@ export const INSIGHTS = [
   { id: 'obj_price_015', category: 'Objection: Too Expensive', title: 'Don\'t fight, redirect',
     line: "I won't try to convince you the price isn't real. Let me just make sure you've got the full picture of what you'd be choosing between.",
     whyItWorks: "Refusing to argue about price defuses the back-and-forth and reopens the value conversation.",
-    psychology: 'Reframing', tags: ['price', 'reframing', 'empathy'] },
+    psychology: 'Reframing', tags: ['price', 'frame', 'empathy'] },
 
   // ── OBJECTION: NEED TO THINK ────────────────────────────────────────────
   { id: 'obj_think_001', category: 'Objection: Need to Think', title: 'Honor it and find the real reason',
@@ -772,7 +859,7 @@ export const INSIGHTS = [
   { id: 'obj_ni_004', category: 'Objection: Not Interested', title: 'Frame around prevention',
     line: "Totally fair. Most people aren't interested in pest control — they're interested in not having a pest problem. Different conversation.",
     whyItWorks: "Reframes the offer from a product the customer doesn't want to an outcome they do.",
-    psychology: 'Reframing', tags: ['empathy', 'reframing', 'value'] },
+    psychology: 'Reframing', tags: ['empathy', 'frame', 'value'] },
   { id: 'obj_ni_005', category: 'Objection: Not Interested', title: 'Ask if anybody else is',
     line: "Got it. Out of curiosity — is anybody on the street dealing with pest issues? I'd rather catch something on the block before it spreads.",
     whyItWorks: "Surfaces neighbor opportunities while disengaging gracefully.",
@@ -810,7 +897,7 @@ export const INSIGHTS = [
   { id: 'obj_time_005', category: 'Objection: Timing', title: 'The forever-not-right-time frame',
     line: "Honest question — when is the right time, usually? In my experience, 'later' tends to keep being later until something forces it.",
     whyItWorks: "Gently confronts the avoidance pattern most customers don't realize they're in.",
-    psychology: 'Reframing', tags: ['decision', 'urgency', 'reframing'] },
+    psychology: 'Reframing', tags: ['decision', 'urgency', 'frame'] },
   { id: 'obj_time_006', category: 'Objection: Timing', title: 'Hold the spot',
     line: "If you want to hold the appointment slot for next week, you can cancel anytime up to twenty-four hours before. No risk.",
     whyItWorks: "Defers commitment without losing the booking.",
@@ -856,7 +943,7 @@ export const INSIGHTS = [
   { id: 'comp_006', category: 'Competitor Switching', title: 'Frame the loyalty paradox',
     line: "Loyalty to a vendor is a great instinct — but only if they're still earning it. Are they?",
     whyItWorks: "Reframes loyalty from an obligation to a contingent choice.",
-    psychology: 'Reframing', tags: ['competitor', 'reframing', 'switching'] },
+    psychology: 'Reframing', tags: ['competitor', 'frame', 'switching'] },
   { id: 'comp_007', category: 'Competitor Switching', title: 'Local versus national',
     line: "If your current provider is a national chain, you're talking to a different person every time. We're local — you'll know your tech.",
     whyItWorks: "Differentiates on something hard for big competitors to replicate.",
@@ -884,7 +971,7 @@ export const INSIGHTS = [
     whyItWorks: "Stating the absence of pressure is often more believable than acting un-pressured.",
     psychology: 'Transparency', tags: ['relationship', 'transparency', 'trust'] },
   { id: 'rel_003', category: 'Relationship Selling', title: 'Refer to the customer by name',
-    line: "[Name], based on what you said earlier about the basement — let me focus there first.",
+    line: "Based on what you said earlier about the basement — let me focus there first.",
     whyItWorks: "Using the customer's name and recalling their words signals you've been listening, not pitching.",
     psychology: 'Active Listening', tags: ['relationship', 'empathy', 'consultative'] },
   { id: 'rel_004', category: 'Relationship Selling', title: 'Personal anchor',
@@ -972,7 +1059,7 @@ export const INSIGHTS = [
     whyItWorks: "Personal-resource scarcity feels personal and matters more than abstract availability.",
     psychology: 'Scarcity', tags: ['scarcity', 'authority', 'appointment'] },
   { id: 'sca_004', category: 'Scarcity', title: 'Bundle discount window',
-    line: "If we bundle the initial inspection with the first visit, we can include it at no charge — that promotion ends [date].",
+    line: "If we bundle the initial inspection with the first visit, we can include it at no charge — that promotion runs through this season only.",
     whyItWorks: "Time-bound bundle pricing creates a real reason to act now.",
     psychology: 'Scarcity', tags: ['scarcity', 'price', 'closing'] },
   { id: 'sca_005', category: 'Scarcity', title: 'No-spot-on-the-truck scarcity',
@@ -1064,9 +1151,9 @@ export const INSIGHTS = [
   { id: 'anc_003', category: 'Anchoring', title: 'Anchor to bigger annual costs',
     line: "For context — most homeowners spend more on landscaping in a year than this plan costs.",
     whyItWorks: "Anchoring to a familiar larger expense makes the new one feel small.",
-    psychology: 'Anchoring', tags: ['anchor', 'price', 'reframing'] },
+    psychology: 'Anchoring', tags: ['anchor', 'price', 'frame'] },
   { id: 'anc_004', category: 'Anchoring', title: 'Anchor on competitor pricing',
-    line: "The national chains in this area typically charge between [X] and [Y]. We're inside that range and we include more.",
+    line: "The national chains in this area typically charge within a known range. We're inside that range and we include more.",
     whyItWorks: "Anchoring against competitor pricing reframes the offer as a value option.",
     psychology: 'Anchoring', tags: ['anchor', 'competitor', 'value'] },
   { id: 'anc_005', category: 'Anchoring', title: 'Anchor with the worst-case number',
@@ -1080,7 +1167,7 @@ export const INSIGHTS = [
   { id: 'anc_007', category: 'Anchoring', title: 'Anchor by service scope',
     line: "The full plan covers four visits, free re-services, and the inspection. If you stripped any of those out, you'd be in the ten-percent-cheaper range — but you'd lose what makes it work.",
     whyItWorks: "Anchoring by scope reframes the price as a function of what's included.",
-    psychology: 'Anchoring', tags: ['anchor', 'value', 'reframing'] },
+    psychology: 'Anchoring', tags: ['anchor', 'value', 'frame'] },
   { id: 'anc_008', category: 'Anchoring', title: 'Anchor to a wasp-call estimate',
     line: "One emergency wasp removal is usually three hundred dollars by itself. The plan includes that kind of work all year.",
     whyItWorks: "Anchor to a specific high-value included service so the price feels efficient.",
@@ -1090,15 +1177,15 @@ export const INSIGHTS = [
   { id: 'frm_001', category: 'Framing', title: 'Prevention frame',
     line: "Most of what we do isn't pest control — it's pest prevention. Different thing entirely.",
     whyItWorks: "Reframing the category from 'reactive' to 'preventive' shifts how the customer evaluates the offer.",
-    psychology: 'Framing', tags: ['frame', 'reframing', 'prevention', 'value'] },
+    psychology: 'Framing', tags: ['frame', 'prevention', 'value'], curated: true  },
   { id: 'frm_002', category: 'Framing', title: 'Risk-as-default frame',
     line: "The default state of an untreated property is 'pest vulnerable.' Treatment just shifts the default.",
     whyItWorks: "Reframing inaction as a choice rather than a neutral state surfaces hidden cost.",
-    psychology: 'Framing', tags: ['frame', 'risk', 'reframing'] },
+    psychology: 'Framing', tags: ['frame', 'risk'] },
   { id: 'frm_003', category: 'Framing', title: 'Health-frame',
     line: "What we do is health and safety as much as it is pest control.",
     whyItWorks: "Reframing the service from pest control to health and safety shifts the customer's mental category.",
-    psychology: 'Framing', tags: ['frame', 'reframing', 'value', 'residential'] },
+    psychology: 'Framing', tags: ['frame', 'value', 'residential'] },
   { id: 'frm_004', category: 'Framing', title: 'Property-value frame',
     line: "Pest prevention is a property-value play more than a comfort play. It protects what the home is worth.",
     whyItWorks: "Reframing the service against the property's value justifies the recurring cost.",
@@ -1110,7 +1197,7 @@ export const INSIGHTS = [
   { id: 'frm_006', category: 'Framing', title: 'Choice-architecture frame',
     line: "The real choice isn't whether to do something — it's whether to be ahead of it or behind it.",
     whyItWorks: "Reframes the decision to remove the 'do nothing' option from the customer's mental menu.",
-    psychology: 'Framing', tags: ['frame', 'reframing', 'urgency'] },
+    psychology: 'Framing', tags: ['frame', 'urgency'] },
   { id: 'frm_007', category: 'Framing', title: 'Maintenance frame',
     line: "Most homeowners think of this like changing a furnace filter — routine maintenance, not a special event.",
     whyItWorks: "Reframing as routine maintenance makes the recurring nature feel normal.",
@@ -1150,7 +1237,7 @@ export const INSIGHTS = [
     whyItWorks: "Explaining why their current approach fails establishes expertise and creates a need without pressure.",
     psychology: 'Consultative Selling', tags: ['consultative', 'authority', 'differentiation'] },
   { id: 'cons_006', category: 'Consultative Selling', title: 'Reflect understanding before pitching',
-    line: "So just to play back what I heard — the issue is in the basement, started about a month ago, and you've already tried [X]. Is that right?",
+    line: "So just to play back what I heard — the issue is in the basement, started about a month ago, and you've already tried a few hardware-store products. Is that right?",
     whyItWorks: "Reflecting demonstrates listening and ensures the recommendation lands on the right problem.",
     psychology: 'Active Listening', tags: ['consultative', 'empathy', 'discovery'] },
   { id: 'cons_007', category: 'Consultative Selling', title: 'Tiered options',
@@ -1518,35 +1605,35 @@ export const INSIGHTS = [
   { id: 'qbs_001', category: 'Question-Based Selling', title: 'Open with a question, not a pitch',
     line: "Mind if I ask what made you open the door today instead of just waving me off?",
     whyItWorks: "Surfaces the customer's motivation immediately and frames the rep as curious, not pushy.",
-    psychology: 'Discovery', tags: ['questioning', 'discovery', 'opening'] },
+    psychology: 'Discovery', tags: ['discovery', 'opening'] },
   { id: 'qbs_002', category: 'Question-Based Selling', title: 'The implication question',
     line: "If this got worse — what does that look like for you?",
     whyItWorks: "Forces the customer to name the cost of inaction in their own words.",
-    psychology: 'SPIN — Implication', tags: ['questioning', 'discovery', 'loss'] },
+    psychology: 'SPIN — Implication', tags: ['discovery', 'loss'] },
   { id: 'qbs_003', category: 'Question-Based Selling', title: 'The need-payoff question',
     line: "If we solved this, what does that free you up to do?",
     whyItWorks: "Makes the customer articulate the upside themselves — more persuasive than the rep doing it.",
-    psychology: 'SPIN — Need-Payoff', tags: ['questioning', 'value', 'closing'] },
+    psychology: 'SPIN — Need-Payoff', tags: ['discovery', 'value', 'closing'] },
   { id: 'qbs_004', category: 'Question-Based Selling', title: 'The clarifying question',
     line: "Just to make sure I understand — when you say 'sometimes,' what's that look like in a typical week?",
     whyItWorks: "Surfaces specifics and prevents the rep from solving the wrong problem.",
-    psychology: 'Discovery', tags: ['questioning', 'discovery', 'consultative'] },
+    psychology: 'Discovery', tags: ['discovery', 'consultative'] },
   { id: 'qbs_005', category: 'Question-Based Selling', title: 'The reverse question',
     line: "If you were in my shoes, what would you want to ask?",
     whyItWorks: "Hands the conversational power back to the customer, which often surfaces real concerns.",
-    psychology: 'Discovery', tags: ['questioning', 'empathy', 'consultative'] },
+    psychology: 'Discovery', tags: ['discovery', 'empathy', 'consultative'] },
   { id: 'qbs_006', category: 'Question-Based Selling', title: 'The future-state question',
     line: "Twelve months from now, what would have had to be true for this to feel like the right call?",
     whyItWorks: "Future-tense success questions surface the customer's real criteria for satisfaction.",
-    psychology: 'SPIN — Need-Payoff', tags: ['questioning', 'value', 'closing'] },
+    psychology: 'SPIN — Need-Payoff', tags: ['discovery', 'value', 'closing'] },
   { id: 'qbs_007', category: 'Question-Based Selling', title: 'The yes-question stack',
     line: "Do you want to protect the property? Do you want to stop thinking about pests? Do you want pricing that doesn't move on you? Then quarterly is the right fit.",
     whyItWorks: "Stacked easy-yes questions build momentum into the recommendation.",
-    psychology: 'Commitment & Consistency', tags: ['questioning', 'closing', 'commitment'] },
+    psychology: 'Commitment & Consistency', tags: ['discovery', 'closing', 'commitment'] },
   { id: 'qbs_008', category: 'Question-Based Selling', title: 'The blocker question',
     line: "What's the one thing that, if we addressed it, would make this an easy decision?",
     whyItWorks: "Isolates the single blocking concern — usually fixable.",
-    psychology: 'Objection Isolation', tags: ['questioning', 'discovery', 'closing'] },
+    psychology: 'Objection Isolation', tags: ['discovery', 'closing'] },
 
   // ── CONFIDENCE & CONVICTION ─────────────────────────────────────────────
   { id: 'conf_001', category: 'Confidence', title: 'State the recommendation directly',
@@ -1564,7 +1651,7 @@ export const INSIGHTS = [
   { id: 'conf_004', category: 'Confidence', title: 'Make the ask',
     line: "I'd like to get you on the schedule. Want me to do that now?",
     whyItWorks: "Most sales are lost because nobody asked. Asking directly is the close.",
-    psychology: 'Direct Close', tags: ['conviction', 'closing', 'commitment'] },
+    psychology: 'Direct Close', tags: ['conviction', 'closing', 'commitment'], curated: true  },
   { id: 'conf_005', category: 'Confidence', title: 'Hold the silence',
     line: "[Ask the closing question — then stop talking. Let the silence do the work.]",
     whyItWorks: "Silence after a close is uncomfortable for the customer, not the rep. Whoever speaks first usually loses.",
@@ -1583,71 +1670,401 @@ export const INSIGHTS = [
     psychology: 'Conviction', tags: ['conviction', 'authority', 'closing'] },
 ];
 
-// ──────────────────────────────────────────────────────────────────────────
-//   Rotation tracking
-// ──────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+//   KNOWLEDGE ENGINE
+//   Indexes, helpers, rotation, picking, search.
+//   Keep all business logic here. Components import named exports only.
+// ══════════════════════════════════════════════════════════════════════════
 
-const RECENT_KEY = 'oc.intel.recent';
-const RECENT_MAX = 40;
+// ── Indexes (built lazily once on first use) ────────────────────────────
 
-function loadRecent() {
+let _idIndex          = null;   // id → insight
+let _categoryIndex    = null;   // category → insight[]
+let _tagIndex         = null;   // tag → insight[]
+let _psychologyIndex  = null;   // psychology → insight[]
+let _categoriesCache  = null;   // string[] in insertion order
+let _curatedCache     = null;   // insight[]
+
+function ensureIndexes() {
+  if (_idIndex) return;
+  _idIndex         = new Map();
+  _categoryIndex   = new Map();
+  _tagIndex        = new Map();
+  _psychologyIndex = new Map();
+  const catOrder   = [];
+  const seenCats   = new Set();
+  const curated    = [];
+
+  for (const i of INSIGHTS) {
+    _idIndex.set(i.id, i);
+
+    if (!seenCats.has(i.category)) { seenCats.add(i.category); catOrder.push(i.category); }
+    pushIntoMap(_categoryIndex, i.category, i);
+
+    if (i.psychology) pushIntoMap(_psychologyIndex, i.psychology, i);
+
+    if (Array.isArray(i.tags)) {
+      for (const t of i.tags) pushIntoMap(_tagIndex, t, i);
+    }
+
+    if (i.curated) curated.push(i);
+  }
+
+  _categoriesCache = catOrder;
+  _curatedCache    = curated;
+}
+
+function pushIntoMap(map, key, value) {
+  const arr = map.get(key);
+  if (arr) arr.push(value);
+  else map.set(key, [value]);
+}
+
+// Resolve all default ranking fields. Lightweight — returns a new object
+// only when defaults are applied; otherwise returns the original by ref.
+function withDefaults(i) {
+  if (
+    i.priority      != null &&
+    i.confidence    != null &&
+    i.difficulty    != null &&
+    i.effectiveness != null &&
+    i.curated       != null
+  ) return i;
+  return {
+    ...i,
+    priority:      i.priority      ?? DEFAULT_PRIORITY,
+    confidence:    i.confidence    ?? DEFAULT_CONFIDENCE,
+    difficulty:    i.difficulty    ?? DEFAULT_DIFFICULTY,
+    effectiveness: i.effectiveness ?? DEFAULT_EFFECTIVENESS,
+    curated:       i.curated       ?? false,
+  };
+}
+
+// ── Rotation tracking (persisted across reloads) ─────────────────────────
+
+const REC_IDS_KEY   = 'oc.intel.recent';        // historical key — kept for compat
+const REC_CATS_KEY  = 'oc.intel.recentCats';
+const REC_PSYCH_KEY = 'oc.intel.recentPsych';
+
+const REC_IDS_MAX   = 40;
+const REC_CATS_MAX  = 8;
+const REC_PSYCH_MAX = 6;
+
+function loadList(key) {
   try {
-    const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
     return Array.isArray(raw) ? raw : [];
   } catch { return []; }
 }
 
-function saveRecent(arr) {
-  try { localStorage.setItem(RECENT_KEY, JSON.stringify(arr.slice(0, RECENT_MAX))); }
+function saveList(key, arr, max) {
+  try { localStorage.setItem(key, JSON.stringify(arr.slice(0, max))); }
   catch { /* localStorage may be unavailable */ }
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-//   Public API
-// ──────────────────────────────────────────────────────────────────────────
+function pushRecent(insight) {
+  if (!insight) return;
+  saveList(REC_IDS_KEY,   [insight.id,        ...loadList(REC_IDS_KEY).filter(x => x !== insight.id)],          REC_IDS_MAX);
+  saveList(REC_CATS_KEY,  [insight.category,  ...loadList(REC_CATS_KEY).filter(x => x !== insight.category)],   REC_CATS_MAX);
+  saveList(REC_PSYCH_KEY, [insight.psychology,...loadList(REC_PSYCH_KEY).filter(x => x !== insight.psychology)],REC_PSYCH_MAX);
+}
 
-/**
- * Pick an insight, optionally biased toward an objection category.
- * Avoids returning recently shown insights when possible.
- */
-export function pickInsight({ objectionCategory = null, excludeId = null } = {}) {
-  const recent = new Set(loadRecent());
-  const filterTags = (objectionCategory && OBJECTION_TAG_MAP[objectionCategory]) || null;
+// ── Scoring (variety + quality) ──────────────────────────────────────────
 
-  let pool = INSIGHTS;
-  if (filterTags && filterTags.length > 0) {
-    const filtered = INSIGHTS.filter(i => i.tags.some(t => filterTags.includes(t)));
-    if (filtered.length > 0) pool = filtered;
+function scoreCandidate(insight, ctx) {
+  const i = withDefaults(insight);
+  let score = (i.priority * i.confidence) + (i.effectiveness * 0.5);
+  if (i.curated) score *= CURATED_BOOST;
+
+  // Penalize recent categories (proximity-weighted)
+  const catIdx = ctx.recentCats.indexOf(i.category);
+  if      (catIdx === 0) score *= 0.22;
+  else if (catIdx === 1) score *= 0.50;
+  else if (catIdx === 2) score *= 0.72;
+  else if (catIdx >= 0)  score *= 0.88;
+
+  // Penalize recent psychology labels
+  const psyIdx = ctx.recentPsych.indexOf(i.psychology);
+  if      (psyIdx === 0) score *= 0.40;
+  else if (psyIdx === 1) score *= 0.65;
+  else if (psyIdx >= 0)  score *= 0.85;
+
+  // Profile-driven nudges (all optional)
+  if (ctx.profile) {
+    if (ctx.profile.preferredCategories?.includes(i.category)) score *= 1.25;
+    if (ctx.profile.bookmarks?.includes(i.id))                 score *= 0.55; // already seen + liked → spread elsewhere
+    if (ctx.profile.ratings?.[i.id] === 'up')                  score *= 1.15;
+    if (ctx.profile.ratings?.[i.id] === 'down')                score *= 0.40;
+    // Skill-level shapes which difficulty surfaces
+    if (ctx.profile.skillLevel === 'new'           && i.difficulty >= 4) score *= 0.65;
+    if (ctx.profile.skillLevel === 'experienced'   && i.difficulty <= 2) score *= 0.80;
   }
 
-  const eligible = pool.filter(i => !recent.has(i.id) && i.id !== excludeId);
-  const picked = eligible.length > 0
-    ? eligible[Math.floor(Math.random() * eligible.length)]
-    : pool[Math.floor(Math.random() * pool.length)] || INSIGHTS[0];
-
-  saveRecent([picked.id, ...Array.from(recent).filter(id => id !== picked.id)]);
-  return picked;
+  return score;
 }
 
+function weightedRandomFrom(scored) {
+  if (scored.length === 0) return null;
+  scored.sort((a, b) => b.score - a.score);
+  // Take top 30% but always at least 6 candidates if pool is large enough
+  const sliceSize = Math.max(Math.min(6, scored.length), Math.ceil(scored.length * 0.30));
+  const top = scored.slice(0, sliceSize);
+  const total = top.reduce((s, c) => s + c.score, 0);
+  if (total <= 0) return top[0].insight;
+  let r = Math.random() * total;
+  for (const c of top) {
+    r -= c.score;
+    if (r <= 0) return c.insight;
+  }
+  return top[0].insight;
+}
+
+function applyProfileFilters(pool, profile) {
+  if (!profile) return pool;
+  const hiddenIds = profile.hiddenIds?.length ? new Set(profile.hiddenIds) : null;
+  const hiddenCats = profile.hiddenCategories?.length ? new Set(profile.hiddenCategories) : null;
+  if (!hiddenIds && !hiddenCats) return pool;
+  return pool.filter(i =>
+    (!hiddenIds  || !hiddenIds.has(i.id)) &&
+    (!hiddenCats || !hiddenCats.has(i.category))
+  );
+}
+
+function poolFromTags(tags) {
+  if (!tags || tags.length === 0) return INSIGHTS;
+  ensureIndexes();
+  const seen = new Set();
+  const out  = [];
+  for (const t of tags) {
+    const bucket = _tagIndex.get(t);
+    if (!bucket) continue;
+    for (const i of bucket) {
+      if (seen.has(i.id)) continue;
+      seen.add(i.id);
+      out.push(i);
+    }
+  }
+  return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//   Public API — core lookup
+// ══════════════════════════════════════════════════════════════════════════
+
+/** Return an insight by id, or null if not found. O(1). */
 export function getInsightById(id) {
-  return INSIGHTS.find(i => i.id === id) || null;
+  ensureIndexes();
+  return _idIndex.get(id) || null;
 }
 
+/** Return all categories in insertion order. Memoized. */
 export function getCategories() {
-  return Array.from(new Set(INSIGHTS.map(i => i.category)));
+  ensureIndexes();
+  return _categoriesCache.slice();
 }
 
+/** Total number of insights in the library. */
 export function getInsightCount() {
   return INSIGHTS.length;
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-//   Future hooks — bookmarks, rating, analytics
-//   Kept as no-op stubs so callers can wire them in without breakage.
-// ──────────────────────────────────────────────────────────────────────────
+/** Return every insight (defensive copy of the array). */
+export function getAllInsights() {
+  return INSIGHTS.slice();
+}
+
+/** Curated insights (admin-featured). Memoized. */
+export function getCuratedInsights() {
+  ensureIndexes();
+  return _curatedCache.slice();
+}
+
+/** Insights in a specific category. Empty array if none. */
+export function getInsightsByCategory(category) {
+  ensureIndexes();
+  return (_categoryIndex.get(category) || []).slice();
+}
+
+/** Insights labeled with a specific psychology principle. */
+export function getInsightsByPsychology(psychology) {
+  ensureIndexes();
+  return (_psychologyIndex.get(psychology) || []).slice();
+}
+
+/** Insights matching any of the given tags. Deduped. */
+export function getInsightsByTags(tags) {
+  return poolFromTags(Array.isArray(tags) ? tags : [tags]);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//   Public API — picking (with smart rotation + scoring)
+// ══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Pick an insight, optionally biased by objection category and/or user profile.
+ * Returns the same insight only when the entire pool has been recently shown.
+ *
+ * @param {object}  [opts]
+ * @param {string}  [opts.objectionCategory]  key from OBJECTION_TAG_MAP
+ * @param {string}  [opts.excludeId]          never return this exact insight
+ * @param {object}  [opts.profile]            optional user profile (see header)
+ */
+export function pickInsight({ objectionCategory = null, excludeId = null, profile = null } = {}) {
+  ensureIndexes();
+  const recentIds   = new Set(loadList(REC_IDS_KEY));
+  const recentCats  = loadList(REC_CATS_KEY);
+  const recentPsych = loadList(REC_PSYCH_KEY);
+
+  // Determine pool
+  let pool = INSIGHTS;
+  if (objectionCategory && OBJECTION_TAG_MAP[objectionCategory]?.length) {
+    const filtered = poolFromTags(OBJECTION_TAG_MAP[objectionCategory]);
+    if (filtered.length > 0) pool = filtered;
+  }
+  pool = applyProfileFilters(pool, profile);
+
+  // Hard-exclude recents (with graceful fallback)
+  let eligible = pool.filter(i => !recentIds.has(i.id) && i.id !== excludeId);
+  if (eligible.length === 0) eligible = pool.filter(i => i.id !== excludeId);
+  if (eligible.length === 0) eligible = pool;
+
+  const scored = eligible.map(insight => ({
+    insight,
+    score: scoreCandidate(insight, { recentCats, recentPsych, profile }),
+  }));
+
+  const picked = weightedRandomFrom(scored) || INSIGHTS[0];
+  pushRecent(picked);
+  return picked;
+}
+
+/** Pick an insight forced to a given category. Respects rotation + profile. */
+export function pickInsightByCategory(category, opts = {}) {
+  ensureIndexes();
+  const pool = _categoryIndex.get(category);
+  if (!pool || pool.length === 0) return null;
+  return pickFromPool(pool, opts);
+}
+
+/** Pick an insight matching any of the supplied tags. */
+export function pickInsightByTags(tags, opts = {}) {
+  const pool = poolFromTags(Array.isArray(tags) ? tags : [tags]);
+  if (pool.length === 0) return null;
+  return pickFromPool(pool, opts);
+}
+
+function pickFromPool(pool, { excludeId = null, profile = null } = {}) {
+  const recentIds   = new Set(loadList(REC_IDS_KEY));
+  const recentCats  = loadList(REC_CATS_KEY);
+  const recentPsych = loadList(REC_PSYCH_KEY);
+
+  let working = applyProfileFilters(pool, profile);
+  let eligible = working.filter(i => !recentIds.has(i.id) && i.id !== excludeId);
+  if (eligible.length === 0) eligible = working.filter(i => i.id !== excludeId);
+  if (eligible.length === 0) eligible = working.length ? working : pool;
+
+  const scored = eligible.map(insight => ({
+    insight,
+    score: scoreCandidate(insight, { recentCats, recentPsych, profile }),
+  }));
+  const picked = weightedRandomFrom(scored) || pool[0];
+  pushRecent(picked);
+  return picked;
+}
+
+/** Pure random pick — bypasses rotation + scoring. Useful for tests / previews. */
+export function getRandomInsight() {
+  return INSIGHTS[Math.floor(Math.random() * INSIGHTS.length)];
+}
+
+/**
+ * Personalized recommendation pipeline.
+ * Today: alias of pickInsight({ profile }). Reserved as the future entry
+ * point for ML-ranked or server-recommended insights so callers can adopt
+ * the name now and the implementation can swap underneath.
+ */
+export function getRecommendedInsight(profile = null, opts = {}) {
+  return pickInsight({ ...opts, profile });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//   Public API — discovery
+// ══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Full-text search over title / line / whyItWorks / psychology / category.
+ * Case-insensitive, ranked by where the match landed (title > line > body).
+ */
+export function searchInsights(query, { limit = 25 } = {}) {
+  if (!query || !query.trim()) return [];
+  const q = query.trim().toLowerCase();
+  const scored = [];
+  for (const i of INSIGHTS) {
+    let score = 0;
+    if (i.title.toLowerCase().includes(q))       score += 5;
+    if (i.category.toLowerCase().includes(q))    score += 4;
+    if (i.psychology?.toLowerCase().includes(q)) score += 3;
+    if (i.line.toLowerCase().includes(q))        score += 2;
+    if (i.whyItWorks.toLowerCase().includes(q))  score += 1;
+    if (i.tags?.some(t => t.includes(q)))        score += 2;
+    if (score > 0) scored.push({ insight: i, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(s => s.insight);
+}
+
+/**
+ * Find insights related to the given one by shared tags + psychology.
+ * Returns at most `limit` insights, excluding the source.
+ */
+export function getRelatedInsights(insightId, { limit = 4 } = {}) {
+  ensureIndexes();
+  const src = _idIndex.get(insightId);
+  if (!src) return [];
+  const srcTags = new Set(src.tags || []);
+  const scored = [];
+  for (const i of INSIGHTS) {
+    if (i.id === src.id) continue;
+    let score = 0;
+    if (i.psychology === src.psychology) score += 3;
+    if (i.category   === src.category)   score += 2;
+    for (const t of (i.tags || [])) if (srcTags.has(t)) score += 1;
+    if (score > 0) scored.push({ insight: i, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(s => s.insight);
+}
+
+/** Library statistics — useful for an admin view or dev sanity check. */
+export function getStats() {
+  ensureIndexes();
+  const byCategory = {};
+  for (const [cat, list] of _categoryIndex) byCategory[cat] = list.length;
+  const byPsychology = {};
+  for (const [psy, list] of _psychologyIndex) byPsychology[psy] = list.length;
+  return {
+    total:        INSIGHTS.length,
+    curated:      _curatedCache.length,
+    categories:   _categoriesCache.length,
+    tags:         _tagIndex.size,
+    psychologies: _psychologyIndex.size,
+    byCategory,
+    byPsychology,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//   User-state hooks — localStorage-backed; safe to call from anywhere.
+//   These are the engine's writable side and the only place that touches
+//   user-specific persistence. UI can build profiles by reading these.
+// ══════════════════════════════════════════════════════════════════════════
 
 const BOOKMARK_KEY = 'oc.intel.bookmarks';
 const RATING_KEY   = 'oc.intel.ratings';
+const HIDDEN_KEY   = 'oc.intel.hidden';
+const VIEWS_KEY    = 'oc.intel.views';
+
+// ── Bookmarks ───────────────────────────────────────────────────────────
 
 export function bookmarkInsight(id) {
   try {
@@ -1669,6 +2086,22 @@ export function getBookmarks() {
   catch { return []; }
 }
 
+export function isBookmarked(id) {
+  return getBookmarks().includes(id);
+}
+
+export function getBookmarkableInsights() {
+  // Today: every insight is bookmarkable. Reserved for future curation rules.
+  return getAllInsights();
+}
+
+export function getBookmarkedInsights() {
+  ensureIndexes();
+  return getBookmarks().map(id => _idIndex.get(id)).filter(Boolean);
+}
+
+// ── Ratings (👍 / 👎) ────────────────────────────────────────────────────
+
 export function rateInsight(id, rating /* 'up' | 'down' | null */) {
   try {
     const map = JSON.parse(localStorage.getItem(RATING_KEY) || '{}');
@@ -1683,4 +2116,63 @@ export function getRating(id) {
     const map = JSON.parse(localStorage.getItem(RATING_KEY) || '{}');
     return map[id]?.rating || null;
   } catch { return null; }
+}
+
+export function getRatings() {
+  try { return JSON.parse(localStorage.getItem(RATING_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+// ── Hidden insights ─────────────────────────────────────────────────────
+
+export function hideInsight(id) {
+  try {
+    const arr = JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]');
+    if (!arr.includes(id)) arr.push(id);
+    localStorage.setItem(HIDDEN_KEY, JSON.stringify(arr));
+  } catch { /* noop */ }
+}
+
+export function unhideInsight(id) {
+  try {
+    const arr = JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]');
+    localStorage.setItem(HIDDEN_KEY, JSON.stringify(arr.filter(x => x !== id)));
+  } catch { /* noop */ }
+}
+
+export function getHiddenIds() {
+  try { return JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]'); }
+  catch { return []; }
+}
+
+// ── View tracking (lightweight, for future analytics) ───────────────────
+
+export function markViewed(id) {
+  try {
+    const map = JSON.parse(localStorage.getItem(VIEWS_KEY) || '{}');
+    map[id] = (map[id] || 0) + 1;
+    localStorage.setItem(VIEWS_KEY, JSON.stringify(map));
+  } catch { /* noop */ }
+}
+
+export function getViewCount(id) {
+  try {
+    const map = JSON.parse(localStorage.getItem(VIEWS_KEY) || '{}');
+    return map[id] || 0;
+  } catch { return 0; }
+}
+
+// ── Profile assembly helper ─────────────────────────────────────────────
+
+/**
+ * Convenience: build a profile object from localStorage state so callers
+ * can pass `profile` to picking functions without managing it themselves.
+ * Returns an empty profile if nothing has been recorded yet.
+ */
+export function getLocalProfile() {
+  return {
+    bookmarks: getBookmarks(),
+    ratings:   getRatings(),
+    hiddenIds: getHiddenIds(),
+  };
 }
