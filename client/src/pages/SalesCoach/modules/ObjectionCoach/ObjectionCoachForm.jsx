@@ -1,18 +1,20 @@
 import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import {
   AlertCircle, ArrowRight, BarChart2, Brain, Bug, ChevronDown, ChevronUp,
-  DollarSign, HelpCircle, Leaf, MessageCircle, MoreHorizontal, Package,
-  ShieldCheck, Smile, Tag, Timer, Users, User, Clock, XCircle,
+  DollarSign, HelpCircle, Leaf, MessageCircle, Package,
+  ShieldCheck, Smile, Tag, Timer, Users, User,
 } from 'lucide-react';
 import PremiumSelect from '../../components/PremiumSelect.jsx';
 import { CATEGORIES, SERVICES, PERSONALITIES } from './constants.js';
 
 const CATEGORY_ICONS = {
-  price: DollarSign, timing: Clock, need: XCircle, trust: ShieldCheck,
-  competitor: Users, think: User, other: MoreHorizontal,
+  price: DollarSign, trust: ShieldCheck, think: User, shopping: Users,
 };
 const SERVICE_ICONS = {
-  mosquito: Leaf, flea_tick: Bug, general_pest: Bug, bundle: Package, not_sure: HelpCircle,
+  tick_mosquito: Leaf, insect_quarterly: Bug, rodent_insect_triannual: Bug,
+  bed_bug: Bug, commercial_monthly: Package, commercial_bimonthly: Package,
+  commercial_quarterly: Package, commercial_triannual: Package,
+  commercial_custom: Package, residential_custom: HelpCircle,
 };
 const PERSONALITY_ICONS = {
   analytical: BarChart2, friendly: MessageCircle, skeptical: Brain,
