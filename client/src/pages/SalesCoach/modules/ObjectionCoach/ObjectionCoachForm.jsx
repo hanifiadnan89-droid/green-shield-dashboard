@@ -3,7 +3,7 @@ import {
   Brain, MessageSquare, ShieldCheck, Bug, Smile,
   ChevronDown, ChevronUp, AlertCircle,
   DollarSign, Clock, XCircle, Users, User, MoreHorizontal,
-  Leaf, Package, HelpCircle,
+  Leaf, Package, HelpCircle, Check,
   BarChart2, MessageCircle, Timer, Tag,
 } from 'lucide-react';
 import { CATEGORIES, SERVICES, PERSONALITIES } from './constants.js';
@@ -34,11 +34,11 @@ const PERSONALITY_ICONS = {
   price_focused: Tag,
 };
 
-function SectionHeader({ icon: Icon, title }) {
+function SectionHeader({ icon: Icon, title, step }) {
   return (
     <div className="oc-section-header">
-      <div className="oc-section-icon-wrap">
-        <Icon size={18} />
+      <div className="oc-step-badge">
+        {step ?? <Icon size={16} />}
       </div>
       <span className="oc-section-title">{title}</span>
     </div>
@@ -60,6 +60,7 @@ function OptionGrid({ options, value, onChange, icons }) {
           >
             {Icon && <Icon size={14} />}
             {opt.label}
+            {active && <Check className="oc-option-card__check" size={15} />}
           </button>
         );
       })}
@@ -89,7 +90,7 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
     <div className="oc-form-card">
 
       <div className="oc-form-section">
-        <SectionHeader icon={MessageSquare} title="Customer Objection" />
+        <SectionHeader icon={MessageSquare} title="Customer Objection" step={1} />
         <textarea
           className="oc-form-textarea"
           rows={5}
@@ -105,7 +106,7 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
 
       {/* ── Service Being Discussed ── */}
       <div className="oc-form-section">
-        <SectionHeader icon={Leaf} title="Service Being Discussed" />
+        <SectionHeader icon={Leaf} title="Service Being Discussed" step={2} />
         <OptionGrid options={SERVICES} value={service} onChange={setService} icons={SERVICE_ICONS} />
       </div>
 
@@ -113,28 +114,66 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
 
       {/* ── Objection Type ── */}
       <div className="oc-form-section">
-        <SectionHeader icon={ShieldCheck} title="Objection Type" />
+        <SectionHeader icon={ShieldCheck} title="Objection Type" step={3} />
         <OptionGrid options={CATEGORIES} value={category} onChange={setCategory} icons={CATEGORY_ICONS} />
       </div>
 
       <div className="oc-form-divider" />
 
+      {/* ── Submit ── */}
+      <div className="oc-form-section oc-form-section--submit">
+        <button
+          type="button"
+          className="oc-submit"
+          disabled={!canSubmit || loading}
+          onClick={handleSubmit}
+        >
+          {loading ? (
+            <>
+              <span className="animate-spin inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full" />
+              Coaching…
+            </>
+          ) : (
+            <>
+              <Brain size={18} />
+              Coach Me
+            </>
+          )}
+        </button>
+
+        {error && (
+          <div className="oc-error">
+            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+            {error}
+          </div>
+        )}
+      </div>
+
       {/* ── Customer Vibe ── */}
       <div className="oc-form-section">
-        <SectionHeader icon={Smile} title="Customer Personality/Vibe" />
-        <OptionGrid options={PERSONALITIES} value={personality} onChange={setPersonality} icons={PERSONALITY_ICONS} />
+        <SectionHeader icon={Smile} title="Customer Personality/Vibe" step={4} />
+        <select
+          className="oc-input oc-compact-select"
+          value={personality}
+          onChange={e => setPersonality(e.target.value)}
+        >
+          <option value="">Select customer vibe</option>
+          {PERSONALITIES.map(option => (
+            <option key={option.id} value={option.id}>{option.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="oc-form-divider" />
 
       {/* ── Property Context ── */}
-      <div className="oc-form-section">
+      <div className="oc-form-section oc-form-section--property">
         <button
           type="button"
           className="oc-property-toggle"
           onClick={() => setShowOptional(v => !v)}
         >
-          <div className="oc-section-icon-wrap oc-section-icon-wrap--sm">
+          <div className="oc-step-badge oc-step-badge--muted">
             {showOptional ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </div>
           <div className="oc-property-toggle__text">
@@ -169,35 +208,6 @@ export default function ObjectionCoachForm({ onSubmit, loading, error }) {
               value={propNotes}
               onChange={e => setPropNotes(e.target.value)}
             />
-          </div>
-        )}
-      </div>
-
-      {/* ── Submit ── */}
-      <div className="oc-form-section oc-form-section--submit">
-        <button
-          type="button"
-          className="oc-submit"
-          disabled={!canSubmit || loading}
-          onClick={handleSubmit}
-        >
-          {loading ? (
-            <>
-              <span className="animate-spin inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full" />
-              Coaching…
-            </>
-          ) : (
-            <>
-              <Brain size={18} />
-              Coach Me
-            </>
-          )}
-        </button>
-
-        {error && (
-          <div className="oc-error">
-            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-            {error}
           </div>
         )}
       </div>

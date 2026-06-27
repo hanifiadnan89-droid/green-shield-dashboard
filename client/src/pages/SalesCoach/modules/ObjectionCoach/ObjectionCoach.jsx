@@ -1,19 +1,26 @@
 import { useState } from 'react';
-import { MessageSquare } from 'lucide-react';
 import { useSalesCoachSession } from '../../hooks/useSalesCoachSession.js';
 import { salesCoachApi } from '../../api/salesCoachApi.js';
 import ObjectionCoachForm     from './ObjectionCoachForm.jsx';
 import ObjectionCoachResult   from './ObjectionCoachResult.jsx';
 
 function EmptyState() {
+  const placeholderResult = {
+    recommendedResponse: "I completely understand. Price is important and you want to make the right decision. Once you enter the customer's exact objection, I’ll build a response grounded in Green Shield knowledge.",
+    whyThisWorks: 'Acknowledges the concern. Keeps the rep calm. Sets up a value-based answer.',
+    bestClosingQuestion: 'If the plan solves the real problem and fits the property, would you be comfortable moving forward today?',
+    thingsToAvoid: ["Don't argue", "Don't discount before explaining value", "Don't over-explain"],
+    confidence: 92,
+    knowledgeSources: [],
+  };
+
   return (
-    <div className="oc-empty-state">
-      <div className="oc-empty-state__icon"><MessageSquare size={40} /></div>
-      <div className="oc-empty-state__title">Ready when you are</div>
-      <div className="oc-empty-state__hint">
-        Describe what the customer said, pick a category, and hit Coach Me to get a live sales response.
-      </div>
-    </div>
+    <ObjectionCoachResult
+      result={placeholderResult}
+      repEdited={placeholderResult.recommendedResponse}
+      onRepEditedChange={() => {}}
+      isPlaceholder
+    />
   );
 }
 

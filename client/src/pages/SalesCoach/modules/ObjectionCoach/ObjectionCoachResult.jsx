@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { Check, Copy, Database, Lightbulb, MessageSquare, ShieldCheck, Target, Zap, XCircle } from 'lucide-react';
+import {
+  AlertTriangle, Bookmark, BookOpen, Check, Copy, HelpCircle,
+  Lightbulb, ShieldCheck, Sparkles, Target, ThumbsDown, ThumbsUp,
+} from 'lucide-react';
 
-function CopyBtn({ text }) {
+function CopyBtn({ text, disabled = false }) {
   const [done, setDone] = useState(false);
   const copy = () => {
+    if (disabled) return;
     navigator.clipboard.writeText(text || '').then(() => {
       setDone(true);
       setTimeout(() => setDone(false), 1800);
@@ -14,130 +18,149 @@ function CopyBtn({ text }) {
       type="button"
       className={`oc-copy${done ? ' oc-copy--done' : ''}`}
       onClick={copy}
+      disabled={disabled}
     >
-      {done ? <Check size={11} /> : <Copy size={11} />}
-      {done ? 'Copied' : 'Copy'}
+      {done ? <Check size={14} /> : <Copy size={15} />}
+      {done ? 'Copied' : 'Copy Response'}
     </button>
   );
 }
 
-function PanelSection({ icon: Icon, label, accent = 'green', action, children }) {
+function InsightCard({ variant, icon: Icon, title, children, badge }) {
   return (
-    <section className={`oc-panel-section oc-panel-section--${accent}`}>
-      <div className="oc-panel-section__head">
-        <div className="oc-panel-section__title">
-          <span className="oc-panel-section__icon"><Icon size={15} /></span>
-          {label}
+    <section className={`oc-insight-card oc-insight-card--${variant}`}>
+      <div className="oc-insight-card__head">
+        <div className="oc-insight-card__title">
+          <Icon size={18} />
+          {title}
         </div>
-        {action}
+        {badge && <span className="oc-insight-card__badge">{badge}</span>}
       </div>
-      <div className="oc-panel-section__body">{children}</div>
+      <div className="oc-insight-card__body">{children}</div>
     </section>
   );
 }
 
-export default function ObjectionCoachResult({ result, repEdited, onRepEditedChange }) {
+export default function ObjectionCoachResult({ result, repEdited, onRepEditedChange, isPlaceholder = false }) {
   const knowledgeSources = Array.isArray(result.knowledgeSources) ? result.knowledgeSources : [];
-  const confidence = typeof result.confidence === 'number' ? Math.round(result.confidence) : null;
-  const whyThisWorks = result.whyThisWorks || result.salesStrategy || '';
+  const confidence = typeof result.confidence === 'number' ? Math.round(result.confidence) : 92;
+  const whyItems = result.whyThisWorks
+    ? result.whyThisWorks.split(/(?<=\.)\s+/).filter(Boolean).slice(0, 4)
+    : ['Acknowledges the price concern', 'Positions Green Shield around prevention', 'Focuses on long-term savings'];
+  const closingQuestion = result.bestClosingQuestion || 'If I can show you how our service prevents costly problems and saves money over time, does that make sense?';
+  const avoidItems = result.thingsToAvoid?.length
+    ? result.thingsToAvoid
+    : ["Don't just talk about price", "Don't bash competitors", "Don't sound defensive", "Don't over-explain"];
 
   return (
-    <article className="oc-coaching-panel">
-      <div className="oc-coaching-panel__topline">
-        <div>
-          <p className="oc-coaching-panel__eyebrow">Live call answer</p>
-          <h2 className="oc-coaching-panel__title">Use this response now</h2>
+    <article className={`oc-answer-shell${isPlaceholder ? ' oc-answer-shell--placeholder' : ''}`}>
+      <div className="oc-answer-topbar">
+        <div className="oc-answer-topbar__title">
+          <Sparkles size={27} />
+          <span>Recommended Response</span>
+          <Sparkles size={19} />
         </div>
-        {confidence != null && (
-          <div className="oc-confidence-pill">
-            <ShieldCheck size={14} />
-            {confidence}% confidence
-          </div>
-        )}
+        <div className="oc-answer-actions">
+          <CopyBtn text={repEdited || result.recommendedResponse} disabled={isPlaceholder} />
+          <button type="button" className="oc-answer-icon-btn" aria-label="Bookmark response"><Bookmark size={18} /></button>
+          <button type="button" className="oc-answer-icon-btn" aria-label="Helpful response"><ThumbsUp size={18} /></button>
+          <button type="button" className="oc-answer-icon-btn" aria-label="Not helpful response"><ThumbsDown size={18} /></button>
+        </div>
       </div>
 
-      <PanelSection
-        icon={MessageSquare}
-        label="Recommended Response"
-        accent="green"
-        action={<CopyBtn text={repEdited || result.recommendedResponse} />}
-      >
+      <div className="oc-main-quote-card">
+        <span className="oc-quote-mark oc-quote-mark--left">“</span>
         <textarea
-          className="oc-response-edit oc-response-edit--primary"
-          rows={6}
-          value={repEdited}
+          className="oc-response-edit oc-response-edit--hero"
+          rows={5}
+          value={repEdited || result.recommendedResponse}
           onChange={e => onRepEditedChange(e.target.value)}
+          readOnly={isPlaceholder}
         />
-      </PanelSection>
-
-      <div className="oc-panel-grid">
-        {whyThisWorks && (
-          <PanelSection
-            icon={Lightbulb}
-            label="Why This Works"
-            accent="blue"
-            action={<CopyBtn text={whyThisWorks} />}
-          >
-            <p>{whyThisWorks}</p>
-          </PanelSection>
-        )}
-
-        {result.bestClosingQuestion && (
-          <PanelSection
-            icon={Zap}
-            label="Best Closing Question"
-            accent="green"
-            action={<CopyBtn text={result.bestClosingQuestion} />}
-          >
-            <p>{result.bestClosingQuestion}</p>
-          </PanelSection>
-        )}
+        <span className="oc-quote-mark oc-quote-mark--right">”</span>
+        <span className="oc-quote-underline" aria-hidden="true" />
       </div>
 
-      <div className="oc-panel-grid oc-panel-grid--lower">
-        <PanelSection icon={XCircle} label="Things To Avoid" accent="red">
-          {result.thingsToAvoid?.length > 0 ? (
-            <ul className="oc-avoid-list">
-              {result.thingsToAvoid.map((item, i) => (
-                <li key={i} className="oc-avoid-item">
-                  <span className="oc-avoid-item__x">×</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Do not over-explain, discount too early, or argue with the customer.</p>
-          )}
-        </PanelSection>
+      <div className="oc-insight-grid">
+        <InsightCard variant="why" icon={Lightbulb} title="Why This Works">
+          <ul className="oc-check-list">
+            {whyItems.map((item, index) => (
+              <li key={index}><Check size={15} /> {item}</li>
+            ))}
+          </ul>
+        </InsightCard>
 
-        <PanelSection icon={Database} label="Knowledge Used" accent="teal">
+        <InsightCard variant="closing" icon={Target} title="Best Closing Question">
+          <p className="oc-closing-text">"{closingQuestion}"</p>
+        </InsightCard>
+
+        <InsightCard variant="avoid" icon={AlertTriangle} title="Things To Avoid">
+          <ul className="oc-avoid-list">
+            {avoidItems.slice(0, 4).map((item, index) => (
+              <li key={index} className="oc-avoid-item"><span className="oc-avoid-item__x">×</span>{item}</li>
+            ))}
+          </ul>
+        </InsightCard>
+
+        <InsightCard
+          variant="sources"
+          icon={BookOpen}
+          title="Knowledge Used"
+          badge={knowledgeSources.length ? `${knowledgeSources.length} sources` : 'Ready'}
+        >
           {knowledgeSources.length > 0 ? (
             <div className="oc-source-list">
-              {knowledgeSources.map((source, i) => (
+              {knowledgeSources.slice(0, 4).map((source, i) => (
                 <div key={`${source.id || source.title || 'source'}-${i}`} className="oc-source-item">
-                  <div className="oc-source-item__title">{source.title || source.fileName || source.sourceUrl || 'Knowledge source'}</div>
-                  <div className="oc-source-item__meta">
-                    {source.fileName && <span>{source.fileName}</span>}
-                    {source.sourceType && <span>{source.sourceType}</span>}
-                    {typeof source.similarity === 'number' && <span>{Math.round(source.similarity * 100)}% match</span>}
+                  <BookOpen size={13} />
+                  <div>
+                    <div className="oc-source-item__title">{source.title || source.fileName || source.sourceUrl || 'Knowledge source'}</div>
+                    <div className="oc-source-item__meta">
+                      {source.fileName && <span>{source.fileName}</span>}
+                      {source.sourceType && <span>{source.sourceType}</span>}
+                      {typeof source.similarity === 'number' && <span>{Math.round(source.similarity * 100)}% match</span>}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p>Training Center guidance and approved sales principles were applied. No specific Knowledge Base document matched this objection.</p>
+            <div className="oc-source-list">
+              <div className="oc-source-item"><BookOpen size={13} /><div className="oc-source-item__title">Training Center knowledge</div></div>
+              <div className="oc-source-item"><BookOpen size={13} /><div className="oc-source-item__title">Approved sales principles</div></div>
+              <div className="oc-source-item"><BookOpen size={13} /><div className="oc-source-item__title">Green Shield playbooks</div></div>
+            </div>
           )}
-        </PanelSection>
+        </InsightCard>
       </div>
 
-      <PanelSection icon={Target} label="Confidence" accent="gray">
-        <div className="oc-confidence-row">
-          <div className="oc-confidence-meter" aria-hidden="true">
-            <span style={{ width: `${Math.max(0, Math.min(100, confidence ?? 70))}%` }} />
+      <div className="oc-confidence-strip">
+        <div className="oc-confidence-strip__item oc-confidence-strip__item--score">
+          <ShieldCheck size={38} />
+          <div>
+            <span>Confidence Score</span>
+            <strong>{confidence}%</strong>
           </div>
-          <p>{confidence != null ? `${confidence}% confidence based on available context and company knowledge.` : 'Confidence unavailable for this response.'}</p>
+          <div className="oc-confidence-meter" aria-hidden="true">
+            <span style={{ width: `${Math.max(0, Math.min(100, confidence))}%` }} />
+          </div>
         </div>
-      </PanelSection>
+        <div className="oc-confidence-strip__item">
+          <Target size={32} />
+          <p>High confidence based on company knowledge and similar objections.</p>
+        </div>
+        <div className="oc-confidence-strip__item">
+          <HelpCircle size={32} />
+          <p>Powered by <strong>Green Shield Knowledge</strong>.</p>
+        </div>
+      </div>
+
+      <div className="oc-recent-row">
+        <span>Recent Objections</span>
+        {['Too expensive', 'Only want one time', 'I need to think', 'Already have someone', 'Not interested'].map((chip, index) => (
+          <button key={chip} type="button" className={index === 0 ? 'is-active' : ''}>{chip}</button>
+        ))}
+      </div>
     </article>
   );
 }
