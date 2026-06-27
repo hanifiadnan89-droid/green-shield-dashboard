@@ -1,8 +1,14 @@
+/** CID referenced by the inline preview <img> in standard quote emails. */
+export const QUOTE_EMAIL_PREVIEW_CID = 'quote-agreement-preview';
+
+/** Display width for the inline agreement preview in email clients. */
+export const QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX = 1000;
+
 /** CID referenced by the inline preview <img> in Bed Bug quote emails. */
 export const BED_BUG_EMAIL_PREVIEW_CID = 'bedbug-agreement-preview';
 
 /** Display width for the inline agreement preview in email clients. */
-export const BED_BUG_EMAIL_PREVIEW_MAX_WIDTH_PX = 1000;
+export const BED_BUG_EMAIL_PREVIEW_MAX_WIDTH_PX = QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX;
 
 const COMPANY_FOOTER = `
           <p style="color:#555;font-size:13px">
@@ -14,14 +20,29 @@ const COMPANY_FOOTER = `
 /**
  * Build HTML for a standard (non–Bed Bug) quote email.
  */
-export function buildStandardQuoteEmailHtml({ firstName, hasPrepGuide }) {
+export function buildStandardQuoteEmailHtml({ firstName, hasPrepGuide, includePreview = false }) {
   const attachmentText = hasPrepGuide
     ? 'your personalized quote and preparation guide'
     : 'your personalized quote';
 
+  const previewBlock = includePreview
+    ? `
+          <div style="margin:0 0 24px;">
+            <img
+              src="cid:${QUOTE_EMAIL_PREVIEW_CID}"
+              alt="Service agreement preview"
+              style="width:100%;max-width:${QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX}px;height:auto;display:block;border:1px solid #d9d9d9;border-radius:4px;"
+            />
+            <p style="margin:12px 0 0;font-size:13px;color:#555;">
+              Read your agreement above at full size. A PDF copy is also attached for download and your records.
+            </p>
+          </div>`
+    : '';
+
   return `
-        <div style="font-family:Arial,sans-serif;max-width:560px;color:#1a1a1a">
+        <div style="font-family:Arial,sans-serif;max-width:${includePreview ? QUOTE_EMAIL_PREVIEW_MAX_WIDTH_PX : 560}px;color:#1a1a1a">
           <p>Hi ${firstName},</p>
+          ${previewBlock}
           <p>Please find ${attachmentText} attached to this email.</p>
           <p>If you have any questions, feel free to reply here or give us a call at
              <strong>(207) 815-2234</strong>.</p>
@@ -66,6 +87,18 @@ export function buildBedBugQuoteEmailHtml({ firstName, hasPrepGuide, includePrev
           ${COMPANY_FOOTER}
         </div>
       `;
+}
+
+/**
+ * Nodemailer inline attachment for a standard quote agreement preview image.
+ */
+export function buildQuotePreviewInlineAttachment(pngBuffer) {
+  return {
+    filename: 'agreement-preview.png',
+    content: pngBuffer,
+    cid: QUOTE_EMAIL_PREVIEW_CID,
+    contentType: 'image/png',
+  };
 }
 
 /**

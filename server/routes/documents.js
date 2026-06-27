@@ -30,9 +30,10 @@ import {
 import {
   buildBedBugPreviewInlineAttachment,
   buildBedBugQuoteEmailHtml,
+  buildQuotePreviewInlineAttachment,
   buildStandardQuoteEmailHtml,
 } from '../services/bedBugAgreementEmail.js';
-import { tryRenderBedBugAgreementPreviewPng } from '../services/bedBugAgreementEmailPreview.js';
+import { tryRenderAgreementPreviewPng } from '../services/bedBugAgreementEmailPreview.js';
 import {
   BED_BUG_TEMPLATE_FILENAME,
   listQuoteDocuments,
@@ -1021,9 +1022,10 @@ router.post('/email-quote', async (req, res) => {
     const hasPrepGuide = prepGuideAttached.length > 0;
     const isBedBugTemplate = templateName === BED_BUG_TEMPLATE;
 
+    const preview = await tryRenderAgreementPreviewPng(outBytes);
+
     let emailHtml;
     if (isBedBugTemplate) {
-      const preview = await tryRenderBedBugAgreementPreviewPng(outBytes);
       if (preview.ok) {
         attachments.push(buildBedBugPreviewInlineAttachment(preview.pngBuffer));
       }
@@ -1033,7 +1035,14 @@ router.post('/email-quote', async (req, res) => {
         includePreview: preview.ok,
       });
     } else {
-      emailHtml = buildStandardQuoteEmailHtml({ firstName, hasPrepGuide });
+      if (preview.ok) {
+        attachments.push(buildQuotePreviewInlineAttachment(preview.pngBuffer));
+      }
+      emailHtml = buildStandardQuoteEmailHtml({
+        firstName,
+        hasPrepGuide,
+        includePreview: preview.ok,
+      });
     }
 
     await transporter.sendMail({
@@ -1047,9 +1056,7 @@ router.post('/email-quote', async (req, res) => {
     const logSuffix = prepGuideAttached.length > 0
       ? `+ prep guides: ${prepGuideAttached.join(', ')}`
       : 'quote only (no prep guide)';
-    const previewSuffix = isBedBugTemplate && attachments.some((a) => a.cid)
-      ? ' + inline preview'
-      : '';
+    const previewSuffix = preview.ok ? ' + inline preview' : '';
     console.log(`[email-quote] Sent to ${lead.email} — ${outName} — ${logSuffix}${previewSuffix}`);
 
     res.json({ success: true, to: lead.email, filename: outName, prepGuides: prepGuideAttached });

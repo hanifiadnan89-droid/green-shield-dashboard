@@ -37,6 +37,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
  * Uses Playwright + pdf.js (same approach as server/scripts/render-pdf-preview.mjs).
  */
 export async function renderBedBugAgreementPreviewPng(pdfBytes, { scale = DEFAULT_RENDER_SCALE } = {}) {
+  return renderAgreementPreviewPng(pdfBytes, { scale });
+}
+
+/**
+ * Render the first page of any agreement PDF to a high-resolution PNG buffer.
+ */
+export async function renderAgreementPreviewPng(pdfBytes, { scale = DEFAULT_RENDER_SCALE } = {}) {
   const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
   const html = buildPdfPreviewHtml(pdfBase64, scale);
 
@@ -55,11 +62,18 @@ export async function renderBedBugAgreementPreviewPng(pdfBytes, { scale = DEFAUL
  * Best-effort preview render — returns null instead of throwing when Chromium is unavailable.
  */
 export async function tryRenderBedBugAgreementPreviewPng(pdfBytes, options = {}) {
+  return tryRenderAgreementPreviewPng(pdfBytes, options);
+}
+
+/**
+ * Best-effort preview render for any agreement PDF.
+ */
+export async function tryRenderAgreementPreviewPng(pdfBytes, options = {}) {
   try {
-    const pngBuffer = await renderBedBugAgreementPreviewPng(pdfBytes, options);
+    const pngBuffer = await renderAgreementPreviewPng(pdfBytes, options);
     return { ok: true, pngBuffer };
   } catch (err) {
-    console.warn('[bed-bug-email-preview] Inline preview unavailable:', err.message);
+    console.warn('[agreement-email-preview] Inline preview unavailable:', err.message);
     return { ok: false, error: err.message };
   }
 }
