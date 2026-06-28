@@ -1,9 +1,11 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
 import Layout from './components/Layout.jsx';
 import { AnimatedOutlet } from './components/PageTransition.jsx';
 import TestModeBanner from './components/TestModeBanner.jsx';
 import CRMPreview from './pages/CRMPreview/index.jsx';
+import LoginPage from './pages/Login/LoginPage.jsx';
+import './pages/Login/dashboardEntrance.css';
 import { api } from './api/client.js';
 
 const Leads            = lazy(() => import('./pages/Leads.jsx'));
@@ -54,29 +56,9 @@ function AppShell({ testMode, credsMissing, googleCreds }) {
   );
 }
 
-export default function App() {
-  const [testMode, setTestMode] = useState(null);
-  const [credsMissing, setCredsMissing] = useState(false);
-  const [googleCreds, setGoogleCreds] = useState(null);
-
-  useEffect(() => {
-    api.health().then(data => {
-      setTestMode(data.testMode);
-      setGoogleCreds(data.googleCreds ?? null);
-      setCredsMissing(data.hasGoogleCreds === false);
-    }).catch(() => {
-      setTestMode(true);
-      setCredsMissing(false);
-    });
-  }, []);
-
+function DashboardRoutes({ testMode, credsMissing, googleCreds }) {
   return (
     <Routes>
-      <Route path="/sign/:token" element={
-        <Suspense fallback={<div className="p-6 text-sm text-gs-muted">Loading agreement…</div>}>
-          <AgreementSignPage />
-        </Suspense>
-      } />
       <Route path="/dashboard-classic" element={<Navigate to="/" replace />} />
       <Route element={<AppShell testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} />}>
         <Route path="/" element={<CRMPreview />} />
@@ -94,5 +76,104 @@ export default function App() {
         <Route path="/component-preview" element={<ComponentPreview />} />
       </Route>
     </Routes>
+  );
+}
+
+export default function App() {
+  const [testMode, setTestMode] = useState(null);
+  const [credsMissing, setCredsMissing] = useState(false);
+  const [googleCreds, setGoogleCreds] = useState(null);
+
+  // auth state: null = checking, true = authed, false = needs login
+  const [authState, setAuthState] = useState(null);
+
+  // One-shot dashboard entrance flag (set right after a fresh login).
+  const [freshLogin, setFreshLogin] = useState(false);
+
+  const checkAuth = useCallback(async () => {
+    try {
+      const data = await api.auth.status();
+      setAuthState(Boolean(data?.authenticated));
+    } catch {
+      setAuthState(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    function onExpired() { setAuthState(false); }
+    window.addEventListener('gs:auth-expired', onExpired);
+    return () => window.removeEventListener('gs:auth-expired', onExpired);
+  }, []);
+
+  useEffect(() => {
+    if (authState !== true) return;
+    api.health().then(data => {
+      setTestMode(data.testMode);
+      setGoogleCreds(data.googleCreds ?? null);
+      setCredsMissing(data.hasGoogleCreds === false);
+    }).catch(() => {
+      setTestMode(true);
+      setCredsMissing(false);
+    });
+  }, [authState]);
+
+  const handleAuthenticated = useCallback(() => {
+    setFreshLogin(true);
+    setAuthState(true);
+  }, []);
+
+  useEffect(() => {
+    if (!freshLogin) return;
+    // Remove the entrance class after the staggered animation completes
+    // so subsequent renders don't replay it.
+    const t = window.setTimeout(() => setFreshLogin(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [freshLogin]);
+
+  // Public routes (signing page) must work without auth.
+  const isPublicRoute = typeof window !== 'undefined'
+    && window.location.pathname.startsWith('/sign/');
+
+  if (isPublicRoute) {
+    return (
+      <Routes>
+        <Route path="/sign/:token" element={
+          <Suspense fallback={<div className="p-6 text-sm text-gs-muted">Loading agreement…</div>}>
+            <AgreementSignPage />
+          </Suspense>
+        } />
+      </Routes>
+    );
+  }
+
+  if (authState === null) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: '#050807', color: 'rgba(167,243,208,0.6)',
+        fontFamily: 'Inter, system-ui, sans-serif', fontSize: 13, letterSpacing: '0.03em',
+      }}>
+        <div style={{
+          width: 22, height: 22, borderRadius: '50%',
+          border: '2px solid rgba(74,222,128,0.25)', borderTopColor: '#4ade80',
+          animation: 'login-spin 700ms linear infinite', marginRight: 12,
+        }} />
+        Verifying session…
+      </div>
+    );
+  }
+
+  if (authState === false) {
+    return <LoginPage onAuthenticated={handleAuthenticated} />;
+  }
+
+  return (
+    <div className={freshLogin ? 'gs-fresh-login' : undefined}>
+      <DashboardRoutes testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} />
+    </div>
   );
 }

@@ -39,6 +39,9 @@ async function request(path, options = {}) {
     if (data.code) err.code = data.code;
     if (data.hint) err.hint = data.hint;
     err.httpStatus = res.status;
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      try { window.dispatchEvent(new CustomEvent('gs:auth-expired')); } catch {}
+    }
     if (!path.startsWith('/errors')) {
       reportFrontendError(err, {
         module: 'api-client',
@@ -54,6 +57,15 @@ async function request(path, options = {}) {
 
 export const api = {
   health: () => request('/health'),
+
+  auth: {
+    status: () => request('/auth/status'),
+    login: (username, password) => request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+    logout: () => request('/auth/logout', { method: 'POST' }),
+  },
 
   leads: {
     list: () => request('/leads'),
