@@ -1,10 +1,16 @@
 import { useState, useEffect, memo } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LogOut } from 'lucide-react';
 import { SIDEBAR_NAV } from './sidebarNav.js';
 import { prefetchRoute } from '../utils/routePrefetch.js';
 import { isIntakeEnabled } from '../utils/intake/intakeFeatureFlag.js';
+import { api } from '../api/client.js';
 import './app-sidebar.css';
+
+async function handleSignOut() {
+  try { await api.auth.logout(); } catch {}
+  try { window.dispatchEvent(new CustomEvent('gs:auth-expired')); } catch {}
+}
 
 function itemIsActive(item, activeFilter, pathname, leadsCategory) {
   if (item.type === 'home') {
@@ -263,6 +269,15 @@ function AppSidebar({
             <span className="sidebar-mode-pill__dot" />
             <span className="sidebar-mode-pill__label">{testMode ? 'Test Mode' : 'Live Mode'}</span>
           </div>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="sidebar-signout"
+            title="Sign out"
+          >
+            <LogOut size={14} />
+            <span>Sign out</span>
+          </button>
         </div>
       </aside>
     </>

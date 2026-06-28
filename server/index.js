@@ -2,6 +2,15 @@ import 'dotenv/config';
 import express from 'express';
 import twilio from 'twilio';
 import { createHelmetMiddleware } from './security/contentSecurityPolicy.js';
+import {
+  requireDashboardLogin,
+  signSession,
+  setSessionCookie,
+  clearSessionCookie,
+  checkCredentials,
+  getSessionFromRequest,
+  isAuthenticatedRequest,
+} from './security/dashboardAuth.js';
 import rateLimit from 'express-rate-limit';
 
 const twilioClient = twilio(
@@ -77,35 +86,6 @@ function validateDashboardAuthConfig() {
 validateDashboardAuthConfig();
 
 const app = express();
-
-function requireDashboardLogin(req, res, next) {
-  const expectedUsername = process.env.DASHBOARD_USERNAME;
-  const expectedPassword = process.env.DASHBOARD_PASSWORD;
-
-  // Startup validation guarantees both credentials are present before Express starts.
-  if (!expectedUsername || !expectedPassword) {
-    return next();
-  }
-
-  const authHeader = req.headers.authorization || '';
-
-  if (!authHeader.startsWith('Basic ')) {
-    res.setHeader('WWW-Authenticate', 'Basic realm="Green Shield Dashboard"');
-    return res.status(401).send('Authentication required');
-  }
-
-  const credentials = Buffer.from(authHeader.slice('Basic '.length), 'base64').toString('utf8');
-  const separatorIndex = credentials.indexOf(':');
-  const username = separatorIndex >= 0 ? credentials.slice(0, separatorIndex) : '';
-  const password = separatorIndex >= 0 ? credentials.slice(separatorIndex + 1) : '';
-
-  if (username === expectedUsername && password === expectedPassword) {
-    return next();
-  }
-
-  res.setHeader('WWW-Authenticate', 'Basic realm="Green Shield Dashboard"');
-  return res.status(401).send('Invalid credentials');
-}
 
 if (isProduction) {
   app.set('trust proxy', 1);
@@ -452,6 +432,14 @@ if (fs.existsSync(clientDistPath)) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   });
+
+  // SPA HTML catch-all for browser navigations (pre-auth so the React LoginPage
+  // can render for unauthenticated visitors). API routes are mounted later and
+  // still require a valid session cookie or Basic Auth.
+  app.get(/^\/(?!api\/|sign\/|sign-view\/|cal\/|calendar-invite\/).*/, (req, res, next) => {
+    if (req.method !== 'GET') return next();
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
 }
 
 // /api/health is public — must be before requireDashboardLogin so iOS Safari
@@ -473,6 +461,43 @@ app.get('/api/health', (req, res) => {
     sheets: sheetsCheck,
     timestamp: new Date().toISOString(),
   });
+});
+
+// Custom auth endpoints — public so the React LoginPage can call them.
+// Login is rate-limited separately to slow credential-stuffing.
+const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again later.', code: 'RATE_LIMITED' },
+});
+
+app.post('/api/auth/login', loginLimiter, (req, res) => {
+  const { username = '', password = '' } = req.body || {};
+  if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.', code: 'BAD_REQUEST' });
+  }
+  if (!checkCredentials(username, password)) {
+    return res.status(401).json({ error: 'Invalid username or password.', code: 'INVALID_CREDENTIALS' });
+  }
+  const token = signSession(username);
+  setSessionCookie(req, res, token);
+  return res.json({ ok: true, user: { username } });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  clearSessionCookie(req, res);
+  return res.json({ ok: true });
+});
+
+app.get('/api/auth/status', (req, res) => {
+  const session = getSessionFromRequest(req);
+  if (session) return res.json({ authenticated: true, user: { username: session.u } });
+  if (isAuthenticatedRequest(req)) {
+    return res.json({ authenticated: true, user: { username: process.env.DASHBOARD_USERNAME } });
+  }
+  return res.json({ authenticated: false });
 });
 
 app.use(requireDashboardLogin);
@@ -532,12 +557,9 @@ app.use((err, req, res, next) => {
   return res.status(status).send(status >= 500 ? 'Server error' : (err.message || 'Request failed'));
 });
 
-// Dashboard SPA catch-all — after auth, so direct navigation to /leads etc. requires login.
-if (fs.existsSync(clientDistPath)) {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(clientDistPath, 'index.html'));
-  });
-} else {
+// SPA catch-all handled pre-auth (see static block above) — direct navigation
+// to /leads, /sales-coach, etc. loads index.html so the React LoginPage can render.
+if (!fs.existsSync(clientDistPath)) {
   app.get('/', (req, res) => {
     res.status(200).send('Green Shield API is running. Build the client to serve the dashboard UI.');
   });
