@@ -143,11 +143,6 @@ export default function LoginPage({ onAuthenticated }) {
 
       <main className="login-shell">
         <section className="login-brand" aria-labelledby="login-brand-title">
-          <span className="login-eyebrow">
-            <span className="login-eyebrow__line" aria-hidden="true" />
-            Enterprise CRM · v2026
-          </span>
-
           <h1 id="login-brand-title" className="login-brand__title">
             Green Shield
             <span className="login-brand__title-accent"> Control Center</span>
@@ -284,10 +279,6 @@ export default function LoginPage({ onAuthenticated }) {
                 )}
               </button>
 
-              <div className="login-card__note">
-                <ShieldOutline />
-                <span>Protected internal access · TLS 1.3 · SSO-compatible workspace</span>
-              </div>
             </div>
           </form>
 
@@ -299,10 +290,6 @@ export default function LoginPage({ onAuthenticated }) {
 
       <footer className="login-footer">
         <span>© Green Shield Pest Solutions</span>
-        <span className="login-footer__sep" aria-hidden="true">·</span>
-        <span>Internal control plane</span>
-        <span className="login-footer__sep" aria-hidden="true">·</span>
-        <span>Build 2026.6</span>
       </footer>
 
       {showForgot && (
