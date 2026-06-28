@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { MapPin, Search, Loader2, CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw, Route } from 'lucide-react';
+import { CheckCircle, AlertCircle, RotateCcw, Navigation, RefreshCw, Route } from 'lucide-react';
+import AddressAutocomplete from '../../../components/AddressAutocomplete.jsx';
 import RouteFinderScoringSkeleton from './RouteFinderCommandSkeleton.jsx';
 import { api } from '../../../api/client.js';
 import StatusBadge from './RouteStatusBadge.jsx';
@@ -29,16 +29,7 @@ function routeFinderDebug(label, detail) {
     console.debug(`[RouteFinder] ${label}`, detail);
   }
 }
-import {
-  fetchAddressSuggestions,
-  lookupAddress,
-  describeGeocodeError,
-  geocodeFromSuggestion,
-  pickSuggestionForInput,
-  resolveFromSuggestCache,
-} from '../../../utils/geocodeClient.js';
 
-const SUGGEST_DEBOUNCE_MS = 400;
 
 function RouteSection({ page, children, className = '' }) {
   if (!page) return children;
@@ -71,16 +62,7 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const [addressInput, setAddressInput]   = useState('');
   const [geocode, setGeocode]             = useState(null);
   const [geocodeStatus, setGeocodeStatus] = useState('idle');
-  const [geocodeError, setGeocodeError]   = useState('');
-  const [suggestError, setSuggestError]   = useState('');
   const [isEditing, setIsEditing]         = useState(false);
-
-  // Address autocomplete
-  const [suggestions, setSuggestions]         = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [activeSuggestion, setActiveSuggestion] = useState(-1);
-  const [suggestLoading, setSuggestLoading]   = useState(false);
-  const [suggestDropdownRect, setSuggestDropdownRect] = useState(null);
 
   // Service selection
   const [serviceTypeId, setServiceTypeId] = useState('');
@@ -96,16 +78,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   const [scoringError, setScoringError]   = useState('');
   const [results, setResults]             = useState(null);
 
-  const geocodeCacheRef       = useRef({});
-  const suggestCacheRef       = useRef({});
-  const suggestDebounceRef    = useRef(null);
-  const suggestRequestIdRef   = useRef(0);
-  const suppressBlurRef       = useRef(false);
-  const addressInputRef       = useRef(null);
-  const pendingConfirmRef     = useRef(false);
-  const pendingConfirmQueryRef = useRef('');
-  const selectSuggestionRef   = useRef(null);
-  const doGeocodeRef          = useRef(null);
   const pollRef            = useRef(null);
   const dateKeysRef     = useRef(DATE_KEYS);
   useEffect(() => { dateKeysRef.current = DATE_KEYS; }, [DATE_KEYS]);
@@ -369,92 +341,15 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
   });
 
   // ---------------------------------------------------------------------------
-  // Address autocomplete
+  // Address — place selected via shared AddressAutocomplete (Google Places)
   // ---------------------------------------------------------------------------
-  const fetchSuggestions = useCallback(async (query) => {
-    const trimmed = query.trim();
-    if (trimmed.length < 4) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      setSuggestError('');
-      setSuggestLoading(false);
-      return;
-    }
-
-    const cacheKey = trimmed.toLowerCase();
-    if (suggestCacheRef.current[cacheKey]) {
-      const formatted = suggestCacheRef.current[cacheKey];
-      setSuggestions(formatted);
-      setShowSuggestions(formatted.length > 0);
-      setActiveSuggestion(-1);
-      setSuggestLoading(false);
-      setSuggestError(
-        formatted.length === 0
-          ? 'No matches — try city and state, e.g. 24 Morning St, Portland, ME 04101'
-          : '',
-      );
-      return;
-    }
-
-    const requestId = ++suggestRequestIdRef.current;
-    setSuggestLoading(true);
-    try {
-      const formatted = await fetchAddressSuggestions(trimmed);
-      if (requestId !== suggestRequestIdRef.current) return;
-      if (formatted.length > 0) {
-        suggestCacheRef.current[cacheKey] = formatted;
-      } else {
-        delete suggestCacheRef.current[cacheKey];
-      }
-      setSuggestions(formatted);
-      setShowSuggestions(formatted.length > 0);
-      setActiveSuggestion(-1);
-      setSuggestError(
-        formatted.length === 0
-          ? 'No matches — try city and state, e.g. 24 Morning St, Portland, ME 04101'
-          : '',
-      );
-
-      if (
-        pendingConfirmRef.current
-        && pendingConfirmQueryRef.current.toLowerCase() === cacheKey
-      ) {
-        pendingConfirmRef.current = false;
-        pendingConfirmQueryRef.current = '';
-        const pick = pickSuggestionForInput(trimmed, formatted);
-        if (pick) {
-          selectSuggestionRef.current?.(pick);
-        } else {
-          doGeocodeRef.current?.(trimmed);
-        }
-      }
-    } catch (err) {
-      if (requestId !== suggestRequestIdRef.current) return;
-      console.warn('[geocode] suggest failed:', err);
-      delete suggestCacheRef.current[cacheKey];
-      setSuggestions([]);
-      setShowSuggestions(false);
-      setSuggestError(describeGeocodeError(err));
-      pendingConfirmRef.current = false;
-      pendingConfirmQueryRef.current = '';
-    } finally {
-      if (requestId === suggestRequestIdRef.current) {
-        setSuggestLoading(false);
-      }
-    }
-  }, []);
-
-  const selectSuggestion = useCallback((s) => {
-    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setActiveSuggestion(-1);
-    setSuggestLoading(false);
-    setSuggestError('');
-    setAddressInput(s.shortDisplay);
-    // Use coordinates directly from the suggestion — no second geocode call needed
-    const result = { lat: s.lat, lng: s.lng, display: s.shortDisplay, full: s.full };
-    geocodeCacheRef.current[s.shortDisplay] = result;
+  const handlePlaceSelected = useCallback((place) => {
+    const lat = place?.geometry?.location?.lat?.() ?? null;
+    const lng = place?.geometry?.location?.lng?.() ?? null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const display = place?.formatted_address || '';
+    const result  = { lat, lng, display, full: display };
+    setAddressInput(display);
     setGeocode(result);
     setGeocodeStatus('success');
     setResults(null);
@@ -463,159 +358,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setSpecificSlot(null);
     setIsEditing(false);
   }, []);
-
-  useEffect(() => {
-    selectSuggestionRef.current = selectSuggestion;
-  }, [selectSuggestion]);
-
-  // ---------------------------------------------------------------------------
-  // Geocode
-  // ---------------------------------------------------------------------------
-  const doGeocode = useCallback(async (addr, suggestionOverride = null) => {
-    const trimmed = addr.trim();
-    if (!trimmed) return;
-    if (geocodeCacheRef.current[trimmed]) {
-      setGeocode(geocodeCacheRef.current[trimmed]);
-      setGeocodeStatus('success');
-      setResults(null);
-      setScoringStatus('idle');
-      setTimePref(null);
-      setSpecificSlot(null);
-      setIsEditing(false);
-      return;
-    }
-
-    const fromSuggestion = suggestionOverride
-      ? geocodeFromSuggestion(suggestionOverride)
-      : resolveFromSuggestCache(trimmed, suggestCacheRef.current, suggestions);
-    if (fromSuggestion) {
-      geocodeCacheRef.current[trimmed] = fromSuggestion;
-      setGeocode(fromSuggestion);
-      setGeocodeStatus('success');
-      setResults(null);
-      setScoringStatus('idle');
-      setTimePref(null);
-      setSpecificSlot(null);
-      setIsEditing(false);
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    setGeocodeStatus('loading');
-    setGeocodeError('');
-    setSuggestError('');
-    setResults(null);
-    setScoringStatus('idle');
-    setTimePref(null);
-    setSpecificSlot(null);
-    try {
-      const result = await lookupAddress(trimmed);
-      geocodeCacheRef.current[trimmed] = result;
-      setGeocode(result);
-      setGeocodeStatus('success');
-      setIsEditing(false);
-    } catch (err) {
-      console.warn('[geocode] lookup failed:', err);
-      setGeocodeStatus('error');
-      setGeocodeError(describeGeocodeError(err));
-    }
-  }, [suggestions]);
-
-  useEffect(() => {
-    doGeocodeRef.current = doGeocode;
-  }, [doGeocode]);
-
-  const confirmAddressFromInput = useCallback(() => {
-    const trimmed = addressInput.trim();
-    if (!trimmed) return;
-
-    const pick = activeSuggestion >= 0
-      ? suggestions[activeSuggestion]
-      : pickSuggestionForInput(trimmed, suggestions);
-    if (pick) {
-      selectSuggestion(pick);
-      return;
-    }
-
-    const fromCache = resolveFromSuggestCache(trimmed, suggestCacheRef.current, suggestions);
-    if (fromCache) {
-      geocodeCacheRef.current[trimmed] = fromCache;
-      setGeocode(fromCache);
-      setGeocodeStatus('success');
-      setResults(null);
-      setScoringStatus('idle');
-      setTimePref(null);
-      setSpecificSlot(null);
-      setIsEditing(false);
-      setSuggestions([]);
-      setShowSuggestions(false);
-      setAddressInput(fromCache.display);
-      return;
-    }
-
-    if (suggestLoading) {
-      pendingConfirmRef.current = true;
-      pendingConfirmQueryRef.current = trimmed;
-      return;
-    }
-
-    doGeocode(trimmed);
-  }, [addressInput, activeSuggestion, suggestions, suggestLoading, selectSuggestion, doGeocode]);
-
-  const updateSuggestDropdownRect = useCallback(() => {
-    const el = addressInputRef.current;
-    if (!el) {
-      setSuggestDropdownRect(null);
-      return;
-    }
-    const r = el.getBoundingClientRect();
-    setSuggestDropdownRect({
-      top: r.bottom + 4,
-      left: r.left,
-      width: r.width,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!showSuggestions || suggestions.length === 0) {
-      setSuggestDropdownRect(null);
-      return undefined;
-    }
-    updateSuggestDropdownRect();
-    const opts = { capture: true, passive: true };
-    window.addEventListener('scroll', updateSuggestDropdownRect, opts);
-    window.addEventListener('resize', updateSuggestDropdownRect, opts);
-    return () => {
-      window.removeEventListener('scroll', updateSuggestDropdownRect, opts);
-      window.removeEventListener('resize', updateSuggestDropdownRect, opts);
-    };
-  }, [showSuggestions, suggestions.length, updateSuggestDropdownRect]);
-
-  const handleAddressKey = (e) => {
-    if (showSuggestions && suggestions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setActiveSuggestion(prev => Math.min(prev + 1, suggestions.length - 1));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setActiveSuggestion(prev => Math.max(prev - 1, -1));
-        return;
-      }
-      if (e.key === 'Escape') {
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setActiveSuggestion(-1);
-        return;
-      }
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      confirmAddressFromInput();
-    }
-  };
 
   // ---------------------------------------------------------------------------
   // Scoring
@@ -748,7 +490,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setAddressInput('');
     setGeocode(null);
     setGeocodeStatus('idle');
-    setGeocodeError('');
     setIsEditing(false);
     setServiceTypeId('');
     setCommercialDurationMinutes(60);
@@ -758,14 +499,6 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
     setResults(null);
     setScoringStatus('idle');
     lastAutoSearchFingerprintRef.current = '';
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setActiveSuggestion(-1);
-    setSuggestLoading(false);
-    setSuggestError('');
-    pendingConfirmRef.current = false;
-    pendingConfirmQueryRef.current = '';
-    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
   };
 
   // ---------------------------------------------------------------------------
@@ -958,130 +691,12 @@ export default function RouteFinderWidget({ variant = 'embedded' }) {
               </button>
             </div>
           ) : (
-            <div className="relative">
-              <MapPin size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 z-[1]" />
-              <input
-                ref={addressInputRef}
-                autoFocus={isEditing}
-                value={addressInput}
-                onChange={e => {
-                  const val = e.target.value;
-                  setAddressInput(val);
-                  setActiveSuggestion(-1);
-                  setSuggestError('');
-                  pendingConfirmRef.current = false;
-                  pendingConfirmQueryRef.current = '';
-                  if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
-                  if (val.trim().length >= 4) {
-                    setSuggestLoading(true);
-                    suggestDebounceRef.current = setTimeout(() => fetchSuggestions(val), SUGGEST_DEBOUNCE_MS);
-                  } else {
-                    setSuggestions([]);
-                    setShowSuggestions(false);
-                    setSuggestLoading(false);
-                  }
-                }}
-                onKeyDown={handleAddressKey}
-                placeholder="Start typing an address…"
-                className={[
-                  'route-address-input w-full box-border py-2 pl-7 pr-9 rounded-[10px] text-xs text-gs-text outline-none',
-                  isPage ? 'route-address-input--page' : 'bg-slate-50',
-                  geocodeStatus === 'error' ? 'route-address-input--error' : '',
-                ].filter(Boolean).join(' ')}
-                onFocus={() => {
-                  if (suggestions.length > 0) setShowSuggestions(true);
-                }}
-                onBlur={() => {
-                  if (suppressBlurRef.current) {
-                    suppressBlurRef.current = false;
-                    return;
-                  }
-                  setShowSuggestions(false);
-                  // Do not auto-lookup on blur — clicking match cards / elsewhere
-                  // used to fire a second Nominatim call and trigger rate limits.
-                }}
-              />
-              {geocodeStatus === 'loading' || suggestLoading ? (
-                <Loader2 size={12} className="animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              ) : (
-                <button
-                  type="button"
-                  onClick={confirmAddressFromInput}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer p-[3px] text-slate-400 flex"
-                  aria-label="Search address"
-                >
-                  <Search size={12} />
-                </button>
-              )}
-
-              {suggestLoading && !suggestError && (
-                <p className="text-[9px] text-slate-500 mt-1 mb-0 leading-snug" role="status">
-                  Searching addresses…
-                </p>
-              )}
-
-              {suggestError && (
-                <p className="text-[9px] text-amber-700 mt-1 mb-0 leading-snug" role="status">
-                  {suggestError}
-                </p>
-              )}
-
-              {/* Autocomplete dropdown — portaled so scroll containers cannot clip it */}
-              {showSuggestions && suggestions.length > 0 && suggestDropdownRect && createPortal(
-                <div
-                  className={[
-                    'route-suggest-dropdown route-suggest-dropdown--fixed rounded-[10px] overflow-hidden',
-                    isPage ? 'route-suggest-dropdown--command' : 'route-suggest-dropdown--embedded',
-                  ].join(' ')}
-                  style={{
-                    position: 'fixed',
-                    top: suggestDropdownRect.top,
-                    left: suggestDropdownRect.left,
-                    width: suggestDropdownRect.width,
-                    zIndex: 10000,
-                  }}
-                >
-                  {suggestions.map((s, i) => (
-                    <div
-                      key={i}
-                      onMouseDown={() => { suppressBlurRef.current = true; selectSuggestion(s); }}
-                      onMouseEnter={() => setActiveSuggestion(i)}
-                      className={[
-                        'route-suggest-item py-[7px] px-[11px] cursor-pointer flex items-start gap-2 transition-colors duration-100',
-                        i < suggestions.length - 1 ? 'route-suggest-item__divider' : '',
-                        i === activeSuggestion ? 'route-suggest-item--active' : '',
-                      ].filter(Boolean).join(' ')}
-                    >
-                      <MapPin
-                        size={11}
-                        className={[
-                          'route-suggest-icon mt-0.5 shrink-0',
-                          i === activeSuggestion ? 'route-suggest-icon--active' : '',
-                        ].filter(Boolean).join(' ')}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-gs-text m-0 leading-[1.3] truncate">
-                          {s.primary}
-                        </p>
-                        {s.secondary && (
-                          <p className="type-label-sm text-gs-muted mt-px mb-0 truncate font-normal tracking-normal">
-                            {s.secondary}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>,
-                document.body,
-              )}
-            </div>
-          )}
-
-          {geocodeStatus === 'error' && (
-            <p className="route-finder-inline-error" role="alert">
-              <AlertCircle size={10} className="shrink-0" />
-              <span>{geocodeError}</span>
-            </p>
+            <AddressAutocomplete
+              value={addressInput}
+              onChange={setAddressInput}
+              onPlaceSelected={handlePlaceSelected}
+              placeholder="Start typing an address…"
+            />
           )}
         </div>
 
