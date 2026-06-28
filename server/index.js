@@ -132,6 +132,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Request-Id', req.id);
   next();
 });
+app.use('/api/routes', express.json({ limit: '1mb' }));
 app.use(express.json());
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
@@ -496,6 +497,8 @@ app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
 
   const status = Number(err.status || err.statusCode) || 500;
+  const is413 = status === 413 || err.type === 'entity.too.large';
+
   try {
     errorFromExpress(err, req, {
       source: req.path.startsWith('/api/ai')
@@ -507,6 +510,11 @@ app.use((err, req, res, next) => {
             : req.path.startsWith('/api/signing')
               ? 'signing'
               : 'api',
+      ...(is413 && req.path.includes('/travel-legs') && {
+        severity: 'high',
+        module: '/api/routes/travel-legs',
+        suggestedFix: 'Route Finder sent an oversized travel-leg payload. Ensure pushLeg() strips stop objects to { lat, lng } only before sending to /api/routes/travel-legs.',
+      }),
     });
   } catch (logErr) {
     console.error('[errorLog] Failed to log Express error:', logErr.message);
@@ -514,7 +522,9 @@ app.use((err, req, res, next) => {
 
   if (req.path.startsWith('/api/')) {
     return res.status(status).json({
-      error: status >= 500 ? 'A server error occurred.' : (err.message || 'Request failed.'),
+      error: is413
+        ? 'Route data payload too large. Travel time will use estimated distances.'
+        : status >= 500 ? 'A server error occurred.' : (err.message || 'Request failed.'),
       requestId: req.id,
     });
   }

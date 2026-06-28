@@ -87,7 +87,10 @@ function pushLeg(legs, seen, origin, destination) {
   const key = legKey(origin, destination);
   if (!key || seen.has(key)) return;
   seen.add(key);
-  legs.push({ origin, destination });
+  legs.push({
+    origin:      { lat: origin.lat,      lng: origin.lng },
+    destination: { lat: destination.lat, lng: destination.lng },
+  });
 }
 
 /**
@@ -229,12 +232,17 @@ export async function prefetchTravelContext(technicians, lead, options = {}) {
     }
     return ctx;
   } catch (err) {
+    const is413 = err?.status === 413 || err?.httpStatus === 413 || err?.message?.includes('413');
     const entries = legs.map(leg => ({
       origin: leg.origin,
       destination: leg.destination,
       result: HaversineTravelTimeProvider.getDistanceMiles(leg.origin, leg.destination),
     }));
-    console.warn('[route-finder] travel legs fetch failed', err?.message);
+    if (is413) {
+      console.warn('[route-finder] travel legs payload too large (413) — falling back to haversine');
+    } else {
+      console.warn('[route-finder] travel legs fetch failed', err?.message);
+    }
     return buildTravelContextFromLegs(entries, {
       matrixProvider: 'haversine',
       travelProvider: 'haversine',
@@ -242,7 +250,7 @@ export async function prefetchTravelContext(technicians, lead, options = {}) {
       cacheHit: false,
       elementsRequested: 0,
       fallbackUsed: true,
-      fallbackReason: 'client_fetch_failed',
+      fallbackReason: is413 ? 'payload_too_large' : 'client_fetch_failed',
       routesEstimatedOnly: technicians.length,
     });
   }
