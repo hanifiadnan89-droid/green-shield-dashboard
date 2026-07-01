@@ -1,5 +1,7 @@
 import express from 'express';
 import { triggerLeadWebhook } from '../services/n8n.js';
+import { getCurrentUserContext } from '../services/currentUserContext.js';
+import { resolveGoogleSheetsConfig } from '../services/integrationResolver.js';
 import { updateLead } from '../services/sheets.js';
 import { appendLog } from '../services/activity.js';
 
@@ -7,6 +9,8 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
   const { lead, template, channel } = req.body;
+  const context = getCurrentUserContext(req);
+  const sheetsConfig = resolveGoogleSheetsConfig(context);
 
   if (!lead || !template) {
     return res.status(400).json({ error: 'lead and template are required' });
@@ -18,7 +22,7 @@ router.post('/', async (req, res) => {
 
   const payload = {
     row_number: lead.row_number,
-    sheet_name: process.env.SHEET_NAME || 'Lead Responses',
+    sheet_name: sheetsConfig.sheetName || 'Lead Responses',
     name: lead.name || '',
     email: lead.email || '',
     notes: template,
@@ -54,7 +58,7 @@ router.post('/', async (req, res) => {
 
   if (!n8nResult.testMode) {
     try {
-      await updateLead(lead.row_number, { sent: new Date().toISOString(), error: '' });
+      await updateLead(lead.row_number, { sent: new Date().toISOString(), error: '' }, context);
     } catch {
       // Non-fatal: log but don't fail the send
     }

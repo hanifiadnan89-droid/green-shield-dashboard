@@ -1,0 +1,129 @@
+# CI gate for append-only Postgres enablement (AI usage + Error Center only).
+#
+# Strict non-goals:
+#   - never enables DB_WRITE_AI_USAGE_ENABLED / DB_WRITE_ERROR_LOG_ENABLED
+#   - never enables DB_READ_AI_USAGE_ENABLED / DB_READ_ERROR_LOG_ENABLED
+#   - never runs production migrations
+#   - never runs `--apply` backfill
+#   - never touches live CRM data
+#   - never accesses production Postgres or production secrets
+#
+# This workflow uses a disposable Postgres service container and pinned-OFF
+# feature flags. It produces a sanitized JSON validation report as an artifact
+# so reviewers can confirm append-only readiness without manually running the
+# validator locally.
+
+name: Append-only DB validation
+
+on:
+  pull_request:
+    paths:
+      - 'server/migrations/**'
+      - 'server/services/db/**'
+      - 'server/repositories/**'
+      - 'server/scripts/*append-only*'
+      - 'server/scripts/validate-append-only-db-enablement.mjs'
+      - 'server/scripts/run-append-only-validation-ci.mjs'
+      - 'server/services/ai/AIUsageLogService.js'
+      - 'server/services/errorLogService.js'
+      - 'docs/*append-only*'
+      - 'docs/postgres-migration-tooling.md'
+      - '.github/workflows/append-only-db-validation.yml'
+  workflow_dispatch: {}
+
+jobs:
+  validate:
+    name: Validate append-only DB readiness
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: green_shield_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Disposable CI Postgres only. Not production.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/green_shield_ci
+      DATABASE_SSL: 'false'
+
+      # Pinned OFF for the entire job. Stage 36 must not enable any flag.
+      DB_WRITE_AI_USAGE_ENABLED: 'false'
+      DB_READ_AI_USAGE_ENABLED: 'false'
+      DB_WRITE_ERROR_LOG_ENABLED: 'false'
+      DB_READ_ERROR_LOG_ENABLED: 'false'
+
+      NODE_ENV: 'test'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "Postgres is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres did not become ready in time" >&2
+          exit 1
+
+      - name: Initial migration status (before apply)
+        run: npm run db:migrate:status --prefix server
+
+      - name: Apply migrations (CI database only)
+        run: npm run db:migrate --prefix server
+
+      - name: Migration status (after apply)
+        run: npm run db:migrate:status --prefix server
+
+      - name: Run append-only DB enablement validator with sanitized report
+        run: |
+          mkdir -p reports
+          npm run db:validate:append-only --prefix server -- \
+            --json \
+            --write-report=./reports/append-only-validation-ci.json
+
+      - name: Run append-only repository + DB tooling tests
+        working-directory: server
+        run: |
+          npx vitest run \
+            repositories/__tests__ \
+            services/__tests__/dbConfig.test.js \
+            services/__tests__/dbHealth.test.js \
+            services/__tests__/dbClient.test.js \
+            services/__tests__/migrations.test.js \
+            services/__tests__/errorLogRecorder.test.js \
+            services/ai/__tests__/AIUsageLogService.test.js
+
+      - name: Upload sanitized validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: append-only-validation-report
+          path: reports/append-only-validation-ci.json
+          if-no-files-found: warn
+          retention-days: 30

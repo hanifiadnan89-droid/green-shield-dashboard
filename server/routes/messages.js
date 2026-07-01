@@ -1,4 +1,5 @@
 import express from 'express';
+import { getCurrentUserContext } from '../services/currentUserContext.js';
 import {
   syncLeadsMessages,
   getMessagesForLead,
@@ -63,7 +64,8 @@ router.post('/:rowNumber/read-all', async (req, res) => {
   try {
     const rowNumber = parseInt(req.params.rowNumber, 10);
     if (!rowNumber) return res.status(400).json({ error: 'Invalid row number' });
-    const readState = await markAllInboundRead(rowNumber);
+    const context = getCurrentUserContext(req);
+    const readState = await markAllInboundRead(rowNumber, context);
     const messages = getMessagesForLead(rowNumber);
     res.json({
       ...readState,
@@ -82,6 +84,7 @@ router.post('/:rowNumber/read', async (req, res) => {
   try {
     const rowNumber = parseInt(req.params.rowNumber, 10);
     if (!rowNumber) return res.status(400).json({ error: 'Invalid row number' });
+    const context = getCurrentUserContext(req);
     let inboundKey = req.body?.inboundKey;
     if (!inboundKey) {
       const messages = getMessagesForLead(rowNumber);
@@ -90,7 +93,7 @@ router.post('/:rowNumber/read', async (req, res) => {
     if (!inboundKey) {
       return res.json({ lastReadInboundKey: null, lastReadAt: null, unread: false });
     }
-    const readState = await markThreadRead(rowNumber, { inboundKey });
+    const readState = await markThreadRead(rowNumber, { inboundKey }, context);
     const messages = getMessagesForLead(rowNumber);
     res.json({
       ...readState,

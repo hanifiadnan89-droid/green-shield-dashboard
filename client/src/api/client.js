@@ -58,6 +58,10 @@ async function request(path, options = {}) {
 export const api = {
   health: () => request('/health'),
 
+  dashboard: {
+    get: () => request('/dashboard'),
+  },
+
   auth: {
     status: () => request('/auth/status'),
     login: (username, password) => request('/auth/login', {
@@ -71,6 +75,10 @@ export const api = {
     list: () => request('/leads'),
     create: (lead) => request('/leads', { method: 'POST', body: JSON.stringify(lead) }),
     update: (rowNumber, updates) => request(`/leads/${rowNumber}`, { method: 'PUT', body: JSON.stringify(updates) }),
+    transfer: (rowNumber, ownerUserId) => request(`/leads/${rowNumber}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify({ ownerUserId }),
+    }),
     stop:   (rowNumber, name) => request(`/leads/${rowNumber}/stop`,   { method: 'POST',   body: JSON.stringify({ name }) }),
     unstop: (rowNumber, name) => request(`/leads/${rowNumber}/unstop`, { method: 'POST',   body: JSON.stringify({ name }) }),
     delete: (rowNumber, name) => request(`/leads/${rowNumber}`,        { method: 'DELETE', body: JSON.stringify({ name }) }),
@@ -119,6 +127,17 @@ export const api = {
     }),
   },
 
+  replies: {
+    get: (params = {}) => {
+      const qs = new URLSearchParams();
+      if (params.rowNumber != null) qs.set('rowNumber', String(params.rowNumber));
+      if (params.legacyViewedKeys?.length) qs.set('legacyViewedKeys', params.legacyViewedKeys.join(','));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return request(`/replies${suffix}`);
+    },
+    thread: (rowNumber) => request(`/replies/${encodeURIComponent(rowNumber)}`),
+  },
+
   workflows: {
     list: () => request('/workflows')
   },
@@ -131,6 +150,41 @@ export const api = {
   activityErrors: {
     list: () => request('/activity-errors'),
     complete: (rowNumber) => request(`/activity-errors/${rowNumber}/complete`, { method: 'POST' }),
+  },
+
+  adminUsers: {
+    list: () => request('/admin/users'),
+    get: (userId) => request(`/admin/users/${encodeURIComponent(userId)}`),
+    create: (body) => request('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    update: (userId, body) => request(`/admin/users/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+    deactivate: (userId) => request(`/admin/users/${encodeURIComponent(userId)}/deactivate`, {
+      method: 'POST',
+    }),
+    reactivate: (userId) => request(`/admin/users/${encodeURIComponent(userId)}/reactivate`, {
+      method: 'POST',
+    }),
+  },
+
+  adminIntegrations: {
+    list: () => request('/admin/integrations'),
+    me: () => request('/admin/integrations/me'),
+    meHealth: () => request('/admin/integrations/me/health'),
+    get: (userId) => request(`/admin/integrations/${encodeURIComponent(userId)}`),
+    health: (userId) => request(`/admin/integrations/${encodeURIComponent(userId)}/health`),
+    create: (body) => request('/admin/integrations', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    update: (userId, body) => request(`/admin/integrations/${encodeURIComponent(userId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
   },
 
   errors: {
@@ -301,6 +355,31 @@ export const api = {
     },
   },
 
+  adminDbAppendOnly: {
+    // Read-only readiness probe for the append-only Postgres validator (Stage 38).
+    // The backend route is admin-gated; the client wrapper is intentionally narrow:
+    // no flag toggle, no migration trigger, no backfill trigger, no report writer.
+    validation: ({ refresh = false } = {}) => {
+      const suffix = refresh ? '?refresh=true' : '';
+      return request(`/admin/db/append-only/validation${suffix}`);
+    },
+  },
+
+  aiObservability: {
+    health: () => request('/ai/health'),
+    usage: (params = {}) => {
+      const qs = new URLSearchParams();
+      for (const key of ['feature', 'provider', 'model', 'endpoint', 'from', 'to', 'limit']) {
+        if (params[key] != null && params[key] !== '') qs.set(key, String(params[key]));
+      }
+      if (params.success === true || params.success === 'true') qs.set('success', 'true');
+      else if (params.success === false || params.success === 'false') qs.set('success', 'false');
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return request(`/ai/usage${suffix}`);
+    },
+    storage: () => request('/ai/usage/storage'),
+  },
+
   ai: {
     assistReply: (lead_context, user_prompt, current_draft = '') => request('/ai/assist-reply', {
       method: 'POST',
@@ -327,6 +406,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+    /** @deprecated Use api.salesCoach.runModule with module: 'objectionCoach' instead. */
     coachObjection: (body) => request('/ai/coach-objection', {
       method: 'POST',
       body: JSON.stringify(body),

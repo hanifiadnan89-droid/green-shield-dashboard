@@ -4,31 +4,23 @@ import os from 'os';
 import path from 'path';
 import Module from 'module';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { PNG } from 'pngjs';
 
-const mockAnthropicCreate = vi.hoisted(() => vi.fn());
-const mockOpenAITranscriptionCreate = vi.hoisted(() => vi.fn());
+const mocks = vi.hoisted(() => ({
+  executeAIRequest: vi.fn(),
+  transcribeAudioFile: vi.fn(),
+}));
 const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-vi.mock('@anthropic-ai/sdk', () => ({
-  __esModule: true,
-  default: class MockAnthropic {
-    constructor() {
-      this.messages = { create: mockAnthropicCreate };
-    }
-  },
+vi.mock('../../ai/execution/AIExecutionEngine.js', () => ({
+  executeAIRequest: mocks.executeAIRequest,
 }));
 
-vi.mock('openai', () => ({
-  __esModule: true,
-  default: class MockOpenAI {
-    constructor() {
-      this.audio = {
-        transcriptions: { create: mockOpenAITranscriptionCreate },
-      };
-    }
-  },
+vi.mock('../../ai/extraction/transcriptionProvider.js', () => ({
+  transcribeAudioFile: mocks.transcribeAudioFile,
 }));
 
 const ORIGINAL_ENV = { ...process.env };
@@ -119,8 +111,8 @@ describe('knowledgeBase extractionService', () => {
   beforeEach(async () => {
     tempDir = makeTempDir();
     process.env = { ...ORIGINAL_ENV };
-    mockAnthropicCreate.mockReset();
-    mockOpenAITranscriptionCreate.mockReset();
+    mocks.executeAIRequest.mockReset();
+    mocks.transcribeAudioFile.mockReset();
     Module._load = ORIGINAL_MODULE_LOAD;
     mod = await import('../extractionService.js');
   });
@@ -147,8 +139,8 @@ describe('knowledgeBase extractionService', () => {
 
   it('falls back to OCR for PDFs without selectable text when Anthropic is configured', async () => {
     process.env.ANTHROPIC_API_KEY = 'test-key';
-    mockAnthropicCreate.mockResolvedValue({
-      content: [{ text: 'TYPE: Scanned sales note\n---\nScanned PDF OCR text for Green Shield.' }],
+    mocks.executeAIRequest.mockResolvedValue({
+      text: 'TYPE: Scanned sales note\n---\nScanned PDF OCR text for Green Shield.',
     });
     const filePath = path.join(tempDir, 'scanned.pdf');
     await writeImageOnlyPdf(filePath);
@@ -160,9 +152,40 @@ describe('knowledgeBase extractionService', () => {
     expect(result.metadata.ocr).toBe(true);
     expect(result.metadata.pdfOcr).toBe(true);
     expect(result.metadata.pagesOcrAttempted).toBe(1);
-    expect(mockAnthropicCreate).toHaveBeenCalledTimes(1);
-    const content = mockAnthropicCreate.mock.calls[0][0].messages[0].content;
+    expect(mocks.executeAIRequest).toHaveBeenCalledTimes(1);
+    const [payload] = mocks.executeAIRequest.mock.calls[0];
+    expect(payload.provider).toBe('anthropic');
+    expect(payload.model).toBe('claude-haiku-4-5-20251001');
+    expect(payload.maxTokens).toBe(4096);
+    expect(payload.endpoint).toBe('knowledge-base-extraction');
+    expect(payload.feature).toBe('knowledge-base-extraction');
+    expect(payload.metadata).toEqual({
+      source: 'extractionService',
+      purpose: 'ocr',
+    });
+    const content = payload.messages[0].content;
     expect(content.some((part) => part.type === 'image' && part.source.media_type === 'image/png')).toBe(true);
+    expect(content.at(-1).text).toContain('You are an OCR and content extraction assistant for a pest control sales company.');
+    expect(content.at(-1).text).toContain('Format your response as:');
+  });
+
+  it('preserves OCR provider failure behavior without logging document contents', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key';
+    mocks.executeAIRequest.mockRejectedValue(new Error('provider unavailable'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const imagePath = path.join(tempDir, 'sensitive.png');
+    const png = new PNG({ width: 4, height: 4 });
+    fs.writeFileSync(imagePath, PNG.sync.write(png));
+
+    const result = await mod.extractImageOcr(imagePath, 'image/png', 'Sensitive Image');
+
+    expect(result).toEqual({
+      text: '[Sensitive Image OCR failed: provider unavailable]',
+      wordCount: 0,
+      metadata: { error: 'provider unavailable', ocr: true },
+    });
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   it('preserves error details for malformed PDFs', async () => {
@@ -199,7 +222,7 @@ describe('knowledgeBase extractionService', () => {
   it('transcribes audio under the configured size limit without splitting', async () => {
     process.env.OPENAI_API_KEY = 'test-openai-key';
     process.env.MEDIA_TRANSCRIPTION_MAX_BYTES = '5000000';
-    mockOpenAITranscriptionCreate.mockResolvedValue({
+    mocks.transcribeAudioFile.mockResolvedValue({
       text: 'Short training audio transcript.',
       segments: [{ id: 1 }],
       language: 'en',
@@ -213,15 +236,16 @@ describe('knowledgeBase extractionService', () => {
     expect(result.text).toBe('Short training audio transcript.');
     expect(result.metadata.split).toBe(false);
     expect(result.metadata.fileSize).toBe(fs.statSync(audioPath).size);
-    expect(mockOpenAITranscriptionCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.transcribeAudioFile).toHaveBeenCalledTimes(1);
+    expect(mocks.transcribeAudioFile).toHaveBeenCalledWith(audioPath);
     expect(fs.existsSync(audioPath)).toBe(true);
   });
 
   it('splits oversized audio and merges chunk transcripts in order with timestamps', async () => {
     process.env.OPENAI_API_KEY = 'test-openai-key';
     process.env.MEDIA_TRANSCRIPTION_MAX_BYTES = '50000';
-    mockOpenAITranscriptionCreate.mockImplementation(async () => {
-      const index = mockOpenAITranscriptionCreate.mock.calls.length;
+    mocks.transcribeAudioFile.mockImplementation(async () => {
+      const index = mocks.transcribeAudioFile.mock.calls.length;
       return {
         text: `Segment ${index} transcript.`,
         segments: [{ id: index }],
@@ -236,7 +260,7 @@ describe('knowledgeBase extractionService', () => {
 
     expect(result.metadata.split).toBe(true);
     expect(result.metadata.chunkCount).toBeGreaterThan(1);
-    expect(mockOpenAITranscriptionCreate.mock.calls.length).toBe(result.metadata.chunkCount);
+    expect(mocks.transcribeAudioFile.mock.calls.length).toBe(result.metadata.chunkCount);
     expect(result.text).toContain('[00:00:00] Segment 1 transcript.');
     expect(result.text).toContain('[00:00:05] Segment 2 transcript.');
     expect(result.text.indexOf('Segment 1 transcript')).toBeLessThan(result.text.indexOf('Segment 2 transcript'));
@@ -258,14 +282,14 @@ describe('knowledgeBase extractionService', () => {
     expect(result.text).toBe('[Audio file is too large and ffmpeg is not available to split it.]');
     expect(result.metadata.error).toBe('Audio file is too large and ffmpeg is not available to split it.');
     expect(result.metadata.code).toBe('FFMPEG_UNAVAILABLE');
-    expect(mockOpenAITranscriptionCreate).not.toHaveBeenCalled();
+    expect(mocks.transcribeAudioFile).not.toHaveBeenCalled();
     expect(fs.existsSync(audioPath)).toBe(true);
   });
 
   it('preserves audio transcription failure details and the original upload', async () => {
     process.env.OPENAI_API_KEY = 'test-openai-key';
     process.env.MEDIA_TRANSCRIPTION_MAX_BYTES = '5000000';
-    mockOpenAITranscriptionCreate.mockRejectedValue(new Error('413 Maximum content size limit exceeded'));
+    mocks.transcribeAudioFile.mockRejectedValue(new Error('413 Maximum content size limit exceeded'));
     const audioPath = path.join(tempDir, 'failed.mp3');
     await writeTestAudio(audioPath, 1);
 
@@ -279,8 +303,8 @@ describe('knowledgeBase extractionService', () => {
   it('uses the same splitting path for oversized extracted video audio', async () => {
     process.env.OPENAI_API_KEY = 'test-openai-key';
     process.env.MEDIA_TRANSCRIPTION_MAX_BYTES = '30000';
-    mockOpenAITranscriptionCreate.mockImplementation(async () => {
-      const index = mockOpenAITranscriptionCreate.mock.calls.length;
+    mocks.transcribeAudioFile.mockImplementation(async () => {
+      const index = mocks.transcribeAudioFile.mock.calls.length;
       return {
         text: `Video segment ${index} transcript.`,
         segments: [{ id: index }],
@@ -299,5 +323,16 @@ describe('knowledgeBase extractionService', () => {
     expect(result.text).toContain('[00:00:00] Video segment 1 transcript.');
     expect(result.text).toContain('[00:00:03] Video segment 2 transcript.');
     expect(fs.existsSync(videoPath)).toBe(true);
+  });
+
+  it('does not import provider SDKs directly from extractionService.js', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'extractionService.js'), 'utf8');
+    expect(source).not.toContain('@anthropic-ai/sdk');
+    expect(source).not.toContain("from 'openai'");
+    expect(source).not.toContain('from "openai"');
+    expect(source).not.toContain('messages.create');
+    expect(source).not.toContain('audio.transcriptions.create');
+    expect(source).toContain("from '../ai/execution/AIExecutionEngine.js'");
+    expect(source).toContain("from '../ai/extraction/transcriptionProvider.js'");
   });
 });

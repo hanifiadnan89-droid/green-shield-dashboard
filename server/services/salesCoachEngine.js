@@ -9,7 +9,6 @@
  * retrieval is handled by objectionKnowledge.js and never overrides static rules.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
 import {
   loadOAKnowledge,
   getRelevantExamplesWithFallback,
@@ -18,28 +17,14 @@ import {
 import { getTrainingContext } from './trainingService.js';
 import { searchKnowledgeBase, formatKnowledgeBaseContext } from './knowledgeBase/knowledgeBaseService.js';
 import {
-  assertPromptWithinLimit,
-  getConfiguredMaxTokens,
-  runAiOperation,
   truncateAiText,
 } from '../security/aiRequestGuards.js';
-
-// Lazy Anthropic client — fails only when first used, not at startup
-let _anthropic = null;
-function getClient() {
-  if (!_anthropic) {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY is not set. Add it to server/.env.');
-    }
-    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
-  }
-  return _anthropic;
-}
-
-function parseCoachJson(raw) {
-  const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-  return JSON.parse(clean);
-}
+import { buildAIContext } from './ai/context/AIContextBuilder.js';
+import {
+  buildSalesCoachContextOptions,
+  buildSalesCoachPromptInput,
+} from './ai/adapters/salesCoachPromptAdapter.js';
+import { executeAIRequest } from './ai/execution/AIExecutionEngine.js';
 
 // ── Module 1: Objection Coach ─────────────────────────────────────────────────
 
@@ -173,43 +158,69 @@ export async function runObjectionCoach(
   { situation, category = null, service = null, personality = null, propertyContext = {}, leadContext = {}, sessionId = null },
   aiRuntime = {},
 ) {
-  const oaKnowledge     = loadOAKnowledge();
-  const [examples, kbResults] = await Promise.all([
-    getRelevantExamplesWithFallback(situation, { serviceType: service, ...propertyContext }),
-    searchKnowledgeBase(`${situation} ${service || ''} ${personality || ''}`.trim(), { limit: 4 }).catch(() => []),
-  ]);
-  const trainingContext = getTrainingContext(situation, { service });
-  const kbContext       = formatKnowledgeBaseContext(kbResults);
-  const userMessage     = buildObjectionCoachUserMessage(
-    situation, category, service, personality,
-    propertyContext, leadContext, oaKnowledge, examples, trainingContext, kbContext,
-  );
-  const promptLength = assertPromptWithinLimit(userMessage, 'sales coach prompt');
+  const currentUserContext = aiRuntime.currentUserContext || aiRuntime.context || aiRuntime.req?.currentUserContext || null;
+  if (!currentUserContext) {
+    throw Object.assign(new Error('Current user context is required for Sales Coach.'), {
+      status: 401,
+      code: 'AUTH_REQUIRED',
+    });
+  }
 
-  const model = 'claude-sonnet-4-6';
-  const aiResponse = await runAiOperation({
-    req: aiRuntime.req || null,
-    endpoint: aiRuntime.endpoint || '/api/ai/sales-coach/module',
-    module: 'objectionCoach',
-    provider: 'anthropic',
-    model,
-    promptLength,
-    operation: ({ signal }) => getClient().messages.create({
-      model,
-      max_tokens: getConfiguredMaxTokens(1100),
-      system: buildObjectionCoachSystemPrompt(),
-      messages: [{ role: 'user', content: userMessage }],
-    }, { signal }),
+  const aiSalesContext = await buildAIContext(
+    currentUserContext,
+    buildSalesCoachContextOptions({ situation, category, service, personality, propertyContext, leadContext, sessionId }),
+  );
+  if (!aiSalesContext) {
+    throw Object.assign(new Error('Sales Coach context not found.'), {
+      status: 404,
+      code: 'SALES_COACH_CONTEXT_NOT_FOUND',
+    });
+  }
+
+  const promptInput = buildSalesCoachPromptInput(aiSalesContext, {
+    situation,
+    category,
+    service,
+    personality,
+    propertyContext,
+    leadContext,
+    sessionId,
   });
 
-  const raw = (aiResponse.content[0]?.text || '').trim();
+  const oaKnowledge     = loadOAKnowledge();
+  const [examples, kbResults] = await Promise.all([
+    getRelevantExamplesWithFallback(promptInput.situation, { serviceType: promptInput.service, ...promptInput.propertyContext }),
+    searchKnowledgeBase(`${promptInput.situation} ${promptInput.service || ''} ${promptInput.personality || ''}`.trim(), { limit: 4 }).catch(() => []),
+  ]);
+  const trainingContext = getTrainingContext(promptInput.situation, { service: promptInput.service });
+  const kbContext       = formatKnowledgeBaseContext(kbResults);
+  const userMessage     = buildObjectionCoachUserMessage(
+    promptInput.situation,
+    promptInput.category,
+    promptInput.service,
+    promptInput.personality,
+    promptInput.propertyContext,
+    promptInput.leadContext,
+    oaKnowledge,
+    examples,
+    trainingContext,
+    kbContext,
+  );
+  const model = 'claude-sonnet-4-6';
+  const aiResponse = await executeAIRequest({
+    req: aiRuntime.req || null,
+    provider: 'anthropic',
+    model,
+    system: buildObjectionCoachSystemPrompt(),
+    messages: [{ role: 'user', content: userMessage }],
+    maxTokens: 1100,
+    endpoint: aiRuntime.endpoint || '/api/ai/sales-coach/module',
+    feature: 'objectionCoach',
+    parseJson: true,
+    usageMetadata: aiRuntime.usageMetadata || null,
+  });
 
-  let parsed;
-  try {
-    parsed = parseCoachJson(raw);
-  } catch {
-    throw new Error('AI returned an unexpected format. Please try again.');
-  }
+  const parsed = aiResponse.json;
 
   return {
     recommendedResponse: truncateAiText((parsed.recommendedResponse || '').trim()),

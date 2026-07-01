@@ -1,0 +1,123 @@
+{
+  "_comment": "EXAMPLE FILE — represents a clean PASS result from the Stage 34/35 append-only DB enablement validator. All values are placeholder. This file is committed for documentation purposes only and must never contain real DATABASE_URL credentials, real production hostnames, real Anthropic/OpenAI/Gmail/Twilio secrets, raw AI prompts, raw Error Center records, or any production data. The example host db.example.invalid is an IANA-reserved (RFC 6761) non-resolvable name. See docs/append-only-db-enablement-runbook.md section 9 — 'Staging baseline evidence capture'.",
+  "reportType": "append_only_db_enablement_validation",
+  "schemaVersion": "1.0.0",
+  "generatedBy": "validate-append-only-db-enablement",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "status": "pass",
+  "warningCount": 0,
+  "failureCount": 0,
+  "checks": [
+    {
+      "name": "database_configured",
+      "status": "pass",
+      "message": "DATABASE_URL is configured.",
+      "details": {
+        "configured": true,
+        "redactedDatabaseUrl": "postgres://***:***@db.example.invalid:5432/green_shield_staging",
+        "safeConfig": {
+          "configured": true,
+          "redactedDatabaseUrl": "postgres://***:***@db.example.invalid:5432/green_shield_staging",
+          "sslEnabled": true,
+          "sslRejectUnauthorized": true,
+          "poolMax": 5,
+          "connectionTimeoutMillis": 5000
+        }
+      }
+    },
+    {
+      "name": "database_health",
+      "status": "pass",
+      "message": "Database connectivity check passed.",
+      "details": {
+        "durationMs": 12,
+        "safeConfig": {
+          "configured": true,
+          "redactedDatabaseUrl": "postgres://***:***@db.example.invalid:5432/green_shield_staging",
+          "sslEnabled": true,
+          "sslRejectUnauthorized": true,
+          "poolMax": 5,
+          "connectionTimeoutMillis": 5000
+        }
+      }
+    },
+    {
+      "name": "migration_files_present",
+      "status": "pass",
+      "message": "All required append-only migration files are present.",
+      "details": {
+        "present": [
+          "001_create_schema_migrations.sql",
+          "002_create_append_only_log_tables.sql"
+        ]
+      }
+    },
+    {
+      "name": "migration_status",
+      "status": "pass",
+      "message": "All required append-only migrations are applied.",
+      "details": {
+        "appliedCount": 2
+      }
+    },
+    {
+      "name": "feature_flags",
+      "status": "pass",
+      "message": "All append-only DB flags are OFF (safe initial state).",
+      "details": {
+        "flags": {
+          "dbWriteAIUsageEnabled": false,
+          "dbReadAIUsageEnabled": false,
+          "dbWriteErrorLogEnabled": false,
+          "dbReadErrorLogEnabled": false
+        }
+      }
+    },
+    {
+      "name": "backfill_tooling_present",
+      "status": "pass",
+      "message": "Backfill and reconciliation scripts are present.",
+      "details": {
+        "scriptBasenames": [
+          "backfill-append-only-logs.mjs",
+          "reconcile-append-only-logs.mjs"
+        ]
+      }
+    },
+    {
+      "name": "documentation_present",
+      "status": "pass",
+      "message": "All required runbook and dual-write docs are present.",
+      "details": {
+        "docBasenames": [
+          "append-only-backfill-reconciliation.md",
+          "ai-usage-runtime-dual-write.md",
+          "error-center-runtime-dual-write.md",
+          "postgres-migration-tooling.md",
+          "append-only-db-enablement-runbook.md"
+        ]
+      }
+    }
+  ],
+  "recommendedCommands": [
+    "npm run db:validate:append-only --prefix server",
+    "npm run db:migrate:status --prefix server",
+    "npm run db:migrate --prefix server",
+    "npm run db:backfill:append-only --prefix server -- --domain=all",
+    "npm run db:backfill:append-only --prefix server -- --domain=all --apply",
+    "npm run db:reconcile:append-only --prefix server -- --domain=all",
+    "npm run db:reconcile:append-only --prefix server -- --domain=all --strict",
+    "# Only after every command above succeeds, set:",
+    "#   DB_WRITE_AI_USAGE_ENABLED=true",
+    "#   DB_WRITE_ERROR_LOG_ENABLED=true",
+    "# Keep both DB_READ_* flags OFF until a future stage authorizes read cutover."
+  ],
+  "safeSummary": {
+    "databaseConfigured": true,
+    "writeFlagsEnabled": false,
+    "readFlagsEnabled": false,
+    "migrationChecksIncluded": true,
+    "backfillToolingPresent": true,
+    "documentationPresent": true
+  }
+}

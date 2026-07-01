@@ -37,7 +37,12 @@ import kbRouter from './routes/knowledgeBase.js';
 import geocodeRouter from './routes/geocode.js';
 import intakeRouter from './routes/intake.js';
 import messagesRouter from './routes/messages.js';
+import repliesRouter from './routes/replies.js';
 import errorsRouter from './routes/errors.js';
+import dashboardRouter from './routes/dashboard.js';
+import adminUsersRouter from './routes/adminUsers.js';
+import adminIntegrationsRouter from './routes/adminIntegrations.js';
+import adminDbAppendOnlyRouter from './routes/adminDbAppendOnly.js';
 import { appendMessage } from './services/conversationMessages.js';
 import { startCron } from './services/fieldRoutesCron.js';
 import {
@@ -50,9 +55,14 @@ import {
 import { logPlaywrightChromiumDiagnostics } from './services/playwrightRuntime.js';
 import { getGoogleCredentialsDiagnostics } from './services/googleCredentials.js';
 import { getSheetsStartupCheck, runSheetsStartupCheck } from './services/sheetsStartupCheck.js';
+import { resolveGoogleSheetsConfig } from './services/integrationResolver.js';
 import { isInsectQuarterlyVectorPdfEnabled } from './services/insectQuarterlyVectorPdfFlag.js';
 import { escapeHtml } from './security/htmlEscape.js';
+import { requireActiveUser } from './security/internalAccess.js';
 import { errorFromExpress } from './services/errorLogService.js';
+import { attachCurrentUserContext, getCurrentUserContext } from './services/currentUserContext.js';
+import { ensureInternalTenancy, resolveCurrentUserContextFromAuthUsername } from './services/organizationUsers.js';
+import { ensureOrganizationIntegrations } from './services/organizationIntegrations.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -84,6 +94,8 @@ function validateDashboardAuthConfig() {
 }
 
 validateDashboardAuthConfig();
+ensureInternalTenancy();
+ensureOrganizationIntegrations();
 
 const app = express();
 
@@ -446,11 +458,12 @@ if (fs.existsSync(clientDistPath)) {
 // doesn't trigger a Basic Auth popup when App.jsx calls it on the signing page.
 app.get('/api/health', (req, res) => {
   const googleCreds = getGoogleCredentialsDiagnostics();
+  const sheetsConfig = resolveGoogleSheetsConfig(null);
   const sheetsCheck = getSheetsStartupCheck();
   res.json({
     status: 'ok',
     testMode: process.env.TEST_MODE === 'true',
-    sheetId: process.env.SHEET_ID ? 'configured' : 'missing',
+    sheetId: sheetsConfig.configured ? 'configured' : 'missing',
     hasGoogleCreds: googleCreds.ok,
     googleCreds: {
       status: googleCreds.status,
@@ -483,7 +496,11 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   }
   const token = signSession(username);
   setSessionCookie(req, res, token);
-  return res.json({ ok: true, user: { username } });
+  return res.json({
+    ok: true,
+    user: { username },
+    currentUser: resolveCurrentUserContextFromAuthUsername(username),
+  });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -493,14 +510,20 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/status', (req, res) => {
   const session = getSessionFromRequest(req);
-  if (session) return res.json({ authenticated: true, user: { username: session.u } });
-  if (isAuthenticatedRequest(req)) {
-    return res.json({ authenticated: true, user: { username: process.env.DASHBOARD_USERNAME } });
+  const authUsername = session?.u || (isAuthenticatedRequest(req) ? (process.env.DASHBOARD_USERNAME || '').trim() : null);
+  const currentUser = getCurrentUserContext(req) || (authUsername ? resolveCurrentUserContextFromAuthUsername(authUsername) : null);
+  if (authUsername && currentUser?.status === 'active') {
+    return res.json({ authenticated: true, user: { username: authUsername }, currentUser });
+  }
+  if (authUsername && currentUser) {
+    return res.json({ authenticated: false, user: { username: authUsername }, currentUser });
   }
   return res.json({ authenticated: false });
 });
 
 app.use(requireDashboardLogin);
+app.use(attachCurrentUserContext);
+app.use(requireActiveUser);
 
 app.use('/api/leads', leadsRouter);
 app.use('/api/send', sendRouter);
@@ -516,7 +539,12 @@ app.use('/api/kb', kbRouter);
 app.use('/api/geocode', geocodeRouter);
 app.use('/api/intake', intakeRouter);
 app.use('/api/messages', messagesRouter);
+app.use('/api/replies', repliesRouter);
 app.use('/api/errors', errorsRouter);
+app.use('/api/dashboard', dashboardRouter);
+app.use('/api/admin/users', adminUsersRouter);
+app.use('/api/admin/integrations', adminIntegrationsRouter);
+app.use('/api/admin/db', adminDbAppendOnlyRouter);
 
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
@@ -663,8 +691,9 @@ app.listen(PORT, () => {
   console.log(`   Dashboard UI: ${fs.existsSync(clientDistPath) ? 'served from client/dist' : 'not built yet'}`);
   console.log('   Login: enabled');
   console.log('Google creds loaded:', !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-  console.log('Sheet ID:', process.env.SHEET_ID || '(not set — using default in sheets.js)');
-  console.log(`   Google Sheets SHEET_ID env: ${process.env.SHEET_ID ? 'configured' : '⚠️  SHEET_ID missing (default ID used)'}`);
+  const sheetsConfig = resolveGoogleSheetsConfig(null);
+  console.log('Sheet ID:', sheetsConfig.leadResponsesSheetId || sheetsConfig.masterLeadSheetId || '(not set — using legacy default in sheets.js)');
+  console.log(`   Google Sheets: ${sheetsConfig.configured ? `configured (${sheetsConfig.source})` : '⚠️  missing (legacy default fallback may apply)'}`);
   console.log(`   n8n: ${process.env.N8N_BASE_URL || '⚠️  N8N_BASE_URL missing'}`);
   console.log(`   Insect Quarterly vector PDF: ${isInsectQuarterlyVectorPdfEnabled() ? 'enabled' : 'disabled (legacy AcroForm)'}`);
   const g = getGoogleCredentialsDiagnostics();

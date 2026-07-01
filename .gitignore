@@ -23,3 +23,7 @@ playwright/.auth/
 server/.env
 client/.env
 tmp/
+
+# Generated append-only DB validation reports (Stage 35/36).
+reports/
+server/reports/

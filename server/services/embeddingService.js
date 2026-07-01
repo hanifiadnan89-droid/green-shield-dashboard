@@ -1,19 +1,7 @@
-import OpenAI from 'openai';
 import { runAiOperation } from '../security/aiRequestGuards.js';
+import { createEmbeddings } from './ai/embeddings/embeddingProvider.js';
 
 const MODEL = 'text-embedding-3-small'; // 1536 dims, $0.02/1M tokens
-
-let openai = null;
-
-function getClient() {
-  if (!openai) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not set. Add it to server/.env to enable semantic retrieval.');
-    }
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 });
-  }
-  return openai;
-}
 
 /**
  * Generate a single embedding vector for a text string.
@@ -29,7 +17,7 @@ export async function generateEmbedding(text, aiRuntime = {}) {
     provider: 'openai',
     model: MODEL,
     promptLength: input.length,
-    operation: ({ signal }) => getClient().embeddings.create({ model: MODEL, input }, { signal }),
+    operation: ({ signal }) => createEmbeddings({ model: MODEL, input, signal }),
   });
   return response.data[0].embedding;
 }
@@ -48,7 +36,7 @@ export async function generateEmbeddingsBatch(texts, aiRuntime = {}) {
     provider: 'openai',
     model: MODEL,
     promptLength: inputs.reduce((sum, input) => sum + input.length, 0),
-    operation: ({ signal }) => getClient().embeddings.create({ model: MODEL, input: inputs }, { signal }),
+    operation: ({ signal }) => createEmbeddings({ model: MODEL, inputs, signal }),
   });
   // OpenAI returns embeddings in the same order as input
   return response.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);

@@ -28,11 +28,12 @@ function itemIsActive(item, activeFilter, pathname, leadsCategory) {
   return false;
 }
 
-function visibleSidebarNav() {
+function visibleSidebarNav(currentUser) {
   return SIDEBAR_NAV.map((section) => ({
     ...section,
     items: section.items.filter((item) => {
       if (item.feature === 'intake') return isIntakeEnabled();
+      if (item.adminOnly && !currentUser?.isAdmin) return false;
       return true;
     }),
   })).filter((section) => section.items.length > 0);
@@ -41,6 +42,7 @@ function visibleSidebarNav() {
 function AppSidebar({
   stats,
   testMode,
+  currentUser,
   activeFilter = 'all',
   onFilterChange,
   unreadReplies = 0,
@@ -77,6 +79,7 @@ function AppSidebar({
     const isActive = itemIsActive(item, activeFilter, pathname, leadsCategory);
     const count = badge ? getBadgeCount(badge) : 0;
     const isStatic = type === 'static';
+    if (item.adminOnly && !currentUser?.isAdmin) return null;
 
     const itemContent = (
       <>
@@ -254,7 +257,7 @@ function AppSidebar({
         </div>
 
         <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3 space-y-4">
-          {visibleSidebarNav().map(({ group, items }) => (
+          {visibleSidebarNav(currentUser).map(({ group, items }) => (
             <div key={group}>
               <p className="sidebar-group-label">{group}</p>
               <div className="space-y-0.5">

@@ -80,6 +80,11 @@ export default function ConversationList({
                 <AnimatePresence initial={false}>
                   {sortedActive.map((lead, i) => {
                     const messages = threads[lead.row_number] || [];
+                    const replyThread = lead.replyThread || {};
+                    const unread = replyThread.unread ?? isUnread(lead, messages, meta[lead.row_number]);
+                    const preview = replyThread.preview
+                      || previewFromMessages(messages, meta[lead.row_number], lead);
+                    const lastAt = replyThread.lastAt ?? meta[lead.row_number]?.lastAt;
                     return (
                       <ConversationCard
                         key={lead.row_number}
@@ -88,12 +93,12 @@ export default function ConversationList({
                         selected={selectedRowNumber === lead.row_number}
                         isArchived={false}
                         hasDraft={!!(getCard(lead.row_number).message || '').trim()}
-                        unread={isUnread(lead, messages, meta[lead.row_number])}
+                        unread={unread}
                         pulsing={pulseRows.has(lead.row_number)}
                         messages={messages}
                         meta={meta[lead.row_number]}
-                        preview={previewFromMessages(messages, meta[lead.row_number], lead)}
-                        lastAt={meta[lead.row_number]?.lastAt}
+                        preview={preview}
+                        lastAt={lastAt}
                         onSelect={onSelectLead}
                       />
                     );
@@ -116,6 +121,7 @@ export default function ConversationList({
                 <AnimatePresence initial={false}>
                   {sortedArchived.map((lead, i) => {
                     const messages = threads[lead.row_number] || [];
+                    const replyThread = lead.replyThread || {};
                     return (
                       <ConversationCard
                         key={lead.row_number}
@@ -128,8 +134,8 @@ export default function ConversationList({
                         pulsing={false}
                         messages={messages}
                         meta={meta[lead.row_number]}
-                        preview={previewFromMessages(messages, meta[lead.row_number], lead)}
-                        lastAt={meta[lead.row_number]?.lastAt}
+                        preview={replyThread.preview || previewFromMessages(messages, meta[lead.row_number], lead)}
+                        lastAt={replyThread.lastAt ?? meta[lead.row_number]?.lastAt}
                         onSelect={onSelectLead}
                       />
                     );

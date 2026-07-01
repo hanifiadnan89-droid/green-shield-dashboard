@@ -8,25 +8,11 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
 import { createRequire } from 'module';
+import { executeAIRequest } from '../ai/execution/AIExecutionEngine.js';
+import { transcribeAudioFile } from '../ai/extraction/transcriptionProvider.js';
 
 const require = createRequire(import.meta.url);
-
-// ── Lazy clients ──────────────────────────────────────────────────────────────
-
-let _anthropic = null;
-function getAnthropic() {
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 1 });
-  return _anthropic;
-}
-
-let _openai = null;
-function getOpenAI() {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 1 });
-  return _openai;
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -79,21 +65,6 @@ function loadFfmpeg() {
     unavailable.code = 'FFMPEG_UNAVAILABLE';
     unavailable.cause = err;
     throw unavailable;
-  }
-}
-
-async function transcribeAudioFile(filePath) {
-  const fileStream = fs.createReadStream(filePath);
-  fileStream.on('error', () => {});
-  try {
-    return await getOpenAI().audio.transcriptions.create({
-      file: fileStream,
-      model: 'whisper-1',
-      response_format: 'verbose_json',
-      timestamp_granularities: ['segment'],
-    });
-  } finally {
-    fileStream.destroy();
   }
 }
 
@@ -241,9 +212,10 @@ async function extractImageBuffersOcr(images, label = 'Image', extraMetadata = {
       },
     }));
 
-    const response = await getAnthropic().messages.create({
+    const response = await executeAIRequest({
+      provider: 'anthropic',
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
+      maxTokens: 4096,
       messages: [{
         role: 'user',
         content: [
@@ -263,9 +235,15 @@ TYPE: [content type]
           },
         ],
       }],
+      endpoint: 'knowledge-base-extraction',
+      feature: 'knowledge-base-extraction',
+      metadata: {
+        source: 'extractionService',
+        purpose: 'ocr',
+      },
     });
 
-    const rawText  = response.content[0]?.text || '';
+    const rawText  = response.text || '';
     const text     = cleanText(rawText);
     return {
       text,

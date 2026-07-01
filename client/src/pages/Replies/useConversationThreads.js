@@ -54,6 +54,27 @@ export function useConversationThreads() {
     return nextMessages;
   }, []);
 
+  const hydrateThreads = useCallback((initialThreads = {}, initialMeta = {}, { replace = true } = {}) => {
+    const normalizedThreads = initialThreads && typeof initialThreads === 'object' ? initialThreads : {};
+    const normalizedMeta = initialMeta && typeof initialMeta === 'object' ? initialMeta : {};
+
+    setThreads(prev => {
+      if (replace) return normalizedThreads;
+      const next = { ...prev };
+      for (const [rowKey, messages] of Object.entries(normalizedThreads)) {
+        const row = Number(rowKey);
+        const existing = prev[row] || [];
+        const merged = mergeMessageLists(existing, messages || []);
+        if (merged.length > 0 || existing.length === 0) {
+          next[row] = merged;
+        }
+      }
+      return next;
+    });
+
+    setMeta(prev => (replace ? normalizedMeta : { ...prev, ...normalizedMeta }));
+  }, []);
+
   const syncLeads = useCallback(async (leads, { replace = false } = {}) => {
     if (!leads?.length) {
       if (replace) {
@@ -102,11 +123,17 @@ export function useConversationThreads() {
     const row = Number(rowNumber);
     if (!row) return [];
     try {
-      const { messages, meta: threadMeta } = await api.messages.list(row);
-      return applyThreadPayload(row, messages, threadMeta);
+      const payload = await api.replies.get({ rowNumber: row });
+      const selected = payload?.selectedConversation || payload || {};
+      return applyThreadPayload(row, selected.messages || [], selected.meta || payload?.meta);
     } catch (err) {
-      console.warn(`[Replies] loadThread(${row}) failed:`, err.message);
-      return threadsRef.current[row] || [];
+      try {
+        const { messages, meta: threadMeta } = await api.messages.list(row);
+        return applyThreadPayload(row, messages, threadMeta);
+      } catch (fallbackErr) {
+        console.warn(`[Replies] loadThread(${row}) failed:`, fallbackErr.message);
+        return threadsRef.current[row] || [];
+      }
     }
   }, [applyThreadPayload]);
 
@@ -142,6 +169,7 @@ export function useConversationThreads() {
     syncError,
     syncing,
     syncLeads,
+    hydrateThreads,
     loadThread,
     appendOptimistic,
     getMessages,

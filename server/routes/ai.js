@@ -1,5 +1,4 @@
 import express from 'express';
-import Anthropic from '@anthropic-ai/sdk';
 import { loadKnowledge } from '../services/knowledge.js';
 import {
   loadOAKnowledge,
@@ -17,33 +16,88 @@ import {
   upsertSession,
   listSessions,
 } from '../services/trainingService.js';
+import { buildAIContext, buildReplyContext } from '../services/ai/context/AIContextBuilder.js';
+import { buildAssistReplyPromptInput } from '../services/ai/adapters/assistReplyPromptAdapter.js';
+import {
+  buildSalesCoachContextOptions,
+  buildSalesCoachPromptInput,
+} from '../services/ai/adapters/salesCoachPromptAdapter.js';
+import {
+  buildObjectionAssistantContextOptions,
+  buildObjectionAssistantPromptInput,
+} from '../services/ai/adapters/objectionAssistantPromptAdapter.js';
+import {
+  buildDraftReplyContextOptions,
+  buildDraftReplyPromptInput,
+} from '../services/ai/adapters/draftReplyPromptAdapter.js';
+import { executeAIRequest } from '../services/ai/execution/AIExecutionEngine.js';
+import { getAIProviderHealth } from '../services/ai/AIProviderHealthService.js';
+import {
+  getSafeAIUsageLogStorageStatus,
+  listAIUsage,
+  summarizeAIUsage,
+} from '../services/ai/AIUsageRecorder.js';
 import {
   assertNonEmptyString,
   assertObject,
   assertPlainObjectBody,
   assertPromptWithinLimit,
   createAiRateLimiter,
-  getConfiguredMaxTokens,
-  runAiOperation,
   sendAiError,
   truncateAiText,
 } from '../security/aiRequestGuards.js';
+import { requireAdmin } from '../security/internalAccess.js';
+import { markDeprecatedRoute } from '../services/ai/deprecation.js';
 
 const router = express.Router();
 
-// Lazy-init so missing API key only fails on actual use, not server startup
-let anthropic = null;
-function getClient() {
-  if (!anthropic) {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY is not set. Add it to server/.env to enable AI Draft Reply.');
-    }
-    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
-  }
-  return anthropic;
+const aiRateLimit = createAiRateLimiter();
+
+router.get('/health', requireAdmin, (_req, res) => {
+  return res.json(getAIProviderHealth());
+});
+
+function parseUsageSuccess(value) {
+  if (value == null || value === '') return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return undefined;
 }
 
-const aiRateLimit = createAiRateLimiter();
+router.get('/usage/storage', requireAdmin, (_req, res) => {
+  try {
+    return res.json(getSafeAIUsageLogStorageStatus());
+  } catch (err) {
+    console.error('[ai/usage/storage]', err.message);
+    return res.status(500).json({
+      error: 'Failed to read AI usage storage status.',
+      code: 'AI_USAGE_STORAGE_READ_FAILED',
+    });
+  }
+});
+
+router.get('/usage', requireAdmin, async (req, res) => {
+  try {
+    const filters = {
+      limit: req.query.limit,
+      feature: req.query.feature,
+      provider: req.query.provider,
+      model: req.query.model,
+      endpoint: req.query.endpoint,
+      success: parseUsageSuccess(req.query.success),
+      from: req.query.from,
+      to: req.query.to,
+    };
+    return res.json({
+      summary: await summarizeAIUsage(filters),
+      entries: await listAIUsage(filters),
+    });
+  } catch (err) {
+    console.error('[ai/usage]', err.message);
+    return res.status(500).json({ error: 'Failed to read AI usage log.', code: 'AI_USAGE_READ_FAILED' });
+  }
+});
 
 // Keywords in the customer message that always trigger human review
 const ESCALATION_PATTERNS = [
@@ -223,6 +277,21 @@ function buildAssistUserMessage(context, userPrompt, currentDraft) {
   return lines.join('\n');
 }
 
+function parseAssistRowNumber(body = {}) {
+  const candidates = [
+    body.rowNumber,
+    body.row_number,
+    body.leadRowNumber,
+    body.lead_context?.rowNumber,
+    body.lead_context?.row_number,
+  ];
+  for (const candidate of candidates) {
+    const parsed = Number.parseInt(String(candidate ?? '').trim(), 10);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
 function parseAiJson(raw) {
   try {
     const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -234,32 +303,6 @@ function parseAiJson(raw) {
       review_reason: 'AI response was not valid JSON — review before sending.',
     };
   }
-}
-
-async function callAnthropicMessage({
-  req,
-  endpoint,
-  module,
-  model,
-  maxTokens,
-  system,
-  userMessage,
-}) {
-  const promptLength = assertPromptWithinLimit(userMessage, `${module} prompt`);
-  return runAiOperation({
-    req,
-    endpoint,
-    module,
-    provider: 'anthropic',
-    model,
-    promptLength,
-    operation: ({ signal }) => getClient().messages.create({
-      model,
-      max_tokens: getConfiguredMaxTokens(maxTokens),
-      system,
-      messages: [{ role: 'user', content: userMessage }],
-    }, { signal }),
-  });
 }
 
 async function runAssist({ req, lead_context, user_prompt, current_draft }) {
@@ -276,18 +319,18 @@ async function runAssist({ req, lead_context, user_prompt, current_draft }) {
   const systemPrompt = buildAssistSystemPrompt(knowledge);
   const userMessage = buildAssistUserMessage(lead_context, user_prompt, current_draft);
 
-  const response = await callAnthropicMessage({
-    req,
-    endpoint: '/api/ai/assist-reply',
-    module: 'assist-reply',
+  const response = await executeAIRequest({
+    provider: 'anthropic',
     model: 'claude-haiku-4-5-20251001',
-    maxTokens: 1024,
     system: systemPrompt,
-    userMessage,
+    messages: [{ role: 'user', content: userMessage }],
+    maxTokens: 1024,
+    endpoint: '/api/ai/assist-reply',
+    feature: 'assist-reply',
+    req,
   });
 
-  const raw = response.content[0]?.text?.trim() || '{}';
-  const parsed = parseAiJson(raw);
+  const parsed = parseAiJson(response.text || '{}');
 
   return {
     draft: truncateAiText((parsed.draft || '').trim()),
@@ -302,14 +345,28 @@ router.post('/assist-reply', aiRateLimit, async (req, res) => {
     const { lead_context, user_prompt, current_draft } = req.body;
 
     assertObject(lead_context, 'lead_context', 'Missing lead_context in request body.');
-    assertNonEmptyString(lead_context.name, 'lead_context.name', 'lead_context must include at least name and phone.');
-    assertNonEmptyString(lead_context.phone, 'lead_context.phone', 'lead_context must include at least name and phone.');
     const prompt = assertNonEmptyString(user_prompt, 'user_prompt', 'Describe how you would like to respond (user_prompt is required).');
     assertPromptWithinLimit(req.body, 'request body');
 
+    const currentUserContext = req.currentUserContext;
+    if (!currentUserContext) {
+      return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+
+    const rowNumber = parseAssistRowNumber(req.body);
+    if (!rowNumber) {
+      return res.status(400).json({ error: 'rowNumber is required for AI reply context.', code: 'ROW_NUMBER_REQUIRED' });
+    }
+
+    const aiReplyContext = await buildReplyContext(currentUserContext, rowNumber);
+    if (!aiReplyContext) {
+      return res.status(404).json({ error: 'Reply context not found.', code: 'REPLY_CONTEXT_NOT_FOUND' });
+    }
+
+    const resolvedLeadContext = buildAssistReplyPromptInput(aiReplyContext, lead_context);
     const result = await runAssist({
       req,
-      lead_context,
+      lead_context: resolvedLeadContext,
       user_prompt: prompt,
       current_draft: current_draft || '',
     });
@@ -326,17 +383,34 @@ router.post('/assist-reply', aiRateLimit, async (req, res) => {
 
 /** @deprecated Use POST /ai/assist-reply with a user_prompt instead */
 router.post('/draft-reply', aiRateLimit, async (req, res) => {
+  markDeprecatedRoute(res, { replacementPath: '/api/ai/assist-reply' });
   try {
     assertPlainObjectBody(req.body);
     const { lead_context } = req.body;
 
     assertObject(lead_context, 'lead_context', 'Missing lead_context in request body.');
-    assertNonEmptyString(lead_context.name, 'lead_context.name', 'lead_context must include at least name and phone.');
-    assertNonEmptyString(lead_context.phone, 'lead_context.phone', 'lead_context must include at least name and phone.');
     assertPromptWithinLimit(req.body, 'request body');
 
-    const escalation = detectEscalation(lead_context);
-    if (escalation.required && lead_context.stop) {
+    const currentUserContext = req.currentUserContext;
+    if (!currentUserContext) {
+      return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+
+    const contextOptions = buildDraftReplyContextOptions({ lead_context });
+    const aiContext = await buildAIContext(currentUserContext, contextOptions);
+    if (!aiContext) {
+      return res.status(404).json({
+        error: 'Draft Reply context not found.',
+        code: 'DRAFT_REPLY_CONTEXT_NOT_FOUND',
+      });
+    }
+
+    const promptLeadContext = buildDraftReplyPromptInput(aiContext, { lead_context });
+    assertNonEmptyString(promptLeadContext.name, 'lead_context.name', 'lead_context must include at least name and phone.');
+    assertNonEmptyString(promptLeadContext.phone, 'lead_context.phone', 'lead_context must include at least name and phone.');
+
+    const escalation = detectEscalation(promptLeadContext);
+    if (escalation.required && promptLeadContext.stop) {
       return res.json({
         draft: '',
         human_review_required: true,
@@ -346,20 +420,25 @@ router.post('/draft-reply', aiRateLimit, async (req, res) => {
 
     const knowledge = loadKnowledge();
     const systemPrompt = buildSystemPrompt(knowledge);
-    const userMessage = `${buildUserMessage(lead_context)}\n\nTASK: Draft a reply SMS from Adnan at Green Shield Pest Solutions. Follow all rules above. Return only valid JSON.`;
+    const userMessage = `${buildUserMessage(promptLeadContext)}\n\nTASK: Draft a reply SMS from Adnan at Green Shield Pest Solutions. Follow all rules above. Return only valid JSON.`;
 
-    const response = await callAnthropicMessage({
-      req,
-      endpoint: '/api/ai/draft-reply',
-      module: 'draft-reply',
+    const response = await executeAIRequest({
+      provider: 'anthropic',
       model: 'claude-haiku-4-5-20251001',
-      maxTokens: 512,
       system: systemPrompt,
-      userMessage,
+      messages: [{ role: 'user', content: userMessage }],
+      maxTokens: 512,
+      endpoint: '/api/ai/draft-reply',
+      feature: 'draft-reply',
+      usageMetadata: {
+        deprecatedRoute: true,
+        deprecatedPath: '/api/ai/draft-reply',
+        replacementPath: '/api/ai/assist-reply',
+      },
+      req,
     });
 
-    const raw = response.content[0]?.text?.trim() || '{}';
-    const parsed = parseAiJson(raw);
+    const parsed = parseAiJson(response.text || '{}');
 
     return res.json({
       draft: truncateAiText((parsed.draft || '').trim()),
@@ -394,10 +473,15 @@ router.post('/sales-coach/module', aiRateLimit, async (req, res) => {
     params.situation = assertNonEmptyString(params.situation, 'situation', 'situation is required');
     assertPromptWithinLimit(req.body, 'request body');
 
+    const currentUserContext = req.currentUserContext;
+    if (!currentUserContext) {
+      return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+
     const result = await runSalesCoachModule(
       module.trim(),
       { ...params, sessionId: sessionId || null },
-      { req, endpoint: '/api/ai/sales-coach/module' },
+      { req, endpoint: '/api/ai/sales-coach/module', currentUserContext },
     );
 
     if (sessionId) {
@@ -422,6 +506,12 @@ router.post('/sales-coach/module', aiRateLimit, async (req, res) => {
     if (err.code === 'UNKNOWN_MODULE') {
       return res.status(400).json({ error: err.message, supported: getSupportedModules() });
     }
+    if (err.code === 'AUTH_REQUIRED') {
+      return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+    if (err.code === 'SALES_COACH_CONTEXT_NOT_FOUND') {
+      return res.status(404).json({ error: 'Sales Coach context not found.', code: 'SALES_COACH_CONTEXT_NOT_FOUND' });
+    }
     return sendAiError(res, err, {
       endpoint: '/api/ai/sales-coach/module',
       module: 'objectionCoach',
@@ -435,6 +525,7 @@ router.post('/sales-coach/module', aiRateLimit, async (req, res) => {
 // Kept working so any existing callers (including Property Intelligence) are unaffected.
 
 router.post('/coach-objection', aiRateLimit, async (req, res) => {
+  markDeprecatedRoute(res, { replacementPath: '/api/ai/sales-coach/module' });
   try {
     assertPlainObjectBody(req.body);
     const {
@@ -454,12 +545,32 @@ router.post('/coach-objection', aiRateLimit, async (req, res) => {
     const trimmedSituation = assertNonEmptyString(situation, 'situation', 'situation is required');
     assertPromptWithinLimit(req.body, 'request body');
 
+    const currentUserContext = req.currentUserContext;
+    if (!currentUserContext) {
+      return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+
     const result = await runSalesCoachModule('objectionCoach', {
       situation: trimmedSituation, category, service, personality,
       propertyContext, leadContext, sessionId,
-    }, { req, endpoint: '/api/ai/coach-objection' });
+    }, {
+      req,
+      endpoint: '/api/ai/coach-objection',
+      currentUserContext,
+      usageMetadata: {
+        deprecatedRoute: true,
+        deprecatedPath: '/api/ai/coach-objection',
+        replacementPath: '/api/ai/sales-coach/module',
+      },
+    });
     return res.json(result);
   } catch (err) {
+    if (err.code === 'AUTH_REQUIRED') {
+      return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+    if (err.code === 'SALES_COACH_CONTEXT_NOT_FOUND') {
+      return res.status(404).json({ error: 'Sales Coach context not found.', code: 'SALES_COACH_CONTEXT_NOT_FOUND' });
+    }
     return sendAiError(res, err, {
       endpoint: '/api/ai/coach-objection',
       module: 'objectionCoach',
@@ -602,29 +713,47 @@ router.post('/sales-coach', aiRateLimit, async (req, res) => {
     const trimmedQuestion = assertNonEmptyString(repQuestion, 'repQuestion', 'repQuestion is required');
     assertPromptWithinLimit(req.body, 'request body');
 
-    const oaKnowledge = loadOAKnowledge();
-    const examples    = await getRelevantExamplesWithFallback(trimmedQuestion, propertyContext);
-    const userMessage = buildSalesCoachUserMessage(propertyContext, leadContext, trimmedQuestion, oaKnowledge, examples);
+    const currentUserContext = req.currentUserContext;
+    if (!currentUserContext) {
+      return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
 
-    const aiResponse = await callAnthropicMessage({
-      req,
-      endpoint: '/api/ai/sales-coach',
-      module: 'sales-coach',
+    const aiSalesContext = await buildAIContext(
+      currentUserContext,
+      buildSalesCoachContextOptions({ repQuestion: trimmedQuestion, propertyContext, leadContext }),
+    );
+    if (!aiSalesContext) {
+      return res.status(404).json({ error: 'Sales Coach context not found.', code: 'SALES_COACH_CONTEXT_NOT_FOUND' });
+    }
+
+    const promptInput = buildSalesCoachPromptInput(aiSalesContext, {
+      repQuestion: trimmedQuestion,
+      propertyContext,
+      leadContext,
+    });
+    const oaKnowledge = loadOAKnowledge();
+    const examples    = await getRelevantExamplesWithFallback(trimmedQuestion, promptInput.propertyContext);
+    const userMessage = buildSalesCoachUserMessage(
+      promptInput.propertyContext,
+      promptInput.leadContext,
+      trimmedQuestion,
+      oaKnowledge,
+      examples,
+    );
+
+    const aiResponse = await executeAIRequest({
+      provider: 'anthropic',
       model: 'claude-sonnet-4-6',
-      maxTokens: 800,
       system: buildSalesCoachSystemPrompt(),
-      userMessage,
+      messages: [{ role: 'user', content: userMessage }],
+      maxTokens: 800,
+      endpoint: '/api/ai/sales-coach',
+      feature: 'sales-coach',
+      req,
+      parseJson: true,
     });
 
-    const raw = (aiResponse.content[0]?.text || '').trim();
-
-    let parsed;
-    try {
-      const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-      parsed = JSON.parse(clean);
-    } catch {
-      return res.status(500).json({ error: 'AI returned an unexpected format. Please try again.' });
-    }
+    const parsed = aiResponse.json;
 
     return res.json({
       recommendedResponse: truncateAiText((parsed.recommendedResponse || '').trim()),
@@ -700,24 +829,53 @@ router.post('/objection-assist', aiRateLimit, async (req, res) => {
     const trimmedObjection = assertNonEmptyString(objection, 'objection', 'objection is required');
     assertPromptWithinLimit(req.body, 'request body');
 
-    let userMessage;
-    if (action && existing_response.trim()) {
-      userMessage = buildTransformUserMessage(action, existing_response, trimmedObjection, context);
-    } else {
-      userMessage = buildObjectionUserMessage(context, trimmedObjection);
+    const currentUserContext = req.currentUserContext;
+    if (!currentUserContext) {
+      return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
     }
 
-    const aiResponse = await callAnthropicMessage({
-      req,
-      endpoint: '/api/ai/objection-assist',
-      module: 'objection-assist',
-      model: 'claude-sonnet-4-6',
-      maxTokens: 350,
-      system: buildObjectionSystemPrompt(),
-      userMessage,
+    const aiContext = await buildAIContext(
+      currentUserContext,
+      buildObjectionAssistantContextOptions({ context, objection: trimmedObjection, action, existing_response }),
+    );
+    if (!aiContext) {
+      return res.status(404).json({
+        error: 'Objection Assistant context not found.',
+        code: 'OBJECTION_ASSISTANT_CONTEXT_NOT_FOUND',
+      });
+    }
+
+    const promptInput = buildObjectionAssistantPromptInput(aiContext, {
+      context,
+      objection: trimmedObjection,
+      action,
+      existing_response,
     });
 
-    const text = (aiResponse.content[0]?.text || '').trim();
+    let userMessage;
+    if (promptInput.action && promptInput.existing_response.trim()) {
+      userMessage = buildTransformUserMessage(
+        promptInput.action,
+        promptInput.existing_response,
+        promptInput.objection,
+        promptInput.context,
+      );
+    } else {
+      userMessage = buildObjectionUserMessage(promptInput.context, promptInput.objection);
+    }
+
+    const aiResponse = await executeAIRequest({
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      system: buildObjectionSystemPrompt(),
+      messages: [{ role: 'user', content: userMessage }],
+      maxTokens: 350,
+      endpoint: '/api/ai/objection-assist',
+      feature: 'objection-assist',
+      req,
+    });
+
+    const text = (aiResponse.text || '').trim();
     return res.json({ response: truncateAiText(text) });
   } catch (err) {
     return sendAiError(res, err, {

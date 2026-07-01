@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LayoutGroup } from 'motion/react';
 import { TrendingUp } from 'lucide-react';
 import AmbientBackground from './AmbientBackground.jsx';
-import { derivePipelineDashboard } from './derivePipelineDashboard.js';
+import { resolvePipelineDashboardData } from './resolvePipelineDashboardData.js';
 import { useLiveClock } from './useLiveClock.js';
 import {
   CommandHeader,
@@ -17,7 +17,12 @@ import {
 } from './pipelineWidgets.jsx';
 import './pipeline-command.css';
 
-export default function PipelineCommandCenter({ stats = {}, leads = [], onRefresh }) {
+export default function PipelineCommandCenter({
+  stats = {},
+  leads = [],
+  pipelineMetrics = null,
+  onRefresh,
+}) {
   const navigate = useNavigate();
   const [lastSync, setLastSync] = useState(() => new Date());
   const now = useLiveClock(1000);
@@ -26,7 +31,10 @@ export default function PipelineCommandCenter({ stats = {}, leads = [], onRefres
     setLastSync(new Date());
   }, [leads]);
 
-  const data = useMemo(() => derivePipelineDashboard(leads, stats), [leads, stats]);
+  const data = useMemo(
+    () => resolvePipelineDashboardData({ leads, stats, pipelineMetrics }),
+    [leads, stats, pipelineMetrics]
+  );
 
   const handleRefresh = () => {
     onRefresh?.();

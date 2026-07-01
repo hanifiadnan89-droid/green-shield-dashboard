@@ -21,6 +21,9 @@ const IntakeGate         = lazy(() => import('./pages/Intake/IntakeGate.jsx'));
 const IntakePropertyGate = lazy(() => import('./pages/Intake/IntakePropertyGate.jsx'));
 const AgreementSignPage = lazy(() => import('./pages/AgreementSign/AgreementSignPage.jsx'));
 const SalesCoachPage    = lazy(() => import('./pages/SalesCoach/SalesCoachPage.jsx'));
+const AdminUsersPage    = lazy(() => import('./pages/Admin/Users/AdminUsersPage.jsx'));
+const AdminIntegrationsPage = lazy(() => import('./pages/Admin/Users/UserIntegrationsPage.jsx'));
+const AIObservabilityPage = lazy(() => import('./pages/Admin/AIObservability/AIObservabilityPage.jsx'));
 
 function googleCredsBannerMessage(googleCreds) {
   if (googleCreds?.message) return googleCreds.message;
@@ -30,7 +33,7 @@ function googleCredsBannerMessage(googleCreds) {
   return 'Google credentials are not configured. Set GOOGLE_SERVICE_ACCOUNT_JSON in Render Environment or server/.env locally.';
 }
 
-function AppShell({ testMode, credsMissing, googleCreds }) {
+function AppShell({ testMode, credsMissing, googleCreds, currentUser }) {
   const { pathname } = useLocation();
   const hideGoogleBanner = pathname.startsWith('/tools/route-finder');
   const suppressLiveBanner =
@@ -40,7 +43,7 @@ function AppShell({ testMode, credsMissing, googleCreds }) {
     || pathname.startsWith('/tools/route-finder');
 
   return (
-    <Layout testMode={testMode}>
+    <Layout testMode={testMode} currentUser={currentUser}>
       <TestModeBanner testMode={testMode} suppressLiveBanner={suppressLiveBanner} />
       {credsMissing && !hideGoogleBanner && (
         <div className="bg-gs-info/10 border-b border-gs-info/30 px-4 py-2 text-gs-info text-xs flex items-center gap-2">
@@ -56,11 +59,11 @@ function AppShell({ testMode, credsMissing, googleCreds }) {
   );
 }
 
-function DashboardRoutes({ testMode, credsMissing, googleCreds }) {
+function DashboardRoutes({ testMode, credsMissing, googleCreds, currentUser }) {
   return (
     <Routes>
       <Route path="/dashboard-classic" element={<Navigate to="/" replace />} />
-      <Route element={<AppShell testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} />}>
+      <Route element={<AppShell testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} currentUser={currentUser} />}>
         <Route path="/" element={<CRMPreview />} />
         <Route path="/leads" element={<Leads />} />
         <Route path="/send" element={<SendTemplate testMode={testMode} />} />
@@ -69,6 +72,9 @@ function DashboardRoutes({ testMode, credsMissing, googleCreds }) {
         <Route path="/followups" element={<Followups />} />
         <Route path="/activity" element={<ActivityLog />} />
         <Route path="/errors" element={<ErrorCenter />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/users/:userId/integrations" element={<AdminIntegrationsPage />} />
+        <Route path="/admin/ai-observability" element={<AIObservabilityPage />} />
         <Route path="/tools/route-finder" element={<RouteFinderPage />} />
         <Route path="/sales-coach" element={<SalesCoachPage />} />
         <Route path="/intake" element={<IntakeGate />} />
@@ -83,6 +89,7 @@ export default function App() {
   const [testMode, setTestMode] = useState(null);
   const [credsMissing, setCredsMissing] = useState(false);
   const [googleCreds, setGoogleCreds] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // auth state: null = checking, true = authed, false = needs login
   const [authState, setAuthState] = useState(null);
@@ -94,8 +101,10 @@ export default function App() {
     try {
       const data = await api.auth.status();
       setAuthState(Boolean(data?.authenticated));
+      setCurrentUser(data?.currentUser ?? null);
     } catch {
       setAuthState(false);
+      setCurrentUser(null);
     }
   }, []);
 
@@ -104,7 +113,10 @@ export default function App() {
   }, [checkAuth]);
 
   useEffect(() => {
-    function onExpired() { setAuthState(false); }
+    function onExpired() {
+      setAuthState(false);
+      setCurrentUser(null);
+    }
     window.addEventListener('gs:auth-expired', onExpired);
     return () => window.removeEventListener('gs:auth-expired', onExpired);
   }, []);
@@ -124,7 +136,8 @@ export default function App() {
   const handleAuthenticated = useCallback(() => {
     setFreshLogin(true);
     setAuthState(true);
-  }, []);
+    checkAuth();
+  }, [checkAuth]);
 
   useEffect(() => {
     if (!freshLogin) return;
@@ -173,7 +186,7 @@ export default function App() {
 
   return (
     <div className={freshLogin ? 'gs-fresh-login' : undefined}>
-      <DashboardRoutes testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} />
+      <DashboardRoutes testMode={testMode} credsMissing={credsMissing} googleCreds={googleCreds} currentUser={currentUser} />
     </div>
   );
 }

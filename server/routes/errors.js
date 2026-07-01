@@ -1,5 +1,4 @@
 import express from 'express';
-import Anthropic from '@anthropic-ai/sdk';
 import {
   archiveError,
   createError,
@@ -12,24 +11,15 @@ import {
   setErrorAnalysis,
   summarizeErrors,
   updateErrorStatus,
-} from '../services/errorLogService.js';
+} from '../services/errorLogRecorder.js';
+import { executeAIRequest } from '../services/ai/execution/AIExecutionEngine.js';
 import {
-  assertPromptWithinLimit,
   getAuthenticatedUser,
-  getConfiguredMaxTokens,
-  runAiOperation,
   truncateAiText,
 } from '../security/aiRequestGuards.js';
 
 const router = express.Router();
 initializeErrorLogStorage();
-
-let anthropic = null;
-function getAnthropicClient() {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!anthropic) anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
-  return anthropic;
-}
 
 function storageErrorResponse(res, err) {
   return res.status(err.status || 503).json({
@@ -39,8 +29,8 @@ function storageErrorResponse(res, err) {
   });
 }
 
-router.get('/', (req, res) => {
-  const result = listErrors({
+router.get('/', async (req, res) => {
+  const result = await listErrors({
     severity: req.query.severity,
     status: req.query.status,
     source: req.query.source,
@@ -51,11 +41,11 @@ router.get('/', (req, res) => {
     limit: req.query.limit,
     offset: req.query.offset,
   });
-  res.json({ ...result, summary: summarizeErrors() });
+  res.json({ ...result, summary: await summarizeErrors() });
 });
 
-router.get('/summary', (req, res) => {
-  res.json({ summary: summarizeErrors(), storage: getErrorLogStorageStatus() });
+router.get('/summary', async (req, res) => {
+  res.json({ summary: await summarizeErrors(), storage: getErrorLogStorageStatus() });
 });
 
 router.post('/', express.json({ limit: '256kb' }), (req, res) => {
@@ -81,10 +71,10 @@ router.get('/storage-status', (req, res) => {
   res.json(getErrorLogStorageStatus());
 });
 
-router.get('/:id', (req, res) => {
-  const error = getErrorDetail(req.params.id);
+router.get('/:id', async (req, res) => {
+  const error = await getErrorDetail(req.params.id);
   if (!error) return res.status(404).json({ error: 'Not found' });
-  return res.json({ error, similarErrors: findSimilarErrors(req.params.id) });
+  return res.json({ error, similarErrors: await findSimilarErrors(req.params.id) });
 });
 
 router.patch('/:id/status', express.json(), (req, res) => {
@@ -126,10 +116,10 @@ router.post('/:id/archive', (req, res) => {
   }
 });
 
-router.get('/:id/similar', (req, res) => {
-  const error = getErrorDetail(req.params.id);
+router.get('/:id/similar', async (req, res) => {
+  const error = await getErrorDetail(req.params.id);
   if (!error) return res.status(404).json({ error: 'Not found' });
-  return res.json({ similarErrors: findSimilarErrors(req.params.id, req.query.limit) });
+  return res.json({ similarErrors: await findSimilarErrors(req.params.id, req.query.limit) });
 });
 
 function parseAnalysis(raw) {
@@ -150,14 +140,13 @@ function parseAnalysis(raw) {
 }
 
 router.post('/:id/analyze', express.json({ limit: '32kb' }), async (req, res) => {
-  const error = getErrorDetail(req.params.id);
+  const error = await getErrorDetail(req.params.id);
   if (!error) return res.status(404).json({ error: 'Not found' });
   if (error.aiAnalysis && !req.body?.force) {
     return res.json({ analysis: error.aiAnalysis, cached: true });
   }
 
-  const client = getAnthropicClient();
-  if (!client) {
+  if (!process.env.ANTHROPIC_API_KEY) {
     return res.json({
       analysis: null,
       cached: false,
@@ -166,7 +155,7 @@ router.post('/:id/analyze', express.json({ limit: '32kb' }), async (req, res) =>
     });
   }
 
-  const similarErrors = findSimilarErrors(error.id, 5).map((item) => ({
+  const similarErrors = (await findSimilarErrors(error.id, 5)).map((item) => ({
     id: item.id,
     source: item.source,
     module: item.module,
@@ -207,23 +196,17 @@ ${JSON.stringify({
 }, null, 2)}`;
 
   try {
-    const promptLength = assertPromptWithinLimit(prompt, 'Error analysis prompt');
-    const response = await runAiOperation({
-      req,
-      endpoint: req.originalUrl,
-      module: 'error-center-analysis',
+    const response = await executeAIRequest({
       provider: 'anthropic',
       model: 'claude-haiku-4-5-20251001',
-      promptLength,
-      operation: ({ signal }) => client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: getConfiguredMaxTokens(1200),
-        system: 'You are an incident analysis assistant for Green Shield CRM. Return concise JSON only.',
-        messages: [{ role: 'user', content: prompt }],
-        signal,
-      }),
+      system: 'You are an incident analysis assistant for Green Shield CRM. Return concise JSON only.',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 1200,
+      endpoint: req.originalUrl,
+      feature: 'error-center-analysis',
+      req,
     });
-    const raw = response.content?.[0]?.text || '';
+    const raw = response.text || '';
     const analysis = {
       ...parseAnalysis(raw),
       model: 'claude-haiku-4-5-20251001',

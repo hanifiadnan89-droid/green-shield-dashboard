@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../../api/client.js';
-import { deriveStats } from './mockData.js';
 import PipelineSummary from './components/PipelineSummary.jsx';
 import CommandLoadingSkeleton from './components/PipelineSummary/CommandLoadingSkeleton.jsx';
+import { loadCRMPreviewDashboard } from './loadCRMPreviewDashboard.js';
 import './preview.css';
 import './components/PipelineSummary/pipeline-command.css';
 
@@ -22,6 +22,8 @@ function ErrorState({ onRetry, message }) {
 
 export default function CRMPreview() {
   const [leads, setLeads] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [pipelineMetrics, setPipelineMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -32,8 +34,10 @@ export default function CRMPreview() {
     setErrorMessage('');
 
     try {
-      const { leads: data } = await api.leads.list();
-      setLeads(data || []);
+      const dashboard = await loadCRMPreviewDashboard(api);
+      setLeads(dashboard.leads || []);
+      setDashboardStats(dashboard.stats || null);
+      setPipelineMetrics(dashboard.pipelineMetrics || null);
     } catch (err) {
       setError(true);
       setErrorMessage(err?.message || 'Unknown API error');
@@ -46,7 +50,7 @@ export default function CRMPreview() {
     refresh();
   }, [refresh]);
 
-  const stats = useMemo(() => (leads ? deriveStats(leads) : null), [leads]);
+  const stats = useMemo(() => dashboardStats, [dashboardStats]);
 
   return (
     <div className="crm-preview crm-preview--command flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">
@@ -59,6 +63,7 @@ export default function CRMPreview() {
           <PipelineSummary
             stats={stats ?? {}}
             leads={leads ?? []}
+            pipelineMetrics={pipelineMetrics}
             onRefresh={refresh}
           />
         )}

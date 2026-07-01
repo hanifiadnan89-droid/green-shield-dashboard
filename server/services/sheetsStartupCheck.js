@@ -1,5 +1,6 @@
 import { getGoogleCredentialsDiagnostics } from './googleCredentials.js';
 import { getLeads } from './sheets.js';
+import { resolveGoogleSheetsConfig } from './integrationResolver.js';
 
 /** @type {{ checkedAt: string | null, ok: boolean, leadCount: number | null, error: string | null, category: string | null, clientEmail: string | null, sheetId: string | null, sheetName: string | null }} */
 let lastCheck = {
@@ -46,8 +47,9 @@ export function getSheetsStartupCheck() {
 }
 
 export async function runSheetsStartupCheck() {
-  const sheetId = process.env.SHEET_ID || '(using built-in default)';
-  const sheetName = process.env.SHEET_NAME || 'Lead Responses';
+  const sheetsConfig = resolveGoogleSheetsConfig(null);
+  const sheetId = sheetsConfig.leadResponsesSheetId || sheetsConfig.masterLeadSheetId || '(using built-in default)';
+  const sheetName = sheetsConfig.sheetName || 'Lead Responses';
   const diag = getGoogleCredentialsDiagnostics();
 
   if (!diag.ok) {
@@ -58,7 +60,7 @@ export async function runSheetsStartupCheck() {
       error: diag.message,
       category: diag.status,
       clientEmail: null,
-      sheetId: process.env.SHEET_ID || null,
+      sheetId: sheetsConfig.leadResponsesSheetId || sheetsConfig.masterLeadSheetId || null,
       sheetName,
     };
     console.error('[sheets] Startup check failed:', diag.status, '—', diag.message);
@@ -67,7 +69,7 @@ export async function runSheetsStartupCheck() {
 
   const clientEmail = diag.credentials?.client_email || null;
   console.log('[sheets] Service account:', clientEmail || '(unknown)');
-  console.log('[sheets] Sheet ID:', process.env.SHEET_ID ? 'set' : 'using default ID from code');
+  console.log('[sheets] Sheet ID:', sheetsConfig.configured ? 'configured via resolver' : 'using legacy default');
   console.log('[sheets] Sheet tab:', sheetName);
 
   try {
@@ -79,7 +81,7 @@ export async function runSheetsStartupCheck() {
       error: null,
       category: null,
       clientEmail,
-      sheetId: process.env.SHEET_ID || 'default',
+      sheetId: sheetsConfig.leadResponsesSheetId || sheetsConfig.masterLeadSheetId || 'default',
       sheetName,
     };
     console.log(`[sheets] Startup check OK — ${leads.length} leads loaded from "${sheetName}"`);
@@ -93,7 +95,7 @@ export async function runSheetsStartupCheck() {
       error,
       category,
       clientEmail,
-      sheetId: process.env.SHEET_ID || 'default',
+      sheetId: sheetsConfig.leadResponsesSheetId || sheetsConfig.masterLeadSheetId || 'default',
       sheetName,
     };
     console.error('[sheets] Startup check failed:', category);

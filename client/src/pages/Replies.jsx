@@ -17,6 +17,7 @@ import { useReplyCardState } from './Replies/useReplyCardState.js';
 import { useReplySelection } from './Replies/useReplySelection.js';
 import { useConversationThreads } from './Replies/useConversationThreads.js';
 import { useUnreadReplies } from './Replies/useUnreadReplies.js';
+import { loadRepliesData } from './Replies/loadRepliesData.js';
 import {
   buildThread,
   archKey,
@@ -26,12 +27,13 @@ import {
 } from './Replies/threadUtils.js';
 import { buildLeadContext } from './Replies/buildLeadContext.js';
 
-import { hasConversationSignal } from './Replies/conversationLeadFilter.js';
-
 export default function Replies() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const rowFromUrl = searchParams.get('row');
+  const initialRowNumber = location.state?.selectRowNumber
+    ?? (rowFromUrl ? Number(rowFromUrl) : null);
+  const requestedRowNumber = Number(initialRowNumber);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -44,7 +46,7 @@ export default function Replies() {
     meta,
     syncError,
     syncing,
-    syncLeads,
+    hydrateThreads,
     loadThread,
     appendOptimistic,
     getMessages,
@@ -121,15 +123,17 @@ export default function Replies() {
   const loadLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const { leads: all } = await api.leads.list();
-      const replyLeads = (all || []).filter(hasConversationSignal);
-      const synced = await syncLeads(replyLeads);
+      const payload = await loadRepliesData(api, {
+        rowNumber: Number.isFinite(requestedRowNumber) ? requestedRowNumber : null,
+      });
+      const replyLeads = Array.isArray(payload.leads) ? payload.leads : [];
+      hydrateThreads(payload.threads || {}, payload.meta || {}, { replace: true });
 
       for (const lead of replyLeads) {
         const prev = prevThreadsRef.current[lead.row_number];
-        notifyNewInbound(lead, synced[lead.row_number] || [], prev);
+        notifyNewInbound(lead, payload.threads?.[lead.row_number] || [], prev);
       }
-      prevThreadsRef.current = synced;
+      prevThreadsRef.current = payload.threads || {};
 
       setLeads(replyLeads);
     } catch (err) {
@@ -138,7 +142,7 @@ export default function Replies() {
     } finally {
       setLoading(false);
     }
-  }, [syncLeads, notifyNewInbound]);
+  }, [hydrateThreads, notifyNewInbound]);
 
   useEffect(() => { loadLeads(); }, [loadLeads]);
 

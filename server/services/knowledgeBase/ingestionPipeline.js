@@ -13,10 +13,10 @@
  */
 
 import fs from 'fs';
-import Anthropic from '@anthropic-ai/sdk';
 import { extractContent, extractUrl } from './extractionService.js';
 import { chunkText, buildChunkId } from './chunkingService.js';
 import { generateEmbeddingsBatch } from '../embeddingService.js';
+import { executeAIRequest } from '../ai/execution/AIExecutionEngine.js';
 import {
   createItem, updateItem, saveChunks, saveEmbedding, getItem,
   deleteChunksForItem, deleteEmbeddingsForItem,
@@ -25,12 +25,6 @@ import {
   fromKnowledgeStorageRelativePath,
   toKnowledgeStorageRelativePath,
 } from './knowledgeStorage.js';
-
-let _anthropic = null;
-function getAnthropic() {
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 1 });
-  return _anthropic;
-}
 
 const ALL_TAGS = [
   'Closing', 'Objection Handling', 'Psychology', 'Trust Building',
@@ -41,12 +35,13 @@ const ALL_TAGS = [
 
 // ── Auto-tagging via Claude ───────────────────────────────────────────────────
 
-async function autoTagAndSummarize(title, text) {
+export async function autoTagAndSummarize(title, text) {
   const preview = text.slice(0, 6000); // Use first ~6K chars for tagging
   try {
-    const response = await getAnthropic().messages.create({
+    const response = await executeAIRequest({
+      provider: 'anthropic',
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
+      maxTokens: 512,
       messages: [{
         role: 'user',
         content: `You are a knowledge classifier for Green Shield Pest Solutions, a pest control sales company.
@@ -64,9 +59,14 @@ ${preview}
 
 Return only valid JSON. No markdown, no extra text.`,
       }],
+      endpoint: 'knowledge-base-ingestion',
+      feature: 'knowledge-base-ingestion',
+      metadata: {
+        source: 'ingestionPipeline',
+      },
     });
 
-    const raw = response.content[0]?.text?.trim() || '';
+    const raw = response.text?.trim() || '';
     const json = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
     return {
       title:       typeof json.title       === 'string' ? json.title.trim()   : title,

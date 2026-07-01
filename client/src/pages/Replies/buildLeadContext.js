@@ -28,6 +28,7 @@ export function buildLeadContext(lead, messages, { archived = new Set() } = {}) 
   const preferredChannel = hasEmailInbound && !hasSmsInbound ? 'email' : 'sms';
 
   return {
+    row_number: lead.row_number || lead.rowNumber || null,
     name: lead.name || null,
     phone: lead.phone || null,
     email: lead.email || null,

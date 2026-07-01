@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Conversation } from '../domain/conversations/Conversation.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STORE_FILE = path.join(__dirname, '..', 'data', 'conversation-messages.json');
@@ -116,11 +117,20 @@ function parseTimeMs(value) {
   return Number.isNaN(t) ? null : t;
 }
 
-async function persistReadAtToSheet(rowNumber, iso) {
+function buildConversationMetadata(thread, lead = null) {
+  return {
+    lastReadAt: getLastReadAt(thread, lead),
+    lastReadInboundKey: thread?.lastReadInboundKey ?? null,
+    readInboundKeys: [...(thread?.readInboundKeys || [])],
+    lastInboundAt: thread?.lastInboundAt ?? null,
+  };
+}
+
+async function persistReadAtToSheet(rowNumber, iso, context = null) {
   if (process.env.TEST_MODE === 'true' || !iso) return;
   try {
     const { updateLead } = await import('./sheets.js');
-    await updateLead(rowNumber, { replies_last_read_at: iso });
+    await updateLead(rowNumber, { replies_last_read_at: iso }, context);
   } catch (err) {
     console.warn('[conversationMessages] Sheet read-state persist failed:', err.message);
   }
@@ -181,11 +191,7 @@ export function inboundReadKey(message) {
 }
 
 export function getLatestInbound(messages) {
-  if (!messages?.length) return null;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].direction === 'inbound') return messages[i];
-  }
-  return null;
+  return Conversation.fromMessages(messages).lastInbound();
 }
 
 export function getLatestInboundReadKey(messages) {
@@ -194,7 +200,7 @@ export function getLatestInboundReadKey(messages) {
 
 export function getLastInboundAt(messages) {
   const inbound = getLatestInbound(messages);
-  return inbound?.ts || null;
+  return inbound?.ts || inbound?.receivedAt || null;
 }
 
 export function getLastReadAt(thread, lead) {
@@ -202,35 +208,19 @@ export function getLastReadAt(thread, lead) {
 }
 
 export function isThreadUnread(messages, thread, lead = null) {
-  const latestKey = getLatestInboundReadKey(messages);
-  if (!latestKey) return false;
-
-  const readKeys = ensureReadInboundKeys(thread || {});
-  if (readKeys.includes(latestKey)) return false;
-
-  const inboundAt = getLastInboundAt(messages);
-  const inboundMs = parseTimeMs(inboundAt);
-  const readAt = getLastReadAt(thread, lead);
-  const readMs = parseTimeMs(readAt);
-
-  if (readMs != null && inboundMs != null) {
-    return inboundMs > readMs;
-  }
-
-  const readKey = thread?.lastReadInboundKey;
-  if (!readKey) return true;
-  return readKey !== latestKey;
+  const conversation = Conversation.fromMessages(messages, buildConversationMetadata(thread, lead), lead);
+  return conversation.isUnread();
 }
 
 export function buildThreadReadMeta(messages, thread, lead = null) {
-  const lastInboundAt = getLastInboundAt(messages);
-  const lastReadAt = getLastReadAt(thread, lead);
+  const metadata = buildConversationMetadata(thread, lead);
+  const conversation = Conversation.fromMessages(messages, metadata, lead);
   return {
-    lastInboundAt,
-    lastReadAt,
-    lastReadInboundKey: thread?.lastReadInboundKey ?? null,
-    readInboundKeys: [...(thread?.readInboundKeys || [])],
-    unread: isThreadUnread(messages, thread, lead),
+    lastInboundAt: conversation.lastInboundAt(),
+    lastReadAt: conversation.lastReadAt(),
+    lastReadInboundKey: conversation.lastReadInboundKey(),
+    readInboundKeys: conversation.readInboundKeys(),
+    unread: conversation.isUnread(),
   };
 }
 
@@ -246,7 +236,7 @@ function collectInboundReadKeys(messages, upToKey = null) {
   return keys;
 }
 
-export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
+export async function markThreadRead(rowNumber, inboundKeyOrOptions, context = null) {
   const options = typeof inboundKeyOrOptions === 'string'
     ? { inboundKey: inboundKeyOrOptions }
     : (inboundKeyOrOptions || {});
@@ -285,7 +275,7 @@ export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
 
   store.threads[String(rowNumber)] = thread;
   writeStore(store);
-  await persistReadAtToSheet(rowNumber, lastReadAt);
+  await persistReadAtToSheet(rowNumber, lastReadAt, context);
 
   return {
     lastReadAt: thread.lastReadAt,
@@ -297,8 +287,8 @@ export async function markThreadRead(rowNumber, inboundKeyOrOptions) {
 }
 
 /** Mark every current inbound message in the thread as read (opening a conversation). */
-export async function markAllInboundRead(rowNumber) {
-  return markThreadRead(rowNumber, { markAllInbound: true });
+export async function markAllInboundRead(rowNumber, context = null) {
+  return markThreadRead(rowNumber, { markAllInbound: true }, context);
 }
 
 function migrateLegacyViewedKeys(lead, messages, thread, legacyViewedKeys) {
@@ -450,11 +440,36 @@ export function syncLeadMessages(lead, { legacyViewedKeys } = {}) {
   migrateLegacyViewedKeys(lead, messages, thread, legacyViewedKeys);
   store.threads[String(lead.row_number)] = thread;
   writeStore(store);
+  const conversation = Conversation.fromMessages(messages, buildConversationMetadata(thread, lead), lead);
+  const summary = conversation.summary();
 
   return {
     messages,
     warnings,
-    ...buildThreadReadMeta(messages, thread, lead),
+    lastInboundAt: conversation.lastInboundAt(),
+    lastReadAt: conversation.lastReadAt(),
+    lastReadInboundKey: conversation.lastReadInboundKey(),
+    readInboundKeys: conversation.readInboundKeys(),
+    unread: conversation.isUnread(),
+    preview: summary.preview,
+    lastAt: summary.lastAt,
+    lastMessage: summary.lastMessage,
+    lastInbound: summary.lastInbound,
+    lastOutbound: summary.lastOutbound,
+    firstActivityAt: summary.firstActivityAt,
+    messageCount: summary.messageCount,
+    inboundCount: summary.inboundCount,
+    outboundCount: summary.outboundCount,
+    hasSms: summary.hasSms,
+    hasEmail: summary.hasEmail,
+    hasInbound: summary.hasInbound,
+    hasOutbound: summary.hasOutbound,
+    channel: summary.channel,
+    requiresReply: summary.requiresReply,
+    customerWaiting: summary.customerWaiting,
+    responseTime: summary.responseTime,
+    computedStatus: summary.computedStatus,
+    displayStatus: summary.displayStatus,
   };
 }
 
@@ -467,10 +482,9 @@ export function syncLeadsMessages(leads, options = {}) {
     results[lead.row_number] = messages;
     const thread = readStore().threads[String(lead.row_number)];
     meta[lead.row_number] = {
-      ...getConversationPreview(messages),
       ...readMeta,
       lastReadAt: readMeta.lastReadAt ?? thread?.lastReadAt ?? lead.replies_last_read_at ?? null,
-      unread: isThreadUnread(messages, thread, lead),
+      unread: readMeta.unread ?? isThreadUnread(messages, thread, lead),
     };
     if (warnings?.length) {
       allWarnings.push({ row_number: lead.row_number, warnings });
@@ -489,7 +503,8 @@ export function countUnreadForLeads(leads) {
   for (const lead of leads || []) {
     const thread = store.threads[String(lead.row_number)];
     const messages = sortMessages((thread?.messages || []).map(normalizeMessage).filter(Boolean));
-    if (isThreadUnread(messages, thread, lead)) {
+    const conversation = Conversation.fromMessages(messages, buildConversationMetadata(thread, lead), lead);
+    if (conversation.isUnread()) {
       count += 1;
       rowNumbers.push(lead.row_number);
     }
@@ -507,9 +522,14 @@ export function getThreadMeta(rowNumber, lead = null) {
   const store = readStore();
   const thread = store.threads[String(rowNumber)];
   const messages = getMessagesForLead(rowNumber);
+  const conversation = Conversation.fromMessages(messages, buildConversationMetadata(thread, lead), lead);
   return {
-    ...getConversationPreview(messages),
-    ...buildThreadReadMeta(messages, thread, lead),
+    ...conversation.summary(),
+    lastInboundAt: conversation.lastInboundAt(),
+    lastReadAt: conversation.lastReadAt(),
+    lastReadInboundKey: conversation.lastReadInboundKey(),
+    readInboundKeys: conversation.readInboundKeys(),
+    unread: conversation.isUnread(),
   };
 }
 
@@ -570,11 +590,10 @@ export function mergeLocalOutboundHistory(localHistory = {}) {
 }
 
 export function getConversationPreview(messages) {
-  const sorted = sortMessages(messages);
-  if (!sorted.length) {
-    return { preview: '', lastAt: null, lastMessage: null };
-  }
-  const last = sorted[sorted.length - 1];
-  const preview = last.body.length > 120 ? `${last.body.slice(0, 120)}…` : last.body;
-  return { preview, lastAt: last.receivedAt || last.ts, lastMessage: last };
+  const conversation = Conversation.fromMessages(messages);
+  return {
+    preview: conversation.preview(),
+    lastAt: conversation.lastActivityAt(),
+    lastMessage: conversation.lastMessage(),
+  };
 }

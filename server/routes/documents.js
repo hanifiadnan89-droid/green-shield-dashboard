@@ -23,6 +23,7 @@ import { sendSigningRequestEmail } from '../services/agreementSigning/email.js';
 import { readPreviewPng, updateSigningSession, publicSigningBaseUrl } from '../services/agreementSigning/storage.js';
 import { appendLog } from '../services/activity.js';
 import { updateLead } from '../services/sheets.js';
+import { getCurrentUserContext } from '../services/currentUserContext.js';
 import {
   BED_BUG_EMAIL_DISABLED,
   BED_BUG_EMAIL_DISABLED_MESSAGE,
@@ -984,7 +985,8 @@ router.post('/email-quote', async (req, res) => {
 
       if (lead.row_number) {
         try {
-          await updateLead(lead.row_number, { status: 'agreement_sent' });
+          const context = getCurrentUserContext(req);
+          await updateLead(lead.row_number, { status: 'agreement_sent' }, context);
         } catch (err) {
           console.warn('[email-quote] Lead status update failed:', err.message);
         }

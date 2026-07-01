@@ -7,7 +7,7 @@ import AppSidebar from './AppSidebar.jsx';
 
 const SIDEBAR_REFRESH_MS = 45_000;
 
-export default function Layout({ children, testMode }) {
+export default function Layout({ children, testMode, currentUser }) {
   const [replyBadge, setReplyBadge] = useState(0);
   const [stats, setStats] = useState(null);
   const inFlightRef = useRef(false);
@@ -69,6 +69,7 @@ export default function Layout({ children, testMode }) {
       <AppSidebar
         stats={sidebarStats}
         testMode={testMode}
+        currentUser={currentUser}
         unreadReplies={replyBadge}
       />
 
