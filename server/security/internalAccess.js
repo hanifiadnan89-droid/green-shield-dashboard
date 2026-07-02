@@ -21,6 +21,9 @@ export function requireActiveUser(req, res, next) {
   if (context.status !== 'active') {
     return sendForbidden(res, 'This user account is inactive.', 'USER_INACTIVE');
   }
+  if (context.loginEnabled === false) {
+    return sendForbidden(res, 'This user login is disabled.', 'LOGIN_DISABLED');
+  }
   return next();
 }
 
@@ -31,6 +34,9 @@ export function requireAdmin(req, res, next) {
   }
   if (context.status !== 'active') {
     return sendForbidden(res, 'This user account is inactive.', 'USER_INACTIVE');
+  }
+  if (context.loginEnabled === false) {
+    return sendForbidden(res, 'This user login is disabled.', 'LOGIN_DISABLED');
   }
   if (!isAdminUser(context)) {
     return sendForbidden(res, 'Admin access required.', 'ADMIN_REQUIRED');
@@ -45,6 +51,9 @@ export function requireManagerOrAdmin(req, res, next) {
   }
   if (context.status !== 'active') {
     return sendForbidden(res, 'This user account is inactive.', 'USER_INACTIVE');
+  }
+  if (context.loginEnabled === false) {
+    return sendForbidden(res, 'This user login is disabled.', 'LOGIN_DISABLED');
   }
   if (!isManagerOrAdmin(context)) {
     return sendForbidden(res, 'Manager or admin access required.', 'MANAGER_REQUIRED');

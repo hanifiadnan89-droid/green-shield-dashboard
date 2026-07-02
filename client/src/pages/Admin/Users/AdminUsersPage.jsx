@@ -4,12 +4,15 @@ import { AlertCircle, CheckCircle2, Pencil, Plus, RefreshCw, UserX, UserCheck, X
 import { api } from '../../../api/client.js';
 
 const EMPTY_FORM = {
+  username: '',
   name: '',
   displayName: '',
   email: '',
   initials: '',
   role: 'sales_rep',
   status: 'active',
+  loginEnabled: true,
+  password: '',
 };
 
 function StatusBadge({ status }) {
@@ -60,13 +63,16 @@ export default function AdminUsersPage() {
 
   function startEdit(user) {
     setEditingId(user.id);
-      setForm({
-        name: user.name || '',
-        displayName: user.displayName || '',
-        email: user.email || '',
-        initials: user.initials || '',
-        role: user.role || 'sales_rep',
-        status: user.status || 'active',
+    setForm({
+      username: user.username || '',
+      name: user.name || '',
+      displayName: user.displayName || '',
+      email: user.email || '',
+      initials: user.initials || '',
+      role: user.role || 'sales_rep',
+      status: user.status || 'active',
+      loginEnabled: user.loginEnabled !== false,
+      password: '',
     });
   }
 
@@ -75,10 +81,23 @@ export default function AdminUsersPage() {
     setSaving(true);
     setError('');
     try {
+      const payload = {
+        username: form.username,
+        name: form.name,
+        displayName: form.displayName,
+        email: form.email,
+        initials: form.initials,
+        role: form.role,
+        status: form.status,
+        loginEnabled: form.loginEnabled,
+      };
       if (editingId) {
-        await api.adminUsers.update(editingId, form);
+        await api.adminUsers.update(editingId, payload);
+        if (form.password) {
+          await api.adminUsers.resetPassword(editingId, form.password);
+        }
       } else {
-        await api.adminUsers.create(form);
+        await api.adminUsers.create({ ...payload, password: form.password });
       }
       await loadUsers();
       startCreate();
@@ -144,6 +163,17 @@ export default function AdminUsersPage() {
           </div>
 
           <form className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3" onSubmit={handleSubmit}>
+            <div>
+              <label className="label" htmlFor="admin-user-username">Username</label>
+              <input
+                id="admin-user-username"
+                className="input"
+                value={form.username}
+                onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
+                autoComplete="username"
+                required
+              />
+            </div>
             <div>
               <label className="label" htmlFor="admin-user-name">Name</label>
               <input
@@ -211,6 +241,33 @@ export default function AdminUsersPage() {
                 <option value="inactive">Inactive</option>
               </select>
             </div>
+            <div>
+              <label className="label" htmlFor="admin-user-login-enabled">Login</label>
+              <select
+                id="admin-user-login-enabled"
+                className="select"
+                value={form.loginEnabled ? 'enabled' : 'disabled'}
+                onChange={(e) => setForm((prev) => ({ ...prev, loginEnabled: e.target.value === 'enabled' }))}
+              >
+                <option value="enabled">Enabled</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="admin-user-password">
+                {editingId ? 'New Password' : 'Password'}
+              </label>
+              <input
+                id="admin-user-password"
+                className="input"
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+                autoComplete="new-password"
+                required={!editingId && form.loginEnabled}
+                placeholder={editingId ? 'Leave unchanged' : 'Minimum 8 characters'}
+              />
+            </div>
 
             <div className="md:col-span-2 xl:col-span-6 flex items-center justify-end gap-2 pt-2">
               <button type="submit" className="btn-primary" disabled={saving}>
@@ -232,25 +289,28 @@ export default function AdminUsersPage() {
               <thead>
                 <tr className="border-b border-gs-border">
                   <th className="th">Name</th>
+                  <th className="th">Username</th>
                   <th className="th">Email</th>
                   <th className="th">Initials</th>
                   <th className="th">Role</th>
                   <th className="th">Status</th>
+                  <th className="th">Login</th>
                   <th className="th">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="td text-gs-muted" colSpan={6}>Loading users…</td>
+                    <td className="td text-gs-muted" colSpan={8}>Loading users…</td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td className="td text-gs-muted" colSpan={6}>No users found.</td>
+                    <td className="td text-gs-muted" colSpan={8}>No users found.</td>
                   </tr>
                 ) : users.map((user) => (
                   <tr key={user.id} className="table-row">
                     <td className="td font-medium">{user.displayName || user.name}</td>
+                    <td className="td text-gs-muted">{user.username || '-'}</td>
                     <td className="td text-gs-muted">{user.email}</td>
                     <td className="td text-gs-muted font-semibold">{user.initials}</td>
                     <td className="td">
@@ -259,6 +319,7 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="td"><StatusBadge status={user.status} /></td>
+                    <td className="td text-gs-muted">{user.loginEnabled === false ? 'Disabled' : 'Enabled'}</td>
                     <td className="td">
                       <div className="flex items-center gap-2">
                         <button type="button" className="btn-ghost text-xs gap-1.5" onClick={() => startEdit(user)}>

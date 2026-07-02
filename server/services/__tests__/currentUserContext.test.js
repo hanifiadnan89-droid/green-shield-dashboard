@@ -4,6 +4,7 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { signSession } from '../../security/dashboardAuth.js';
 import { getCurrentUserContext } from '../currentUserContext.js';
+import { buildSessionIdentity, createUser, getDefaultOrganization } from '../organizationUsers.js';
 
 describe('currentUserContext', () => {
   let tmpDir;
@@ -59,5 +60,62 @@ describe('currentUserContext', () => {
     expect(context.ownsLead({ row_number: 12 })).toBe(true);
     expect(context.canViewLead({ row_number: 12 })).toBe(true);
     expect(context.canEditLead({ row_number: 12 })).toBe(true);
+  });
+
+  it('resolves the actual logged-in user from session userId before legacy AH mapping', () => {
+    const rep = createUser({
+      organizationId: getDefaultOrganization().id,
+      username: 'session-rep',
+      name: 'Session Rep',
+      email: 'session.rep@example.com',
+      initials: 'SR',
+      role: 'sales_rep',
+      status: 'active',
+      password: 'session-password',
+    }, 'user_ah');
+    const token = signSession(buildSessionIdentity(rep));
+    const context = getCurrentUserContext({
+      headers: { cookie: `gs_session=${encodeURIComponent(token)}` },
+    });
+
+    expect(context).toBeTruthy();
+    expect(context.userId).toBe(rep.id);
+    expect(context.userId).not.toBe('user_ah');
+    expect(context.organizationId).toBe('org_green_shield');
+    expect(context.role).toBe('sales_rep');
+    expect(context.capabilities).toEqual([]);
+  });
+
+  it('rejects stale session versions after password or account changes', () => {
+    const manager = createUser({
+      organizationId: getDefaultOrganization().id,
+      username: 'session-manager',
+      name: 'Session Manager',
+      email: 'session.manager@example.com',
+      initials: 'SM',
+      role: 'manager',
+      status: 'active',
+      password: 'session-password',
+    }, 'user_ah');
+    const token = signSession({ ...buildSessionIdentity(manager), sessionVersion: 999 });
+    const context = getCurrentUserContext({
+      headers: { cookie: `gs_session=${encodeURIComponent(token)}` },
+    });
+
+    expect(context).toBeNull();
+  });
+
+  it('maps env Basic Auth break-glass to user_ah without requiring username match', () => {
+    getDefaultOrganization();
+    process.env.DASHBOARD_USERNAME = 'rotated-env-user';
+    process.env.DASHBOARD_PASSWORD = 'rotated-env-password';
+    const basic = Buffer.from('rotated-env-user:rotated-env-password').toString('base64');
+    const context = getCurrentUserContext({
+      headers: { authorization: `Basic ${basic}` },
+    });
+
+    expect(context).toBeTruthy();
+    expect(context.userId).toBe('user_ah');
+    expect(context.role).toBe('admin');
   });
 });

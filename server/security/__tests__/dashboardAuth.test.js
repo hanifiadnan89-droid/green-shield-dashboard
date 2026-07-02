@@ -55,6 +55,24 @@ describe('dashboardAuth', () => {
       expect(typeof payload.iat).toBe('number');
     });
 
+    it('round-trips a real internal user session identity', () => {
+      const token = signSession({
+        userId: 'user_rep',
+        organizationId: 'org_green_shield',
+        username: 'rep',
+        role: 'sales_rep',
+        sessionVersion: 3,
+      });
+      const payload = verifySession(token);
+      expect(payload).toMatchObject({
+        uid: 'user_rep',
+        oid: 'org_green_shield',
+        u: 'rep',
+        role: 'sales_rep',
+        sv: 3,
+      });
+    });
+
     it('rejects tokens with a tampered payload', () => {
       const token = signSession('tester');
       const [, sig] = token.split('.');
@@ -129,6 +147,12 @@ describe('dashboardAuth', () => {
 
     it('rejects invalid Basic Auth', () => {
       const b64 = Buffer.from('tester:wrong').toString('base64');
+      const req = mockReq({ headers: { authorization: `Basic ${b64}` } });
+      expect(isAuthenticatedRequest(req)).toBe(false);
+    });
+
+    it('keeps Basic Auth limited to env break-glass credentials', () => {
+      const b64 = Buffer.from('rep:correct-horse-battery').toString('base64');
       const req = mockReq({ headers: { authorization: `Basic ${b64}` } });
       expect(isAuthenticatedRequest(req)).toBe(false);
     });

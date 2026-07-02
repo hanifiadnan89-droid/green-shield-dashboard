@@ -6,6 +6,7 @@ import {
   getUserById,
   listUsers,
   reactivateUser,
+  resetUserPassword,
   updateUser,
 } from '../services/organizationUsers.js';
 import { getCurrentUserContext } from '../services/currentUserContext.js';
@@ -87,6 +88,23 @@ router.put('/:userId', requireUsersCapability('manage_users'), (req, res) => {
     return res.status(err.code === 'VALIDATION_ERROR' ? 400 : 500).json({
       error: err.message || 'Failed to update user',
       code: err.code || 'UPDATE_USER_FAILED',
+    });
+  }
+});
+
+router.post('/:userId/reset-password', requireUsersCapability('manage_users'), (req, res) => {
+  try {
+    const context = getCurrentUserContext(req);
+    const existing = getUserById(req.params.userId);
+    if (!existing || existing.organizationId !== context.organizationId) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = resetUserPassword(req.params.userId, req.body?.password, context.userId);
+    return res.json({ user });
+  } catch (err) {
+    return res.status(err.code === 'VALIDATION_ERROR' ? 400 : 500).json({
+      error: err.message || 'Failed to reset user password',
+      code: err.code || 'RESET_PASSWORD_FAILED',
     });
   }
 });

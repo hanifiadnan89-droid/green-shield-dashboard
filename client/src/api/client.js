@@ -163,6 +163,10 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+    resetPassword: (userId, password) => request(`/admin/users/${encodeURIComponent(userId)}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
     deactivate: (userId) => request(`/admin/users/${encodeURIComponent(userId)}/deactivate`, {
       method: 'POST',
     }),

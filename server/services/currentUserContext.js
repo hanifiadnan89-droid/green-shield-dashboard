@@ -1,5 +1,9 @@
-import { getSessionFromRequest, isAuthenticatedRequest } from '../security/dashboardAuth.js';
-import { resolveCurrentUserContextFromAuthUsername } from './organizationUsers.js';
+import { getBreakGlassAuthUsername, getSessionFromRequest, isAuthenticatedRequest } from '../security/dashboardAuth.js';
+import {
+  resolveBreakGlassCurrentUserContext,
+  resolveCurrentUserContextFromAuthUsername,
+  resolveCurrentUserContextFromSession,
+} from './organizationUsers.js';
 import { getIntegrationProfile } from './organizationIntegrations.js';
 import { canViewLead as canViewLeadByOwnership, canEditLead as canEditLeadByOwnership, isLeadOwnedByUser } from './leadOwnership.js';
 
@@ -7,17 +11,22 @@ export function getAuthUsernameFromRequest(req) {
   const session = getSessionFromRequest(req);
   if (session?.u) return session.u;
   if (isAuthenticatedRequest(req)) {
-    return (process.env.DASHBOARD_USERNAME || '').trim() || null;
+    return getBreakGlassAuthUsername();
   }
   return null;
 }
 
 export function getCurrentUserContext(req) {
   if (req?.currentUserContext) return req.currentUserContext;
-  const authUsername = getAuthUsernameFromRequest(req);
-  if (!authUsername) return null;
+  const session = getSessionFromRequest(req);
+  const isBreakGlassBasicAuth = !session && isAuthenticatedRequest(req);
+  const authUsername = (session?.u || isBreakGlassBasicAuth) ? null : getAuthUsernameFromRequest(req);
 
-  const context = resolveCurrentUserContextFromAuthUsername(authUsername);
+  const context = session
+    ? resolveCurrentUserContextFromSession(session)
+    : isBreakGlassBasicAuth
+      ? resolveBreakGlassCurrentUserContext()
+      : resolveCurrentUserContextFromAuthUsername(authUsername);
   if (!context) return null;
   context.integrationProfile = getIntegrationProfile(context.userId);
   context.ownsLead = (lead) => isLeadOwnedByUser(context, lead);

@@ -7,7 +7,6 @@ import {
   signSession,
   setSessionCookie,
   clearSessionCookie,
-  checkCredentials,
   getSessionFromRequest,
   isAuthenticatedRequest,
 } from './security/dashboardAuth.js';
@@ -61,8 +60,13 @@ import { escapeHtml } from './security/htmlEscape.js';
 import { requireActiveUser } from './security/internalAccess.js';
 import { errorFromExpress } from './services/errorLogService.js';
 import { attachCurrentUserContext, getCurrentUserContext } from './services/currentUserContext.js';
-import { ensureInternalTenancy, resolveCurrentUserContextFromAuthUsername } from './services/organizationUsers.js';
+import {
+  ensureInternalTenancy,
+  resolveCurrentUserContextFromAuthUsername,
+  resolveCurrentUserContextFromSession,
+} from './services/organizationUsers.js';
 import { ensureOrganizationIntegrations } from './services/organizationIntegrations.js';
+import { authenticateDashboardLogin } from './services/dashboardLogin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -486,20 +490,24 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again later.', code: 'RATE_LIMITED' },
 });
 
-app.post('/api/auth/login', loginLimiter, (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username = '', password = '' } = req.body || {};
   if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
     return res.status(400).json({ error: 'Username and password are required.', code: 'BAD_REQUEST' });
   }
-  if (!checkCredentials(username, password)) {
+  const auth = await authenticateDashboardLogin(username, password);
+  if (!auth.ok) {
     return res.status(401).json({ error: 'Invalid username or password.', code: 'INVALID_CREDENTIALS' });
   }
-  const token = signSession(username);
+
+  const token = signSession(auth.sessionIdentity);
   setSessionCookie(req, res, token);
+  const session = getSessionFromRequest({ headers: { cookie: `gs_session=${encodeURIComponent(token)}` } });
+  const currentUser = resolveCurrentUserContextFromSession(session);
   return res.json({
     ok: true,
-    user: { username },
-    currentUser: resolveCurrentUserContextFromAuthUsername(username),
+    user: { username: auth.sessionIdentity.username },
+    currentUser,
   });
 });
 
@@ -511,12 +519,14 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/auth/status', (req, res) => {
   const session = getSessionFromRequest(req);
   const authUsername = session?.u || (isAuthenticatedRequest(req) ? (process.env.DASHBOARD_USERNAME || '').trim() : null);
-  const currentUser = getCurrentUserContext(req) || (authUsername ? resolveCurrentUserContextFromAuthUsername(authUsername) : null);
-  if (authUsername && currentUser?.status === 'active') {
-    return res.json({ authenticated: true, user: { username: authUsername }, currentUser });
+  const currentUser = getCurrentUserContext(req)
+    || (session ? resolveCurrentUserContextFromSession(session) : null)
+    || (authUsername ? resolveCurrentUserContextFromAuthUsername(authUsername) : null);
+  if (authUsername && currentUser?.status === 'active' && currentUser.loginEnabled !== false) {
+    return res.json({ authenticated: true, user: { username: currentUser.username || authUsername }, currentUser });
   }
   if (authUsername && currentUser) {
-    return res.json({ authenticated: false, user: { username: authUsername }, currentUser });
+    return res.json({ authenticated: false, user: { username: currentUser.username || authUsername }, currentUser });
   }
   return res.json({ authenticated: false });
 });

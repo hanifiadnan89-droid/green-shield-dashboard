@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 const SESSION_COOKIE_NAME = 'gs_session';
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
-const TOKEN_VERSION = 'v1';
+const TOKEN_VERSION = 'v2';
 
 function getSigningKey() {
   const password = process.env.DASHBOARD_PASSWORD || '';
@@ -23,8 +23,18 @@ function b64UrlDecode(str) {
   return Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/') + pad, 'base64');
 }
 
-export function signSession(username) {
-  const payload = { u: username, iat: Date.now() };
+export function signSession(identity) {
+  const payload = typeof identity === 'object' && identity
+    ? {
+        v: TOKEN_VERSION,
+        uid: identity.userId || identity.id || null,
+        oid: identity.organizationId || null,
+        u: identity.username || identity.authUsername || identity.email || '',
+        role: identity.role || null,
+        sv: Number(identity.sessionVersion || identity.tokenVersion || 1),
+        iat: Date.now(),
+      }
+    : { v: TOKEN_VERSION, u: String(identity || ''), iat: Date.now() };
   const payloadStr = b64UrlEncode(JSON.stringify(payload));
   const sig = b64UrlEncode(crypto.createHmac('sha256', getSigningKey()).update(payloadStr).digest());
   return `${payloadStr}.${sig}`;
@@ -53,7 +63,6 @@ export function verifySession(token) {
   }
   if (!payload || typeof payload.iat !== 'number') return null;
   if (Date.now() - payload.iat > SESSION_TTL_MS) return null;
-  if (payload.u !== process.env.DASHBOARD_USERNAME) return null;
   return payload;
 }
 
@@ -95,6 +104,10 @@ export function checkCredentials(username, password) {
   const userOk = timingSafeStringEqual(username, expectedUsername);
   const passOk = timingSafeStringEqual(password, expectedPassword);
   return userOk && passOk;
+}
+
+export function getBreakGlassAuthUsername() {
+  return (process.env.DASHBOARD_USERNAME || '').trim() || null;
 }
 
 function buildCookie(value, { maxAgeSeconds, secure }) {

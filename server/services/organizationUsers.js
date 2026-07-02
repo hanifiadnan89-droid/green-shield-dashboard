@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcryptjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, '../data');
@@ -11,6 +12,7 @@ const DEFAULT_ORG_ID = 'org_green_shield';
 const DEFAULT_ORG_SLUG = 'green-shield';
 const DEFAULT_ORG_NAME = 'Green Shield Pest Solutions';
 const DEFAULT_ADMIN_ID = 'user_ah';
+const PASSWORD_HASH_ROUNDS = 12;
 const ROLE_CAPABILITIES = {
   admin: [
     'manage_users',
@@ -30,6 +32,10 @@ function nowIso() {
 
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeUsername(value) {
+  return normalizeText(value).toLowerCase();
 }
 
 function toUpperInitials(value) {
@@ -60,8 +66,11 @@ function readJsonFile(filePath, fallback) {
 
 function sanitizeUser(user) {
   if (!user) return null;
-  const { authUsername, ...rest } = user;
-  return rest;
+  const { authUsername, passwordHash, ...rest } = user;
+  return {
+    ...rest,
+    hasPassword: Boolean(passwordHash),
+  };
 }
 
 function sanitizeOrganization(org) {
@@ -72,15 +81,28 @@ function sanitizeOrganization(org) {
 function normalizeStoredUser(user, now = nowIso()) {
   if (!user || typeof user !== 'object') return null;
   const name = normalizeText(user.name);
+  const username = normalizeUsername(user.username || user.authUsername || user.email);
+  const sessionVersion = Number.isInteger(Number(user.sessionVersion))
+    ? Math.max(1, Number(user.sessionVersion))
+    : 1;
   return {
     ...user,
     organizationId: normalizeText(user.organizationId) || DEFAULT_ORG_ID,
+    username,
+    authUsername: username,
     name,
     displayName: normalizeText(user.displayName) || name,
     email: normalizeText(user.email).toLowerCase(),
     initials: toUpperInitials(user.initials),
     role: normalizeText(user.role) || 'sales_rep',
     status: ['active', 'inactive'].includes(normalizeText(user.status)) ? normalizeText(user.status) : 'active',
+    loginEnabled: user.loginEnabled === false ? false : true,
+    passwordHash: normalizeText(user.passwordHash),
+    passwordSetAt: user.passwordSetAt || null,
+    passwordUpdatedAt: user.passwordUpdatedAt || null,
+    failedLoginCount: Number.isInteger(Number(user.failedLoginCount)) ? Math.max(0, Number(user.failedLoginCount)) : 0,
+    lastLoginAt: user.lastLoginAt || null,
+    sessionVersion,
     createdBy: normalizeText(user.createdBy) || 'system',
     updatedBy: normalizeText(user.updatedBy) || 'system',
     createdAt: user.createdAt || now,
@@ -114,7 +136,15 @@ function createSeedState() {
       status: 'active',
       createdBy: 'system',
       updatedBy: 'system',
+      username: normalizeUsername(authUsername),
       authUsername,
+      loginEnabled: true,
+      passwordHash: '',
+      passwordSetAt: null,
+      passwordUpdatedAt: null,
+      failedLoginCount: 0,
+      lastLoginAt: null,
+      sessionVersion: 1,
       createdAt,
       updatedAt: createdAt,
     }],
@@ -140,7 +170,6 @@ function ensureSeededStore(store) {
     org.updatedAt = org.updatedAt || now;
   }
 
-  const authUsername = normalizeText(process.env.DASHBOARD_USERNAME) || 'ah';
   const adminIdx = next.users.findIndex((user) => user.id === DEFAULT_ADMIN_ID || toUpperInitials(user.initials) === 'AH');
   if (adminIdx === -1) {
     next.users.unshift(createSeedState().users[0]);
@@ -151,13 +180,21 @@ function ensureSeededStore(store) {
       organizationId: existing.organizationId || DEFAULT_ORG_ID,
       name: existing.name || 'Adnan / AH',
       displayName: existing.displayName || existing.name || 'Adnan / AH',
-      email: existing.email || (authUsername.includes('@') ? authUsername : 'ah@gshieldpest.com'),
+      email: existing.email || 'ah@gshieldpest.com',
       initials: toUpperInitials(existing.initials) || 'AH',
       role: existing.role || 'admin',
       status: existing.status || 'active',
+      username: existing.username || 'ah',
+      authUsername: existing.authUsername || existing.username || 'ah',
+      loginEnabled: existing.loginEnabled === false ? false : true,
+      passwordHash: existing.passwordHash || '',
+      passwordSetAt: existing.passwordSetAt || null,
+      passwordUpdatedAt: existing.passwordUpdatedAt || null,
+      failedLoginCount: existing.failedLoginCount || 0,
+      lastLoginAt: existing.lastLoginAt || null,
+      sessionVersion: existing.sessionVersion || 1,
       createdBy: existing.createdBy || 'system',
       updatedBy: existing.updatedBy || 'system',
-      authUsername,
       createdAt: existing.createdAt || now,
       updatedAt: existing.updatedAt || now,
     };
@@ -213,12 +250,14 @@ function requireActiveUserRecord(store, userId, organizationId = null) {
 
 function normalizeUserInput(input = {}) {
   return {
+    username: normalizeUsername(input.username || input.email),
     name: normalizeText(input.name),
     displayName: normalizeText(input.displayName),
     email: normalizeText(input.email).toLowerCase(),
     initials: toUpperInitials(input.initials),
     role: normalizeText(input.role),
     status: normalizeText(input.status) || 'active',
+    loginEnabled: input.loginEnabled === false ? false : true,
   };
 }
 
@@ -227,6 +266,7 @@ function assertUserInput(store, input, { userId = null } = {}) {
   const errors = [];
 
   if (!normalized.name) errors.push('Name is required.');
+  if (!normalized.username) errors.push('Username is required.');
   if (!normalized.email) errors.push('Email is required.');
   if (!normalized.initials) errors.push('Initials are required.');
   if (!['admin', 'manager', 'sales_rep'].includes(normalized.role)) {
@@ -246,6 +286,13 @@ function assertUserInput(store, input, { userId = null } = {}) {
   );
   if (emailConflict) errors.push('Email must be unique within the organization.');
 
+  const usernameConflict = store.users.find((user) =>
+    user.organizationId === orgId
+    && normalizeUsername(user.username || user.authUsername) === normalized.username
+    && user.id !== userId,
+  );
+  if (usernameConflict) errors.push('Username must be unique within the organization.');
+
   const initialsConflict = store.users.find((user) =>
     user.organizationId === orgId
     && toUpperInitials(user.initials) === normalized.initials
@@ -264,6 +311,19 @@ function assertUserInput(store, input, { userId = null } = {}) {
     displayName: normalized.displayName || normalized.name,
     organizationId: orgId,
   };
+}
+
+function assertPasswordInput(password) {
+  if (typeof password !== 'string' || password.length < 8) {
+    const err = new Error('Password must be at least 8 characters.');
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
+}
+
+function hashPassword(password) {
+  assertPasswordInput(password);
+  return bcrypt.hashSync(password, PASSWORD_HASH_ROUNDS);
 }
 
 function getActiveAdminCount(store, organizationId) {
@@ -352,6 +412,82 @@ export function getUserRecordByAuthUsername(authUsername) {
   return store.users.find((item) => normalizeText(item.authUsername).toLowerCase() === normalized) || null;
 }
 
+export function getUserRecordByLoginIdentifier(identifier) {
+  const normalized = normalizeUsername(identifier);
+  if (!normalized) return null;
+  const store = readStore();
+  return store.users.find((item) => {
+    const username = normalizeUsername(item.username || item.authUsername);
+    const email = normalizeText(item.email).toLowerCase();
+    return username === normalized || email === normalized;
+  }) || null;
+}
+
+export function getUserByLoginIdentifier(identifier) {
+  return sanitizeUser(getUserRecordByLoginIdentifier(identifier));
+}
+
+export function buildSessionIdentity(user) {
+  if (!user) return null;
+  return {
+    userId: user.id,
+    organizationId: user.organizationId,
+    username: user.username || user.authUsername || user.email,
+    displayName: user.displayName || user.name,
+    role: user.role,
+    sessionVersion: Number(user.sessionVersion || 1),
+  };
+}
+
+export async function verifyInternalUserPassword(identifier, password) {
+  const user = getUserRecordByLoginIdentifier(identifier);
+  if (!user || !user.passwordHash) {
+    return { ok: false, code: 'INVALID_CREDENTIALS' };
+  }
+  const passwordOk = await bcrypt.compare(String(password || ''), user.passwordHash);
+  if (!passwordOk) {
+    incrementFailedLoginCount(user.id);
+    return { ok: false, code: 'INVALID_CREDENTIALS' };
+  }
+  if (user.status !== 'active') {
+    incrementFailedLoginCount(user.id);
+    return { ok: false, code: 'INVALID_CREDENTIALS' };
+  }
+  if (user.loginEnabled === false) {
+    incrementFailedLoginCount(user.id);
+    return { ok: false, code: 'INVALID_CREDENTIALS' };
+  }
+  recordSuccessfulLogin(user.id);
+  return {
+    ok: true,
+    user: sanitizeUser(getUserRecordById(user.id)),
+    sessionIdentity: buildSessionIdentity(getUserRecordById(user.id)),
+  };
+}
+
+function incrementFailedLoginCount(userId) {
+  persist((current) => {
+    const user = current.users.find((item) => item.id === userId);
+    if (user) {
+      user.failedLoginCount = Number(user.failedLoginCount || 0) + 1;
+      user.updatedAt = nowIso();
+    }
+    return current;
+  });
+}
+
+function recordSuccessfulLogin(userId) {
+  persist((current) => {
+    const user = current.users.find((item) => item.id === userId);
+    if (user) {
+      user.failedLoginCount = 0;
+      user.lastLoginAt = nowIso();
+      user.updatedAt = nowIso();
+    }
+    return current;
+  });
+}
+
 export function getRolesForUser(context) {
   const role = normalizeText(context?.role);
   return role && ROLE_CAPABILITIES[role] ? ROLE_CAPABILITIES[role] : [];
@@ -382,17 +518,48 @@ export function hasCapability(context, capability) {
 
 export function resolveCurrentUserContextFromAuthUsername(authUsername) {
   const user = getUserRecordByAuthUsername(authUsername);
+  return resolveCurrentUserContextFromRecord(user);
+}
+
+export function resolveCurrentUserContextFromUserId(userId) {
+  return resolveCurrentUserContextFromRecord(getUserRecordById(userId));
+}
+
+export function resolveBreakGlassCurrentUserContext() {
+  return resolveCurrentUserContextFromUserId(DEFAULT_ADMIN_ID);
+}
+
+export function resolveCurrentUserContextFromSession(session) {
+  if (!session) return null;
+  if (session.uid) {
+    const user = getUserRecordById(session.uid);
+    if (!user) return null;
+    if (session.oid && user.organizationId !== session.oid) return null;
+    if (Number(session.sv || 1) !== Number(user.sessionVersion || 1)) return null;
+    return resolveCurrentUserContextFromRecord(user);
+  }
+  if (session.u) {
+    return resolveCurrentUserContextFromAuthUsername(session.u);
+  }
+  return null;
+}
+
+function resolveCurrentUserContextFromRecord(user) {
   if (!user) return null;
   const organization = getOrganizationById(user.organizationId);
   return {
     userId: user.id,
     organizationId: user.organizationId,
+    username: user.username || user.authUsername || user.email,
     name: user.name,
     displayName: user.displayName || user.name,
     email: user.email,
     initials: user.initials,
     role: user.role,
     status: user.status,
+    loginEnabled: user.loginEnabled !== false,
+    sessionVersion: Number(user.sessionVersion || 1),
+    capabilities: getRolesForUser(user),
     isAdmin: user.role === 'admin',
     isManager: user.role === 'manager',
     isSalesRep: user.role === 'sales_rep',
@@ -400,20 +567,43 @@ export function resolveCurrentUserContextFromAuthUsername(authUsername) {
   };
 }
 
+export function resetUserPassword(userId, password, actorUserId = 'system') {
+  return updateUser(userId, { password }, actorUserId);
+}
+
 export function createUser(input, actorUserId = 'system') {
   const store = readStore();
-  const normalized = assertUserInput(store, input);
+  const password = typeof input.password === 'string' ? input.password : '';
+  const normalized = assertUserInput(store, {
+    ...input,
+    loginEnabled: input.loginEnabled ?? Boolean(password),
+  });
+  if (normalized.loginEnabled && !password) {
+    const err = new Error('Password is required when login is enabled.');
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
   const now = nowIso();
   const actor = normalizeAuditActor(actorUserId);
+  const passwordHash = password ? hashPassword(password) : '';
   const user = {
     id: `user_${crypto.randomUUID().slice(0, 8)}`,
     organizationId: normalized.organizationId,
+    username: normalized.username,
+    authUsername: normalized.username,
     name: normalized.name,
     displayName: normalized.displayName || normalized.name,
     email: normalized.email,
     initials: normalized.initials,
     role: normalized.role,
     status: normalized.status,
+    loginEnabled: normalized.loginEnabled,
+    passwordHash,
+    passwordSetAt: passwordHash ? now : null,
+    passwordUpdatedAt: passwordHash ? now : null,
+    failedLoginCount: 0,
+    lastLoginAt: null,
+    sessionVersion: 1,
     createdBy: actor,
     updatedBy: actor,
     createdAt: now,
@@ -437,33 +627,54 @@ export function updateUser(userId, updates = {}, actorUserId = 'system') {
   delete patch.createdBy;
   delete patch.updatedAt;
   delete patch.updatedBy;
+  delete patch.passwordHash;
 
   const nextName = patch.name ?? existing.name;
   const nextDisplayName = patch.displayName ?? (existing.displayName && existing.displayName !== existing.name ? existing.displayName : nextName);
   const nextInput = {
     organizationId: existing.organizationId,
+    username: patch.username ?? existing.username,
     name: nextName,
     displayName: nextDisplayName,
     email: patch.email ?? existing.email,
     initials: patch.initials ?? existing.initials,
     role: patch.role ?? existing.role,
     status: patch.status ?? existing.status,
+    loginEnabled: patch.loginEnabled ?? existing.loginEnabled,
   };
 
   const normalized = assertUserInput(store, nextInput, { userId });
   assertAtLeastOneActiveAdminRemaining(store, userId, normalized.role, normalized.status);
+  const shouldSetPassword = typeof patch.password === 'string' && patch.password.length > 0;
+  if (normalized.loginEnabled && !shouldSetPassword && !existing.passwordHash) {
+    const err = new Error('Password is required when login is enabled.');
+    err.code = 'VALIDATION_ERROR';
+    throw err;
+  }
 
   const now = nowIso();
   const actor = normalizeAuditActor(actorUserId);
+  const passwordHash = shouldSetPassword ? hashPassword(patch.password) : existing.passwordHash;
+  const passwordUpdatedAt = shouldSetPassword ? now : existing.passwordUpdatedAt || null;
+  const sessionVersion = shouldSetPassword || normalized.status !== existing.status || normalized.loginEnabled !== existing.loginEnabled
+    ? Number(existing.sessionVersion || 1) + 1
+    : Number(existing.sessionVersion || 1);
   const nextUser = {
     ...existing,
     organizationId: normalized.organizationId,
+    username: normalized.username,
+    authUsername: normalized.username,
     name: normalized.name,
     displayName: normalized.displayName || normalized.name,
     email: normalized.email,
     initials: normalized.initials,
     role: normalized.role,
     status: normalized.status,
+    loginEnabled: normalized.loginEnabled,
+    passwordHash,
+    passwordSetAt: existing.passwordSetAt || (shouldSetPassword ? now : null),
+    passwordUpdatedAt,
+    sessionVersion,
     updatedBy: actor,
     updatedAt: now,
   };
