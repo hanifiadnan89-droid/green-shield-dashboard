@@ -20,6 +20,7 @@ import {
   countDeprecatedRouteHits,
   describeDbReadinessStatus,
   describeHealthStatus,
+  formatCacheFreshness,
   formatDurationMs,
   formatSize,
   formatSuccessRate,
